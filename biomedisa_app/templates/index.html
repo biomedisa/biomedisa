@@ -1,0 +1,258 @@
+{% extends 'base.html' %}
+
+{% block menubar %}
+{% include 'menu_bar.html' with activate="home" user=user %}
+{% endblock %}
+
+{% block slideshow %}
+{% include 'slideshow.html' %}
+{% endblock %}
+
+{% block content %}
+<div class="content">
+  <div class="content_resize">
+
+    <div class="mainbar">
+
+      <div class="article">
+        <h2>About Biomedisa</h2>
+        <div class="clr"></div>
+        <div class="post_content">
+          <p> The Biomedical Image Segmentation App (Biomedisa) is a web application  for segmentation of 3D images, e.g. CT and MRI scans, at <a href="https://www.uni-heidelberg.de/de">Heidelberg University</a> and <a style="font-weight:bold" href="https://www.h-its.org/">HITS</a>. It can be used in addition to segmentation tools like Amira and ImageJ/Fiji. For more information on usage, see the examples in our gallery. Biomedisa finds its root in the projects ASTOR and NOVA financed by the German Federal Ministry of Education and Research (BMBF). Biomedisa is free-of-charge for academic use.
+          </p>
+        </div>
+      </div>
+
+      <div class="article">
+        <h2>Segmentation of teeth and mandibular bone of the Ocelot (Leopardus pardalis)</h2>
+        <p class="infopost">Posted on <span class="date">11 feb 2020</span> by Philipp </p>
+        <div class="clr"></div>
+        <div class="post_content">
+          <video width="640" height="360" controls="controls" poster="/static/ocelot-001.png">
+          <source src="/static/mandibular_ocelot.mp4" type="video/mp4">
+          </video>
+          <p> Data acquisition was performed at the School of Dentistry from a sample of the Biology Department (Universidad del Valle, Cali, Colombia). The segmentation was done with AVIZO and Biomedisa, the 3D rendering and animation with Dragonfly. (Video: <a href="http://odontologia.univalle.edu.co/formatos-y-procesos/2-escuela-odontologia/67-balanta-melo">Julián Balanta-Melo</a>).</p>
+        </div>
+        <div class="clr"></div>
+      </div>
+
+      <div class="article">
+        <h2>This is not an SEM micrograph!</h2>
+        <p class="infopost">Posted on <span class="date">4 okt 2019</span> by Philipp </p>
+        <div class="clr"></div>
+        <div class="post_content">
+          <video width="640" height="360" controls="controls" poster="/static/sem0001.png">
+          <source src="/static/sem0000_large.mp4" type="video/mp4">
+          </video>
+          <p> It’s a surface mesh based on a fast synchrotron microCT scan of an <i>Ichneumonid</i> wasp at <a href="https://www.anka.kit.edu/IPS.php">IPS@KIT</a>. Scan duration: 43s, pre-segmentation with Amira, semi-automated segmentation with Biomedisa, rendering with CINEMA 4D. (Video: <a href="https://las.physik.kit.edu/21_684.php">Thomas van de Kamp</a>).</p>
+        </div>
+        <div class="clr"></div>
+      </div>
+
+      <div class="article">
+        <h2>From high-resolution μCT to the analysis of 3D reconstructions using Biomedisa</h2>
+        <p class="infopost">Posted on <span class="date">12 mar 2019</span> by Philipp </p>
+        <div class="clr"></div>
+        <div class="img"><a><img style="padding-right: 15px" src="/static/tooth.png" width="79" height="100" title="mouse molar" /></a></div>
+        <div class="post_content">
+          <p> Julián Balanta-Melo et al. studied the effect of masticatory function on tooth enamel and dentin in adult mouse molars after segmentation of three separate materials (enamel, dentin, and alveolar bone). Left: 3D reconstruction with enamel (white) and dentin (yellow) without surrounding alveolar bone tissue. Their results were published in <a href=http://estomatologia.univalle.edu.co/index.php/revista_estomatologia/%20article%20/view%20/7634>Revista Estomatología</a>.</p>
+        </div>
+        <div class="clr"></div>
+      </div>
+
+      <div class="article">
+        <h2>Parasites discovered in fossil fly pupae</h2>
+        <p class="infopost">Posted on <span class="date">28 aug 2018</span> by Philipp </p>
+        <div class="clr"></div>
+        <div class="img"><a><img src="/static/Abb_1.png" width="181" height="160" title="wasp" /></a></div>
+        <div class="post_content">
+          <p> <strong>Wasps in several-million-year-old fly pupae studied with synchrotron X-ray micro tomography and analysed with Biomedisa.</strong>
+
+    Parasitic wasps existed as early as several million years ago. Within a project coordinated by Karlsruhe Institute of Technology (KIT), researchers of various disciplines for the first time
+    definitively discovered fossil parasites inside their hosts. The scientists studied fly pupae from old collections using ultrafast X-ray imaging. They found 55 cases of parasitation and described four extinct wasp species that were unknown until now. Their findings are reported in <a href=https://www.nature.com/articles/s41467-018-05654-y>Nature Communications</a>. The data is available at <a href=http://www.fossils.kit.edu>fossils.kit.edu</a> and in our <a href="https://biomedisa.de/gallery/">Gallery</a>.</p>
+        </div>
+        <div class="clr"></div>
+      </div>
+
+      <div class="article">
+        <h2>Digital resurgence of a parasitic wasp</h2>
+        <p class="infopost">Posted on <span class="date">28 aug 2018</span> by Philipp </p>
+        <div class="clr"></div>
+        <div class="post_content">
+          <video width="640" height="360" controls="controls" poster="/static/wasp_70.png">
+          <source src="/static/suppl_movie2.mp4" type="video/mp4">
+          </video>
+          <p> The parasitic wasp <i>Xenomorphia resurrecta</i> deposits an egg in a fly pupa. Following imaging of the mineralized fly pupae at the imaging beamline of the Institute for Photon Science and Synchrotron Radiation <a href="https://www.anka.kit.edu/IPS.php">(IPS)</a> at Karlsruhe Institute of Technology, the parasitic wasps
+    from the Paleogene were reconstructed digitally with Biomedisa. (Video: <a href="https://las.physik.kit.edu/21_684.php">Thomas van de Kamp</a>, KIT; Nature Communications)</p>
+        </div>
+        <div class="clr"></div>
+      </div>
+
+      <div class="article">
+        <h2>Biomedisa AI</h2>
+        <p class="infopost">Posted on <span class="date">31 may 2018</span> by Philipp </p>
+        <div class="clr"></div>
+        <div class="img"><a><img style="padding-right: 15px" src="/static/artificial-intelligence-Gerd-Altmann-Pixabay.jpg" width="150" height="100" title="ai" /></a></div>
+        <div class="post_content">
+          <p> <strong>Artificial intelligence</strong> in the form of deep neural networks has become an established method not only in speech recognition but also in image processing. Biomedisa AI is optimized for the segmentation of 3D image data. Artificial neural networks can be trained on pre-labeld data and applied to new, unknown data, enabling fully automatic segmentation within seconds <a href="https://biomedisa.de/gallery/">(Gallery)</a>.</p>
+        </div>
+        <div class="clr"></div>
+      </div>
+
+      <div class="article">
+        <h2>DESY Photon Science Users' Meeting in Hamburg</h2>
+        <p class="infopost">Posted on <span class="date">17 jan 2018</span> by Philipp </p>
+        <div class="clr"></div>
+        <div class="img"><a href="http://www.desy.de/"><img src="/static/Logo_desy.svg.png" width="160" height="160" title="desy"  /></a></div>
+        <div class="post_content">
+          <p> Users, collaborators and scientists interested in using photon sources for their research, will meet at the annual <a href="https://photon-science.desy.de/users_area/users'_meeting/index_eng.html"> DESY Photon Science Users’ Meeting</a> "Research with Synchrotron Radiation and FELs" from <strong> 25 June to 26 January </strong> in Hamburg. We'll present Biomedisa within the scope of the talk "The NOVA project: maximizing beam time efficiency through synergistic analyses of SRμCT data" in the satellite "Helmholtz-Zentrum Geesthacht GEMS Outstation: Materials Research and High Resolution Imaging". We are looking forward to seeing you in Hamburg.</p>
+        </div>
+        <div class="clr"></div>
+      </div>
+
+      <div class="article">
+        <h2>Biomedisa supports Amira file format</h2>
+        <p class="infopost">Posted on <span class="date">10 dec 2017</span> by Alejandra </p>
+        <div class="clr"></div>
+        <div class="img"><a href="https://www.fei.com/software/amira-3d-for-life-sciences/"><img src="/static/Amira-64-Lanika.png" width="280" height="122" title="amira"  /></a></div>
+        <div class="post_content">
+          <p> To support the workflow of Amira users, it is no longer necessary to convert Amira files to TIFF format. Images and labels can be loaded directly into Biomedisa as Amira files. The Biomedisa result is then saved as an Amira mesh with all the information and can be loaded back into Amira.</p>
+        </div>
+        <div class="clr"></div>
+      </div>
+
+      <div class="article">
+        <h2>Biomedisa at ICTMS 2017 in Lund, Sweden</h2>
+        <p class="infopost">Posted on <span class="date">18 may 2017</span> by Philipp </p>
+        <div class="clr"></div>
+        <div class="img"><a href="http://ictms2017.lth.se/"><img style="padding-right: 15px" src="/static/ictms-logo.png" width="204" height="80" title="ictms"  /></a></div>
+        <div class="post_content">
+          <p> The ICTMS 2017, from <strong> 26 June to 30 June</strong>, will bring together an international group of scientists, from universities, research organisations and industry, to discuss a broad range of issues related to the use of 3D tomographic imaging in materials and structures. We will give a talk in the analysis session. An abstract can be found <a href="https://meetingorganizer.copernicus.org/ICTMS2017/ICTMS2017-106-3.pdf">here</a>.</p>
+        </div>
+        <div class="clr"></div>
+      </div>
+
+      <div class="article">
+        <h2>Biomedisa at ISC High Perfomance 2017 in Frankfurt</h2>
+        <p class="infopost">Posted on <span class="date">17 jul 2017</span> by Philipp </p>
+        <div class="clr"></div>
+        <div class="img"><a href="https://isc-hpc.com/"><img style="padding-right: 15px" src="/static/isc-logo.png" width="253" height="68" title="isc"  /></a></div>
+        <div class="post_content">
+          <p> The ISC High Performance 2017, from <strong> 19 June to 22 June</strong>, is dedicated to tackling HPC technological development and its application in scientific fields, as well as its adoption in commercial environments. It brings together researchers from academy and industry in the field of high performance computing. Biomedisa was represented together with the <a href="https://www.urz.uni-heidelberg.de/">Computing Center of Heidelberg University</a> and the <a href="https://emcl.iwr.uni-heidelberg.de/">EMCL</a>. </p>
+        </div>
+        <div class="clr"></div>
+      </div>
+
+      <!-- <div class="article">
+        <h2>Advanced X-ray tomography and image segmentation with unrivaled precision</h2>
+        <p class="infopost">Posted on <span class="date">24 apr 2017</span> by Philipp </p>
+        <div class="clr"></div>
+        <div class="post_content">
+          <video width="650" height="366" controls="controls" poster="/static/0004.png">
+          <source src="/static/final_noGI_30fps_960p.mp4" type="video/mp4">
+          </video>
+          <p> <i>Trigonopterus</i> weevil processed with Biomedisa. Tomographic scans were performed at the imaging beamline of the Institute for Photon Science and Synchrotron Radiation <a href="https://www.anka.kit.edu/IPS.php">(IPS)</a> at Karlsruhe Institute of Technology. Segmentation and video were made by <a href="https://las.physik.kit.edu/21_684.php">Thomas van de Kamp</a>.</p>
+        </div>
+        <div class="clr"></div>
+      </div> -->
+
+      <div class="article">
+        <h2>Interactive 3D visualization tool</h2>
+        <p class="infopost">Posted on <span class="date">24 apr 2017</span> by Philipp </p>
+        <div class="clr"></div>
+        <div class="img"><a href="/gallery"><img style="padding-right: 15px" src="/static/visualization.png" width="118" height="100" title="visualization" class="fl" /></a></div>
+        <div class="post_content">
+          <p> Our interactive 3D visualization tool is developed by our ASTOR and NOVA partners from the Institute for Process control system and electronics <a href="https://www.ipe.kit.edu/">(IPE)</a> at Karlsruhe Institute of Technology. You can test the tool in our <a href="/gallery">Gallery</a>. It is well tested with Chrome Browser, but you probably need an adequate GPU for fluent visualization. </p>
+        </div>
+        <div class="clr"></div>
+      </div>
+
+      <div class="article">
+        <h2>Biomedisa for Whole-Heart and Great Vessel Segmentation</h2>
+        <p class="infopost">Posted on <span class="date">31 jan 2017</span> by Philipp </p>
+        <div class="clr"></div>
+        <div class="img"><a><img style="padding-right: 15px" src="/static/heart.png" width="141" height="150" alt="" class="fl" /></a></div>
+        <div class="post_content">
+          <p> Segmenting the blood pool and myocardium from a 3D cardiovascular magnetic resonance image allows to create a patient-specific heart model for surgical planning in children with complex congenital heart disease. By using Biomedisa we achieved a high segmentation accuracy combined with a small amount of manual labeling and a short computing time. </p>
+          <p class="spec"><a href="https://link.springer.com/chapter/10.1007/978-3-319-52280-7_12" class="rm">Read more &raquo;</a></p>
+        </div>
+        <div class="clr"></div>
+      </div>
+
+      <div class="article">
+        <h2>3D reconstructions come to life </h2>
+        <p class="infopost">Posted on <span class="date">30 jan 2017</span> by Philipp </p>
+        <div class="clr"></div>
+        <div class="img"><a href="/download/demo/7"><img src="/static/eucrib2_small.png" width="200" height="114" alt="" class="fl" /></a></div>
+        <div class="post_content">
+          <p> Instead of the use of static images or movies, complex morphological 3D models based on segmented datasets have been published in the last years as 3D PDF files. 3D PDF files allow the user to handle and examine relevant structures interactively. As an example, you can download a 3D model of <i>Euphthiracarus reticulatus</i> by Sebastian Schmelzle <a href="/static/Euphthiracarus_reticulatus.pdf" download>here</a> and open it with Adobe Reader. If you want to find out more, download more examples or even read about animated 3D PDF files, we strongly recommend you to read "Three-Dimensional Reconstructions Come to Life – Interactive 3D PDF Animations in Functional Morphology" by Thomas van de Kamp et al. </p>
+          <p class="spec"><a href="https://dx.doi.org/10.1371/journal.pone.0102355" class="rm">Read more &raquo;</a></p>
+        </div>
+        <div class="clr"></div>
+      </div>
+
+      <div class="article">
+        <h2>12. Modellierungstag Rhein-Neckar, 8. Dec 2016, <br> HGS MathComp, Heidelberg</h2>
+        <p class="infopost">Posted on <span class="date">22 nov 2016</span> by Philipp </p>
+        <div class="clr"></div>
+        <div class="img"><a href="https://www.mathcomp.uni-heidelberg.de/"><img src="/static/HGS-Logo-web_180px_alpha.png" width="200" height="119" title="modellierungstag" class="fl" /></a></div>
+        <div class="post_content">
+          <p> On <strong>8 December 2016 </strong> the 12th Modellierungstag Rhein-Neckar will focus on data visualization. The event aims to enable an exchange between scientists, developers, theorists, and industry. We will present Biomedisa and its recent developments.  </p>
+          <p class="spec"><a href="http://www.modellierungstag.de/" class="rm">Read more &raquo;</a></p>
+        </div>
+        <div class="clr"></div>
+      </div>
+
+      <div class="article">
+        <h2>Biomedisa at MICCAI 2016 in Athens, Greece</h2>
+        <p class="infopost">Posted on <span class="date">22 nov 2016</span> by Philipp </p>
+        <div class="clr"></div>
+        <div class="img"><a href="https://www.miccai2016.org/en/"><img src="/static/miccai2016-logo.png" width="200" height="85" title="miccai" class="fl" /></a></div>
+        <div class="post_content">
+          <p> MICCAI 2016, the 19th International Conference on Medical Image Computing and Computer Assisted Intervention, was held from <strong> 17 October to 21 October</strong> in Athens, Greece. The annual MICCAI conference attracts world leading biomedical scientists, engineers, and clinicians from a wide range of disciplines associated with medical imaging and computer assisted intervention. The biomedical image segmentation app was presented in a workshop being held along with the conference. </p>
+        </div>
+        <div class="clr"></div>
+      </div>
+
+      <div class="article">
+        <h2>Morphology Yesterday, Today and Tomorrow</h2>
+        <p class="infopost">Posted on <span class="date">22 nov 2016</span> by Philipp </p>
+        <div class="clr"></div>
+        <div class="img"><a href="https://www.dzg-ev.de/fachgruppen/morphologie/"><img src="/static/dzg_logo_alpha.png" width="140" height="88" title="dzg" class="fl" /></a></div>
+        <div class="post_content">
+          <p> From <strong>13 October to 16 October</strong> the 9th Graduiertentreffen der DZG (Deutsche Zoologische Gesellschaft e.V.) Fachgruppe Morphologie took place at KIT, Karlsruhe. Presentations were given about classical, modern, and future-oriented morphological image processing techniques. We presented our application and came into contact with many users and developers of morphological analysis tools. On <strong>13 September</strong> we also gave a talk at the DZG Workshop "Engineering tools in morphology – automated image processing, rapid prototyping and determination of material properties" in Kiel, Germany.</p>
+        </div>
+        <div class="clr"></div>
+      </div>
+
+      <div class="article">
+        <h2>Biomedisa has been launched</h2>
+        <p class="infopost">Posted on <span class="date">5 okt 2016</span> by Philipp </p>
+        <div class="clr"></div>
+        <div class="img"><img src="/static/firework2.png" width="650" height="200" alt="" class="fl" /></div>
+        <div class="post_content">
+        </div>
+        <div class="clr"></div>
+      </div>
+
+      <div class="article">
+        <h2>Biomedisa at SPIE 2016 in San Diego, USA</h2>
+        <p class="infopost">Posted on <span class="date">2 mar 2016</span> by Philipp </p>
+        <div class="clr"></div>
+        <div class="img"><a href="https://spie.org/"><img src="/static/spie.png" width="185" height="100" title="spie" class="fl" /></a></div>
+        <div class="post_content">
+          <p> From <strong>27 February to 3 March 2016 </strong> the SPIE Medical Imaging Conference 2016 took place in San Diego, California, USA. More than 1,000 presentations were given on the latest research in the area of medical imaging covering various topics such as Physics of Medical Imaging, Image Processing, Computer-Aided Diagnosis as well as Image-Guided Procedures, Robotic Interventions, and Modeling. Biomedisa presented its diffusion algorithm based on their research „Enhancing a Diffusion Algorithm for 4D Image Segmentation Using Local Information" within the BMBF Project ASTOR. </p>
+          <p class="spec"><a href="https://dx.doi.org/10.1117/12.2216202" class="rm">Read more &raquo;</a></p>
+        </div>
+        <div class="clr"></div>
+      </div>
+
+    </div>
+
+    {% block sidebar %}
+    {% include 'side_bar.html' %}
+    {% endblock %}
+    <div class="clr"></div>
+  </div>
+</div>
+{% endblock %}

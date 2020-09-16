@@ -1,0 +1,422 @@
+{% extends 'base.html' %}
+
+{% block onloadfunc %}
+checkstatus()
+{% endblock %}
+
+{% block scripts %}
+<script type="text/javascript">
+var is_running = parseInt({{ process_running }})
+var reload_secs = 10
+
+function checkstatus(){
+  if (is_running == 1) {
+    var looper = setInterval(looping, reload_secs * 1000); // in ms
+  }
+}
+
+function process(){
+  var ids = "{{ process_list }}"
+  $.getJSON("/status/", { ids:ids }, function(json){
+    if (json['success'] == true) {
+      if ('reload' in json && json['reload'] == true) {
+        setTimeout(function(){
+          window.location.reload();
+        });
+      }
+    } else {
+      alert("Something went wrong... ");
+    }
+  });
+}
+
+function looping(){
+  setTimeout(process, 1000); // in ms
+}
+</script>
+
+<script type="text/javascript">
+function alertFunction(state) {
+    alert(state);
+    window.location.href = "/cleanstate/app";
+    window.close();
+}
+
+function settingsFunction(id) {
+    window.location.href = "/settings/" + id;
+    window.close();
+}
+
+function sliceviewerFunction(id) {
+    window.location.href = "/sliceviewer/" + id + "/?next=app";
+    window.close();
+}
+
+function changeFunction(id, val) {
+    window.location.href = "/change_active_final/" + id + "/" + val + "/?next=app";
+    window.close();
+}
+
+function toggle(value) {
+    checkboxes = document.getElementsByName('selected');
+    for (var i = 0,
+        n = checkboxes.length; i < n; i++) {
+        checkboxes[i].checked = value;
+    }
+}
+
+</script>
+
+<script>
+function deleteFunction(id, proj) {
+  $.getJSON("/delete/", { id:id }, function(json){
+    if (json['success'] == true) {
+      setTimeout(function(){
+        window.location.reload();
+      });
+    } else {
+      alert("Something went wrong... ");
+    }
+  });
+}
+
+function moveFunction(id, project) {
+  $.getJSON("/move/", { id:id, project:project }, function(json){
+    if (json['success'] == true) {
+      if ('msg' in json) {
+        alert(json['msg']);
+      } else {
+        setTimeout(function(){
+          window.location.reload();
+        });
+      }
+    } else {
+      alert("Something went wrong... ");
+    }
+  });
+}
+
+function shareFunction(id, username) {
+  $.getJSON("/share/", { id:id, username:username }, function(json){
+    if (json['success'] == true) {
+      if ('msg' in json) {
+        alert(json['msg']);
+      }
+    } else {
+      alert("Something went wrong... ");
+    }
+  });
+}
+
+function createFunction(id) {
+  $.getJSON("/dummy/", { id:id }, function(json){
+    if (json['success'] == true) {
+      window.location.href = "/create/" + id;
+      window.close();
+    } else {
+      alert("Something went wrong... ");
+    }
+  });
+}
+
+function runFunction(raw, label) {
+  $.getJSON("/run/", { raw:raw, label:label }, function(json){
+    if (json['success'] == true) {
+      setTimeout(function(){
+        window.location.reload();
+      });
+    } else {
+      alert("Something went wrong... ");
+    }
+  });
+}
+
+function stopFunction(id) {
+  $.getJSON("/remove_from_queue/", { id:id }, function(json){
+    if (json['success'] == true) {
+      setTimeout(function(){
+        window.location.reload();
+      });
+    } else {
+      alert("Something went wrong... ");
+    }
+  });
+}
+
+function refreshFunction() {
+  $.getJSON("/dummy/", { }, function(json){
+    if (json['success'] == true) {
+      setTimeout(function(){
+        window.location.reload();
+      });
+    } else {
+      alert("Something went wrong... ");
+    }
+  });
+}
+
+function addClickHandlers() {
+  $(".delete_link").click( function() {
+    var res = (this.id).split(",")
+    var id = parseInt(res[0])
+    var status = parseInt(res[1])
+    var proj = parseInt(res[2])
+    var msg = res[3]
+
+    if (status > 0) {
+      alert("You are not allowed to delete processing files!")
+    } else {
+      var r = confirm(msg);
+      if (r == true) {
+        deleteFunction(id, proj);
+      }
+    }
+  });
+
+  $(".move_link").click( function() {
+    var res = (this.id).split(",")
+    var id = parseInt(res[0])
+    var status = parseInt(res[1])
+
+    if (parseInt(status) > 0) {
+      alert("You are not allowed to move processing files!");
+    } else {
+      var project = prompt("Move to Project or Storage=0?", 0);
+      if (project != '' && project != null) {
+        project = parseInt(project);
+        if (!isNaN(project) && project >= 0 && project < 10) {
+          moveFunction(id, project);
+        }
+      }
+    }
+  });
+
+  $(".share_link").click( function() {
+    var username = prompt("Please enter an username or email \nyou may enter multiple users (user1;user2;user3) \n(leave blank for generating a download link)");
+    if (username != '' && username != null) {
+      shareFunction(this.id, username);
+    }
+    else if (username == '' && username != null){
+      createFunction(this.id);
+    }
+  });
+
+  $(".run_link").click( function() {
+    var res = (this.id).split(",")
+    var raw = parseInt(res[0])
+    var label = parseInt(res[1])
+
+    runFunction(raw, label);
+  });
+
+  $(".stop_link").click( function() {
+    var r = confirm('Stop process?');
+    if (r == true) {
+      stopFunction(this.id);
+    }
+  });
+
+  $(".refresh_link").click( function() {
+    refreshFunction();
+  });
+}
+$(document).ready(addClickHandlers);
+</script>
+{% endblock %}
+
+{% block menubar %}
+{% include 'menu_bar.html' with activate="app" user=user %}
+{% endblock %}
+
+{% block content %}
+
+<div class="fbg">
+  <div class="fbg_resize">
+
+  <h2 style="text-align:left;">
+  Upload
+  <span style="float:right;">{{datasize}} GB / {{storage_size}} GB</span>
+  </h2>
+
+  {%if storage_full == 0 %}
+      <form action="#" method="post" enctype="multipart/form-data">
+        {% csrf_token %} {{ form }}
+        <input type="submit" value="Upload" />
+      </form>
+  {% else %}
+      <p>You've exceeded your storage limit! For uploading additional data, either remove some data or ask for more space.</p>
+  {% endif %}
+
+  {% if messages %}
+      <ul class="messages">
+      {% for message in messages %}
+          <p class="warning">{{ message }}</p>
+      {% endfor %}
+      </ul>
+  {% endif %}
+
+  </br>
+
+  <form>
+  <a href=# onclick="toggle(true)"><img src="/static/select_all.png" title="select all" style="width:20px;height:20px;border:0;"></a>
+  <a href=# onclick="toggle()"><img src="/static/select_none.png" title="select none" style="width:20px;height:20px;border:0;"></a>
+  <button type="image" name="action" value="1" title="delete selected" onclick="return confirm('Delete selected files?')"><img src="/static/icon-deletelink.svg" style="width:20px;height:20px;border:0;"></button>
+  <button type="image" name="action" value="2" title="move selected" onclick="return confirm('Move selected files to storage?')"> <img src="/static/move.ico" style="width:20px;height:20px;border:0;"></button>
+  <button type="image" name="action" value="4" title="train" onclick="return confirm('Train a neural network?')"> <img src="/static/ai_logo.svg" style="width:20px;height:20px;border:0;"></button>
+  <button type="image" name="action" value="3" title="predict" onclick="return confirm('Predict segmentation?')"> <img src="/static/learn_1.svg" style="width:20px;height:20px;border:0;"></button>
+  <button type="image" name="action" value="5" title="active contour" onclick="return confirm('Segmentation with active contour?')"> <img src="/static/active_contour.png" style="width:20px;height:20px;border:0;"></button>
+  <button type="image" name="action" value="6" title="duplicate" onclick="return confirm('Duplicate file?')"> <img src="/static/copy-icon.png" style="width:20px;height:20px;border:0;"></button>
+  <button type="image" name="action" value="7" title="convert to 8bit TIFF" onclick="return confirm('Convert to 8 bit TIFF?')"> <img src="/static/8bit.png" style="width:20px;height:20px;border:0;"></button>
+
+  <table style="width:100%" border="0">
+  {% for k in loop_times %}
+
+      <div class="col c{{forloop.counter}}">
+      {%if forloop.counter == 1 or forloop.counter == 4 or forloop.counter == 7 %}
+      <tr>
+      {% endif %}
+      <td valign="top">
+      <table style="width:100%" border="0">
+      <tr><td>
+      {% if forloop.counter == 1 %}
+          <h2><span>1st Project</span></h2>
+      {% elif forloop.counter == 2 %}
+          <h2><span>2nd Project</span></h2>
+      {% elif forloop.counter == 3 %}
+          <h2><span>3rd Project</span></h2>
+      {% else %}
+          <h2><span>{{forloop.counter}}th Project</span></h2>
+      {% endif %}
+      </td></tr>
+
+      {% for img in images %}
+          {% if img.project == k.1 %}
+          <tr><td>
+              {% if img.imageType == 1 %}
+                <div id="img{{ img.id }}" >
+                  <p>
+                  <a href="/visualization/{{img.id}}/?next=app" target="_blank"><img src="/static/file_image.png" title="visualization" style="width:50px;height:50px;border:0;"></a>
+                  <span class="delete_link" id="{{img.id}},{{img.status}},{{ img.project }},Delete File?"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+                  <a href="/download/{{img.id}}"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+                  <a href=# onclick="sliceviewerFunction({{img.id}})"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
+                  <span class="move_link" id="{{img.id}},{{img.status}}"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+                  <span class="share_link" id="{{img.id}}"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+                  <input type="checkbox" name="selected" value="{{img.id}}"/> </br>
+                  {{ img.shortfilename }}
+                  </p>
+                </div>
+              {% elif img.imageType == 2 %}
+                <div id="img{{ img.id }}" >
+                  <p>
+                  <a href="/visualization/{{img.id}}/?next=app" target="_blank"><img src="/static/Label.png" title="visualization" style="width:50px;height:50px;border:0;"></a>
+                  <span class="delete_link" id="{{img.id}},{{img.status}},{{ img.project }},Delete File?"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+                  <a href="/download/{{img.id}}"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+                  <a href=# onclick="sliceviewerFunction({{img.id}})"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
+                  <span class="move_link" id="{{img.id}},{{img.status}}"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+                  <span class="share_link" id="{{img.id}}"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+                  <a href="/settings/{{img.id}}"><img src="/static/einst_filled.jpg" title="settings" width="20" height="20" onMouseOver="this.src='/static/einst2.jpg'" onMouseOut="this.src='/static/einst_filled.jpg'"></a>
+                  <input type="checkbox" name="selected" value="{{img.id}}"/> </br>
+                  {{ img.shortfilename }}
+                  </p>
+                </div>
+              {% elif img.imageType == 4 %}
+                <div id="img{{ img.id }}" >
+                  <p>
+                  <a href='#'><img src="/static/ai.ico" title="network" style="width:50px;height:50px;border:0;"></a>
+                  <span class="delete_link" id="{{img.id}},{{img.status}},{{ img.project }},Delete File?"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+                  <a href="/download/{{img.id}}"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+                  <span class="move_link" id="{{img.id}},{{img.status}}"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+                  <span class="share_link" id="{{img.id}}"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+                  <a href="/settings/prediction/{{img.id}}"><img src="/static/einst_filled.jpg" title="settings" width="20" height="20" onMouseOver="this.src='/static/einst2.jpg'" onMouseOut="this.src='/static/einst_filled.jpg'"></a>
+                  <input type="checkbox" name="selected" value="{{img.id}}"/> </br>
+                  {{ img.shortfilename }}
+                  </p>
+                </div>
+              {% elif img.active %}
+                <div id="img{{ img.id }}" >
+                  <p>
+                  <a href="/visualization/{{img.id}}/?next=app" target="_blank"><img src="/static/file_final.png" title="visualization" style="width:50px;height:50px;border:0;"></a>
+                  <span class="delete_link" id="{{img.id}},{{img.status}},{{ img.project }},Delete File?"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+                  <a href="/download/{{img.id}}"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+                  <a href=# onclick="sliceviewerFunction({{img.id}})"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
+                  <span class="move_link" id="{{img.id}},{{img.status}}"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+                  <span class="share_link" id="{{img.id}}"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+                  <input type="checkbox" name="selected" value="{{img.id}}"/> </br>
+                  <select id="sel_id" name="sel_name" onchange="changeFunction({{img.id}}, value)">
+                      <option value="-1">select</option>
+                      <option value="1">regular</option>
+                      <option value="2">cleaned</option>
+                      <option value="7">fill holes</option>
+                      <option value="8">clean+fill</option>
+                      <option value="3">Active C</option>
+                      <option value="4">uncertainty</option>
+                      <option value="5">smooth</option>
+                      <option value="6">smooth+clean</option>
+                  </select>
+                  {{ img.shortfilename }}
+                  </br>
+                  {% if messages %}
+                    <ul class="messages">
+                      {% for message in messages %}
+                        <li class="success alert">{{ message }}</li>
+                      {% endfor %}
+                    </ul>
+                  {% endif %}
+                  </p>
+                </div>
+              {% endif %}
+          </td></tr>
+          {% endif %}
+      {% endfor %}
+
+      {% for img in images %}
+          {% if img.project == k.1 %}
+              {% if img.log %}
+                  <tr><td>
+                  <div id="msg{{ img.id }}">
+                  <p>
+                  <strong>Error:</strong> {{img.shortfilename}}
+                  <span class="delete_link" id="{{img.id}},{{img.status}},{{ img.project }},Remove Message?"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></a>
+                  </p>
+                  </div>
+                  </td></tr>
+              {% elif img.status > 0 and img.imageType == 1 %}
+                  <tr><td>
+                  <div id="msg{{ img.id }}">
+                  <p>
+                  {{ img.message }}
+                  <span class="stop_link" id="{{img.id}}"><img src="/static/icon-deletelink.svg" title="stop" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+                  <span class="refresh_link" id=""><img src="/static/refresh.png" title="refresh" style="width:20px;height:20px;border:0;cursor:pointer;"></a>
+                  </p>
+                  </div>
+                  </td></tr>
+              {% endif %}
+          {% endif %}
+      {% endfor %}
+
+  {% if k.0 == 1 %}
+      <tr><td>
+      <div id="proj{{ k.1 }}">
+      <p>
+      <span class="run_link" id="{{k.2}},{{k.3}}"><img src="/static/startshadow.png" title="start" style="width:120px;height:62px;border:0;cursor:pointer;"></span>
+      </p>
+      </div>
+      </td></tr>
+  {% endif %}
+
+  </table>
+  </td>
+  {%if forloop.counter == 3 or forloop.counter == 6 or forloop.counter == 9 %}
+  </tr>
+  {% endif %}
+  {% endfor %}
+  </div>
+  </table>
+  </form>
+  <div class="clr"></div>
+  </div>
+</div>
+{%if state %}
+<script>alertFunction("{{state}}")</script>
+{% endif %}
+{% endblock %}

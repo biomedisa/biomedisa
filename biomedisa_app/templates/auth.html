@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+
+{% block menubar %}
+{% include 'menu_bar.html' with activate="app" user=user %}
+{% endblock %}
+
+{% block content %}
+<div class="content">
+  <div class="content_resize">
+    <div class="mainbar">
+      <div class="article">
+        <h2><span>Please log in below</span></h2>
+        <div class="clr"></div>
+
+            {% if state %}
+            <div class="messagebox">
+              <ul class="messages">
+                <li class="success alert">{{ state }}</li>
+              </ul>
+            </div>
+            {% endif %}
+
+            <form method="post">{% csrf_token %}
+              <ol>
+                <li>
+                  <label for="name">E-mail or Username</label>
+                  <input type="text" name="username" required="required" value="{{username}}" />
+                </li>
+                <li>
+                  <label for="password">Password </label>
+                  <input type="password" name="password" required="required" value="" />
+                </li>
+                <li>
+                  <br/>
+                  <button type="submit" class="btn btn-primary btn-block btn-large">Log in</button>
+                  <div class="clr"></div>
+                </li>
+              </ol>
+            </form>
+
+      </div>
+    </div>
+
+    {% block sidebar %}
+    {% include 'side_bar.html' %}
+    {% endblock %}
+    <div class="clr"></div>
+  </div>
+</div>
+{% endblock %}

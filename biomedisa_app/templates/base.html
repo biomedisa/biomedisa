@@ -1,0 +1,52 @@
+{% load static %}
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>Biomedisa</title>
+<link rel="shortcut icon" type="image/svg" href="/static/biomedisa_icon.png"/>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<link href="/static/style.css" rel="stylesheet" type="text/css" />
+<link rel="stylesheet" type="text/css" href="/static/coin-slider.css" />
+<script type="text/javascript" src="/static/cufon-yui.js"></script>
+<script type="text/javascript" src="/static/droid_sans_400-droid_sans_700.font.js"></script>
+<script type="text/javascript" src="/static/jquery-1.4.2.min.js"></script>
+<script type="text/javascript" src="/static/script.js"></script>
+<script type="text/javascript" src="/static/coin-slider.min.js"></script>
+{% block scripts %}
+{% endblock %}
+</head>
+<STYLE>A {text-decoration: none;} </STYLE>
+<body onload="{% block onloadfunc %} {% endblock %}" >
+<div class="main">
+  <div class="header">
+    <div class="header_resize">
+      <div class="logo">
+        <h1><a href="/"><img src="/static/biomedisa_logo.svg" width="152" height="40" alt="" /> <small><font color="gray">The Biomedical Image Segmentation App</font></small></a></h1>
+      </div>
+      <div class="clr"></div>
+
+      {% block menubar %}
+      {% endblock %}
+      <div class="clr"></div>
+
+      {% block slideshow %}
+      {% endblock %}
+      <div class="clr"></div>
+    </div>
+  </div>
+
+  {% block content %}
+  {% endblock %}
+  <div class="clr"></div>
+
+  <div class="footer">
+    <div class="footer_resize">
+      <p class="lf">Copyright &copy; 2020 <a href="mailto:philipp.loesel@uni-heidelberg.de">Philipp Lösel</a></p>
+      <div style="clear:both;"></div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

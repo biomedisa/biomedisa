@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+
+{% block menubar %}
+{% include 'menu_bar.html' with activate="impressum" user=user %}
+{% endblock %}
+
+{% block content %}
+<div class="content">
+  <div class="content_resize">
+    <div class="mainbar">
+
+      <div class="article">
+        <h1>Impressum</h1>
+        <h2>Developers</h2>
+            <i>Biomedisa is developed by:</i> </br>
+            <a href="https://emcl.iwr.uni-heidelberg.de/people/loesel-philipp" style="color:#4c4c4c;">Philipp Lösel</a>, Heidelberg University, Germany
+          <p>
+            <i>The development was supported by the following contributors:</i> </br>
+            <b>Alejandra Jayme</b>, Amira Mesh reader/writer & webpage, Heidelberg University, Germany </br>
+            <b>Olaf Pichler</b>, installation script for Ubuntu 18.04 LTS, Heidelberg University, Germany </br>
+            <b>Nicholas Tan Jerome</b>, web-based visualization platform, KIT, Germany
+          </p>
+
+        <h2>Provider</h2>
+
+        This website is being published by Heidelberg University
+        Interdisciplinary Center for Scientific Computing (IWR) / Engineering Mathematics and Computing Lab (EMCL)
+
+        <p>
+        Grabengasse 1 </br>
+        69117 Heidelberg, Germany </br>
+        Tel. +49 6221 5414537 </br>
+        philipp.loesel <_at_> uni-heidelberg.de
+        </p>
+
+        Heidelberg University is a public corporation which is legally represented by the rector of the University, Bernhard Eitel. VAT identification number: DE 811225433
+
+        <h2>Copyright</h2>
+
+        Any and all information published on this website (layout, texts, images, figures and tables, etc.) is protected by copyright. Any use of this information prohibited by copyright laws is subject to prior explicit consent by Heidelberg University. This applies in particular to the copying, processing, translation, inputting, alteration or reproduction of the information in databases or other electronic media and systems. Photocopies and downloads from web pages for personal, scientific or non-commercial use are permitted. We openly permit and encourage users to cite our documents and web pages and to set up links to our website.
+
+        <h2>Disclaimer</h2>
+
+        The information on this website has been carefully researched and implemented. Despite these efforts towards accuracy, the possibility of errors cannot be excluded. Please send any remarks or corrections to the web managing editor. While the content has been carefully checked, we assume no liability for its accuracy, completeness, or timeliness. In particular, liability is disclaimed for any damage or consequences that may arise through direct or indirect use of the website content.
+
+        <h2>Disclaimer on cross-references and links</h2>
+
+        In accordance with common law, Heidelberg University is responsible for content created by persons associated with the university. This content does not include cross-references ("external links") that are provided to other websites. This "foreign content" does not originate from Heidelberg University; nor is Heidelberg University in a position to influence it as a third party. The content of foreign sites that are linked to this website does not reflect the opinion of Heidelberg University. Links are provided solely to convey additional information and to present connections. The statement above applies to all links and cross-references that have been created within Heidelberg University's websites, as well as to comments recorded by external visitors in guest books, discussion forums, and mailing lists that have been established by Heidelberg University. Sole liability for illegal, incorrect or incomplete content, and in particular, for damage arising from the use or disuse of such content is assumed by the owner of the website to which the link refers. In addition, Heidelberg University does not associate or identify itself with the content of third parties to which it refers via a link. Heidelberg University assumes no responsibility for such content, since it has no influence on it.
+
+        <h2>Privacy policy</h2>
+
+        Presently, coding techniques are being applied on our websites for authentification only. Hence, you have to assume that unauthorized persons take note of your data on their way to us. To maintain your session, it may be required to set a cookie under certain circumstances. Possibly, your web browser or client software transmits information via your computer (e.g. your IP address) to our servers through no fault of your own. Such information shall never be brought directly in connection with you, but will only be evaluated in anonymous form for purposes of statistics, system administration or to improve the performance of our internet offer.
+
+        <p>
+        For further informations we refer to the central <a href="https://www.uni-heidelberg.de/privacypolicy_web.html">University Privacy Policy</a>.
+        </p>
+
+      </div>
+    </div>
+    {% block sidebar %}
+    {% include 'side_bar.html' %}
+    {% endblock %}
+    <div class="clr"></div>
+  </div>
+</div>
+{% endblock %}

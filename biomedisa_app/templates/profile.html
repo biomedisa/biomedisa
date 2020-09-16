@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+
+{% block scripts %}
+<script type="text/javascript">
+function deleteFunction(id, status, message) {
+    var r = confirm("Are you sure you want to delete your account and all files? This cannot be reversed!");
+        if (r == true) {
+            window.location.href = "/delete_account/";
+            window.close();
+            }
+    }
+</script>
+{% endblock %}
+
+{% block menubar %}
+{% include 'menu_bar.html' with activate="profile" user=user %}
+{% endblock %}
+
+{% block content %}
+<div class="content">
+  <div class="content_resize">
+    <div class="mainbar">
+      <div class="article">
+
+      <h2> <span>Profile</span> </h2>
+
+          <div class="messagebox">
+          {% if messages %}
+            <ul class="messages">
+              {% for message in messages %}
+                <li class="success alert">{{ message }}</li>
+              {% endfor %}
+            </ul>
+          {% endif %}
+          </div>
+
+          <form method="post" class="form1">
+            {% csrf_token %}
+            {{ user_form.as_p }}
+            <button type="submit">Save changes</button>
+          </form>
+
+          </br>
+          <a href="/password/">Change password</a>
+
+          </br>
+          </br>
+          <a  href=# onclick="deleteFunction()">Delete account</a>
+
+      </div>
+    </div>
+
+    {% block sidebar %}
+    {% include 'side_bar.html' %}
+    {% endblock %}
+    <div class="clr"></div>
+  </div>
+</div>
+{% endblock %}

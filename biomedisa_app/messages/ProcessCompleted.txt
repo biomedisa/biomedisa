@@ -1,0 +1,7 @@
+Dear {{username}},
+
+Biomedisa successfully {{info}} {{image_name}} in {{ctime}} on {{server_name}}.
+
+---------------------- 
+This is an automatic notification from Biomedisa. Please log in to {{host}}/app/ to process your data.
+If you do not wish to receive notifications, please deactivate this service at {{host}}/profile/.

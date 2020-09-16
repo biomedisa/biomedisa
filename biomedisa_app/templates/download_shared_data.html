@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+
+{% block menubar %}
+{% include 'menu_bar.html' with activate="" user=user %}
+{% endblock %}
+
+{% block content %}
+<div class="fbg">
+  <div class="fbg_resize">
+    <div class="post_content">
+      <p style="line-height: 175%">
+        <b>File:</b> {{ filename }} <br/>
+        <b>Shared by:</b> {{ shared_by }}
+        <h1>{{ state }}</h1>
+      </p>
+      <form method="post">{% csrf_token %}
+        <input type="password" name="password" placeholder="Password" required="required" value=""/> <p></p>
+        <button type="submit" class="btn btn-primary btn-block btn-large">Download</button>
+      </form>
+    </div>
+    <div class="clr"></div>
+  </div>
+</div>
+{% endblock %}

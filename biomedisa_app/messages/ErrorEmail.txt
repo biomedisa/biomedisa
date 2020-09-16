@@ -1,0 +1,7 @@
+Dear {{username}},
+
+Biomedisa could not finish the segmentation of {{image_name}}. {{error_msg}}
+
+---------------------- 
+This is an automatic notification from Biomedisa. Please log in to {{host}}/app/ to process your data.
+If you do not wish to receive notifications, please deactivate this service at {{host}}/profile/.

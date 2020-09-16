@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+
+{% block menubar %}
+{% include 'menu_bar.html' with activate="contact" user=user %}
+{% endblock %}
+
+{% block content %}
+<div class="content">
+  <div class="content_resize">
+
+    <div class="mainbar">
+      {% if msg %}
+      <div class="article">
+      <h2><span>{{msg}}</span></h2>
+      <div class="post_content">
+        <p style="line-height: 175%">
+        {% if msg %}  {{sub_msg}}<br/> {% endif %}
+        </p>
+      </div>
+      <div class="clr"></div>
+      </div>
+      {% endif %}
+
+      <div class="article">
+        <h2><span>Contact</span></h2>
+        <div class="post_content">
+           <p style="line-height: 175%">
+            <a href="https://emcl.iwr.uni-heidelberg.de/people/loesel-philipp" style="color:#4c4c4c;">Philipp Lösel</a> <br />
+            Engineering Mathematics and Computing Lab <br />
+            Interdisciplinary Center for Scientific Computing <br />
+            Im Neuenheimer Feld 205 <br />
+            69120 Heidelberg, Germany <br />
+            Phone: +49 6221 54 14537<br />
+            E-mail: <a href="mailto:philipp.loesel@uni-heidelberg.de">philipp.loesel@uni-heidelberg.de</a></p>
+        </div>
+        <div class="clr"></div>
+      </div>
+
+    </div>
+
+    {% block sidebar %}
+    {% include 'side_bar.html' %}
+    {% endblock %}
+    <div class="clr"></div>
+  </div>
+</div>
+{% endblock %}

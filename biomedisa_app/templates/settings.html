@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+
+{% block menubar %}
+{% include 'menu_bar.html' with activate="app" user=user %}
+{% endblock %}
+
+{% block content %}
+<div class="fbg">
+  <div class="fbg_resize">
+    <div class="col c0">
+      <h2> <span> {{ name }} </span> </h2>
+
+      <div class="messagebox">
+      {% if messages %}
+      <ul class="messages">
+        {% for message in messages %}
+          <li class="success alert">{{ message }}</li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+      </div>
+      <form method="post" class="form1">
+        {% csrf_token %}
+        {{ settings_form.as_p }}
+        <button type="submit">Save changes</button>
+      </form>
+
+      </br>
+      <a href="/app">Go back</a>
+
+    </div>
+    <div class="clr"></div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+
+{% block menubar %}
+{% include 'menu_bar.html' with activate="" user=user %}
+{% endblock %}
+
+{% block content %}
+<div class="fbg">
+  <div class="fbg_resize">
+  	<h2><span>{{ filename }}</span></h2>
+  	<div class="post_content">
+    	<p style="line-height: 175%">
+    	<b>Download Link:</b> {{ link }}<br />
+    	<b>Password:</b> {{ pw }}<br />
+    	</p>
+  	</div>
+    <div class="clr"></div>
+  </div>
+</div>
+{% endblock %}

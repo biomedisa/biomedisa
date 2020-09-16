@@ -1,0 +1,21 @@
+<div class="menu_nav">
+  <ul>
+    <li>&nbsp;&nbsp;</li>
+    <li {% if activate == 'home' %}class="active"{% endif %} ><a href="/"><span>Home</span></a></li>
+    <li {% if activate == 'gallery' %}class="active"{% endif %} ><a href="/gallery"><span>Gallery</span></a></li>
+    <li {% if activate == 'faq' %}class="active"{% endif %} ><a href="/faq"><span>FAQ</span></a></li>
+    <li {% if activate == 'publications' %}class="active"{% endif %} ><a href="/publications"><span>Publications</span></a></li>
+    <li {% if activate == 'partners' %}class="active"{% endif %} ><a href="/partners"><span>Partners</span></a></li>
+    <li {% if activate == 'impressum' %}class="active"{% endif %} ><a href="/impressum"><span>Impressum</span></a></li>
+    {% if user.is_authenticated %}
+    <li {% if activate == 'app' %}class="active"{% endif %} ><a href="/app"><span>App</span></a></li>
+    <li {% if activate == 'storage' %}class="active"{% endif %} ><a href="/storage"><span>Storage</span></a></li>
+    <li {% if activate == 'profile' %}class="active"{% endif %} ><a href="/profile"><span>Profile</span></a></li>
+    <li {% if activate == 'logout' %}class="active"{% endif %} ><a href="/logout"><span>Logout</span></a></li>
+    {% else %}
+    <li {% if activate == 'register' %}class="active"{% endif %} ><a href="/register"><span>Register</span></a></li>
+    <li {% if activate == 'contact' %}class="active"{% endif %} ><a href="/contact"><span>Contact</span></a></li>
+    <li {% if activate == 'app' %}class="active"{% endif %} ><a href="/app"><span>Login</span></a></li>
+    {% endif %}
+  </ul>
+</div>

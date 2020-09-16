@@ -1,0 +1,7 @@
+Dear {{username}},
+
+{{shared_by}} wants to share {{image_name}} with you. To accept or deny, please log in to your storage {{host}}/storage/
+
+---------------------- 
+This is an automatic notification from Biomedisa. Please log in to {{host}}/app/ to process your data.
+If you do not wish to receive notifications, please deactivate this service at {{host}}/profile/.
