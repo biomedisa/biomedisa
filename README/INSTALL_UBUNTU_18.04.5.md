@@ -158,4 +158,4 @@ python3 manage.py runserver 0.0.0.0:8000
 Open Biomedisa in your local browser http://localhost:8000/ and log in as the `superuser` you created.
 
 # Install Apache Server
-Follow the [installation instructions](https://emcl-gitlab.iwr.uni-heidelberg.de/biomedisa/biomedisa/-/blob/master/README/INSTALL_APACHE_SERVER.md).
+Follow the [installation instructions](https://github.com/biomedisa/biomedisa/blob/master/README/INSTALL_APACHE_SERVER.md).
