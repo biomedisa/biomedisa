@@ -14,7 +14,7 @@
 - [License](#license)
 
 # Overview
-The Biomedical Image Segmentation App `biomedisa` is an open-source online platform for segmentation of 3D images, e.g. CT and MRI scans, at Heidelberg University and HITS. It can be used in addition to segmentation tools like Amira and ImageJ/Fiji. Biomedisa finds its root in the projects ASTOR and NOVA financed by the German Federal Ministry of Education and Research (BMBF). Biomedisa is free-of-charge for academic use.
+The Biomedical Image Segmentation App [Biomedisa](https://biomedisa.org) is an open-source online platform for segmentation of 3D images, e.g. CT and MRI scans, at Heidelberg University and HITS. It can be used in addition to segmentation tools like Amira and ImageJ/Fiji. Biomedisa finds its root in the projects ASTOR and NOVA financed by the German Federal Ministry of Education and Research (BMBF). Biomedisa is free-of-charge for academic use.
 
 # Hardware requirements
 + At least one [NVIDIA](https://www.nvidia.com/) Graphics Procissing Unit (GPU) with compute capability 3.0 or higher.
