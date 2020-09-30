@@ -269,7 +269,7 @@ Frequently asked questions can be found at: https://biomedisa.org/faq/.
 
 If you use the package or the online platform, please cite the following paper.
 
-`Lösel, P.D. et al. Biomedisa: an open-source online platform for biomedical image segmentation. Nat. Commun. X, XXXX (2020).`
+`tba`
 
 # License
 
