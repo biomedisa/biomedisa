@@ -246,11 +246,11 @@ mpiexec -n 4 python3 'path_to_image' 'path_to_labels' -allx
 
 ### Ubuntu 18.04.5
 
-Please follow the [installation instructions](https://emcl-gitlab.iwr.uni-heidelberg.de/biomedisa/biomedisa/-/blob/master/README/INSTALL_UBUNTU_18.04.5.md). Alternatively, clone the repository and run the install script `install.sh`.
+Please follow the [installation instructions](https://github.com/biomedisa/biomedisa/blob/master/README/INSTALL_UBUNTU_18.04.5.md). Alternatively, clone the repository and run the install script `install.sh`.
 
 ### Windows 10
 
-Please follow the [installation instructions](https://emcl-gitlab.iwr.uni-heidelberg.de/biomedisa/biomedisa/-/blob/master/README/INSTALL_WINDOWS_10.md).
+Please follow the [installation instructions](https://github.com/biomedisa/biomedisa/blob/master/README/INSTALL_WINDOWS_10.md).
 
 # Releases
 
@@ -260,7 +260,7 @@ For the versions available, see the [tags on this repository](https://github.com
 
 * **Philipp D. Lösel**
 
-See also the list of [contributors](https://github.com/biomedisa/biomedisa/credits.md) who participated in this project.
+See also the list of [contributors](https://github.com/biomedisa/biomedisa/blob/master/credits.md) who participated in this project.
 
 # FAQ
 Frequently asked questions can be found at: https://biomedisa.org/faq/.
