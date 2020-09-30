@@ -22,6 +22,7 @@ screen -X -S cleanup quit
 screen -X -S share_notification quit
 screen -X -S stop_job quit
 screen -X -S load_data quit
+screen -X -S convert_image quit
 
 # start workers
 screen -d -m -S first_queue bash -c "cd ${path_to_biomedisa} && rq worker first_queue && exec /usr/bin/ssh-agent ${SHELL} && ssh-add"
@@ -33,3 +34,4 @@ screen -d -m -S cleanup bash -c "cd ${path_to_biomedisa} && rq worker cleanup"
 screen -d -m -S share_notification bash -c "cd ${path_to_biomedisa} && rq worker share_notification"
 screen -d -m -S stop_job bash -c "cd ${path_to_biomedisa} && rq worker stop_job"
 screen -d -m -S load_data bash -c "cd ${path_to_biomedisa} && rq worker load_data"
+screen -d -m -S convert_image bash -c "cd ${path_to_biomedisa} && rq worker convert_image"

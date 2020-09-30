@@ -31,7 +31,7 @@ from PIL import Image
 import numpy as np
 import os, sys
 import cv2
-import glob
+from glob import glob
 
 def percentile(a, limit):
     # this implementation is slower than numpy's but uses less memory
@@ -118,10 +118,11 @@ def create_slices(path_to_data, path_to_label):
             path_to_dir, extension = os.path.splitext(path_to_data)
 
             if extension == '.tar':
-                img_names = glob.glob(path_to_dir + '/*/*.tif')
-                if not img_names:
-                    img_names = glob.glob(path_to_dir + '/*.tif')
-                img_names = sorted(img_names)
+                img_names = []
+                for data_type in ['.tif','.tiff','.am','.hdr','.mhd','.mha','.nrrd','.nii','.nii.gz']:
+                    tmp_img_names = glob(path_to_dir+'/*/*'+data_type)+glob(path_to_dir+'/*'+data_type)
+                    tmp_img_names = sorted(tmp_img_names)
+                    img_names.extend(tmp_img_names)
                 raw, _ = load_data(img_names[0], 'create_slices')
                 zsh, ysh, xsh = raw.shape
                 m = max(ysh, xsh)
@@ -177,11 +178,11 @@ def create_slices(path_to_data, path_to_label):
             path_to_dir, extension = os.path.splitext(path_to_label)
 
             if extension == '.tar':
-                # get filenames
-                img_names = glob.glob(path_to_dir + '/*/*.tif')
-                if not img_names:
-                    img_names = glob.glob(path_to_dir + '/*.tif')
-                img_names = sorted(img_names)
+                img_names = []
+                for data_type in ['.tif','.tiff','.am','.hdr','.mhd','.mha','.nrrd','.nii','.nii.gz']:
+                    tmp_img_names = glob(path_to_dir+'/*/*'+data_type)+glob(path_to_dir+'/*'+data_type)
+                    tmp_img_names = sorted(tmp_img_names)
+                    img_names.extend(tmp_img_names)
                 # load and scale label data corresponding to img data
                 mask = np.zeros((0, y_scale, x_scale), dtype=np.uint8)
                 for name in img_names:

@@ -197,7 +197,7 @@ class SettingsForm(forms.ModelForm):
 class SettingsPredictionForm(forms.ModelForm):
     class Meta:
         model = Upload
-        fields = ('compression', 'stride_size', 'delete_outliers', 'fill_holes', \
+        fields = ('compression', 'batch_size', 'stride_size', 'delete_outliers', 'fill_holes', \
                   'ac_alpha', 'ac_smooth', 'ac_steps')
 
 @receiver(models.signals.post_delete, sender=Upload)

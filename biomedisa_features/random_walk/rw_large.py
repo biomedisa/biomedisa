@@ -33,7 +33,7 @@ from django.shortcuts import get_object_or_404
 
 from biomedisa_app.models import Upload, Profile
 from biomedisa_app.views import send_notification, send_error_message
-from biomedisa_features.biomedisa_helper import save_data
+from biomedisa_features.biomedisa_helper import save_data, _error_
 from biomedisa_features.active_contour import active_contour
 from biomedisa_features.remove_outlier import remove_outlier
 from biomedisa_features.create_slices import create_slices
@@ -246,18 +246,7 @@ def _diffusion_child(comm, bm=None):
                 del ctx
 
         if memory_error:
-
-            # stop processing
-            bm.label.status = 0
-            bm.label.save()
-            bm.image.status = 0
-            bm.image.pid = 0
-            bm.image.save()
-            message = 'GPU out of memory. Image too large.'
-            Upload.objects.create(user=bm.image.user, project=bm.image.project, log=1, imageType=None, shortfilename=message)
-            send_error_message(bm.image.user.username, bm.image.shortfilename, message)
-            with open(bm.path_to_logfile, 'a') as logfile:
-                print('%s %s %s %s' %(time.ctime(), bm.image.user.username, bm.image.shortfilename, message), file=logfile)
+            bm = _error_(bm, 'GPU out of memory. Image too large.')
 
         else:
 
@@ -324,8 +313,6 @@ def _diffusion_child(comm, bm=None):
                 Upload.objects.create(pic=filename, user=bm.image.user, project=bm.image.project, final=5, imageType=3, shortfilename=shortfilename, friend=tmp.id)
 
             # stop processing
-            bm.label.status = 0
-            bm.label.save()
             bm.image.status = 0
             bm.image.pid = 0
             bm.image.save()

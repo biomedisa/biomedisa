@@ -29,7 +29,6 @@
 import sys, os
 import django
 django.setup()
-from django.shortcuts import get_object_or_404
 from biomedisa_app.config import config
 from biomedisa_app.models import Upload, Profile
 from biomedisa_app.views import send_start_notification
@@ -137,10 +136,12 @@ if __name__ == '__main__':
         bm.TIC = time.time()
 
         # get objects
-        bm.image = get_object_or_404(Upload, pk=sys.argv[1])
-        bm.label = get_object_or_404(Upload, pk=sys.argv[2])
-        bm.path_to_data = bm.image.pic.path
-        bm.path_to_labels = bm.label.pic.path
+        bm.success = True
+        try:
+            bm.image = Upload.objects.get(pk=sys.argv[1])
+            bm.label = Upload.objects.get(pk=sys.argv[2])
+        except Upload.DoesNotExist:
+            bm = _error_(bm, 'Files have been removed.')
 
         # check if aborted
         if bm.image.status == 0:
@@ -150,9 +151,14 @@ if __name__ == '__main__':
                 comm.send(False, dest=dest, tag=0)
 
         else:
+
             # get pid
             bm.image.pid = os.getpid()
             bm.image.save()
+
+            # path to data
+            bm.path_to_data = bm.image.pic.path
+            bm.path_to_labels = bm.label.pic.path
 
             # path to logfiles
             bm.path_to_time = config['PATH_TO_BIOMEDISA'] + '/log/time.txt'

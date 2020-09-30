@@ -196,11 +196,10 @@ def load_data(path_to_data, process='None', return_extension=False):
 
 def _error_(bm, message):
     bm.image.status = 0
-    bm.label.status = 0
     bm.image.pid = 0
     bm.image.save()
-    bm.label.save()
     Upload.objects.create(user=bm.image.user, project=bm.image.project, log=1, imageType=None, shortfilename=message)
+    bm.path_to_logfile = config['PATH_TO_BIOMEDISA'] + '/log/logfile.txt'
     with open(bm.path_to_logfile, 'a') as logfile:
         print('%s %s %s %s' %(time.ctime(), bm.image.user.username, bm.image.shortfilename, message), file=logfile)
     from biomedisa_app.views import send_error_message

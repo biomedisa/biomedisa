@@ -232,8 +232,6 @@ def _diffusion_child(comm, bm=None):
             Upload.objects.create(pic=filename, user=bm.image.user, project=bm.image.project, final=5, imageType=3, shortfilename=shortfilename, friend=tmp.id)
 
         # stop processing
-        bm.label.status = 0
-        bm.label.save()
         bm.image.status = 0
         bm.image.pid = 0
         bm.image.save()

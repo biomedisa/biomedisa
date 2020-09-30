@@ -30,13 +30,12 @@ import os
 import django
 django.setup()
 import biomedisa_app.views
-from django.shortcuts import get_object_or_404
-
 from biomedisa_app.config import config
 from biomedisa_app.models import Upload
 from biomedisa_features.curvop_numba import curvop, evolution
 from biomedisa_features.create_slices import create_slices
-from biomedisa_features.biomedisa_helper import load_data, save_data, pre_processing, id_generator, img_to_uint8
+from biomedisa_features.biomedisa_helper import (load_data, save_data, pre_processing, 
+                                id_generator, img_to_uint8)
 from multiprocessing import Process
 
 import numpy as np
@@ -129,11 +128,22 @@ def active_contour(path_to_data, path_to_labels, friend_id, label_id, image_id):
     bm.path_to_logfile = config['PATH_TO_BIOMEDISA'] + '/log/logfile.txt'
 
     # get objects
-    bm.label = get_object_or_404(Upload, pk=label_id)
-    bm.image = get_object_or_404(Upload, pk=image_id)
+    bm.success = True
+    try:
+        bm.image = Upload.objects.get(pk=image_id)
+        bm.label = Upload.objects.get(pk=label_id)
+        friend = Upload.objects.get(pk=friend_id)
+    except Upload.DoesNotExist:
+        bm.success = False
+        if label_id == friend_id:
+            bm.image.status = 0
+            bm.image.pid = 0
+            bm.image.save()
+            message = 'Files have been removed.'
+            Upload.objects.create(user=bm.image.user, project=bm.image.project, log=1, imageType=None, shortfilename=message)
 
     # set PID
-    if label_id == friend_id:
+    if label_id == friend_id and bm.success:
         if bm.image.status == 1:
             bm.image.status = 2
             bm.image.message = 'Processing'
@@ -141,12 +151,13 @@ def active_contour(path_to_data, path_to_labels, friend_id, label_id, image_id):
         bm.image.save()
 
     # pre-processing
-    bm.process = 'acwe'
-    bm = pre_processing(bm)
+    if bm.success:
+        bm.process = 'acwe'
+        bm = pre_processing(bm)
 
     if bm.success:
 
-        # acwe without diffusion
+        # active contour as stand alone
         if label_id == friend_id:
 
             # write in logfile and send start notification
@@ -193,7 +204,7 @@ def active_contour(path_to_data, path_to_labels, friend_id, label_id, image_id):
 
         try:
             # check if final has already been removed
-            friend = get_object_or_404(Upload, pk=friend_id)
+            friend = Upload.objects.get(pk=friend_id)
 
             # image size
             bm.imageSize = int(final.nbytes * 10e-7)
@@ -220,10 +231,8 @@ def active_contour(path_to_data, path_to_labels, friend_id, label_id, image_id):
                 tmp.friend = tmp.id
                 tmp.save()
                 bm.image.status = 0
-                bm.label.status = 0
                 bm.image.pid = 0
                 bm.image.save()
-                bm.label.save()
 
                 # write in logs
                 t = int(time.time() - TIC)

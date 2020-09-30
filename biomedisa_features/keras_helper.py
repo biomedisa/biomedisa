@@ -36,9 +36,39 @@ from keras.utils import multi_gpu_model, to_categorical
 import numpy as np
 import cv2
 from random import shuffle
-import glob
+from glob import glob
 import random
 import numba
+import re
+import os
+
+class InputError(Exception):
+    def __init__(self, message=None):
+        self.message = message
+
+def adjust_header(header, data):
+
+    # read header as string
+    b = header.tobytes()
+    s = b.decode("utf-8")
+
+    # get image size in header
+    lattice = re.search('define Lattice (.*)\n', s)
+    lattice = lattice.group(1)
+    xsh, ysh, zsh = lattice.split(' ')
+    xsh, ysh, zsh = int(xsh), int(ysh), int(zsh)
+
+    # new image size
+    z,y,x = data.shape
+
+    # change image size in header
+    s = s.replace('%s %s %s' %(xsh,ysh,zsh), '%s %s %s' %(x,y,z),1)
+    s = s.replace('Content "%sx%sx%s byte' %(xsh,ysh,zsh), 'Content "%sx%sx%s byte' %(x,y,z),1)
+
+    # return header as array
+    b2 = s.encode()
+    new_header = np.frombuffer(b2, dtype=data.dtype)
+    return new_header
 
 @numba.jit(nopython=True)
 def compute_position(position, zsh, ysh, xsh):
@@ -133,24 +163,23 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
     # get filenames
     img_names, label_names = [], []
     for img_name, label_name in zip(img_list, label_list):
-        if img_name[-4:] == ".tar" and label_name[-4:] == ".tar":
-            # get file names
-            tmp_img_names = glob.glob(img_name[:-4] + "/*/*.tif")
-            tmp_label_names = glob.glob(label_name[:-4] + "/*/*.tif")
-            if not tmp_img_names:
-                tmp_img_names = glob.glob(img_name[:-4] + "/*.tif")
-            if not tmp_label_names:
-                tmp_label_names = glob.glob(label_name[:-4] + "/*.tif")
-            tmp_img_names = sorted(tmp_img_names)
-            tmp_label_names = sorted(tmp_label_names)
-            img_names.extend(tmp_img_names)
-            label_names.extend(tmp_label_names)
+        if img_name[-4:] == '.tar' and label_name[-4:] == '.tar':
+            for data_type in ['.am','.tif','.tiff','.hdr','.mhd','.mha','.nrrd','.nii','.nii.gz']:
+                tmp_img_names = glob(img_name[:-4]+'/*/*'+data_type)+glob(img_name[:-4]+'/*'+data_type)
+                tmp_label_names = glob(label_name[:-4]+'/*/*'+data_type)+glob(label_name[:-4]+'/*'+data_type)
+                tmp_img_names = sorted(tmp_img_names)
+                tmp_label_names = sorted(tmp_label_names)
+                img_names.extend(tmp_img_names)
+                label_names.extend(tmp_label_names)
         else:
             img_names.append(img_name)
             label_names.append(label_name)
 
     # load img data
     img, _ = load_data(img_names[0], 'first_queue')
+    if img is None:
+        InputError.message = "Invalid image data '%s.'" %(os.path.basename(img_names[0]))
+        raise InputError()
     img = img.astype(np.float32)
     img = img_resize(img, z_scale, y_scale, x_scale)
     img -= np.amin(img)
@@ -158,6 +187,9 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
     mu, sig = np.mean(img), np.std(img)
     for name in img_names[1:]:
         a, _ = load_data(name, 'first_queue')
+        if a is None:
+            InputError.message = "Invalid image data '%s.'" %(os.path.basename(name))
+            raise InputError()
         a = a.astype(np.float32)
         a = img_resize(a, z_scale, y_scale, x_scale)
         a -= np.amin(a)
@@ -174,6 +206,9 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
 
     # load label data
     a, header, extension = load_data(label_names[0], 'first_queue', True)
+    if a is None:
+        InputError.message = "Invalid label data '%s.'" %(os.path.basename(label_names[0]))
+        raise InputError()
     a = a.astype(np.uint8)
     np_unique = np.unique(a)
     label = np.zeros((z_scale, y_scale, x_scale), dtype=a.dtype)
@@ -184,6 +219,9 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
         label[tmp==1] = k
     for name in label_names[1:]:
         a, _ = load_data(name, 'first_queue')
+        if a is None:
+            InputError.message = "Invalid label data '%s.'" %(os.path.basename(name))
+            raise InputError()
         a = a.astype(np.uint8)
         np_unique = np.unique(a)
         next_label = np.zeros((z_scale, y_scale, x_scale), dtype=a.dtype)
@@ -372,6 +410,9 @@ def load_prediction_data(path_to_img, channels, x_scale, y_scale, z_scale, \
 
     # read image data
     img, _ = load_data(path_to_img, 'first_queue')
+    if img is None:
+        InputError.message = "Invalid image data '%s.'" %(os.path.basename(path_to_img))
+        raise InputError()
     z_shape, y_shape, x_shape = img.shape
     img = img.astype(np.float32)
     img = img_resize(img, z_scale, y_scale, x_scale)
@@ -395,7 +436,7 @@ def load_prediction_data(path_to_img, channels, x_scale, y_scale, z_scale, \
     return img, position, z_shape, y_shape, x_shape
 
 def predict_semantic_segmentation(img, position, path_to_model, path_to_final, z_patch, y_patch, x_patch, \
-                z_shape, y_shape, x_shape, compress, header, channels, stride_size, allLabels):
+                z_shape, y_shape, x_shape, compress, header, channels, stride_size, allLabels, batch_size):
 
     # img shape
     zsh, ysh, xsh = img.shape
@@ -427,7 +468,7 @@ def predict_semantic_segmentation(img, position, path_to_model, path_to_final, z
     model = load_model(str(path_to_model))
 
     # predict
-    tmp = model.predict(x_test, batch_size=None, verbose=0, steps=None)
+    tmp = model.predict(x_test, batch_size=batch_size, verbose=0, steps=None)
 
     # create final
     final = np.zeros((zsh, ysh, xsh, tmp.shape[4]), dtype=np.float32)
@@ -454,10 +495,12 @@ def predict_semantic_segmentation(img, position, path_to_model, path_to_final, z
     # save final
     label = label.astype(np.uint8)
     label = get_labels(label, allLabels)
-    save_data(path_to_final, label, compress=compress)
+    if header is not None:
+        header = adjust_header(header, label)
+    save_data(path_to_final, label, header=header, compress=compress)
 
 def predict_pre_final(img, path_to_model, x_scale, y_scale, z_scale, z_patch, y_patch, x_patch, \
-                      normalize, mu, sig, channels, stride_size):
+                      normalize, mu, sig, channels, stride_size, batch_size):
 
     # img shape
     z_shape, y_shape, x_shape = img.shape
@@ -511,7 +554,7 @@ def predict_pre_final(img, path_to_model, x_scale, y_scale, z_scale, z_patch, y_
     model = load_model(str(path_to_model))
 
     # predict
-    tmp = model.predict(x_test, batch_size=None, verbose=0, steps=None)
+    tmp = model.predict(x_test, batch_size=batch_size, verbose=0, steps=None)
 
     # create final
     final = np.zeros((zsh, ysh, xsh, tmp.shape[4]), dtype=np.float32)
@@ -542,23 +585,19 @@ def predict_pre_final(img, path_to_model, x_scale, y_scale, z_scale, z_patch, y_
 #=====================
 
 def load_training_data_refine(path_to_model, x_scale, y_scale, z_scale, patch_size, z_patch, y_patch, x_patch, normalize, \
-                    img_list, label_list, channels, stride_size, allLabels, mu, sig):
+                    img_list, label_list, channels, stride_size, allLabels, mu, sig, batch_size):
 
     # get filenames
     img_names, label_names = [], []
     for img_name, label_name in zip(img_list, label_list):
-        if img_name[-4:] == ".tar" and label_name[-4:] == ".tar":
-            # get file names
-            tmp_img_names = glob.glob(img_name[:-4] + "/*/*.tif")
-            tmp_label_names = glob.glob(label_name[:-4] + "/*/*.tif")
-            if not tmp_img_names:
-                tmp_img_names = glob.glob(img_name[:-4] + "/*.tif")
-            if not tmp_label_names:
-                tmp_label_names = glob.glob(label_name[:-4] + "/*.tif")
-            tmp_img_names = sorted(tmp_img_names)
-            tmp_label_names = sorted(tmp_label_names)
-            img_names.extend(tmp_img_names)
-            label_names.extend(tmp_label_names)
+        if img_name[-4:] == '.tar' and label_name[-4:] == '.tar':
+            for data_type in ['.am','.tif','.tiff','.hdr','.mhd','.mha','.nrrd','.nii','.nii.gz']:
+                tmp_img_names = glob(img_name[:-4]+'/*/*'+data_type)+glob(img_name[:-4]+'/*'+data_type)
+                tmp_label_names = glob(label_name[:-4]+'/*/*'+data_type)+glob(label_name[:-4]+'/*'+data_type)
+                tmp_img_names = sorted(tmp_img_names)
+                tmp_label_names = sorted(tmp_label_names)
+                img_names.extend(tmp_img_names)
+                label_names.extend(tmp_label_names)
         else:
             img_names.append(img_name)
             label_names.append(label_name)
@@ -567,8 +606,11 @@ def load_training_data_refine(path_to_model, x_scale, y_scale, z_scale, patch_si
     final = []
     for name in img_names:
         a, _ = load_data(name, 'first_queue')
+        if a is None:
+            InputError.message = "Invalid image data '%s.'" %(os.path.basename(name))
+            raise InputError()
         a = predict_pre_final(a, path_to_model, x_scale, y_scale, z_scale, z_patch, y_patch, x_patch, \
-                              normalize, mu, sig, channels, stride_size)
+                              normalize, mu, sig, channels, stride_size, batch_size)
         a = a.astype(np.float32)
         a /= len(allLabels) - 1
         #a = make_axis_divisible_by_patch_size(a, patch_size)
@@ -594,6 +636,9 @@ def load_training_data_refine(path_to_model, x_scale, y_scale, z_scale, patch_si
     label = []
     for name in label_names:
         a, _ = load_data(name, 'first_queue')
+        if a is None:
+            InputError.message = "Invalid label data '%s.'" %(os.path.basename(name))
+            raise InputError()
         #a = make_axis_divisible_by_patch_size(a, patch_size)
         label.append(a)
 
@@ -697,6 +742,9 @@ def load_refine_data(path_to_img, path_to_final, path_to_model, patch_size, norm
 
     # read image data
     img, _ = load_data(path_to_img, 'first_queue')
+    if img is None:
+        InputError.message = "Invalid image data '%s.'" %(os.path.basename(path_to_img))
+        raise InputError()
     z_shape, y_shape, x_shape = img.shape
     img = img.astype(np.float32)
     img -= np.amin(img)
@@ -711,6 +759,9 @@ def load_refine_data(path_to_img, path_to_final, path_to_model, patch_size, norm
 
     # load label data
     label, _ = load_data(path_to_final, 'first_queue')
+    if label is None:
+        InputError.message = "Invalid label data '%s.'" %(os.path.basename(path_to_final))
+        raise InputError()
     #label = make_axis_divisible_by_patch_size(label, patch_size)
 
     # labels must be in ascending order
@@ -725,7 +776,8 @@ def load_refine_data(path_to_img, path_to_final, path_to_model, patch_size, norm
     return img, label, final, z_shape, y_shape, x_shape
 
 def refine_semantic_segmentation(path_to_img, path_to_final, path_to_model, patch_size,\
-                                 compress, header, normalize, stride_size, allLabels, mu, sig):
+                                 compress, header, normalize, stride_size, allLabels, \
+                                 mu, sig, batch_size):
 
     # load refine data
     img, label, final, z_shape, y_shape, x_shape = load_refine_data(path_to_img, path_to_final,\
@@ -763,7 +815,7 @@ def refine_semantic_segmentation(path_to_img, path_to_final, path_to_model, patc
     model = load_model(str(path_to_model))
 
     # predict
-    prob = model.predict(x_test, batch_size=None, verbose=0, steps=None)
+    prob = model.predict(x_test, batch_size=batch_size, verbose=0, steps=None)
 
     # create final
     nb = 0
@@ -794,4 +846,6 @@ def refine_semantic_segmentation(path_to_img, path_to_final, path_to_model, patc
     out = out.astype(np.uint8)
     out = get_labels(out, allLabels)
     out = out[:z_shape, :y_shape, :x_shape]
-    save_data(path_to_final, out, compress=compress)
+    if header is not None:
+        header = adjust_header(header, out)
+    save_data(path_to_final, out, header=header, compress=compress)

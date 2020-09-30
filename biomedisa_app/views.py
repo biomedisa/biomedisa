@@ -97,7 +97,7 @@ from django.core.mail import send_mail
 from django.utils import timezone
 
 from biomedisa_app.models import (UploadForm, Upload, StorageForm, Profile, 
-                            UserForm, SettingsForm, SettingsPredictionForm, CustomUserCreationForm)
+        UserForm, SettingsForm, SettingsPredictionForm, CustomUserCreationForm)
 from biomedisa_features.create_slices import create_slices
 from biomedisa_features.biomedisa_helper import load_data, save_data, img_to_uint8, id_generator
 from django.utils.crypto import get_random_string
@@ -112,7 +112,7 @@ import time
 import json
 from decimal import Decimal
 import hashlib
-from shutil import copyfile, copytree
+from shutil import copytree
 import tarfile, zipfile
 import shutil
 import subprocess
@@ -509,6 +509,7 @@ def settings_prediction(request, id):
                 tmp4 = image.ac_alpha
                 tmp5 = image.ac_smooth
                 tmp6 = image.ac_steps
+                tmp7 = image.batch_size
                 image.delete_outliers = cd['delete_outliers']
                 image.fill_holes = cd['fill_holes']
                 image.compression = cd['compression']
@@ -516,17 +517,18 @@ def settings_prediction(request, id):
                 image.ac_alpha = cd['ac_alpha']
                 image.ac_smooth = cd['ac_smooth']
                 image.ac_steps = cd['ac_steps']
+                image.batch_size = cd['batch_size']
                 image.save()
                 if any([tmp0!=image.delete_outliers, tmp1!=image.fill_holes, tmp2!=image.compression,\
                         tmp3!=image.stride_size, tmp4!=image.ac_alpha, tmp5!=image.ac_smooth, \
-                        tmp6!=image.ac_steps]):
+                        tmp6!=image.ac_steps, tmp7!=image.batch_size]):
                     messages.error(request, 'Your settings were changed.')
                 return redirect(settings_prediction, id)
         else:
             settings_form = SettingsPredictionForm(initial={'delete_outliers':image.delete_outliers, \
                                 'fill_holes':image.fill_holes, 'compression':image.compression, \
                                 'stride_size':image.stride_size, 'ac_alpha':image.ac_alpha, \
-                                'ac_smooth':image.ac_smooth, 'ac_steps':image.ac_steps})
+                                'ac_smooth':image.ac_smooth, 'ac_steps':image.ac_steps, 'batch_size':image.batch_size})
             return render(request, 'settings.html', {'settings_form':settings_form, 'name':image.shortfilename})
 
 # 21. update_profile
@@ -884,9 +886,7 @@ def features(request, action):
             else:
                 raw_out.status = 1
                 raw_out.message = 'Queue %s position %s of %s' %(queue_name, lenq, lenq)
-            label_out.status = 1
             raw_out.save()
-            label_out.save()
 
     # active contour
     elif int(action) == 5:
@@ -904,21 +904,22 @@ def features(request, action):
             from biomedisa_features.active_contour import active_contour
             if config['OS'] == 'linux':
                 q = Queue('acwe', connection=Redis())
-                job = q.enqueue_call(active_contour, args=(str(raw.pic.path), str(label.pic.path), label.id, label.id, raw.id,), timeout=-1)
+                job = q.enqueue_call(active_contour, args=(raw.pic.path, label.pic.path, label.id, label.id, raw.id,), timeout=-1)
+                lenq = len(q)
+                raw.job_id = job.id
+                if lenq == 0:
+                    raw.status = 2
+                    raw.message = 'Processing'
+                else:
+                    raw.status = 1
+                    raw.message = 'Queue D position %s of %s' %(lenq, lenq)
+                raw.queue = 4
+                raw.save()
             elif config['OS'] == 'windows':
-                Process(target=active_contour, args=(str(raw.pic.path), str(label.pic.path), label.id, label.id, raw.id)).start()
-            lenq = len(q)
-            raw.job_id = job.id
-            if lenq == 0:
+                Process(target=active_contour, args=(raw.pic.path, label.pic.path, label.id, label.id, raw.id)).start()
                 raw.status = 2
                 raw.message = 'Processing'
-            else:
-                raw.status = 1
-                raw.message = 'Queue D position %s of %s' %(lenq, lenq)
-            label.status = 1
-            raw.queue = 4
-            label.save()
-            raw.save()
+                raw.save()
         else:
             request.session['state'] = "No usable image and label combination selected."
 
@@ -958,99 +959,141 @@ def features(request, action):
                     # create object
                     if img.final:
                         if k == 0:
-                            ref_img = Upload.objects.create(pic=pic_path, user=img.user, project=0, imageType=img.imageType, shortfilename=new_short_name, final=img.final, active=1)
+                            ref_img = Upload.objects.create(pic=pic_path, user=img.user, project=img.project, imageType=img.imageType, shortfilename=new_short_name, final=img.final, active=1)
                             ref_img.friend = ref_img.id
                             ref_img.save()
                         else:
-                            Upload.objects.create(pic=pic_path, user=img.user, project=0, imageType=img.imageType, shortfilename=new_short_name, final=img.final, friend=ref_img.id)
+                            Upload.objects.create(pic=pic_path, user=img.user, project=img.project, imageType=img.imageType, shortfilename=new_short_name, final=img.final, friend=ref_img.id)
                     else:
-                        Upload.objects.create(pic=pic_path, user=img.user, project=0, imageType=img.imageType, shortfilename=new_short_name, final=img.final)
+                        Upload.objects.create(pic=pic_path, user=img.user, project=img.project, imageType=img.imageType, shortfilename=new_short_name, final=img.final)
 
                     # copy data
-                    copyfile(img.pic.path, path_to_data)
+                    os.link(img.pic.path, path_to_data)
 
                     # copy slices for visualization
                     path_to_source = img.pic.path.replace('images', 'dataset', 1)
                     path_to_dest = path_to_data.replace('images', 'dataset', 1)
                     if os.path.exists(path_to_source):
-                        copytree(path_to_source, path_to_dest)
+                        copytree(path_to_source, path_to_dest, copy_function=os.link)
 
                     # copy slices for sliceviewer
                     path_to_source = img.pic.path.replace('images', 'sliceviewer', 1)
                     path_to_dest = path_to_data.replace('images', 'sliceviewer', 1)
                     if os.path.exists(path_to_source):
-                        copytree(path_to_source, path_to_dest)
+                        copytree(path_to_source, path_to_dest, copy_function=os.link)
 
-                    # untar or unzip if necessary
-                    path_to_dir, extension = os.path.splitext(path_to_data)
-                    if extension == '.zip':
-                        zip_ref = zipfile.ZipFile(path_to_data, 'r')
-                        zip_ref.extractall(path=path_to_dir)
-                        zip_ref.close()
-                    elif extension == '.tar':
-                        tar = tarfile.open(path_to_data)
-                        tar.extractall(path=path_to_dir)
-                        tar.close()
+                    # copy untared or unzipped data
+                    path_to_src, extension = os.path.splitext(img.pic.path)
+                    path_to_dir, _ = os.path.splitext(path_to_data)
+                    if extension in ['.zip', '.tar']:
+                        copytree(path_to_src, path_to_dir, copy_function=os.link)
 
     # convert to 8bit
     elif int(action) == 7:
-
+        started = False
         todo = request.GET.getlist('selected')
         for id in todo:
             img = get_object_or_404(Upload, pk=id)
             if img.user == request.user:
+                if config['OS'] == 'linux':
+                    q = Queue('convert_image', connection=Redis())
+                    job = q.enqueue_call(convert_image, args=(img.id,), timeout=-1)
+                    lenq = len(q)
+                    img.job_id = job.id
+                    if lenq == 0:
+                        img.status = 2
+                        img.message = 'Processing'
+                    else:
+                        img.status = 1
+                        img.message = 'Queue E position %s of %s' %(lenq, lenq)
+                    img.queue = 5
+                    img.save()
+                elif config['OS'] == 'windows':
+                    Process(target=convert_image, args=(img.id)).start()
+                    img.status = 2
+                    img.message = 'Processing'
+                    img.save()
+                started = True
+        if started:
+            request.session['state'] = 'Conversion started.'
 
-                # load data
-                data, _ = load_data(img.pic.path, 'converter')
+def convert_image(id):
 
-                if data is None:
-                    request.session['state'] = 'Invalid image data.'
+    # get object
+    img = get_object_or_404(Upload, pk=id)
 
-                else:
+    # set PID
+    if img.status == 1:
+        img.status = 2
+        img.message = 'Processing'
+    img.pid = int(os.getpid())
+    img.save()
 
-                    # convert data
-                    data = img_to_uint8(data)
+    # load data
+    data, _ = load_data(img.pic.path, 'converter')
 
-                    # create new pic path
-                    filename, extension = os.path.splitext(img.shortfilename)
-                    if extension == '.gz':
-                        filename = filename[:-4]
-                    dir_path = config['PATH_TO_BIOMEDISA'] + '/private_storage/'
-                    extension = '.tif'
-                    addon = '.8bit'
+    if data is None:
 
-                    limit = 100 - len(addon) - len(extension)
-                    pic_path = 'images/%s/%s' %(img.user, filename)
-                    pic_path = pic_path[:limit] + addon + extension
-                    path_to_data = dir_path + pic_path
+        # return error
+        message = 'Invalid data.'
+        Upload.objects.create(user=img.user, project=img.project, log=1, imageType=None, shortfilename=message)
 
-                    if os.path.exists(path_to_data):
-                        CHARACTERS, CODE_SIZE = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz23456789', 7
-                        newending = id_generator(CODE_SIZE, CHARACTERS)
-                        limit = 100 - 8 - len(addon) - len(extension)
-                        pic_path = 'images/%s/%s' %(img.user, filename)
-                        pic_path = pic_path[:limit] + '_' + newending + addon + extension
-                        path_to_data = dir_path + pic_path
+        # close process
+        img.status = 0
+        img.pid = 0
+        img.save()
 
-                    # create object
-                    new_short_name = os.path.basename(pic_path)
-                    active = 1 if img.imageType == 3 else 0
-                    Upload.objects.create(pic=pic_path, user=img.user, project=img.project, imageType=img.imageType, shortfilename=new_short_name, active=active)
+    else:
 
-                    # save data
-                    save_data(path_to_data, data, final_image_type='.tif')
+        # convert data
+        data = img_to_uint8(data)
 
-                    # copy slices for visualization
-                    path_to_source = img.pic.path.replace('images', 'dataset', 1)
-                    path_to_dest = path_to_data.replace('images', 'dataset', 1)
-                    if os.path.exists(path_to_source):
-                        copytree(path_to_source, path_to_dest)
+        # create pic path
+        filename, extension = os.path.splitext(img.shortfilename)
+        if extension == '.gz':
+            filename = filename[:-4]
+        dir_path = config['PATH_TO_BIOMEDISA'] + '/private_storage/'
+        extension = '.tif'
+        addon = '.8bit'
 
-                    # copy slices for sliceviewer
-                    path_to_source = img.pic.path.replace('images', 'sliceviewer', 1)
-                    path_to_dest = path_to_data.replace('images', 'sliceviewer', 1)
-                    if os.path.exists(path_to_source):
-                        copytree(path_to_source, path_to_dest)
+        limit = 100 - len(addon) - len(extension)
+        pic_path = 'images/%s/%s' %(img.user, filename)
+        pic_path = pic_path[:limit] + addon + extension
+        path_to_data = dir_path + pic_path
+
+        # create unique pic path
+        if os.path.exists(path_to_data):
+            CHARACTERS, CODE_SIZE = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz23456789', 7
+            newending = id_generator(CODE_SIZE, CHARACTERS)
+            limit = 100 - 8 - len(addon) - len(extension)
+            pic_path = 'images/%s/%s' %(img.user, filename)
+            pic_path = pic_path[:limit] + '_' + newending + addon + extension
+            path_to_data = dir_path + pic_path
+
+        # save data
+        save_data(path_to_data, data, final_image_type='.tif')
+
+        # copy slices for visualization
+        path_to_source = img.pic.path.replace('images', 'dataset', 1)
+        path_to_dest = path_to_data.replace('images', 'dataset', 1)
+        if os.path.exists(path_to_source):
+            copytree(path_to_source, path_to_dest, copy_function=os.link)
+
+        # copy slices for sliceviewer
+        path_to_source = img.pic.path.replace('images', 'sliceviewer', 1)
+        path_to_dest = path_to_data.replace('images', 'sliceviewer', 1)
+        if os.path.exists(path_to_source):
+            copytree(path_to_source, path_to_dest, copy_function=os.link)
+
+        # create object
+        new_short_name = os.path.basename(pic_path)
+        active = 1 if img.imageType == 3 else 0
+        Upload.objects.create(pic=pic_path, user=img.user, project=img.project, imageType=img.imageType, shortfilename=new_short_name, active=active)
+
+        # close process
+        img.status = 0
+        img.pid = 0
+        img.save()
 
 # 26. reset
 @login_required
@@ -1192,7 +1235,7 @@ def app(request):
     # get image objects
     for image in images:
 
-        if image.status == 2 or (image.imageType == 1 and image.status == 1):
+        if image.status > 0:
             process_running = 1
             process_list += ";" + str(image.id) + ":" + str(image.status)
 
@@ -1204,13 +1247,14 @@ def app(request):
                 tmp[0].save()
 
         # update processing status
-        if image.imageType == 1 and image.status == 1:
+        if image.status == 1:
 
             if config['OS'] == 'linux':
                 q1 = Queue('first_queue', connection=Redis())
                 q2 = Queue('second_queue', connection=Redis())
                 q3 = Queue('third_queue', connection=Redis())
                 q4 = Queue('acwe', connection=Redis())
+                q5 = Queue('convert_image', connection=Redis())
                 id_to_check = image.job_id
 
                 if id_to_check in q1.job_ids:
@@ -1231,6 +1275,11 @@ def app(request):
                 elif id_to_check in q4.job_ids:
                     i = q4.job_ids.index(id_to_check)
                     image.message = 'Queue D position %s of %s' %(i+1, len(q4))
+                    image.save()
+
+                elif id_to_check in q5.job_ids:
+                    i = q5.job_ids.index(id_to_check)
+                    image.message = 'Queue E position %s of %s' %(i+1, len(q5))
                     image.save()
 
                 else:
@@ -1448,28 +1497,23 @@ def accept_shared_data(request):
                     images = [stock_to_share]
                 for img in images:
                     # copy file
-                    copyfile(img.shared_path, img.pic.path)
+                    os.link(img.shared_path, img.pic.path)
                     img.shared = 0
                     img.save()
-                    # untar or unzip if necessary
-                    path_to_dir, extension = os.path.splitext(str(img.pic.path))
-                    if extension == '.zip':
-                        zip_ref = zipfile.ZipFile(str(img.pic.path), 'r')
-                        zip_ref.extractall(path=path_to_dir)
-                        zip_ref.close()
-                    elif extension == '.tar':
-                        tar = tarfile.open(str(img.pic.path))
-                        tar.extractall(path=path_to_dir)
-                        tar.close()
-                    # copy meta data
+                    # copy untared or unzipped data
+                    path_to_src, extension = os.path.splitext(img.shared_path)
+                    path_to_dir, _ = os.path.splitext(str(img.pic.path))
+                    if extension in ['.zip', '.tar']:
+                        copytree(path_to_src, path_to_dir, copy_function=os.link)
+                    # copy slices
                     path_to_source = img.shared_path.replace('images', 'dataset', 1)
                     path_to_dest = img.pic.path.replace('images', 'dataset', 1)
                     if os.path.exists(path_to_source):
-                        copytree(path_to_source, path_to_dest)
+                        copytree(path_to_source, path_to_dest, copy_function=os.link)
                     path_to_source = img.shared_path.replace('images', 'sliceviewer', 1)
                     path_to_dest = img.pic.path.replace('images', 'sliceviewer', 1)
                     if os.path.exists(path_to_source):
-                        copytree(path_to_source, path_to_dest)
+                        copytree(path_to_source, path_to_dest, copy_function=os.link)
                 results = {'success':True}
             else:
                 state = 'Data has already been removed.'
@@ -1548,27 +1592,59 @@ def delete_demo(request):
 # 38. download_demo
 def download_demo(request, id):
     int_id = int(id)
-    file_names = ["screw_joint.tif", "labels.screw_joint.tif", "final.screw_joint.tif", "trigonopterus.tif", "labels.trigonopterus_smart.tif", "final.trigonopterus_smart.tif", "tumor.tif", "Euphthiracarus_reticulatus.pdf", "labels.tumor.tif", "final.tumor.itf", "heart.tif", "labels.heart.tif", "final.heart.tif", "img.tumor.tar", "label.tumor.tar", "predict.tumor.tar", "final.predict.tumor.tar", "NMB_F2875.tif", "labels.NMB_F2875.tif", "final.NMB_F2875.tif", "NRM-PZ_Ar65720.tif", "labels.NRM-PZ_Ar65720.am", "final.NRM-PZ_Ar65720.am", "training_heart.tar", "training_heart_labels.tar", "heart.h5", "testing_axial_crop_pat13.nii.gz", "final.testing_axial_crop_pat13.tif", \
-    'wasp_from_amber.tif', 'labels.wasp_from_amber.tif', 'final.wasp_from_amber.tif', 'cockroach.tif', 'labels.cockroach.tif', 'final.cockroach.tif', 'theropod_claw.tif', 'labels.theropod_claw.tif', 'final.theropod_claw.tif', 'bull_ant.tif', 'labels.bull_ant_head.tif', 'final.bull_ant_head.tif', 'mouse_molar_teeth.tar', 'labels.mouse_molar_teeth.tar', 'final.mouse_molar_teeth.tar']
-    pk_list = [3856, 3857, 14244, 36600, 36601, 36602, 3860, 3864, 3861, 14253, 3862, 3863, 3357,\
-             5713, 5714, 5715, 5716, 8321, 14257, 14258, 8315, 8322, 14261, 21089, 21090, 21091, 21088, 21140, \
-            36666,36667,36668,36645,36646,36659,36647,36648,36687,36650,36651,36652,36716,36717,36728]
+    file_names = ["screw_joint.tif", "labels.screw_joint.tif", "final.screw_joint.tif", \
+                 "trigonopterus.tif", "labels.trigonopterus_smart.am", "final.trigonopterus_smart.am", \
+                 "tumor.tif", "labels.tumor.tif", "final.tumor.itf", \
+                 "NMB_F2875.tif", "labels.NMB_F2875.tif", "final.NMB_F2875.tif", \
+                 "NRM-PZ_Ar65720.tif", "labels.NRM-PZ_Ar65720.am", "final.NRM-PZ_Ar65720.am", \
+                 "training_heart.tar", "training_heart_labels.tar", "heart.h5", \
+                 "testing_axial_crop_pat13.nii.gz", "final.testing_axial_crop_pat13.tif", \
+                 'wasp_from_amber.tif', 'labels.wasp_from_amber.am', 'final.wasp_from_amber.am', \
+                 'cockroach.tif', 'labels.cockroach.am', 'final.cockroach.am', \
+                 'theropod_claw.tif', 'labels.theropod_claw.tif', 'final.theropod_claw.tif', \
+                 'bull_ant_queen.am', 'labels.bull_ant_queen_head.am', 'final.bull_ant_queen_head.am', \
+                 'mouse_molar_teeth.tar', 'labels.mouse_molar_teeth.tar', 'final.mouse_molar_teeth.tar']
+    pk_list = [3856, 3857, 14244, \
+               36600, 36601, 36602, \
+               3860, 3861, 14253, \
+               8321, 14257, 14258, \
+               8315, 8322, 14261, \
+               21089, 21090, 21091, \
+               21088, 21140, \
+               36666,36667,36668, \
+               36645,36646,36659, \
+               36647,36648,36687, \
+               36650,36651,36652, \
+               36716,36717,36728]
     if 0 <= int_id < len(pk_list):
         filename = file_names[int_id]
         stock_to_download = get_object_or_404(Upload, pk=pk_list[int_id])
-        response = HttpResponse(stock_to_download.pic, content_type='%s' %(filename) )
+        path_to_file = stock_to_download.pic.path
+        wrapper = FileWrapper(open(path_to_file, 'rb'))
+        imgsize = os.path.getsize(path_to_file)
+        if imgsize < 5000000000:
+            response = HttpResponse(wrapper, content_type='%s' %(filename))
+        else:
+            response = StreamingHttpResponse(wrapper, content_type='%s' %(filename))
         response['Content-Disposition'] = 'attachment; filename="%s"' %(filename)
-        strgfilename = stock_to_download.pic
-        strgfilename = config['PATH_TO_BIOMEDISA'] + '/private_storage/' + str(strgfilename)
-        response['Content-Length'] = os.path.getsize(strgfilename)
+        response['Content-Length'] = imgsize
         return response
 
 # 39. visualization_demo
 def visualization_demo(request, id):
     int_id = int(id)
-    pk_list = [3856, 3857, 14244, 36600, 36601, 36602, 3860, 3864, 3861, 14253, 3862, 3863, 3357,\
-             5713, 5714, 5715, 5716, 8321, 14257, 14258, 8315, 8322, 14261, 21089, 21090, 21091, 21088, 21140, \
-            36666,36667,36668,36645,36646,36659,36647,36648,36687,36650,36651,36652,36716,36717,36728]
+    pk_list = [3856, 3857, 14244, \
+               36600, 36601, 36602, \
+               3860, 3861, 14253, \
+               8321, 14257, 14258, \
+               8315, 8322, 14261, \
+               21089, 21090, 21091, \
+               21088, 21140, \
+               36666,36667,36668, \
+               36645,36646,36659, \
+               36647,36648,36687, \
+               36650,36651,36652, \
+               36716,36717,36728]
     if 0 <= int_id < len(pk_list):
         stock_to_visualize = get_object_or_404(Upload, pk=pk_list[int_id])
         filename = stock_to_visualize.shortfilename
@@ -1580,9 +1656,18 @@ def visualization_demo(request, id):
 # 40. sliceviewer_demo
 def sliceviewer_demo(request, id):
     int_id = int(id)
-    pk_list = [3856, 3857, 14244, 36600, 36601, 36602, 3860, 3864, 3861, 14253, 3862, 3863, 3357,\
-             5713, 5714, 5715, 5716, 8321, 14257, 14258, 8315, 8322, 14261, 21089, 21090, 21091, 21088, 21140, \
-            36666,36667,36668,36645,36646,36659,36647,36648,36687,36650,36651,36652,36716,36717,36728]
+    pk_list = [3856, 3857, 14244, \
+               36600, 36601, 36602, \
+               3860, 3861, 14253, \
+               8321, 14257, 14258, \
+               8315, 8322, 14261, \
+               21089, 21090, 21091, \
+               21088, 21140, \
+               36666,36667,36668, \
+               36645,36646,36659, \
+               36647,36648,36687, \
+               36650,36651,36652, \
+               36716,36717,36728]
     if 0 <= int_id < len(pk_list):
         stock_to_show = get_object_or_404(Upload, pk=pk_list[int_id])
         filename = stock_to_show.shortfilename
@@ -1618,57 +1703,67 @@ def delete(request):
 def init_random_walk(image, label, second_queue):
 
     # get objects
-    image = get_object_or_404(Upload, pk=image)
-    label = get_object_or_404(Upload, pk=label)
-
-    # set status to processing
-    if image.status == 1:
-        image.status = 2
-        image.message = 'Processing'
+    try:
+        image = Upload.objects.get(pk=image)
+        label = Upload.objects.get(pk=label)
+    except Upload.DoesNotExist:
+        image.status = 0
+        image.pid = 0
         image.save()
+        message = 'Files have been removed.'
+        Upload.objects.create(user=image.user, project=image.project, log=1, imageType=None, shortfilename=message)
 
-    # change working directory
-    cwd = config['PATH_TO_BIOMEDISA'] + '/biomedisa_features/random_walk/'
-    workers_host = config['PATH_TO_BIOMEDISA'] + '/log/workers_host'
+    # check if aborted
+    if image.status > 0:
 
-    # get configuration
-    if second_queue:
-        ngpus = str(config['SECOND_QUEUE_NGPUS'])
-        host = config['SECOND_QUEUE_HOST']
-        cluster = config['SECOND_QUEUE_CLUSTER']
-    else:
-        ngpus = str(config['FIRST_QUEUE_NGPUS'])
-        host = config['FIRST_QUEUE_HOST']
-        cluster = config['FIRST_QUEUE_CLUSTER']
+        # set status to processing
+        if image.status == 1:
+            image.status = 2
+            image.message = 'Processing'
+            image.save()
 
-    # run random walks
-    if config['OS'] == 'linux':
+        # change working directory
+        cwd = config['PATH_TO_BIOMEDISA'] + '/biomedisa_features/random_walk/'
+        workers_host = config['PATH_TO_BIOMEDISA'] + '/log/workers_host'
 
-        if host and cluster:
-            p = subprocess.Popen(['ssh', host, 'mpiexec', '-np', ngpus, '--hostfile', workers_host, 'python3', cwd+'rw_main.py', str(image.id), str(label.id)])
-        elif host:
-            p = subprocess.Popen(['ssh', host, 'mpiexec', '-np', ngpus, 'python3', cwd+'rw_main.py', str(image.id), str(label.id)])
-        elif cluster:
-            p = subprocess.Popen(['mpiexec', '-np', ngpus, '--hostfile', workers_host, 'python3', 'rw_main.py', str(image.id), str(label.id)], cwd=cwd)
+        # get configuration
+        if second_queue:
+            ngpus = str(config['SECOND_QUEUE_NGPUS'])
+            host = config['SECOND_QUEUE_HOST']
+            cluster = config['SECOND_QUEUE_CLUSTER']
         else:
-            p = subprocess.Popen(['mpiexec', '-np', ngpus, 'python3', 'rw_main.py', str(image.id), str(label.id)], cwd=cwd)
+            ngpus = str(config['FIRST_QUEUE_NGPUS'])
+            host = config['FIRST_QUEUE_HOST']
+            cluster = config['FIRST_QUEUE_CLUSTER']
 
-    elif config['OS'] == 'windows':
-        p = subprocess.Popen(['mpiexec', '-np', ngpus, 'python', '-u', 'rw_main.py', str(image.id), str(label.id)], cwd=cwd, stdout=subprocess.PIPE)
+        # run random walks
+        if config['OS'] == 'linux':
 
-    # set pid and wait
-    #image.pid = int(p.pid)
-    #image.save()
+            if host and cluster:
+                p = subprocess.Popen(['ssh', host, 'mpiexec', '-np', ngpus, '--hostfile', workers_host, 'python3', cwd+'rw_main.py', str(image.id), str(label.id)])
+            elif host:
+                p = subprocess.Popen(['ssh', host, 'mpiexec', '-np', ngpus, 'python3', cwd+'rw_main.py', str(image.id), str(label.id)])
+            elif cluster:
+                p = subprocess.Popen(['mpiexec', '-np', ngpus, '--hostfile', workers_host, 'python3', 'rw_main.py', str(image.id), str(label.id)], cwd=cwd)
+            else:
+                p = subprocess.Popen(['mpiexec', '-np', ngpus, 'python3', 'rw_main.py', str(image.id), str(label.id)], cwd=cwd)
 
-    # print output
-    if config['OS'] == 'windows':
-        for line in iter(p.stdout.readline, b''):
-            line = str(line,'utf-8')
-            print(line.rstrip())
-        p.stdout.close()
+        elif config['OS'] == 'windows':
+            p = subprocess.Popen(['mpiexec', '-np', ngpus, 'python', '-u', 'rw_main.py', str(image.id), str(label.id)], cwd=cwd, stdout=subprocess.PIPE)
 
-    # wait for process terminating
-    p.wait()
+        # set pid and wait
+        #image.pid = int(p.pid)
+        #image.save()
+
+        # print output
+        if config['OS'] == 'windows':
+            for line in iter(p.stdout.readline, b''):
+                line = str(line,'utf-8')
+                print(line.rstrip())
+            p.stdout.close()
+
+        # wait for process terminating
+        p.wait()
 
 # 43. run random walks
 @login_required
@@ -1722,8 +1817,6 @@ def run(request):
                             raw.queue = 2
                         else:
                             raw.queue = 1
-                        label.status = 1
-                        label.save()
                         raw.save()
 
                     else:
@@ -1737,18 +1830,14 @@ def run(request):
                         else:
                             raw.status = 1
                             raw.message = 'Queue A position %s of %s' %(lenq, lenq)
-                        label.status = 1
                         raw.queue = 1
-                        label.save()
                         raw.save()
 
                 elif config['OS'] == 'windows':
                     Process(target=init_random_walk, args=(raw.id, label.id, False)).start()
                     raw.status = 2
                     raw.message = 'Processing'
-                    label.status = 1
                     raw.queue = 1
-                    label.save()
                     raw.save()
 
             results = {'success':True}
@@ -1768,7 +1857,7 @@ def stop_running_job(id, queue):
         host = config['SECOND_QUEUE_HOST']
     elif queue == 3:
         host = config['THIRD_QUEUE_HOST']
-    elif queue == 4:
+    elif queue in [4,5]:
         host = ''
 
     # kill process
@@ -1799,6 +1888,7 @@ def remove_from_queue(request):
                     q2 = Queue('second_queue', connection=Redis())
                     q3 = Queue('third_queue', connection=Redis())
                     q4 = Queue('acwe', connection=Redis())
+                    q5 = Queue('convert_image', connection=Redis())
                     id_to_check = image_to_stop.job_id
                     if id_to_check in q1.job_ids:
                         job = q1.fetch_job(id_to_check)
@@ -1812,6 +1902,9 @@ def remove_from_queue(request):
                     elif id_to_check in q4.job_ids:
                         job = q4.fetch_job(id_to_check)
                         job.delete()
+                    elif id_to_check in q5.job_ids:
+                        job = q5.fetch_job(id_to_check)
+                        job.delete()
 
                 # kill running process
                 if image_to_stop.status == 2 and image_to_stop.pid > 0:
@@ -1823,11 +1916,15 @@ def remove_from_queue(request):
                     image_to_stop.pid = 0
                     image_to_stop.save()
 
-                # reset all images
-                images = Upload.objects.filter(user=request.user, project=image_to_stop.project)
-                for img in images:
-                    img.status = 0
-                    img.save()
+                # reset image
+                image_to_stop.status = 0
+                image_to_stop.save()
+
+                # reset all images in project
+                #images = Upload.objects.filter(user=request.user, project=image_to_stop.project)
+                #for img in images:
+                #    img.status = 0
+                #    img.save()
 
             results = {'success':True}
 
