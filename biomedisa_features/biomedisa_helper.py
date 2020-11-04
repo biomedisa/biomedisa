@@ -28,6 +28,7 @@
 
 import django
 django.setup()
+from django.shortcuts import get_object_or_404
 from biomedisa_app.models import Upload
 from biomedisa_app.config import config
 from biomedisa_features.amira_to_np.amira_helper import amira_to_np, np_to_amira
@@ -41,6 +42,9 @@ import random
 import cv2
 import time
 import zipfile
+import numba
+from shutil import copytree
+from multiprocessing import Process
 
 if config['OS'] == 'linux':
     from redis import Redis
@@ -64,6 +68,23 @@ def img_resize(a, z_shape, y_shape, x_shape, interpolation=None):
     c = np.swapaxes(c, 1, 0)
     c = np.copy(c, order='C')
     return c
+
+@numba.jit(nopython=True)
+def smooth_img_3x3(img, out):
+    zsh, ysh, xsh = img.shape
+    out = np.copy(img)
+    for z in range(zsh):
+        for y in range(ysh):
+            for x in range(xsh):
+                tmp,i = 0,0
+                for k in range(-1,2):
+                    for l in range(-1,2):
+                        for m in range(-1,2):
+                            if 0<=z+k<zsh and 0<=y+l<ysh and 0<=x+m<xsh:
+                                tmp += img[z+k,y+l,x+m]
+                                i += 1
+                out[z,y,x] = tmp / i
+    return out
 
 def img_to_uint8(img):
     if img.dtype != 'uint8':
@@ -322,3 +343,156 @@ def delbackground(labels):
     index = np.argmax(labelcounts)
     labels[labels==allLabels[index]] = 0
     return labels
+
+def convert_image(id):
+
+    # get object
+    img = get_object_or_404(Upload, pk=id)
+
+    # set PID
+    if img.status == 1:
+        img.status = 2
+        img.message = 'Processing'
+    img.pid = int(os.getpid())
+    img.save()
+
+    # load data
+    data, _ = load_data(img.pic.path, 'converter')
+
+    if data is None:
+
+        # return error
+        message = 'Invalid data.'
+        Upload.objects.create(user=img.user, project=img.project, log=1, imageType=None, shortfilename=message)
+
+        # close process
+        img.status = 0
+        img.pid = 0
+        img.save()
+
+    else:
+
+        # convert data
+        data = img_to_uint8(data)
+
+        # create pic path
+        filename, extension = os.path.splitext(img.shortfilename)
+        if extension == '.gz':
+            filename = filename[:-4]
+        dir_path = config['PATH_TO_BIOMEDISA'] + '/private_storage/'
+        extension = '.tif'
+        addon = '.8bit'
+
+        limit = 100 - len(addon) - len(extension)
+        pic_path = 'images/%s/%s' %(img.user, filename)
+        pic_path = pic_path[:limit] + addon + extension
+        path_to_data = dir_path + pic_path
+
+        # create unique pic path
+        if os.path.exists(path_to_data):
+            CHARACTERS, CODE_SIZE = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz23456789', 7
+            newending = id_generator(CODE_SIZE, CHARACTERS)
+            limit = 100 - 8 - len(addon) - len(extension)
+            pic_path = 'images/%s/%s' %(img.user, filename)
+            pic_path = pic_path[:limit] + '_' + newending + addon + extension
+            path_to_data = dir_path + pic_path
+
+        # save data
+        save_data(path_to_data, data, final_image_type='.tif')
+
+        # copy slices for visualization
+        path_to_source = img.pic.path.replace('images', 'dataset', 1)
+        path_to_dest = path_to_data.replace('images', 'dataset', 1)
+        if os.path.exists(path_to_source):
+            copytree(path_to_source, path_to_dest, copy_function=os.link)
+
+        # copy slices for sliceviewer
+        path_to_source = img.pic.path.replace('images', 'sliceviewer', 1)
+        path_to_dest = path_to_data.replace('images', 'sliceviewer', 1)
+        if os.path.exists(path_to_source):
+            copytree(path_to_source, path_to_dest, copy_function=os.link)
+
+        # create object
+        new_short_name = os.path.basename(pic_path)
+        active = 1 if img.imageType == 3 else 0
+        Upload.objects.create(pic=pic_path, user=img.user, project=img.project, imageType=img.imageType, shortfilename=new_short_name, active=active)
+
+        # close process
+        img.status = 0
+        img.pid = 0
+        img.save()
+
+def smooth_image(id):
+
+    # get object
+    img = get_object_or_404(Upload, pk=id)
+
+    # set PID
+    if img.status == 1:
+        img.status = 2
+        img.message = 'Processing'
+    img.pid = int(os.getpid())
+    img.save()
+
+    # load data
+    data, _ = load_data(img.pic.path, 'converter')
+
+    if data is None:
+
+        # return error
+        message = 'Invalid data.'
+        Upload.objects.create(user=img.user, project=img.project, log=1, imageType=None, shortfilename=message)
+
+        # close process
+        img.status = 0
+        img.pid = 0
+        img.save()
+
+    else:
+
+        # smooth image data
+        out = np.copy(data)
+        out = smooth_img_3x3(data, out)
+
+        # create pic path
+        filename, extension = os.path.splitext(img.shortfilename)
+        if extension == '.gz':
+            filename = filename[:-4]
+        dir_path = config['PATH_TO_BIOMEDISA'] + '/private_storage/'
+        extension = '.tif'
+        addon = '.denoised'
+
+        limit = 100 - len(addon) - len(extension)
+        pic_path = 'images/%s/%s' %(img.user, filename)
+        pic_path = pic_path[:limit] + addon + extension
+        path_to_data = dir_path + pic_path
+
+        # create unique pic path
+        if os.path.exists(path_to_data):
+            CHARACTERS, CODE_SIZE = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz23456789', 7
+            newending = id_generator(CODE_SIZE, CHARACTERS)
+            limit = 100 - 8 - len(addon) - len(extension)
+            pic_path = 'images/%s/%s' %(img.user, filename)
+            pic_path = pic_path[:limit] + '_' + newending + addon + extension
+            path_to_data = dir_path + pic_path
+
+        # save data
+        save_data(path_to_data, out, final_image_type='.tif')
+
+        # create slices
+        from biomedisa_features.create_slices import create_slices
+        if config['OS'] == 'linux':
+            q = Queue('slices', connection=Redis())
+            job = q.enqueue_call(create_slices, args=(path_to_data, None,), timeout=-1)
+        elif config['OS'] == 'windows':
+            Process(target=create_slices, args=(path_to_data, None)).start()
+
+        # create object
+        new_short_name = os.path.basename(pic_path)
+        active = 1 if img.imageType == 3 else 0
+        Upload.objects.create(pic=pic_path, user=img.user, project=img.project, imageType=img.imageType, shortfilename=new_short_name, active=active)
+
+        # close process
+        img.status = 0
+        img.pid = 0
+        img.save()

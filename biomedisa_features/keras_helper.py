@@ -32,7 +32,9 @@ from keras.models import Model, load_model
 from keras.layers import (
     Input, Conv3D, MaxPooling3D, UpSampling3D, Activation, Reshape,
     BatchNormalization, Concatenate)
-from keras.utils import multi_gpu_model, to_categorical
+from keras.utils import to_categorical
+from DataGenerator import DataGenerator
+import tensorflow as tf
 import numpy as np
 import cv2
 from random import shuffle
@@ -46,7 +48,7 @@ class InputError(Exception):
     def __init__(self, message=None):
         self.message = message
 
-def adjust_header(header, data):
+def get_image_dimensions(header, data):
 
     # read header as string
     b = header.tobytes()
@@ -67,7 +69,40 @@ def adjust_header(header, data):
 
     # return header as array
     b2 = s.encode()
-    new_header = np.frombuffer(b2, dtype=data.dtype)
+    new_header = np.frombuffer(b2, dtype=header.dtype)
+    return new_header
+
+def get_physical_size(header, img_header):
+
+    # read img_header as string
+    b = img_header.tobytes()
+    s = b.decode("utf-8")
+
+    # get physical size from image header
+    lattice = re.search('BoundingBox (.*),\n', s)
+    lattice = lattice.group(1)
+    i0, i1, i2, i3, i4, i5 = lattice.split(' ')
+    bounding_box_i = re.search('&BoundingBox (.*),\n', s)
+    bounding_box_i = bounding_box_i.group(1)
+
+    # read header as string
+    b = header.tobytes()
+    s = b.decode("utf-8")
+
+    # get physical size from header
+    lattice = re.search('BoundingBox (.*),\n', s)
+    lattice = lattice.group(1)
+    l0, l1, l2, l3, l4, l5 = lattice.split(' ')
+    bounding_box_l = re.search('&BoundingBox (.*),\n', s)
+    bounding_box_l = bounding_box_l.group(1)
+
+    # change physical size in header
+    s = s.replace('%s %s %s %s %s %s' %(l0,l1,l2,l3,l4,l5),'%s %s %s %s %s %s' %(i0,i1,i2,i3,i4,i5),1)
+    s = s.replace(bounding_box_l,bounding_box_i,1)
+
+    # return header as array
+    b2 = s.encode()
+    new_header = np.frombuffer(b2, dtype=header.dtype)
     return new_header
 
 @numba.jit(nopython=True)
@@ -124,22 +159,28 @@ def make_unet(input_shape, nb_labels):
     pool4 = MaxPooling3D(pool_size=(2, 2, 2))(conv4)
 
     conv5 = make_conv_block(512, pool4, 5)
+    pool5 = MaxPooling3D(pool_size=(2, 2, 2))(conv5)
 
-    up6 = Concatenate()([UpSampling3D(size=(2, 2, 2))(conv5), conv4])
-    conv6 = make_conv_block(256, up6, 6)
+    conv6 = make_conv_block(1024, pool5, 6)
 
-    up7 = Concatenate()([UpSampling3D(size=(2, 2, 2))(conv6), conv3])
-    conv7 = make_conv_block(128, up7, 7)
+    up7 = Concatenate()([UpSampling3D(size=(2, 2, 2))(conv6), conv5])
+    conv7 = make_conv_block(512, up7, 7)
 
-    up8 = Concatenate()([UpSampling3D(size=(2, 2, 2))(conv7), conv2])
-    conv8 = make_conv_block(64, up8, 8)
+    up8 = Concatenate()([UpSampling3D(size=(2, 2, 2))(conv7), conv4])
+    conv8 = make_conv_block(256, up8, 8)
 
-    up9 = Concatenate()([UpSampling3D(size=(2, 2, 2))(conv8), conv1])
-    conv9 = make_conv_block(32, up9, 9)
+    up9 = Concatenate()([UpSampling3D(size=(2, 2, 2))(conv8), conv3])
+    conv9 = make_conv_block(128, up9, 9)
 
-    conv10 = Conv3D(nb_labels, (1, 1, 1), name='conv_10_1')(conv9)
+    up10 = Concatenate()([UpSampling3D(size=(2, 2, 2))(conv9), conv2])
+    conv10 = make_conv_block(64, up10, 10)
 
-    x = Reshape((nb_plans * nb_rows * nb_cols, nb_labels))(conv10)
+    up11 = Concatenate()([UpSampling3D(size=(2, 2, 2))(conv10), conv1])
+    conv11 = make_conv_block(32, up11, 11)
+
+    conv12 = Conv3D(nb_labels, (1, 1, 1), name='conv_12_1')(conv11)
+
+    x = Reshape((nb_plans * nb_rows * nb_cols, nb_labels))(conv12)
     x = Activation('softmax')(x)
     outputs = Reshape((nb_plans, nb_rows, nb_cols, nb_labels))(x)
 
@@ -163,10 +204,19 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
     # get filenames
     img_names, label_names = [], []
     for img_name, label_name in zip(img_list, label_list):
-        if img_name[-4:] == '.tar' and label_name[-4:] == '.tar':
+
+        img_dir, img_ext = os.path.splitext(img_name)
+        if img_ext == '.gz':
+            img_dir, img_ext = os.path.splitext(img_dir)
+
+        label_dir, label_ext = os.path.splitext(label_name)
+        if label_ext == '.gz':
+            label_dir, label_ext = os.path.splitext(label_dir)
+
+        if img_ext == '.tar' and label_ext == '.tar':
             for data_type in ['.am','.tif','.tiff','.hdr','.mhd','.mha','.nrrd','.nii','.nii.gz']:
-                tmp_img_names = glob(img_name[:-4]+'/*/*'+data_type)+glob(img_name[:-4]+'/*'+data_type)
-                tmp_label_names = glob(label_name[:-4]+'/*/*'+data_type)+glob(label_name[:-4]+'/*'+data_type)
+                tmp_img_names = glob(img_dir+'/*/*'+data_type)+glob(img_dir+'/*'+data_type)
+                tmp_label_names = glob(label_dir+'/*/*'+data_type)+glob(label_dir+'/*'+data_type)
                 tmp_img_names = sorted(tmp_img_names)
                 tmp_label_names = sorted(tmp_label_names)
                 img_names.extend(tmp_img_names)
@@ -178,7 +228,7 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
     # load img data
     img, _ = load_data(img_names[0], 'first_queue')
     if img is None:
-        InputError.message = "Invalid image data '%s.'" %(os.path.basename(img_names[0]))
+        InputError.message = "Invalid image data %s." %(os.path.basename(img_names[0]))
         raise InputError()
     img = img.astype(np.float32)
     img = img_resize(img, z_scale, y_scale, x_scale)
@@ -188,7 +238,7 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
     for name in img_names[1:]:
         a, _ = load_data(name, 'first_queue')
         if a is None:
-            InputError.message = "Invalid image data '%s.'" %(os.path.basename(name))
+            InputError.message = "Invalid image data %s." %(os.path.basename(name))
             raise InputError()
         a = a.astype(np.float32)
         a = img_resize(a, z_scale, y_scale, x_scale)
@@ -207,7 +257,7 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
     # load label data
     a, header, extension = load_data(label_names[0], 'first_queue', True)
     if a is None:
-        InputError.message = "Invalid label data '%s.'" %(os.path.basename(label_names[0]))
+        InputError.message = "Invalid label data %s." %(os.path.basename(label_names[0]))
         raise InputError()
     a = a.astype(np.uint8)
     np_unique = np.unique(a)
@@ -220,7 +270,7 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
     for name in label_names[1:]:
         a, _ = load_data(name, 'first_queue')
         if a is None:
-            InputError.message = "Invalid label data '%s.'" %(os.path.basename(name))
+            InputError.message = "Invalid label data %s." %(os.path.basename(name))
             raise InputError()
         a = a.astype(np.uint8)
         np_unique = np.unique(a)
@@ -250,109 +300,34 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
 
     return img, label, position, allLabels, mu, sig, header, extension
 
-def config_training_data(img, label, position, z_patch, y_patch, x_patch, channels, stride_size, balance):
+def train_semantic_segmentaion(img, label, path_to_model, z_patch, y_patch, x_patch, allLabels, epochs,
+                        batch_size, channels, validation_split, stride_size, balance, position,
+                        flip_x, flip_y, flip_z, rotate):
 
+    # img shape
+    zsh, ysh, xsh = img.shape
+
+    # list of IDs
+    list_IDs_fg, list_IDs_bg = [], []
+
+    # get IDs of patches
     if balance:
-
-        # img shape
-        zsh, ysh, xsh = img.shape
-
-        # get number of patches
-        nb_fg, nb_bg = 0, 0
         for k in range(0, zsh-z_patch+1, stride_size):
             for l in range(0, ysh-y_patch+1, stride_size):
                 for m in range(0, xsh-x_patch+1, stride_size):
                     if np.any(label[k:k+z_patch, l:l+y_patch, m:m+x_patch]):
-                        nb_fg += 1
+                        list_IDs_fg.append(k*ysh*xsh+l*xsh+m)
                     else:
-                        nb_bg += 1
-
-        # allocate training array
-        x_fg = np.empty((nb_fg, z_patch, y_patch, x_patch, channels), dtype=img.dtype)
-        x_bg = np.empty((nb_bg, z_patch, y_patch, x_patch, channels), dtype=img.dtype)
-        y_fg = np.empty((nb_fg, z_patch, y_patch, x_patch), dtype=label.dtype)
-        y_bg = np.empty((nb_bg, z_patch, y_patch, x_patch), dtype=label.dtype)
-
-        # create training set
-        nb_fg, nb_bg = 0, 0
-        for k in range(0, zsh-z_patch+1, stride_size):
-            for l in range(0, ysh-y_patch+1, stride_size):
-                for m in range(0, xsh-x_patch+1, stride_size):
-                    if np.any(label[k:k+z_patch, l:l+y_patch, m:m+x_patch]):
-                        x_fg[nb_fg,:,:,:,0] = img[k:k+z_patch, l:l+y_patch, m:m+x_patch]
-                        if channels == 2:
-                            x_fg[nb_fg,:,:,:,1] = position[k:k+z_patch, l:l+y_patch, m:m+x_patch]
-                        y_fg[nb_fg] = label[k:k+z_patch, l:l+y_patch, m:m+x_patch]
-                        nb_fg += 1
-                    else:
-                        x_bg[nb_bg,:,:,:,0] = img[k:k+z_patch, l:l+y_patch, m:m+x_patch]
-                        if channels == 2:
-                            x_bg[nb_bg,:,:,:,1] = position[k:k+z_patch, l:l+y_patch, m:m+x_patch]
-                        y_bg[nb_bg] = label[k:k+z_patch, l:l+y_patch, m:m+x_patch]
-                        nb_bg += 1
-
-        # shuffel foreground
-        arr = np.arange(nb_fg)
-        np.random.shuffle(arr)
-        tmp = np.copy(x_fg)
-        for k in range(nb_fg):
-            tmp[k] = x_fg[arr[k]]
-        x_fg = np.copy(tmp)
-        tmp = np.copy(y_fg)
-        for k in range(nb_fg):
-            tmp[k] = y_fg[arr[k]]
-        y_fg = np.copy(tmp)
-
-        # shuffel background
-        arr = np.arange(nb_bg)
-        np.random.shuffle(arr)
-        tmp = np.copy(x_bg)
-        for k in range(nb_bg):
-            tmp[k] = x_bg[arr[k]]
-        x_bg = np.copy(tmp)
-        tmp = np.copy(y_bg)
-        for k in range(nb_bg):
-            tmp[k] = y_bg[arr[k]]
-        y_bg = np.copy(tmp)
-
-        # number of training samples
-        nb = min(nb_fg, nb_bg)
-
-        # balance data
-        x_train = np.append(x_fg[:nb], x_bg[:nb], axis=0)
-        y_train = np.append(y_fg[:nb], y_bg[:nb], axis=0)
-
+                        list_IDs_bg.append(k*ysh*xsh+l*xsh+m)
     else:
-
-        # img shape
-        zsh, ysh, xsh = img.shape
-
-        # get number of patches
-        nb = 0
         for k in range(0, zsh-z_patch+1, stride_size):
             for l in range(0, ysh-y_patch+1, stride_size):
                 for m in range(0, xsh-x_patch+1, stride_size):
-                    nb += 1
+                    list_IDs_fg.append(k*ysh*xsh+l*xsh+m)
 
-        # allocate training array
-        x_train = np.empty((nb, z_patch, y_patch, x_patch, channels), dtype=img.dtype)
-        y_train = np.empty((nb, z_patch, y_patch, x_patch), dtype=label.dtype)
-
-        # create training set
-        nb = 0
-        for k in range(0, zsh-z_patch+1, stride_size):
-            for l in range(0, ysh-y_patch+1, stride_size):
-                for m in range(0, xsh-x_patch+1, stride_size):
-                    x_train[nb,:,:,:,0] = img[k:k+z_patch, l:l+y_patch, m:m+x_patch]
-                    if channels == 2:
-                        x_train[nb,:,:,:,1] = position[k:k+z_patch, l:l+y_patch, m:m+x_patch]
-                    y_train[nb] = label[k:k+z_patch, l:l+y_patch, m:m+x_patch]
-                    nb += 1
-
-    return x_train, y_train
-
-def train_semantic_segmentaion(path_to_model, z_patch, y_patch, x_patch, allLabels, epochs, batch_size, \
-                        gpus, x_train, y_train, channels, validation_split):
+    # if balance, batch_size must be even
+    if balance and batch_size % 2 > 0:
+        batch_size -= 1
 
     # number of labels
     nb_labels = len(allLabels)
@@ -360,47 +335,38 @@ def train_semantic_segmentaion(path_to_model, z_patch, y_patch, x_patch, allLabe
     # input shape
     input_shape = (z_patch, y_patch, x_patch, channels)
 
-    # training data
-    x_train = x_train.astype(np.float32)
-    y_train = y_train.astype(np.int32)
+    # parameters
+    params = {'dim': (z_patch, y_patch, x_patch),
+              'dim_img': (zsh, ysh, xsh),
+              'batch_size': batch_size,
+              'n_classes': nb_labels,
+              'n_channels': channels,
+              'shuffle': True,
+              'augment': (flip_x, flip_y, flip_z, rotate)}
 
-    # make arrays divisible by batch_size
-    rest = x_train.shape[0] % batch_size
-    rest = x_train.shape[0] - rest
-    x_train = x_train[:rest]
-    y_train = y_train[:rest]
+    # generator
+    training_generator = DataGenerator(img, label, position, list_IDs_fg, list_IDs_bg, **params)
 
-    # reshape arrays
-    nsh, zsh, ysh, xsh, _ = x_train.shape
-    x_train = x_train.reshape(nsh, zsh, ysh, xsh, channels)
-    y_train = y_train.reshape(nsh, zsh, ysh, xsh, 1)
+    # optimizer
+    sgd = SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
 
-    # create one-hot vector
-    y_train = to_categorical(y_train, num_classes=nb_labels)
+    # Create a MirroredStrategy.
+    strategy = tf.distribute.MirroredStrategy()
+    print('Number of devices: {}'.format(strategy.num_replicas_in_sync))
 
-    # make model
-    model = make_unet(input_shape, nb_labels)
-
-    # train model
-    if gpus > 1:
-        parallel_model = multi_gpu_model(model, gpus=gpus)
-        sgd = SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
-        parallel_model.compile(loss='categorical_crossentropy',
-                      optimizer=sgd,
-                      metrics=['accuracy'])
-        parallel_model.fit(x_train, y_train,
-                  epochs=epochs,
-                  batch_size=batch_size,
-                  validation_split=validation_split)
-    else:
-        sgd = SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
+    # compile model
+    with strategy.scope():
+        model = make_unet(input_shape, nb_labels)
         model.compile(loss='categorical_crossentropy',
                       optimizer=sgd,
                       metrics=['accuracy'])
-        model.fit(x_train, y_train,
-                  epochs=epochs,
-                  batch_size=batch_size,
-                  validation_data=validation_split)
+
+    # train model
+    model.fit(training_generator,
+              epochs=epochs,
+              validation_split=validation_split)
+              #use_multiprocessing=True,
+              #workers=6)
 
     # save model
     model.save(str(path_to_model))
@@ -409,10 +375,12 @@ def load_prediction_data(path_to_img, channels, x_scale, y_scale, z_scale, \
                         path_to_model, normalize, mu, sig):
 
     # read image data
-    img, _ = load_data(path_to_img, 'first_queue')
+    img, img_header, img_ext = load_data(path_to_img, 'first_queue', return_extension=True)
     if img is None:
-        InputError.message = "Invalid image data '%s.'" %(os.path.basename(path_to_img))
+        InputError.message = "Invalid image data %s." %(os.path.basename(path_to_img))
         raise InputError()
+    if img_ext != '.am':
+        img_header = None
     z_shape, y_shape, x_shape = img.shape
     img = img.astype(np.float32)
     img = img_resize(img, z_scale, y_scale, x_scale)
@@ -433,10 +401,10 @@ def load_prediction_data(path_to_img, channels, x_scale, y_scale, z_scale, \
         position = np.sqrt(position)
         position /= np.amax(position)
 
-    return img, position, z_shape, y_shape, x_shape
+    return img, img_header, position, z_shape, y_shape, x_shape
 
 def predict_semantic_segmentation(img, position, path_to_model, path_to_final, z_patch, y_patch, x_patch, \
-                z_shape, y_shape, x_shape, compress, header, channels, stride_size, allLabels, batch_size):
+                z_shape, y_shape, x_shape, compress, header, img_header, channels, stride_size, allLabels, batch_size):
 
     # img shape
     zsh, ysh, xsh = img.shape
@@ -464,8 +432,12 @@ def predict_semantic_segmentation(img, position, path_to_model, path_to_final, z
     # reshape testing set
     x_test = x_test.reshape(nb, z_patch, y_patch, x_patch, channels)
 
+    # Create a MirroredStrategy.
+    strategy = tf.distribute.MirroredStrategy()
+
     # load model
-    model = load_model(str(path_to_model))
+    with strategy.scope():
+        model = load_model(str(path_to_model))
 
     # predict
     tmp = model.predict(x_test, batch_size=batch_size, verbose=0, steps=None)
@@ -496,7 +468,9 @@ def predict_semantic_segmentation(img, position, path_to_model, path_to_final, z
     label = label.astype(np.uint8)
     label = get_labels(label, allLabels)
     if header is not None:
-        header = adjust_header(header, label)
+        header = get_image_dimensions(header, label)
+    if img_header is not None:
+        header = get_physical_size(header, img_header)
     save_data(path_to_final, label, header=header, compress=compress)
 
 def predict_pre_final(img, path_to_model, x_scale, y_scale, z_scale, z_patch, y_patch, x_patch, \
@@ -550,8 +524,12 @@ def predict_pre_final(img, path_to_model, x_scale, y_scale, z_scale, z_patch, y_
     # reshape testing set
     x_test = x_test.reshape(nb, z_patch, y_patch, x_patch, channels)
 
+    # Create a MirroredStrategy.
+    strategy = tf.distribute.MirroredStrategy()
+
     # load model
-    model = load_model(str(path_to_model))
+    with strategy.scope():
+        model = load_model(str(path_to_model))
 
     # predict
     tmp = model.predict(x_test, batch_size=batch_size, verbose=0, steps=None)
@@ -590,10 +568,19 @@ def load_training_data_refine(path_to_model, x_scale, y_scale, z_scale, patch_si
     # get filenames
     img_names, label_names = [], []
     for img_name, label_name in zip(img_list, label_list):
-        if img_name[-4:] == '.tar' and label_name[-4:] == '.tar':
+
+        img_dir, img_ext = os.path.splitext(img_name)
+        if img_ext == '.gz':
+            img_dir, img_ext = os.path.splitext(img_dir)
+
+        label_dir, label_ext = os.path.splitext(label_name)
+        if label_ext == '.gz':
+            label_dir, label_ext = os.path.splitext(label_dir)
+
+        if img_ext == '.tar' and label_ext == '.tar':
             for data_type in ['.am','.tif','.tiff','.hdr','.mhd','.mha','.nrrd','.nii','.nii.gz']:
-                tmp_img_names = glob(img_name[:-4]+'/*/*'+data_type)+glob(img_name[:-4]+'/*'+data_type)
-                tmp_label_names = glob(label_name[:-4]+'/*/*'+data_type)+glob(label_name[:-4]+'/*'+data_type)
+                tmp_img_names = glob(img_dir+'/*/*'+data_type)+glob(img_dir+'/*'+data_type)
+                tmp_label_names = glob(label_dir+'/*/*'+data_type)+glob(label_dir+'/*'+data_type)
                 tmp_img_names = sorted(tmp_img_names)
                 tmp_label_names = sorted(tmp_label_names)
                 img_names.extend(tmp_img_names)
@@ -607,7 +594,7 @@ def load_training_data_refine(path_to_model, x_scale, y_scale, z_scale, patch_si
     for name in img_names:
         a, _ = load_data(name, 'first_queue')
         if a is None:
-            InputError.message = "Invalid image data '%s.'" %(os.path.basename(name))
+            InputError.message = "Invalid image data %s." %(os.path.basename(name))
             raise InputError()
         a = predict_pre_final(a, path_to_model, x_scale, y_scale, z_scale, z_patch, y_patch, x_patch, \
                               normalize, mu, sig, channels, stride_size, batch_size)
@@ -637,7 +624,7 @@ def load_training_data_refine(path_to_model, x_scale, y_scale, z_scale, patch_si
     for name in label_names:
         a, _ = load_data(name, 'first_queue')
         if a is None:
-            InputError.message = "Invalid label data '%s.'" %(os.path.basename(name))
+            InputError.message = "Invalid label data %s." %(os.path.basename(name))
             raise InputError()
         #a = make_axis_divisible_by_patch_size(a, patch_size)
         label.append(a)
@@ -684,7 +671,7 @@ def config_training_data_refine(img, label, final, patch_size, stride_size):
     return x_train, y_train
 
 def train_semantic_segmentaion_refine(img, label, final, path_to_model, patch_size, \
-                    epochs, batch_size, gpus, allLabels, validation_split, stride_size):
+                    epochs, batch_size, allLabels, validation_split, stride_size):
 
     # number of labels
     nb_labels = len(allLabels)
@@ -711,29 +698,25 @@ def train_semantic_segmentaion_refine(img, label, final, path_to_model, patch_si
     # input shape
     input_shape = (patch_size, patch_size, patch_size, 2)
 
-    # make model
-    model = make_unet(input_shape, nb_labels)
+    # optimizer
+    sgd = SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
 
-    # train model
-    if gpus > 1:
-        parallel_model = multi_gpu_model(model, gpus=gpus)
-        sgd = SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
-        parallel_model.compile(loss='categorical_crossentropy',
-                      optimizer=sgd,
-                      metrics=['accuracy'])
-        parallel_model.fit(x_train, y_train,
-                  epochs=epochs,
-                  batch_size=batch_size,
-                  validation_split=validation_split)
-    else:
-        sgd = SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
+    # Create a MirroredStrategy.
+    strategy = tf.distribute.MirroredStrategy()
+    print('Number of devices: {}'.format(strategy.num_replicas_in_sync))
+
+    # compile model
+    with strategy.scope():
+        model = make_unet(input_shape, nb_labels)
         model.compile(loss='categorical_crossentropy',
-                      optimizer=sgd,
-                      metrics=['accuracy'])
-        model.fit(x_train, y_train,
-                  epochs=epochs,
-                  batch_size=batch_size,
-                  validation_split=validation_split)
+                  optimizer=sgd,
+                  metrics=['accuracy'])
+
+    # fit model
+    model.fit(x_train, y_train,
+              epochs=epochs,
+              batch_size=batch_size,
+              validation_split=validation_split)
 
     # save model
     model.save(str(path_to_model))
@@ -743,7 +726,7 @@ def load_refine_data(path_to_img, path_to_final, path_to_model, patch_size, norm
     # read image data
     img, _ = load_data(path_to_img, 'first_queue')
     if img is None:
-        InputError.message = "Invalid image data '%s.'" %(os.path.basename(path_to_img))
+        InputError.message = "Invalid image data %s." %(os.path.basename(path_to_img))
         raise InputError()
     z_shape, y_shape, x_shape = img.shape
     img = img.astype(np.float32)
@@ -760,7 +743,7 @@ def load_refine_data(path_to_img, path_to_final, path_to_model, patch_size, norm
     # load label data
     label, _ = load_data(path_to_final, 'first_queue')
     if label is None:
-        InputError.message = "Invalid label data '%s.'" %(os.path.basename(path_to_final))
+        InputError.message = "Invalid label data %s." %(os.path.basename(path_to_final))
         raise InputError()
     #label = make_axis_divisible_by_patch_size(label, patch_size)
 
@@ -776,7 +759,7 @@ def load_refine_data(path_to_img, path_to_final, path_to_model, patch_size, norm
     return img, label, final, z_shape, y_shape, x_shape
 
 def refine_semantic_segmentation(path_to_img, path_to_final, path_to_model, patch_size,\
-                                 compress, header, normalize, stride_size, allLabels, \
+                                 compress, header, img_header, normalize, stride_size, allLabels, \
                                  mu, sig, batch_size):
 
     # load refine data
@@ -811,8 +794,12 @@ def refine_semantic_segmentation(path_to_img, path_to_final, path_to_model, patc
     # reshape prediction data
     x_test = x_test.reshape(nb, patch_size, patch_size, patch_size, 2)
 
+    # Create a MirroredStrategy.
+    strategy = tf.distribute.MirroredStrategy()
+
     # load model
-    model = load_model(str(path_to_model))
+    with strategy.scope():
+        model = load_model(str(path_to_model))
 
     # predict
     prob = model.predict(x_test, batch_size=batch_size, verbose=0, steps=None)
@@ -847,5 +834,7 @@ def refine_semantic_segmentation(path_to_img, path_to_final, path_to_model, patc
     out = get_labels(out, allLabels)
     out = out[:z_shape, :y_shape, :x_shape]
     if header is not None:
-        header = adjust_header(header, out)
+        header = get_image_dimensions(header, out)
+    if img_header is not None:
+        header = get_physical_size(header, img_header)
     save_data(path_to_final, out, header=header, compress=compress)

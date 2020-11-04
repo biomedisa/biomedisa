@@ -125,8 +125,9 @@ def remove_outlier(path_to_data, path_to_final, friend_id, labelObject_id, fill_
     path_to_cleaned_filled = filename + '.cleaned.filled' + extension
 
     # load data
-    final, _ = load_data(path_to_final, 'cleanup')
-    _, header = load_data(labelObject.pic.path, 'cleanup')
+    final, header = load_data(path_to_final, 'cleanup')
+    if extension not in ['.tif','.am']:
+        _, header = load_data(labelObject.pic.path, 'cleanup')
 
     # reduce block size
     zsh, ysh, xsh = final.shape

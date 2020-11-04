@@ -81,6 +81,20 @@ function acceptFunction(id) {
   });
 }
 
+function renameFunction(id, filename) {
+  $.getJSON("/rename/", { id:id, filename:filename }, function(json){
+    if (json['success'] == true) {
+      if ('msg' in json) {
+        alert(json['msg']);
+      } else {
+          window.location.reload();
+      }
+    } else {
+      alert("Something went wrong... ");
+    }
+  });
+}
+
 function createFunction(id) {
   $.getJSON("/dummy/", { id:id }, function(json){
     if (json['success'] == true) {
@@ -117,6 +131,16 @@ function addClickHandlers() {
       shareFunction(this.id, username);
     } else if (username == '' && username != null) {
       createFunction(this.id);
+    }
+  });
+
+  $(".rename_link").click( function() {
+    var res = (this.id).split(",");
+    var id = parseInt(res[0]);
+    var name = res[1];
+    var filename = prompt("Enter new filename", name);
+    if (filename != '' && filename != null) {
+      renameFunction(id, filename);
     }
   });
 
@@ -193,7 +217,7 @@ $(document).ready(addClickHandlers);
           <span class="move_link" id="{{img.id}}"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
           <span class="share_link" id="{{img.id}}"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
           <input type="checkbox" name="selected" value="{{img.id}}"/>
-          {{ img.shortfilename }}
+          <span class="rename_link" id="{{img.id}},{{img.shortfilename}}" title="rename">{{ img.shortfilename }}</span>
           <span style="float:right;"> </br> </br> {{ img.upload_date }}</span>
           {% endif %}
           </p>
@@ -215,7 +239,7 @@ $(document).ready(addClickHandlers);
           <span class="move_link" id="{{img.id}}"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
           <span class="share_link" id="{{img.id}}"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
           <input type="checkbox" name="selected" value="{{img.id}}"/>
-          {{ img.shortfilename }}
+          <span class="rename_link" id="{{img.id}},{{img.shortfilename}}" title="rename">{{ img.shortfilename }}</span>
           <span style="float:right;"> </br> </br> {{ img.upload_date }}</span>
           {% endif %}
           </p>
@@ -236,7 +260,7 @@ $(document).ready(addClickHandlers);
           <span class="move_link" id="{{img.id}}"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
           <span class="share_link" id="{{img.id}}"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
           <input type="checkbox" name="selected" value="{{img.id}}"/>
-          {{ img.shortfilename }}
+          <span class="rename_link" id="{{img.id}},{{img.shortfilename}}" title="rename">{{ img.shortfilename }}</span>
           <span style="float:right;"> </br> </br> {{ img.upload_date }}</span>
           {% endif %}
           </p>
@@ -258,7 +282,7 @@ $(document).ready(addClickHandlers);
           <span class="move_link" id="{{img.id}}"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
           <span class="share_link" id="{{img.id}}"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
           <input type="checkbox" name="selected" value="{{img.id}}"/>
-          {{ img.shortfilename }}
+          <span class="rename_link" id="{{img.id}},{{img.shortfilename}}" title="rename">{{ img.shortfilename }}</span>
           <select id="sel_id" name="sel_name" onchange="changeFunction({{img.id}}, value)">
               <option value="-1">select</option>
               <option value="1">regular</option>

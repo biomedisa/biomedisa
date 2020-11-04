@@ -108,6 +108,20 @@ function shareFunction(id, username) {
   });
 }
 
+function renameFunction(id, filename) {
+  $.getJSON("/rename/", { id:id, filename:filename }, function(json){
+    if (json['success'] == true) {
+      if ('msg' in json) {
+        alert(json['msg']);
+      } else {
+          window.location.reload();
+      }
+    } else {
+      alert("Something went wrong... ");
+    }
+  });
+}
+
 function createFunction(id) {
   $.getJSON("/dummy/", { id:id }, function(json){
     if (json['success'] == true) {
@@ -201,6 +215,16 @@ function addClickHandlers() {
     }
   });
 
+  $(".rename_link").click( function() {
+    var res = (this.id).split(",");
+    var id = parseInt(res[0]);
+    var name = res[1];
+    var filename = prompt("Enter new filename", name);
+    if (filename != '' && filename != null) {
+      renameFunction(id, filename);
+    }
+  });
+
   $(".run_link").click( function() {
     var res = (this.id).split(",")
     var raw = parseInt(res[0])
@@ -267,6 +291,8 @@ $(document).ready(addClickHandlers);
   <button type="image" name="action" value="5" title="active contour" onclick="return confirm('Segmentation with active contour?')"> <img src="/static/active_contour.png" style="width:20px;height:20px;border:0;"></button>
   <button type="image" name="action" value="6" title="make a copy" onclick="return confirm('Duplicate file?')"> <img src="/static/copy-icon.png" style="width:20px;height:20px;border:0;"></button>
   <button type="image" name="action" value="7" title="convert to 8bit TIFF" onclick="return confirm('Convert to 8 bit TIFF?')"> <img src="/static/8bit.png" style="width:20px;height:20px;border:0;"></button>
+  <button type="image" name="action" value="8" title="denoise image" onclick="return confirm('Denoise image data?')"> <img src="/static/smoothing.svg" style="width:20px;height:20px;border:0;"></button>
+  <button type="image" name="action" value="9" title="switch image type" onclick="return confirm('Switch image type?')"> <img src="/static/switch_type.png" style="width:20px;height:20px;border:0;"></button>
 
   <table style="width:100%" border="0">
   {% for k in loop_times %}
@@ -302,7 +328,7 @@ $(document).ready(addClickHandlers);
                   <span class="move_link" id="{{img.id}},{{img.status}}"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
                   <span class="share_link" id="{{img.id}}"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
                   <input type="checkbox" name="selected" value="{{img.id}}"/> </br>
-                  {{ img.shortfilename }}
+                  <span class="rename_link" id="{{img.id}},{{img.shortfilename}}" title="rename">{{ img.shortfilename }}</span>
                   </p>
                 </div>
               {% elif img.imageType == 2 %}
@@ -316,7 +342,7 @@ $(document).ready(addClickHandlers);
                   <span class="share_link" id="{{img.id}}"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
                   <a href="/settings/{{img.id}}"><img src="/static/einst_filled.jpg" title="settings" width="20" height="20" onMouseOver="this.src='/static/einst2.jpg'" onMouseOut="this.src='/static/einst_filled.jpg'"></a>
                   <input type="checkbox" name="selected" value="{{img.id}}"/> </br>
-                  {{ img.shortfilename }}
+                  <span class="rename_link" id="{{img.id}},{{img.shortfilename}}" title="rename">{{ img.shortfilename }}</span>
                   </p>
                 </div>
               {% elif img.imageType == 4 %}
@@ -329,7 +355,7 @@ $(document).ready(addClickHandlers);
                   <span class="share_link" id="{{img.id}}"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
                   <a href="/settings/prediction/{{img.id}}"><img src="/static/einst_filled.jpg" title="settings" width="20" height="20" onMouseOver="this.src='/static/einst2.jpg'" onMouseOut="this.src='/static/einst_filled.jpg'"></a>
                   <input type="checkbox" name="selected" value="{{img.id}}"/> </br>
-                  {{ img.shortfilename }}
+                  <span class="rename_link" id="{{img.id}},{{img.shortfilename}}" title="rename">{{ img.shortfilename }}</span>
                   </p>
                 </div>
               {% elif img.active %}
@@ -353,7 +379,7 @@ $(document).ready(addClickHandlers);
                       <option value="5">smooth</option>
                       <option value="6">smooth+clean</option>
                   </select>
-                  {{ img.shortfilename }}
+                  <span class="rename_link" id="{{img.id}},{{img.shortfilename}}" title="rename">{{ img.shortfilename }}</span>
                   </br>
                   {% if messages %}
                     <ul class="messages">

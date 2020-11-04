@@ -30,7 +30,7 @@ function toggleAccordion(qsid) {
         <div class="questions">
           <button id="qs1" class="accordion" onclick="toggleAccordion(this.id);"> <b> 1) How to use Biomedisa?</b> </button>
           <div id="ans1" class="panel">
-              <p> Biomedisa bases on a semi-automatic segmentation <a href="http://proceedings.spiedigitallibrary.org/proceeding.aspx?articleid=2506235" target="_blank">algorithm</a>. That means, before you perform the segmentation process, you must pre-segment some reference slices in a segmentation editor of your choice. The information given by these slices is then used to automatically segment the remaining volume. To start the segmentation process, upload your image data and your pre-segmented slices as Multipage-TIFF or as an Amira file, click the start button, and download or visualize your final segmentation. </p>
+              <p> The segmentation is based on a smart interpolation of sparsely pre-segmented slices taking into account the complete underlying image data. That means, before you perform the segmentation process, you must pre-segment some reference slices in a segmentation editor of your choice. The pre-segmented slices are used to automatically segment the remaining volume. To start the segmentation process, upload your image data and your pre-segmented slices and click the start button. </p>
               <div class="clr"></div>
               <div class="img"><img src="/static/labeledslices_large.png" width="650" height="200" alt="" class="fl" /></div>
               <div class="clr"></div>
@@ -38,7 +38,7 @@ function toggleAccordion(qsid) {
 
           <button id="qs2" class="accordion" onclick="toggleAccordion(this.id);"> <b> 2) How does the segmentation algorithm work?</b> </button>
           <div id="ans2" class="panel">
-              <p> To segment the image data, several weighted random walks start in the pre-segmented reference slices and walk through the volume. Over time, the voxels are hit by these random walks. Based on the respective number of hits, it is possible to determine the probability that a voxel belongs to one particular segment. The segmentation can thus be performed by assigning each voxel to the label from which most of the hits originate. You can imagine Biomedisa as an interpolation taking into account the underlying image data.</p>
+              <p> To segment the image data, several weighted random walks start in the pre-segmented slices and diffuse into the volume. Over time, the voxels are hit by these random walks. Based on the number of hits, the probability that a voxel belongs to a segment is calculated. The segmentation can then be performed by assigning each voxel to the label from which the most hits come. You can think of Biomedisa as an interpolation that takes the underlying image data into account.</p>
               <div class="clr"></div>
               <div class="img"><img src="/static/pic_rw_large.png" width="650" height="200" alt="" class="fl" /></div>
               <div class="clr"></div>
@@ -47,111 +47,116 @@ function toggleAccordion(qsid) {
           <button id="qs3" class="accordion" onclick="toggleAccordion(this.id);"> <b> 3) Which hardware requirements do I need?</b> </button>
           <div id="ans3" class="panel">
                 <p>
-                    <p>If you use Biomedisa online, you do not need any special hardware. If you want to run Biomedisa locally, you must have at least one state-of-the-art Nvidia GPU (minimum Kepler architecture). The most important points are the GPU memory and the memory of your system (RAM). How much memory you exactly need depends on the size of the image to be processed. To give you an idea, we tested two of our showcases, which you can download in our <b><a href="https://biomedisa.de/gallery/" title="gallery">gallery</a></b>. First, we used a workstation with a GeForce 1080 Ti (11 GB GPU memory). The system has 60 GB of RAM. Second, we used our development server with 4x V100 NVLink (each of it has 32 GB of GPU memory) and 800 GB of RAM.</p>
+                    <p><b>Online:</b> No special hardware required. <br><br> <b>Locally:</b> You must have at least one state-of-the-art NVIDIA GPU. The most important points are the GPU memory and the memory of your system (RAM). How much memory you exactly need depends on the size of the image you want to segment. To give you an idea, we tested two of our showcases, which you can download from our <b><a href="https://biomedisa.de/gallery/" title="gallery">gallery</a></b>. First, we used a workstation with a GeForce 1080 Ti (11 GB GPU memory). The system has 60 GB of RAM. Second, we used a server with 4 NVIDIA Tesla V100 (each of it has 32 GB of GPU memory) and 750 GB of RAM.</p>
 
                     <p>1. The <b>biological screw</b> is a rather small image (419 x 492 x 462 voxels). About 7 GB of RAM and 3 GB of GPU memory were used. Two objects were pre-segmented every 20th slice.</p>
 
-                    <p style="text-indent:10px;">1x GeForce 1080 Ti (11 GB) &#8680; 6 min 36 sec</p>
-                    <p style="text-indent:10px;">4x V100 NVLink (each 32 GB) &#8680; 1 min 2 sec</p>
+                    <p style="text-indent:10px;">1 NVIDIA GeForce 1080 Ti (11 GB) &#8680; 6 min 36 sec</p>
+                    <p style="text-indent:10px;">4 NVIDIA Tesla V100 (each 32 GB) &#8680; 1 min 2 sec</p>
 
                     <p>2. <b>Female parasitoid</b> (1077 x 992 x 2553 voxels). Images of this size are widely used on Biomedisa. About 40 GB of RAM and 10 GB of GPU memory were used. Originally, we pre-segmented 56 individual body parts every 10th slice. But for this test, we only used pre-segmentations of every 20th slice to speed up the computation.</p>
 
-                    <p style="text-indent:10px;">1x GeForce 1080 Ti (11 GB) &#8680; 1 h 25 min 34 sec</p>
-                    <p style="text-indent:10px;">4x V100 NVLink (each 32 GB) &#8680; 19 min 48 sec</p>
+                    <p style="text-indent:10px;">1 GeForce 1080 Ti (11 GB) &#8680; 1 h 25 min 34 sec</p>
+                    <p style="text-indent:10px;">4 NVIDIA Tesla V100 (each 32 GB) &#8680; 19 min 48 sec</p>
                 </p>
           </div>
 
           <button id="qs4" class="accordion" onclick="toggleAccordion(this.id);"> <b> 4) What image file format can be processed?</b> </button>
           <div id="ans4" class="panel">
               <p> The following three-dimensional data file formats are supported:
-<b>Multipage TIFF, Amira mesh (AM), MHD, MHA, NRRD and NIfTI (.nii & .nii.gz)</b>. In addition, a zipped folder containing two-dimensional slices as <b>DICOM, PNG</b>, or <b>TIFF</b> that represent the volume can also be uploaded. Popular analytic tools like Amira or Fiji/ImageJ can save your data as a TIFF file. The data type can be <b>8-bit</b>, <b>16-bit</b> or <b>32-bit</b> integer or float. You can even upload 64-bit images but they are automatically converted to 32-bit during the calculation. </p>
+<b>Multipage TIFF, Amira mesh (AM), MHD, MHA, NRRD and NIfTI (.nii & .nii.gz)</b>. In addition, a zipped folder containing two-dimensional slices as <b>DICOM, PNG</b>, or <b>TIFF</b> that represent the volume can also be uploaded. The data type can be <b>8-bit</b>, <b>16-bit</b> or <b>32-bit</b> integer or float. You can even upload <b>64-bit</b> images but they are automatically converted to 32-bit during the calculation. </p>
           </div>
 
           <button id="qs5" class="accordion" onclick="toggleAccordion(this.id);"> <b> 5) What should my label file look like?</b> </button>
           <div id="ans5" class="panel">
-              <p> The label file contains pre-segmented reference slices. It must have exactly the same <i>xyz</i>-dimensions like the uploaded image file. Each gray value or color in this image corresponds to one segment. If you use an Amira label file, all your information, like names etc., will be preserved so that post-processing is easy after importing to Amira again. <b> Attention! </b> Once you label a slice, all segments occuring in this slice must be labeled. Otherwise, these areas are considered as background, and your segmentation will not be correct. <b><a href="https://biomedisa.de/gallery/" title="gallery">Download</a></b> our showcases and see how the label files were created. </p>
+              <p> The label file should contain pre-segmented reference slices. It must have exactly the same <i>xyz</i>-dimensions like the uploaded image file. If you use an Amira label file, all your information, like names and colors, will be preserved. Once you label a slice, all segments occuring in this slice must be labeled. Otherwise, these areas are considered as background, and your segmentation will not be correct. Tip: Download one of our showcases from our <b><a href="https://biomedisa.de/gallery/" title="gallery">gallery</a></b> and see how the label files were created. </p>
           </div>
 
           <button id="qs6" class="accordion" onclick="toggleAccordion(this.id);"> <b> 6) Is it possible to label in a different plane than the xy-plane?</b> </button>
           <div id="ans6" class="panel">
-              <p> Yes, it is possible to label in different planes. To enable this, please click on the settings icon <img src="/static/einst_filled.jpg" title="settings" style="width:18px;height:18px;border:0;"> next to your label file and activate this feature. You can then label in all three planes simultaneously or only in one or two planes of your choice. <b> Attention! </b> There must be at least one empty slice between your pre-segmented slices. The algorithm needs this to detect in which planes you have labeled slices. </p>
+              <p> You can activate All axes in the settings <img src="/static/einst_filled.jpg" title="settings" style="width:18px;height:18px;border:0;"> next to your label file. You can then label in either all three orientations at the same time or in one or two orientations of your choice. There must be at least one empty slice between your pre-segmented slices. The algorithm needs this to detect in which orientations you have pre-segmented. </p>
           </div>
 
           <button id="qs7" class="accordion" onclick="toggleAccordion(this.id);"> <b> 7) How big can my data be?</b> </button>
           <div id="ans7" class="panel">
-              <p> Unfortunately, it is not possible to answer this question in general. It depends on several factors. But Biomedisa checks whether your data can be processed or not. If your data is too large, it will automatically complain and stop the process. To give you an idea of how big your data can be. Depending on your labels, Biomedisa will automatically crop your image to a proper region of interest. This region of interest can be roughly 8 GB large (e.g. 2000 x 2000 x 2000 for 8bit images). So even if your volume is much larger, it can be processed as long as your region of interest fits into the bounding box. It also depends on the number of reference slices you have pre-segmented. The more slices were labeled, the smaller the region of interest can be. </p>
+              <p> The region of interest can be roughly 8 GB large (e.g. 2000 x 2000 x 2000 for 8-bit images). Biomedisa checks whether your data can be processed or not. If your data is too large, it will automatically complain and stop the process. So just give it a try. </p>
           </div>
 
           <button id="qs8" class="accordion" onclick="toggleAccordion(this.id);"> <b> 8) Choose the result that is best for you.</b> </button>
           <div id="ans8" class="panel">
-              <p> In addition to the <b>regular</b> diffusion result, you can choose between <b>cleaned</b> (removed outliers), <b>filled holes</b>, post-processed with <b>active contours</b>, <b>uncertainty</b> (a probability map on how uncertain your segmentation result is), and a <b>smoothed</b> version. You can fine-tune these features in the settings <img src="/static/einst_filled.jpg" title="settings" style="width:18px;height:18px;border:0;">. </p>
+              <p> In addition to the <b>regular</b> result without any post-processing, you can choose between <b>cleaned</b> (removed outliers), <b>filled holes</b>, post-processed with <b>active contours</b>, <b>uncertainty</b> (a probability map on how uncertain your segmentation result is), and a <b>smoothed</b> version. You can fine-tune these features in the settings <img src="/static/einst_filled.jpg" title="settings" style="width:18px;height:18px;border:0;">. </p>
           </div>
 
           <button id="qs9" class="accordion" onclick="toggleAccordion(this.id);"> <b> 9) About the Biomedisa settings.</b> </button>
           <div id="ans9" class="panel">
-              <li> <b>All axes</b> enables pre-segmentation in all orientations (not only xy orientation) </li>
+              <li> <b>All axes</b> enables pre-segmentation in all orientations (not only xy) </li>
+              <li> <b>Uncertainty</b> calculates the uncertainty of the result </li>
               <li> <b>Compression</b> results are compressed </li>
-              <li> <b>Human heart</b> enables the <a href="https://doi.org/10.1007/978-3-319-52280-7_12" target="_blank">adaption</a> for human heart segmentation</li>
-              <li> <b>Normalize (AI)</b> training data is scaled to the same mean and variance </li>
-              <li> <b>Position (AI)</b> input of the network is extended by the coordinates of the voxels </li>
-              <li> <b>Epochs (AI)</b> the number of epochs (how often the network "sees" a patch) </li>
-              <li> <b>Stride size (AI)</b> the stride made to create overlapping patches of size 64x64x64 </li>
-              <li> <b>Scale size</b> images are sclaed to this size before training </li>
+              <li> <b>Normalize training data (AI)</b> training images are scaled to the same mean and variance </li>
+              <li> <b>Consider voxel location (AI)</b> takes into account the coordinates of the voxels </li>
+              <li> <b>Balance training data (AI)</b> balances the number of foreground and background patches </li>
+              <li> <b>Flip x-axis (AI)</b> randomly flipps the patches horizontally</li>
+              <li> <b>Flip y-axis (AI)</b> randomly flipps the patches along y-axis </li>
+              <li> <b>Flip z-axis (AI)</b> randomly flipps the patches along z-axis</li>
+              <li> <b>Rotate (AI)</b> randomly rotates the image (&#x00B1) during traing (maximum is 180 degrees)</li>
+              <li> <b>Number of epochs (AI)</b> the number of epochs (how often the network "sees" a patch) </li>
+              <li> <b>Batch size (AI)</b> the number of samples used in each step to update the weights of the network</li>
+              <li> <b>X Scale</b> x-axis of the images is sclaed to this size before training </li>
+              <li> <b>Y Scale</b> y-axis of the images is sclaed to this size before training </li>
+              <li> <b>Z Scale</b> z-axis of the images is sclaed to this size before training </li>
+              <li> <b>Stride size (AI)</b> the stride made to create overlapping patches of size 64x64x64</li>
               <li> <b>Smooth</b> number of smoothing steps</li>
               <li> <b>Active contour alpha</b> balance factor between expansion and shrinking </li>
               <li> <b>Active contour smooth</b> number of smoothing steps after each iteration step </li>
               <li> <b>Active contour steps</b> number of iteration steps </li>
-              <li> <b>Delete outliers</b> remove islands smaller than this threshold (default 90% of the largest object) </li>
-              <li> <b>Fill holes</b> fill holes smaller than 90% of the label size </li>
-              <li> <b>Ignore label</b> single label or list of labels (e.g. 1,2,3) that are disregarded </li>
-              <li> <b>Compute only</b> single label or list of labels (e.g. 1,2,3) that are calculated exclusively </li>
+              <li> <b>Delete outliers</b> remove outliers (by default outliers smaller than 90% of the largest object) </li>
+              <li> <b>Fill holes</b> fill holes (by default holes smaller than 90% of the entire label size) </li>
+              <li> <b>Ignore label</b> single label or list of labels (e.g. 1,2,3) that are ignored </li>
+              <li> <b>Compute only</b> single label or list of labels (e.g. 1,2,3) that are exclusively calculated </li>
           </div>
 
-          <button id="qs10" class="accordion" onclick="toggleAccordion(this.id);"> <b> 10) Can I share my data with other users or even someone who is not registered?</b> </button>
+          <button id="qs10" class="accordion" onclick="toggleAccordion(this.id);"> <b> 10) Can I share my data with other users or with someone who is not registered?</b> </button>
           <div id="ans10" class="panel">
-              <p> Yes, you can share your data. You can either share it with one or multiple users by entering their user names or you create a password protected download link <img src="/static/share2.png" title="share" style="width:18px;height:18px;border:0;">. </p>
+              <p> You can either share your data with one or more users by entering their usernames, or you can create a password-protected download link <img src="/static/share2.png" title="share" style="width:18px;height:18px;border:0;">. </p>
           </div>
 
-          <button id="qs11" class="accordion" onclick="toggleAccordion(this.id);"> <b> 11) How to move data between projects and the storage?</b> </button>
+          <button id="qs11" class="accordion" onclick="toggleAccordion(this.id);"> <b> 11) How to move data between projects and storage?</b> </button>
           <div id="ans11" class="panel">
               <p> You can use the move icon <img src="/static/move.ico" title="move" style="width:18px;height:18px;border:0;"> to move your data between your projects or from and to your storage. </p>
           </div>
 
           <button id="qs12" class="accordion" onclick="toggleAccordion(this.id);"> <b> 12) Is there a way to visualize my data online?</b> </button>
           <div id="ans12" class="panel">
-              <p> Yes, you can have a quick look at your data with the <img src="/static/2D_plain.png" title="slice viewer" style="width:27px;height:18px;border:0;"> slice viewer or visualize it with our 3D rendering software by clicking on the file icon <img src="/static/file_image.png" title="visualize" style="width:18px;height:18px;border:0;">. </p>
+              <p> You can have a quick view at your data with the <img src="/static/2D_plain.png" title="slice viewer" style="width:27px;height:18px;border:0;"> slice viewer or visualize it with our 3D rendering software by clicking on the file icon <img src="/static/file_image.png" title="visualize" style="width:18px;height:18px;border:0;">. </p>
           </div>
 
           <button id="qs13" class="accordion" onclick="toggleAccordion(this.id);"> <b> 13) How to train a neural network and predict a segmentation?</b> </button>
           <div id="ans13" class="panel">
-            <p> You can train a neural network by selecting the training image files and the corresponding fully segmented label files. Then press the AI button <img src="/static/ai_logo.svg" title="train" style="width:18px;height:18px;border:0;">. When training is complete, select the trained network and one or more images for which you want to predict the segmentation. Finally, press the predict button <img src="/static/learn_1.svg" title="predict" style="width:18px;height:18px;border:0;">. Optionally, you can upload your data as a tarball. Here, the names of the label files must exactly match the names of the image files. See <a href="https://biomedisa.de/gallery/" title="gallery">Gallery</a> for an example.
-                You can also refine your network (this is especially usefull for large images). After the first network has been trained, you can again select the image data, the label data and now the already trained network and press the AI button. A prediction with refinement is performed by selecting both the first and the second network.
+            <p> You can train a deep neural network by selecting the some image files and the corresponding fully segmented label files. Then press the AI button <img src="/static/ai_logo.svg" title="train" style="width:18px;height:18px;border:0;">. When training is complete, select the trained network and one or more images for which you want to predict the segmentation. Finally, press the predict button <img src="/static/learn_1.svg" title="predict" style="width:18px;height:18px;border:0;">. Optionally, you can upload your data as a tarball. Here, the names of the label files must match the names of the image files. See our <a href="https://biomedisa.de/gallery/" title="gallery">gallery</a> for an example.
+                You can also refine your network (this is especially usefull for large images). After the first network has been trained, you can again select the image data, the label data and in addition the already trained network and press the AI button. A prediction with refinement is performed by selecting both the first and the second network.
             </p>
           </div>
 
           <button id="qs14" class="accordion" onclick="toggleAccordion(this.id);"> <b> 14) When does Biomedisa not work?</b> </button>
           <div id="ans14" class="panel">
-              <p> Biomedisa wants to speed up and improve your daily work. Instead of manually labeling each slice of your volume, Biomedisa uses only a few pre-segmented slices to segment the rest of your data. But it is not a model-based segmentation method. That means, if you do not see any structures in your data or you can not see the structures are separated, then Biomedisa is probably not able to see it either. </p>
+              <p> If you can't see seperate structures in your data, Biomedisa usually can't see them either. </p>
           </div>
 
-          <button id="qs15" class="accordion" onclick="toggleAccordion(this.id);"> <b> 15) Is Biomedisa for free?</b> </button>
+          <button id="qs15" class="accordion" onclick="toggleAccordion(this.id);"> <b> 15) How to install Biomedisa?</b> </button>
           <div id="ans15" class="panel">
-              <p> Biomedisa will soon be an open source project. Until then you can use it for free online by creating an <b><a href="https://biomedisa.de/register/" title="register">account</a></b>. If you use Biomedisa results in your publication please cite the following paper: <br> Lösel, P. and Heuveline, V. (2016): <b><a href="http://proceedings.spiedigitallibrary.org/proceeding.aspx?articleid=2506235" target="_blank">Enhancing a diffusion algorithm for 4D image segmentation using local information</a></b>, Proc. SPIE 9784, Medical Imaging 2016: Image Processing, 97842L, doi: 10.1117/12.2216202.</p>
+              <p> Please check out Biomedisa on <a href="https://github.com/biomedisa/biomedisa" target="_blank" title="github">GitHub</a>.</p>
           </div>
 
-          <button id="qs16" class="accordion" onclick="toggleAccordion(this.id);"> <b> 16) Which publication should I cite?</b> </button>
+          <button id="qs16" class="accordion" onclick="toggleAccordion(this.id);"> <b> 16) Is Biomedisa for free?</b> </button>
           <div id="ans16" class="panel">
-              <p> Lösel, P. and Heuveline, V. (2016): <b><a href="http://proceedings.spiedigitallibrary.org/proceeding.aspx?articleid=2506235" target="_blank">Enhancing a diffusion algorithm for 4D image segmentation using local information</a></b>, Proc. SPIE 9784, Medical Imaging 2016: Image Processing, 97842L, doi: 10.1117/12.2216202.</p>
+              <p> Biomedisa is free-of-charge for academic use.</p>
           </div>
 
-          <!--<button id="qs17" class="accordion" onclick="toggleAccordion(this.id);"> <b> 17) How to install Biomedisa locally?</b> </button>
+          <button id="qs17" class="accordion" onclick="toggleAccordion(this.id);"> <b> 17) Which publication should I cite?</b> </button>
           <div id="ans17" class="panel">
-              <li> Download the latest version <a href="https://biomedisa.de/downloads/" title="downloads">Downloads</a>. </li>
-              <li> Run <b>install.sh</b> for an automatic installation on Ubuntu 18.04 and follow the instructions.</li>
-              <li> Alternatively, follow the instructions for manual installation in <b>README</b>.</li>
-              <li> Access the application by entering the IP of the machine in a web browser (e.g. 192.168.176.33). </li>
-              <li> If you do not use an apache server you have to specify a port (e.g. 192.168.176.33:8000).</li>
-          </div>-->
+              <p> Lösel, P.D. et al. <a href="https://www.nature.com/articles/s41467-020-19303-w" target="_blank" title="Introducing Biomedisa as an open-source online
+                platform for biomedical image segmentation">Introducing Biomedisa as an open-source online platform for biomedical image segmentation.</a></strong><em> Nat. Commun. </em><strong>11</strong>, 5577 (2020).</p>
+          </div>
 
         </div> <!-- end of questions -->
 
