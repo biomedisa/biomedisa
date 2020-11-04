@@ -43,6 +43,7 @@ from multiprocessing import Process
 import subprocess
 
 from tensorflow.python.framework.errors_impl import ResourceExhaustedError
+import tensorflow as tf
 import numpy as np
 import h5py
 import time
@@ -54,15 +55,16 @@ if config['OS'] == 'linux':
 def conv_network(train, predict, refine, img_list, label_list, \
             path_to_model, compress, epochs, batch_size, batch_size_refine, \
             stride_size, stride_size_refining, channels, normalize, path_to_img, \
-            x_scale, y_scale, z_scale, balance, image):
+            x_scale, y_scale, z_scale, balance, image, label):
 
-    import pycuda.driver as cuda
-    cuda.init()
-    gpus = cuda.Device.count()
+    # get number of GPUs
+    strategy = tf.distribute.MirroredStrategy()
+    ngpus = int(strategy.num_replicas_in_sync)
+
     success = False
     path_to_final = None
-    batch_size -= batch_size % gpus                 # batch size must be divisible by number of GPUs
-    batch_size_refine -= batch_size_refine % gpus   # batch size must be divisible by number of GPUs
+    batch_size -= batch_size % ngpus                # batch size must be divisible by number of GPUs
+    batch_size_refine -= batch_size_refine % ngpus  # batch size must be divisible by number of GPUs
     z_patch, y_patch, x_patch = 64, 64, 64          # dimensions of patches for regular training
     patch_size = 64                                 # x,y,z-patch size for the refinement network
     validation_split = 0.0                          # validation after each epoch
@@ -78,16 +80,13 @@ def conv_network(train, predict, refine, img_list, label_list, \
 
         try:
             # load training data
-            img, labelData, position, allLabels, mu, sig, header, extension = load_training_data(normalize, \
+            img, labelData, position, allLabels, mu, sig, header, extension = load_training_data(normalize,
                             img_list, label_list, channels, x_scale, y_scale, z_scale)
 
-            # config training data
-            x_train, y_train = config_training_data(img, labelData, position, z_patch, y_patch, x_patch, \
-                            channels, stride_size, balance)
-
             # train network
-            train_semantic_segmentaion(path_to_model, z_patch, y_patch, x_patch, allLabels, \
-                            epochs, batch_size, gpus, x_train, y_train, channels, validation_split)
+            train_semantic_segmentaion(img, labelData, path_to_model, z_patch, y_patch, x_patch, allLabels, epochs,
+                            batch_size, channels, validation_split, stride_size, balance, position,
+                            label.flip_x, label.flip_y, label.flip_z, label.rotate)
 
         except InputError:
             return success, InputError.message, None
@@ -139,7 +138,7 @@ def conv_network(train, predict, refine, img_list, label_list, \
 
             # train refinement network
             train_semantic_segmentaion_refine(img, labelData, final, path_to_model, patch_size, epochs, \
-                            batch_size_refine, gpus, allLabels, validation_split, stride_size_refining)
+                            batch_size_refine, allLabels, validation_split, stride_size_refining)
 
             # save meta data
             hf = h5py.File(path_to_model, 'r+')
@@ -186,7 +185,7 @@ def conv_network(train, predict, refine, img_list, label_list, \
         # create path_to_final
         filename = os.path.basename(path_to_img)
         filename = os.path.splitext(filename)[0]
-        if filename[-4:] == '.nii':
+        if filename[-4:] in ['.nii','.tar']:
             filename = filename[:-4]
         filename = 'final.' + filename
         dir_path = config['PATH_TO_BIOMEDISA'] + '/private_storage/'
@@ -203,12 +202,12 @@ def conv_network(train, predict, refine, img_list, label_list, \
 
         try:
             # load prediction data
-            img, position, z_shape, y_shape, x_shape = load_prediction_data(path_to_img, channels, \
+            img, img_header, position, z_shape, y_shape, x_shape = load_prediction_data(path_to_img, channels, \
                             x_scale, y_scale, z_scale, path_to_model, normalize, mu, sig)
 
             # make prediction
             predict_semantic_segmentation(img, position, path_to_model, path_to_final, z_patch, y_patch, x_patch, \
-                            z_shape, y_shape, x_shape, compress, header, channels, stride_size, allLabels, batch_size)
+                            z_shape, y_shape, x_shape, compress, header, img_header, channels, stride_size, allLabels, batch_size)
 
             # path to refine model
             path_to_model = path_to_model[:-3] + '_refine.h5'
@@ -227,7 +226,7 @@ def conv_network(train, predict, refine, img_list, label_list, \
 
                 # refine segmentation
                 refine_semantic_segmentation(path_to_img, path_to_final, path_to_model, patch_size, \
-                                             compress, header, normalize, stride_size_refining, \
+                                             compress, header, img_header, normalize, stride_size_refining, \
                                              allLabels, mu, sig, batch_size_refine)
 
         except InputError:
@@ -348,9 +347,9 @@ if __name__ == '__main__':
 
         # train network or predict segmentation
         success, error_message, path_to_final = conv_network(
-                                    train, predict, refine, raw_list, label_list, path_to_model, compress, \
-                                    epochs, batch_size, batch_size_refine, stride_size, stride_size_refining, channels, \
-                                    normalize, path_to_img, x_scale, y_scale, z_scale, balance, image
+                                    train, predict, refine, raw_list, label_list, path_to_model, compress,
+                                    epochs, batch_size, batch_size_refine, stride_size, stride_size_refining, channels,
+                                    normalize, path_to_img, x_scale, y_scale, z_scale, balance, image, label
                                     )
 
         # reset objects

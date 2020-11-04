@@ -35,26 +35,20 @@ sudo nano /etc/apache2/sites-available/000-default.conf
         WSGIProcessGroup biomedisa
 ```
 
-### Restart Apache Server
+### Set permissions for www-data
 ```
-sudo service apache2 restart
-```
-
-### Add a new group `biomedisa-web` and set permissions properly
-```
-sudo groupadd biomedisa-web
 sudo usermod -aG www-data $USER
-sudo usermod -aG biomedisa-web $USER
-sudo usermod -aG biomedisa-web www-data
+sudo usermod -aG $USER www-data
 
-sudo chown -R $USER:biomedisa-web ~/git/biomedisa/private_storage
-sudo chown -R $USER:biomedisa-web ~/git/biomedisa/media
-sudo chown -R $USER:biomedisa-web ~/git/biomedisa/log
-sudo chown -R $USER:biomedisa-web ~/git/biomedisa/tmp
-sudo chown -R $USER:biomedisa-web ~/git/biomedisa/biomedisa_app/config.py
-
+sudo chown -R $USER:$USER ~/git/biomedisa
+chmod -R 750 ~/git/biomedisa
 chmod -R 770 ~/git/biomedisa/private_storage
 chmod -R 770 ~/git/biomedisa/media
 chmod -R 770 ~/git/biomedisa/log
 chmod -R 770 ~/git/biomedisa/tmp
+```
+
+### Restart Apache Server
+```
+sudo service apache2 restart
 ```

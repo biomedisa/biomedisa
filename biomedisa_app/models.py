@@ -42,7 +42,7 @@ import os
 
 class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-    storage_size = models.IntegerField(default=100)
+    storage_size = models.IntegerField(default=50)
     notification = models.BooleanField(default=True)
     activation_key = models.TextField(null=True)
     key_expires = models.DateTimeField(null=True)
@@ -57,6 +57,12 @@ def user_directory_path(instance, filename):
     filename = filename.encode('ascii', 'ignore').decode()
     filename = os.path.basename(filename)
     filename, extension = os.path.splitext(filename)
+    if extension == '.gz':
+        filename, extension = os.path.splitext(filename)
+        if extension == '.nii':
+            extension = '.nii.gz'
+        elif extension == '.tar':
+            extension = '.tar.gz'
     filename = 'images/%s/%s' %(instance.user, filename)
     limit = 100 - len(extension)
     filename = filename[:limit] + extension
@@ -175,6 +181,10 @@ class Upload(models.Model):
     balance = models.BooleanField("Balance training data (AI)", default=False)
     uncertainty = models.BooleanField(default=True)
     batch_size = models.IntegerField("Batch size (AI)", default=24)
+    flip_x = models.BooleanField("Flip x-axis (AI)", default=False)
+    flip_y = models.BooleanField("Flip y-axis (AI)", default=False)
+    flip_z = models.BooleanField("Flip z-axis (AI)", default=False)
+    rotate = models.IntegerField("Rotate (AI)", default=0)
 
 class UploadForm(forms.ModelForm):
     class Meta:
@@ -189,16 +199,18 @@ class StorageForm(forms.ModelForm):
 class SettingsForm(forms.ModelForm):
     class Meta:
         model = Upload
-        fields = ('allaxis', 'uncertainty', 'compression', 'normalize', \
-                  'position', 'balance', 'epochs', 'batch_size', 'x_scale', 'y_scale', 'z_scale', \
-                  'stride_size', 'smooth', 'ac_alpha', 'ac_smooth', 'ac_steps', \
+        fields = ('allaxis', 'uncertainty', 'compression', 'normalize',
+                  'position', 'balance', 'flip_x', 'flip_y',
+                  'flip_z', 'rotate', 'epochs', 'batch_size',
+                  'x_scale', 'y_scale', 'z_scale', 'stride_size',
+                  'smooth', 'ac_alpha', 'ac_smooth', 'ac_steps',
                   'delete_outliers', 'fill_holes', 'ignore', 'only')
 
 class SettingsPredictionForm(forms.ModelForm):
     class Meta:
         model = Upload
-        fields = ('compression', 'batch_size', 'stride_size', 'delete_outliers', 'fill_holes', \
-                  'ac_alpha', 'ac_smooth', 'ac_steps')
+        fields = ('compression', 'batch_size', 'stride_size', 'delete_outliers',
+                  'fill_holes', 'ac_alpha', 'ac_smooth', 'ac_steps')
 
 @receiver(models.signals.post_delete, sender=Upload)
 def auto_delete_file_on_delete(sender, instance, **kwargs):
@@ -215,8 +227,12 @@ def auto_delete_file_on_delete(sender, instance, **kwargs):
         if os.path.isdir(path_to_slices):
             shutil.rmtree(path_to_slices)
 
-        if instance.pic.path[-4:] in ['.tar', '.zip'] and os.path.isdir(instance.pic.path[:-4]):
-            shutil.rmtree(instance.pic.path[:-4])
+        filename, extension = os.path.splitext(instance.pic.path)
+        if extension == '.gz':
+            filename, extension = os.path.splitext(filename)
+
+        if extension in ['.tar','.zip'] and os.path.isdir(filename):
+            shutil.rmtree(filename)
 
         if os.path.isfile(instance.pic.path):
             os.remove(instance.pic.path)

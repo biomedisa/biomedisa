@@ -72,7 +72,7 @@ def contrast(a):
 def create_slicemaps(path_to_slices, A):
     if not os.path.isdir(path_to_slices):
         os.makedirs(path_to_slices)
-        os.chmod(path_to_slices, 0o777)
+        os.chmod(path_to_slices, 0o770)
         zsh, ysh, xsh = A.shape
         maxSize = max(zsh, ysh)
         maxsize = max(maxSize, xsh)
@@ -116,7 +116,8 @@ def create_slices(path_to_data, path_to_label):
 
             # load data
             path_to_dir, extension = os.path.splitext(path_to_data)
-
+            if extension == '.gz':
+                path_to_dir, extension = os.path.splitext(path_to_dir)
             if extension == '.tar':
                 img_names = []
                 for data_type in ['.tif','.tiff','.am','.hdr','.mhd','.mha','.nrrd','.nii','.nii.gz']:
@@ -154,7 +155,7 @@ def create_slices(path_to_data, path_to_label):
 
                     # make directory
                     os.makedirs(path_to_slices)
-                    os.chmod(path_to_slices, 0o777)
+                    os.chmod(path_to_slices, 0o770)
 
                     # reduce image size
                     m = min(ysh, xsh)
@@ -176,7 +177,8 @@ def create_slices(path_to_data, path_to_label):
 
             # load data
             path_to_dir, extension = os.path.splitext(path_to_label)
-
+            if extension == '.gz':
+                path_to_dir, extension = os.path.splitext(path_to_dir)
             if extension == '.tar':
                 img_names = []
                 for data_type in ['.tif','.tiff','.am','.hdr','.mhd','.mha','.nrrd','.nii','.nii.gz']:
@@ -213,7 +215,7 @@ def create_slices(path_to_data, path_to_label):
 
                     # make directory
                     os.makedirs(path_to_label_slices)
-                    os.chmod(path_to_label_slices, 0o777)
+                    os.chmod(path_to_label_slices, 0o770)
 
                     # define colors
                     Color = [(255,0,0),(255,255,0),(0,0,255),(0,100,0),(0,255,0),(255,165,0),(139,0,0),(255,20,147),(255,105,180),(255,0,0),(139,0,139),(255,0,255),(160,32,240),(184,134,11),(255,185,15),(255,215,0),(0,191,255),(16,78,139),(104,131,139),(255,64,64),(165,42,42),(255,127,36),(139,90,43),(110,139,61),(0,255,127),(255,127,80),(139,10,80),(219,112,147),(178,34,34),(255,48,48),(205,79,57),(160,32,240),(255,100,0)] * 8
