@@ -6,6 +6,8 @@
 - [Operating systems](#operating-systems)
 - [Fast installation of semi-automatic segmentation feature](#fast-installation-of-semi-automatic-segmentation-feature)
 - [Run examples](#run-examples)
+- [Fast installation of Deep Learning feature](#fast-installation-of-deep-learning-feature)
+- [Run example](#run-example)
 - [Full installation of Biomedisa online platform](#Full-installation-of-biomedisa-online-platform)
 - [Releases](#releases)
 - [Authors](#authors)
@@ -50,9 +52,9 @@ sudo apt-get install libsm6 libxrender-dev cmake \
 #### Install pip packages
 ```
 sudo -H pip3 install --upgrade pip setuptools scikit-build 
-sudo -H pip3 install --upgrade numpy scipy h5py colorama \
+sudo -H pip3 install --upgrade numpy scipy h5py colorama numpy-stl \
     numba imagecodecs-lite tifffile scikit-image opencv-python \
-    Pillow SimpleParse nibabel medpy SimpleITK mpi4py
+    Pillow SimpleParse nibabel medpy SimpleITK mpi4py itk vtk
 ```
 
 #### Download or clone Biomedisa
@@ -240,6 +242,52 @@ mpiexec -n 4 python3 biomedisa_interpolation.py NMB_F2875.tif labels.NMB_F2875.t
 Enable labeling in different planes (not only xy-plane)
 ```
 mpiexec -n 4 python3 'path_to_image' 'path_to_labels' -allx
+```
+# Fast installation of Deep Learning feature
+
+If you have not already done so, follow the installation instructions [Fast installation of semi-automatic segmentation feature](#fast-installation-of-semi-automatic-segmentation-feature) (Ubuntu 18.04.5). Then install TensorFlow and Keras.
+
+### Install TensorFlow and Keras
+```
+# Install cuDNN
+wget http://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu1804/x86_64/nvidia-machine-learning-repo-ubuntu1804_1.0.0-1_amd64.deb
+sudo apt install ./nvidia-machine-learning-repo-ubuntu1804_1.0.0-1_amd64.deb
+sudo apt-get update
+sudo apt-get install --no-install-recommends \
+    libcudnn7=7.6.5.32-1+cuda10.1 \
+    libcudnn7-dev=7.6.5.32-1+cuda10.1
+
+# Install TensorFlow and Keras
+sudo -H pip3 install --upgrade tensorflow-gpu keras
+```
+
+### Run example
+Change to the demo directory.
+```
+cd git/biomedisa/demo
+```
+
+Download the Deep Learning example `human heart` from https://biomedisa.org/gallery/ or directly as follows:
+```
+wget --no-check-certificate https://biomedisa.org/download/demo/15 -O training_hearts.tar
+wget --no-check-certificate https://biomedisa.org/download/demo/16 -O training_hearts_labels.tar
+wget --no-check-certificate https://biomedisa.org/download/demo/18 -O testing_axial_crop_pat13.nii.gz
+```
+
+Extract data. This creates a `heart` directory containing the image data and a `label` directory containing the label data.
+```
+tar -xf training_hearts.tar
+tar -xf training_hearts_labels.tar
+```
+
+Train a neural network with 200 epochs and batch size of 24. The result will be saved as `heart.h5`.
+```
+python3 biomedisa_deeplearning.py heart label -train -epochs 200 -bs 24
+```
+
+Predict the result of the test image. The result will be saved as `final.testing_axial_crop_pat13.tif`.
+```
+python3 biomedisa_deeplearning.py testing_axial_crop_pat13.nii.gz heart.h5 -predict -bs 6
 ```
 
 # Full installation of Biomedisa online platform

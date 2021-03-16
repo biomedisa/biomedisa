@@ -30,13 +30,11 @@ import sys, os
 import django
 django.setup()
 import biomedisa_app.views
-from django.contrib.auth.models import User
-
 from biomedisa_app.models import Upload
 from biomedisa_features.active_contour import active_contour
 from biomedisa_features.remove_outlier import remove_outlier
 from biomedisa_features.create_slices import create_slices
-from biomedisa_features.biomedisa_helper import id_generator
+from biomedisa_features.biomedisa_helper import unique_file_path
 from biomedisa_app.config import config
 from biomedisa_features.keras_helper import *
 from multiprocessing import Process
@@ -52,10 +50,10 @@ if config['OS'] == 'linux':
     from redis import Redis
     from rq import Queue
 
-def conv_network(train, predict, refine, img_list, label_list, \
-            path_to_model, compress, epochs, batch_size, batch_size_refine, \
-            stride_size, stride_size_refining, channels, normalize, path_to_img, \
-            x_scale, y_scale, z_scale, balance, image, label):
+def conv_network(train, predict, refine, img_list, label_list, path_to_model,
+            path_to_refine_model, compress, epochs, batch_size, batch_size_refine,
+            stride_size, stride_size_refining, channels, normalize, path_to_img,
+            x_scale, y_scale, z_scale, balance, image, label, crop_data):
 
     # get number of GPUs
     strategy = tf.distribute.MirroredStrategy()
@@ -67,7 +65,6 @@ def conv_network(train, predict, refine, img_list, label_list, \
     batch_size_refine -= batch_size_refine % ngpus  # batch size must be divisible by number of GPUs
     z_patch, y_patch, x_patch = 64, 64, 64          # dimensions of patches for regular training
     patch_size = 64                                 # x,y,z-patch size for the refinement network
-    validation_split = 0.0                          # validation after each epoch
 
     # adapt scaling and stridesize to patchsize
     stride_size = max(1, min(stride_size, 64))
@@ -80,25 +77,25 @@ def conv_network(train, predict, refine, img_list, label_list, \
 
         try:
             # load training data
-            img, labelData, position, allLabels, mu, sig, header, extension = load_training_data(normalize,
-                            img_list, label_list, channels, x_scale, y_scale, z_scale)
+            img, labelData, position, allLabels, mu, sig, header, extension, region_of_interest = load_training_data(normalize,
+                            img_list, label_list, channels, x_scale, y_scale, z_scale, crop_data)
 
             # train network
             train_semantic_segmentaion(img, labelData, path_to_model, z_patch, y_patch, x_patch, allLabels, epochs,
-                            batch_size, channels, validation_split, stride_size, balance, position,
-                            label.flip_x, label.flip_y, label.flip_z, label.rotate)
+                            batch_size, channels, label.validation_split, stride_size, balance, position,
+                            label.flip_x, label.flip_y, label.flip_z, label.rotate, image)
 
         except InputError:
-            return success, InputError.message, None
+            return success, InputError.message, None, None
         except MemoryError:
             print('MemoryError')
-            return success, 'MemoryError', None
+            return success, 'MemoryError', None, None
         except ResourceExhaustedError:
             print('GPU out of memory')
-            return success, 'GPU out of memory', None
+            return success, 'GPU out of memory', None, None
         except Exception as e:
             print('Error:', e)
-            return success, e, None
+            return success, e, None, None
 
         # save meta data
         hf = h5py.File(path_to_model, 'r+')
@@ -108,6 +105,8 @@ def conv_network(train, predict, refine, img_list, label_list, \
         if extension == '.am':
             group.create_dataset('extension', data=extension)
             group.create_dataset('header', data=header)
+        if region_of_interest is not None:
+            group.create_dataset('region_of_interest', data=region_of_interest)
         hf.close()
 
     if refine and not predict:
@@ -129,35 +128,36 @@ def conv_network(train, predict, refine, img_list, label_list, \
 
         try:
             # load training data
-            img, labelData, final = load_training_data_refine(path_to_model, x_scale, y_scale, z_scale, \
-                            patch_size, z_patch, y_patch, x_patch, normalize, img_list, label_list, \
+            img, labelData, final = load_training_data_refine(path_to_model, x_scale, y_scale, z_scale,
+                            patch_size, z_patch, y_patch, x_patch, normalize, img_list, label_list,
                             channels, stride_size, allLabels, mu, sig, batch_size)
 
             # path to refine model
-            path_to_model = path_to_model[:-3] + '_refine.h5'
+            path_to_refine_model = path_to_model[:-3] + '.refined.h5'
+            path_to_refine_model = unique_file_path(path_to_refine_model, image.user.username)
 
             # train refinement network
-            train_semantic_segmentaion_refine(img, labelData, final, path_to_model, patch_size, epochs, \
-                            batch_size_refine, allLabels, validation_split, stride_size_refining)
+            train_semantic_segmentaion_refine(img, labelData, final, path_to_refine_model, patch_size, epochs,
+                            batch_size_refine, allLabels, label.validation_split, stride_size_refining)
 
             # save meta data
-            hf = h5py.File(path_to_model, 'r+')
+            hf = h5py.File(path_to_refine_model, 'r+')
             group = hf.create_group('meta')
             group.create_dataset('configuration', data=np.array([channels, normalize, mu, sig]))
             group.create_dataset('labels', data=allLabels)
             hf.close()
 
         except InputError:
-            return success, InputError.message, None
+            return success, InputError.message, None, None
         except MemoryError:
             print('MemoryError')
-            return success, 'MemoryError', None
+            return success, 'MemoryError', None, None
         except ResourceExhaustedError:
             print('GPU out of memory')
-            return success, 'GPU out of memory', None
+            return success, 'GPU out of memory', None, None
         except Exception as e:
             print('Error:', e)
-            return success, e, None
+            return success, e, None, None
 
     if predict:
 
@@ -172,6 +172,7 @@ def conv_network(train, predict, refine, img_list, label_list, \
             allLabels = np.array(meta.get('labels'))
             header = np.array(meta.get('header'))
             extension = str(np.array(meta.get('extension')))
+            region_of_interest = np.array(meta.get('region_of_interest'))
             hf.close()
         except Exception as e:
             print('Error:', e)
@@ -188,34 +189,24 @@ def conv_network(train, predict, refine, img_list, label_list, \
         if filename[-4:] in ['.nii','.tar']:
             filename = filename[:-4]
         filename = 'final.' + filename
-        dir_path = config['PATH_TO_BIOMEDISA'] + '/private_storage/'
-        pic_path = 'images/%s/%s' %(image.user.username, filename)
-        limit = 100 - len(extension) - len('.cleaned.filled')
-        path_to_final = dir_path + pic_path[:limit] + extension
-
-        # if path_to_final exists create new path_to_final
-        if os.path.exists(path_to_final):
-            CHARACTERS, CODE_SIZE = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz23456789', 7
-            newending = id_generator(CODE_SIZE, CHARACTERS)
-            limit = 100 - len(extension) - len('.cleaned.filled') - 8
-            path_to_final = dir_path + pic_path[:limit] + '_' + newending + extension
+        path_to_final = os.path.dirname(path_to_img) + '/' + filename + extension
+        path_to_final = unique_file_path(path_to_final, image.user.username)
 
         try:
+
             # load prediction data
-            img, img_header, position, z_shape, y_shape, x_shape = load_prediction_data(path_to_img, channels, \
-                            x_scale, y_scale, z_scale, path_to_model, normalize, mu, sig)
+            img, img_header, position, z_shape, y_shape, x_shape, region_of_interest = load_prediction_data(path_to_img,
+                channels, x_scale, y_scale, z_scale, normalize, mu, sig, region_of_interest)
 
             # make prediction
-            predict_semantic_segmentation(img, position, path_to_model, path_to_final, z_patch, y_patch, x_patch, \
-                            z_shape, y_shape, x_shape, compress, header, img_header, channels, stride_size, allLabels, batch_size)
+            predict_semantic_segmentation(img, position, path_to_model, path_to_final,
+                z_patch, y_patch, x_patch,  z_shape, y_shape, x_shape, compress, header,
+                img_header, channels, stride_size, allLabels, batch_size, region_of_interest)
 
-            # path to refine model
-            path_to_model = path_to_model[:-3] + '_refine.h5'
-
-            if refine and os.path.exists(path_to_model):
+            if refine and os.path.exists(path_to_refine_model):
 
                 # get meta data
-                hf = h5py.File(path_to_model, 'r')
+                hf = h5py.File(path_to_refine_model, 'r')
                 meta = hf.get('meta')
                 configuration = meta.get('configuration')
                 channels, normalize, mu, sig = np.array(configuration)[:]
@@ -225,24 +216,24 @@ def conv_network(train, predict, refine, img_list, label_list, \
                 hf.close()
 
                 # refine segmentation
-                refine_semantic_segmentation(path_to_img, path_to_final, path_to_model, patch_size, \
-                                             compress, header, img_header, normalize, stride_size_refining, \
+                refine_semantic_segmentation(path_to_img, path_to_final, path_to_refine_model, patch_size,
+                                             compress, header, img_header, normalize, stride_size_refining,
                                              allLabels, mu, sig, batch_size_refine)
 
         except InputError:
-            return success, InputError.message, None
+            return success, InputError.message, None, None
         except MemoryError:
             print('MemoryError')
-            return success, 'MemoryError', None
+            return success, 'MemoryError', None, None
         except ResourceExhaustedError:
             print('GPU out of memory')
-            return success, 'GPU out of memory', None
+            return success, 'GPU out of memory', None, None
         except Exception as e:
             print('Error:', e)
-            return success, e, None
+            return success, e, None, None
 
     success = True
-    return success, None, path_to_final
+    return success, None, path_to_final, path_to_refine_model
 
 if __name__ == '__main__':
 
@@ -253,15 +244,14 @@ if __name__ == '__main__':
     try:
         image = Upload.objects.get(pk=sys.argv[1])
         label = Upload.objects.get(pk=sys.argv[2])
+        success = True
     except Upload.DoesNotExist:
-        image.status = 0
-        image.pid = 0
-        image.save()
+        success = False
         message = 'Files have been removed.'
         Upload.objects.create(user=image.user, project=image.project, log=1, imageType=None, shortfilename=message)
 
-    # check if aborted
-    if image.status > 0:
+    # check if aborted or files have been removed
+    if image.status > 0 and success:
 
         # set PID
         image.pid = int(os.getpid())
@@ -283,10 +273,12 @@ if __name__ == '__main__':
 
         # train / refine / predict
         train, refine = False, False
+        path_to_refine_model = None
         if predict:
             if refine_model_id > 0:
                 refine = True
                 refine_model = Upload.objects.get(pk=refine_model_id)
+                path_to_refine_model = refine_model.pic.path
             model = Upload.objects.get(pk=model_id)
             project = os.path.splitext(model.shortfilename)[0]
         else:
@@ -302,24 +294,20 @@ if __name__ == '__main__':
         biomedisa_app.views.send_start_notification(image)
         with open(path_to_logfile, 'a') as logfile:
             print('%s %s %s %s' %(time.ctime(), image.user.username, image.shortfilename, 'Process was started.'), file=logfile)
-            print('PROJECT:%s PREDICT:%s IMG:%s LABEL:%s RAW_LIST:%s LABEL_LIST:%s' %(project, predict, image.shortfilename, label.shortfilename, raw_list, label_list), file=logfile)
+            print('PROJECT:%s PREDICT:%s IMG:%s LABEL:%s RAW_LIST:%s LABEL_LIST:%s'
+                 %(project, predict, image.shortfilename, label.shortfilename, raw_list, label_list), file=logfile)
 
         # create path_to_model
         if train:
             extension = '.h5'
             dir_path = config['PATH_TO_BIOMEDISA'] + '/private_storage/'
             model_path = 'images/%s/%s' %(image.user.username, project)
-            limit = 100 - len(extension) - len('_refine')
-            path_to_model = dir_path + model_path[:limit] + extension
-
-            # if path_to_model exists create new path_to_model
-            if os.path.exists(path_to_model):
-                CHARACTERS, CODE_SIZE = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz23456789', 7
-                newending = id_generator(CODE_SIZE, CHARACTERS)
-                limit = 100 - len(extension) - len('_refine') - 8
-                path_to_model = dir_path + model_path[:limit] + '_' + newending + extension
+            path_to_model = dir_path + model_path + extension
+            path_to_model = unique_file_path(path_to_model, image.user.username)
         else:
             path_to_model = model.pic.path
+        image.path_to_model = path_to_model
+        image.save()
 
         # parameters
         compress = 6 if label.compression else 0            # wheter final result should be compressed or not
@@ -330,6 +318,7 @@ if __name__ == '__main__':
         x_scale = int(label.x_scale)                        # images are scaled at x-axis to this size before training
         y_scale = int(label.y_scale)                        # images are scaled at y-axis to this size before training
         z_scale = int(label.z_scale)                        # images are scaled at z-axis to this size before training
+        crop_data = 1 if label.automatic_cropping else 0    # crop data automatically to region of interest
 
         # the stride which is made for generating patches
         if model_id > 0:
@@ -346,41 +335,31 @@ if __name__ == '__main__':
             batch_size_refine = int(label.batch_size)
 
         # train network or predict segmentation
-        success, error_message, path_to_final = conv_network(
-                                    train, predict, refine, raw_list, label_list, path_to_model, compress,
-                                    epochs, batch_size, batch_size_refine, stride_size, stride_size_refining, channels,
-                                    normalize, path_to_img, x_scale, y_scale, z_scale, balance, image, label
-                                    )
-
-        # reset objects
-        image.status = 0
-        image.pid = 0
-        image.save()
+        success, error_message, path_to_final, path_to_refine_model = conv_network(
+            train, predict, refine, raw_list, label_list, path_to_model, path_to_refine_model, compress,
+            epochs, batch_size, batch_size_refine, stride_size, stride_size_refining, channels,
+            normalize, path_to_img, x_scale, y_scale, z_scale, balance, image, label, crop_data
+            )
 
         if success:
 
             if train:
                 # create model object
-                short_name = os.path.basename(path_to_model)
-                filename = 'images/' + image.user.username + '/' + short_name
-                tmp = Upload.objects.create(pic=filename, user=image.user, project=image.project, imageType=4, shortfilename=short_name)
-                tmp.friend = tmp.id
-                tmp.save()
+                shortfilename = os.path.basename(path_to_model)
+                pic_path = 'images/' + image.user.username + '/' + shortfilename
+                Upload.objects.create(pic=pic_path, user=image.user, project=image.project, imageType=4, shortfilename=shortfilename)
 
             if refine and not predict:
                 # create model object
-                path_to_model = path_to_model[:-3] + '_refine.h5'
-                short_name = os.path.basename(path_to_model)
-                filename = 'images/' + image.user.username + '/' + short_name
-                tmp = Upload.objects.create(pic=filename, user=image.user, project=image.project, imageType=4, shortfilename=short_name)
-                tmp.friend = tmp.id
-                tmp.save()
+                shortfilename = os.path.basename(path_to_refine_model)
+                pic_path = 'images/' + image.user.username + '/' + shortfilename
+                Upload.objects.create(pic=pic_path, user=image.user, project=image.project, imageType=4, shortfilename=shortfilename)
 
             if predict:
                 # create final object
                 shortfilename = os.path.basename(path_to_final)
-                filename = 'images/' + image.user.username + '/' + shortfilename
-                tmp = Upload.objects.create(pic=filename, user=image.user, project=image.project, final=1, active=1, imageType=3, shortfilename=shortfilename)
+                pic_path = 'images/' + image.user.username + '/' + shortfilename
+                tmp = Upload.objects.create(pic=pic_path, user=image.user, project=image.project, final=1, active=1, imageType=3, shortfilename=shortfilename)
                 tmp.friend = tmp.id
                 tmp.save()
 
@@ -388,9 +367,9 @@ if __name__ == '__main__':
                 q = Queue('slices', connection=Redis())
                 job = q.enqueue_call(create_slices, args=(path_to_img, path_to_final,), timeout=-1)
                 q = Queue('acwe', connection=Redis())
-                job = q.enqueue_call(active_contour, args=(path_to_img, path_to_final, tmp.id, model.id, image.id,), timeout=-1)
+                job = q.enqueue_call(active_contour, args=(image.id, tmp.id, model.id,), timeout=-1)
                 q = Queue('cleanup', connection=Redis())
-                job = q.enqueue_call(remove_outlier, args=(path_to_img, path_to_final, tmp.id, model.id,), timeout=-1)
+                job = q.enqueue_call(remove_outlier, args=(image.id, tmp.id, tmp.id, model.id,), timeout=-1)
 
             # write in logs and send notification
             if predict:
@@ -414,3 +393,4 @@ if __name__ == '__main__':
             with open(path_to_logfile, 'a') as logfile:
                 print('%s %s %s %s' %(time.ctime(), image.user.username, image.shortfilename, error_message), file=logfile)
             biomedisa_app.views.send_error_message(image.user.username, image.shortfilename, error_message)
+

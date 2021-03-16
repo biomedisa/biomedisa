@@ -32,18 +32,17 @@ django.setup()
 from biomedisa_app.config import config
 from biomedisa_app.models import Upload, Profile
 from biomedisa_app.views import send_start_notification
-from biomedisa_features.biomedisa_helper import pre_processing, _error_, id_generator
+from biomedisa_features.biomedisa_helper import pre_processing, _error_
 from django.contrib.auth.models import User
 from multiprocessing import freeze_support
 import numpy as np
 import time
 
 def read_labeled_slices(arr):
-    testSlices = np.copy(arr)
     data = np.zeros((0, arr.shape[1], arr.shape[2]), dtype=arr.dtype)
     indices = []
     i = 0
-    for k, slc in enumerate(testSlices[:]):
+    for k, slc in enumerate(arr[:]):
         if np.any(slc):
             data = np.append(data, [arr[k]], axis=0)
             indices.append(i)
@@ -95,11 +94,10 @@ def read_indices_allx(arr, ax):
     return indices
 
 def predict_blocksize(bm):
-    testSlices = np.copy(bm.labelData)
-    zsh, ysh, xsh = testSlices.shape
+    zsh, ysh, xsh = bm.labelData.shape
     argmin_z, argmax_z, argmin_y, argmax_y, argmin_x, argmax_x = zsh, 0, ysh, 0, xsh, 0
     for k in range(zsh):
-        y, x = np.nonzero(testSlices[k])
+        y, x = np.nonzero(bm.labelData[k])
         if x.any():
             argmin_x = min(argmin_x, np.amin(x))
             argmax_x = max(argmax_x, np.amax(x))
@@ -136,15 +134,15 @@ if __name__ == '__main__':
         bm.TIC = time.time()
 
         # get objects
-        bm.success = True
         try:
             bm.image = Upload.objects.get(pk=sys.argv[1])
             bm.label = Upload.objects.get(pk=sys.argv[2])
+            bm.success = True
         except Upload.DoesNotExist:
             bm = _error_(bm, 'Files have been removed.')
 
         # check if aborted
-        if bm.image.status == 0:
+        if bm.image.status == 0 or bm.success == False:
 
             # send not executable
             for dest in range(1, size):
@@ -190,15 +188,7 @@ if __name__ == '__main__':
                 filename = 'final.' + filename
                 dir_path = config['PATH_TO_BIOMEDISA'] + '/private_storage/'
                 pic_path = 'images/%s/%s' %(bm.image.user, filename)
-                limit = 100 - len(bm.final_image_type) - len('.cleaned.filled')
-                bm.path_to_final = dir_path + pic_path[:limit] + bm.final_image_type
-
-                # if path_to_final exists create new path_to_final
-                if os.path.exists(bm.path_to_final):
-                    CHARACTERS, CODE_SIZE = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz23456789', 7
-                    newending = id_generator(CODE_SIZE, CHARACTERS)
-                    limit = 100 - len(bm.final_image_type) - len('.cleaned.filled') - 8
-                    bm.path_to_final = dir_path + pic_path[:limit] + '_' + newending + bm.final_image_type
+                bm.path_to_final = dir_path + pic_path + bm.final_image_type
 
                 # path_to_uq and path_to_smooth
                 filename, extension = os.path.splitext(bm.path_to_final)

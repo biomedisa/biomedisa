@@ -34,8 +34,8 @@ from biomedisa_app.config import config
 from biomedisa_app.models import Upload
 from biomedisa_features.curvop_numba import curvop, evolution
 from biomedisa_features.create_slices import create_slices
-from biomedisa_features.biomedisa_helper import (load_data, save_data, pre_processing, 
-                                id_generator, img_to_uint8)
+from biomedisa_features.biomedisa_helper import (unique_file_path,
+    load_data, save_data, pre_processing, img_to_uint8)
 from multiprocessing import Process
 
 import numpy as np
@@ -111,7 +111,7 @@ def activeContour(data, A, alpha=1.0, smooth=1, steps=3):
 class Biomedisa(object):
      pass
 
-def active_contour(path_to_data, path_to_labels, friend_id, label_id, image_id):
+def active_contour(image_id, friend_id, label_id):
 
     # time
     TIC = time.time()
@@ -119,36 +119,22 @@ def active_contour(path_to_data, path_to_labels, friend_id, label_id, image_id):
     # create biomedisa
     bm = Biomedisa()
 
-    # get paths
-    bm.path_to_data = path_to_data
-    bm.path_to_labels = path_to_labels
-
     # path to logfiles
     bm.path_to_time = config['PATH_TO_BIOMEDISA'] + '/log/time.txt'
     bm.path_to_logfile = config['PATH_TO_BIOMEDISA'] + '/log/logfile.txt'
 
     # get objects
-    bm.success = True
     try:
         bm.image = Upload.objects.get(pk=image_id)
         bm.label = Upload.objects.get(pk=label_id)
         friend = Upload.objects.get(pk=friend_id)
+        bm.success = True
     except Upload.DoesNotExist:
         bm.success = False
-        if label_id == friend_id:
-            bm.image.status = 0
-            bm.image.pid = 0
-            bm.image.save()
-            message = 'Files have been removed.'
-            Upload.objects.create(user=bm.image.user, project=bm.image.project, log=1, imageType=None, shortfilename=message)
 
-    # set PID
-    if label_id == friend_id and bm.success:
-        if bm.image.status == 1:
-            bm.image.status = 2
-            bm.image.message = 'Processing'
-        bm.image.pid = int(os.getpid())
-        bm.image.save()
+    # path to data
+    bm.path_to_data = bm.image.pic.path
+    bm.path_to_labels = friend.pic.path
 
     # pre-processing
     if bm.success:
@@ -157,39 +143,11 @@ def active_contour(path_to_data, path_to_labels, friend_id, label_id, image_id):
 
     if bm.success:
 
-        # active contour as stand alone
-        if label_id == friend_id:
-
-            # write in logfile and send start notification
-            biomedisa_app.views.send_start_notification(bm.image)
-
-            # write in logfile
-            with open(bm.path_to_logfile, 'a') as logfile:
-                print('%s %s %s %s' %(time.ctime(), bm.image.user, bm.image.shortfilename, 'Process was started.'), file=logfile)
-
-            # create path_to_final
-            filename, extension = os.path.splitext(bm.image.shortfilename)
-            if extension == '.gz':
-                filename = filename[:-4]
-            filename = 'final.' + filename
-            dir_path = config['PATH_TO_BIOMEDISA'] + '/private_storage/'
-            pic_path = 'images/%s/%s' %(bm.image.user, filename)
-            limit = 100 - len(bm.final_image_type) - len('.acwe')
-            bm.path_to_acwe = dir_path + pic_path[:limit] + '.acwe' + bm.final_image_type
-
-            # if path_to_final exists create new path_to_final
-            if os.path.exists(bm.path_to_acwe):
-                CHARACTERS, CODE_SIZE = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz23456789', 7
-                newending = id_generator(CODE_SIZE, CHARACTERS)
-                limit = 100 - len(bm.final_image_type) - len('.acwe') - 8
-                bm.path_to_acwe = dir_path + pic_path[:limit] + '_' + newending + '.acwe' + bm.final_image_type
-
-        else:
-            # final filename
-            filename, extension = os.path.splitext(bm.path_to_labels)
-            if extension == '.gz':
-                filename = filename[:-4]
-            bm.path_to_acwe = filename + '.acwe' + bm.final_image_type
+        # final filename
+        filename, extension = os.path.splitext(bm.path_to_labels)
+        if extension == '.gz':
+            filename = filename[:-4]
+        bm.path_to_acwe = filename + '.acwe' + bm.final_image_type
 
         # data type
         bm.data = img_to_uint8(bm.data)
@@ -203,14 +161,17 @@ def active_contour(path_to_data, path_to_labels, friend_id, label_id, image_id):
         final = activeContour(bm.data, bm.labelData, alpha, smooth, steps)
 
         try:
-            # check if final has already been removed
+            # check if final still exists
             friend = Upload.objects.get(pk=friend_id)
 
-            # image size
-            bm.imageSize = int(final.nbytes * 10e-7)
-
             # save result
+            bm.path_to_acwe = unique_file_path(bm.path_to_acwe, bm.image.user.username)
             save_data(bm.path_to_acwe, final, bm.header, bm.final_image_type, bm.label.compression)
+
+            # save django object
+            shortfilename = os.path.basename(bm.path_to_acwe)
+            pic_path = 'images/' + bm.image.user.username + '/' + shortfilename
+            Upload.objects.create(pic=pic_path, user=bm.image.user, project=friend.project, final=3, imageType=3, shortfilename=shortfilename, friend=friend_id)
 
             # create slices
             if config['OS'] == 'linux':
@@ -218,37 +179,6 @@ def active_contour(path_to_data, path_to_labels, friend_id, label_id, image_id):
                 job = q.enqueue_call(create_slices, args=(bm.path_to_data, bm.path_to_acwe,), timeout=-1)
             elif config['OS'] == 'windows':
                 Process(target=create_slices, args=(bm.path_to_data, bm.path_to_acwe)).start()
-
-            # save django object
-            shortfilename = os.path.basename(bm.path_to_acwe)
-            filename = 'images/' + bm.label.user.username + '/' + shortfilename
-
-            if label_id != friend_id:
-                tmp = Upload.objects.create(pic=filename, user=bm.label.user, project=friend.project, final=3, imageType=3, shortfilename=shortfilename, friend=friend_id)
-
-            elif label_id == friend_id:
-                tmp = Upload.objects.create(pic=filename, user=bm.label.user, project=bm.label.project, final=3, imageType=3, shortfilename=shortfilename, active=1)
-                tmp.friend = tmp.id
-                tmp.save()
-                bm.image.status = 0
-                bm.image.pid = 0
-                bm.image.save()
-
-                # write in logs
-                t = int(time.time() - TIC)
-                if t < 60:
-                    time_str = str(t) + ' sec'
-                elif 60 <= t < 3600:
-                    time_str = str(t // 60) + ' min ' + str(t % 60) + ' sec'
-                elif 3600 < t:
-                    time_str = str(t // 3600) + ' h ' + str((t % 3600) // 60) + ' min ' + str(t % 60) + ' sec'
-                with open(bm.path_to_time, 'a') as timefile:
-                    print('%s %s %s %s MB %s on %s active_contour' %(time.ctime(), bm.image.user.username, \
-                    bm.image.shortfilename, bm.imageSize, time_str, config['SERVER_ALIAS']), file=timefile)
-                print('Total calculation time:', time_str)
-
-                # send notification
-                biomedisa_app.views.send_notification(bm.image.user.username, bm.image.shortfilename, time_str, config['SERVER_ALIAS'])
 
         except Upload.DoesNotExist:
             pass

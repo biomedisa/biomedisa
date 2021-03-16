@@ -52,6 +52,11 @@ function sliceviewerFunction(id) {
     window.close();
 }
 
+function visualizationFunction(id) {
+    window.location.href = "/visualization/?selected=" + id + "&next=app";
+    window.close();
+}
+
 function changeFunction(id, val) {
     window.location.href = "/change_active_final/" + id + "/" + val + "/?next=app";
     window.close();
@@ -288,11 +293,12 @@ $(document).ready(addClickHandlers);
   <button type="image" name="action" value="2" title="move selected" onclick="return confirm('Move selected files to storage?')"> <img src="/static/move.ico" style="width:20px;height:20px;border:0;"></button>
   <button type="image" name="action" value="4" title="train" onclick="return confirm('Train a neural network?')"> <img src="/static/ai_logo.svg" style="width:20px;height:20px;border:0;"></button>
   <button type="image" name="action" value="3" title="predict" onclick="return confirm('Predict segmentation?')"> <img src="/static/learn_1.svg" style="width:20px;height:20px;border:0;"></button>
-  <button type="image" name="action" value="5" title="active contour" onclick="return confirm('Segmentation with active contour?')"> <img src="/static/active_contour.png" style="width:20px;height:20px;border:0;"></button>
   <button type="image" name="action" value="6" title="make a copy" onclick="return confirm('Duplicate file?')"> <img src="/static/copy-icon.png" style="width:20px;height:20px;border:0;"></button>
   <button type="image" name="action" value="7" title="convert to 8bit TIFF" onclick="return confirm('Convert to 8 bit TIFF?')"> <img src="/static/8bit.png" style="width:20px;height:20px;border:0;"></button>
   <button type="image" name="action" value="8" title="denoise image" onclick="return confirm('Denoise image data?')"> <img src="/static/smoothing.svg" style="width:20px;height:20px;border:0;"></button>
   <button type="image" name="action" value="9" title="switch image type" onclick="return confirm('Switch image type?')"> <img src="/static/switch_type.png" style="width:20px;height:20px;border:0;"></button>
+  <button type="image" name="action" value="10" title="visualization" onclick="return confirm('Open with ParaView?')"> <img src="/static/visualization.svg" style="width:20px;height:20px;border:0;"></button>
+  <button type="image" name="action" value="11" title="create a surface mesh" onclick="return confirm('Create a surface mesh?')"> <img src="/static/mesh.svg" style="width:20px;height:20px;border:0;"></button>
 
   <table style="width:100%" border="0">
   {% for k in loop_times %}
@@ -321,7 +327,7 @@ $(document).ready(addClickHandlers);
               {% if img.imageType == 1 %}
                 <div id="img{{ img.id }}" >
                   <p>
-                  <a href="/visualization/{{img.id}}/?next=app" target="_blank"><img src="/static/file_image.png" title="visualization" style="width:50px;height:50px;border:0;"></a>
+                  <a href=# onclick="visualizationFunction({{img.id}})"><img src="/static/file_image.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
                   <span class="delete_link" id="{{img.id}},{{img.status}},{{ img.project }},Delete File?"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
                   <a href="/download/{{img.id}}"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
                   <a href=# onclick="sliceviewerFunction({{img.id}})"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
@@ -334,7 +340,7 @@ $(document).ready(addClickHandlers);
               {% elif img.imageType == 2 %}
                 <div id="img{{ img.id }}" >
                   <p>
-                  <a href="/visualization/{{img.id}}/?next=app" target="_blank"><img src="/static/Label.png" title="visualization" style="width:50px;height:50px;border:0;"></a>
+                  <a href=# onclick="visualizationFunction({{img.id}})"><img src="/static/file_label.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
                   <span class="delete_link" id="{{img.id}},{{img.status}},{{ img.project }},Delete File?"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
                   <a href="/download/{{img.id}}"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
                   <a href=# onclick="sliceviewerFunction({{img.id}})"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
@@ -348,7 +354,7 @@ $(document).ready(addClickHandlers);
               {% elif img.imageType == 4 %}
                 <div id="img{{ img.id }}" >
                   <p>
-                  <a href='#'><img src="/static/ai.ico" title="network" style="width:50px;height:50px;border:0;"></a>
+                  <a href='#'><img src="/static/file_ai.svg" title="network" style="width:50px;height:50px;border:0;"></a>
                   <span class="delete_link" id="{{img.id}},{{img.status}},{{ img.project }},Delete File?"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
                   <a href="/download/{{img.id}}"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
                   <span class="move_link" id="{{img.id}},{{img.status}}"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
@@ -358,10 +364,22 @@ $(document).ready(addClickHandlers);
                   <span class="rename_link" id="{{img.id}},{{img.shortfilename}}" title="rename">{{ img.shortfilename }}</span>
                   </p>
                 </div>
+              {% elif img.imageType == 5 %}
+                <div id="img{{ img.id }}" >
+                  <p>
+                  <a href=# onclick="visualizationFunction({{img.id}})"><img src="/static/file_mesh.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
+                  <span class="delete_link" id="{{img.id}},{{img.status}},{{ img.project }},Delete File?"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+                  <a href="/download/{{img.id}}"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+                  <span class="move_link" id="{{img.id}},{{img.status}}"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+                  <span class="share_link" id="{{img.id}}"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+                  <input type="checkbox" name="selected" value="{{img.id}}"/> </br>
+                  <span class="rename_link" id="{{img.id}},{{img.shortfilename}}" title="rename">{{ img.shortfilename }}</span>
+                  </p>
+                </div>
               {% elif img.active %}
                 <div id="img{{ img.id }}" >
                   <p>
-                  <a href="/visualization/{{img.id}}/?next=app" target="_blank"><img src="/static/file_final.png" title="visualization" style="width:50px;height:50px;border:0;"></a>
+                  <a href=# onclick="visualizationFunction({{img.id}})"><img src="/static/file_final.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
                   <span class="delete_link" id="{{img.id}},{{img.status}},{{ img.project }},Delete File?"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
                   <a href="/download/{{img.id}}"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
                   <a href=# onclick="sliceviewerFunction({{img.id}})"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
@@ -406,7 +424,7 @@ $(document).ready(addClickHandlers);
                   </p>
                   </div>
                   </td></tr>
-              {% elif img.status > 0 and img.imageType == 1 %}
+              {% elif img.status > 0 %}
                   <tr><td>
                   <div id="msg{{ img.id }}">
                   <p>

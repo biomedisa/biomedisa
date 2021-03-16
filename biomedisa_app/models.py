@@ -185,6 +185,9 @@ class Upload(models.Model):
     flip_y = models.BooleanField("Flip y-axis (AI)", default=False)
     flip_z = models.BooleanField("Flip z-axis (AI)", default=False)
     rotate = models.IntegerField("Rotate (AI)", default=0)
+    automatic_cropping = models.BooleanField("Automatic cropping (AI)", default=False)
+    path_to_model = models.TextField(null=True)
+    validation_split = models.FloatField('Validation split (AI)', default=0.0)
 
 class UploadForm(forms.ModelForm):
     class Meta:
@@ -194,23 +197,22 @@ class UploadForm(forms.ModelForm):
 class StorageForm(forms.ModelForm):
     class Meta:
         model = Upload
-        fields = ('pic','imageType')
+        fields = ('pic',)#,'imageType',)
 
 class SettingsForm(forms.ModelForm):
     class Meta:
         model = Upload
         fields = ('allaxis', 'uncertainty', 'compression', 'normalize',
-                  'position', 'balance', 'flip_x', 'flip_y',
-                  'flip_z', 'rotate', 'epochs', 'batch_size',
-                  'x_scale', 'y_scale', 'z_scale', 'stride_size',
-                  'smooth', 'ac_alpha', 'ac_smooth', 'ac_steps',
-                  'delete_outliers', 'fill_holes', 'ignore', 'only')
+                  'automatic_cropping', 'position', 'balance', 'flip_x',
+                  'flip_y', 'flip_z', 'rotate', 'epochs', 'batch_size',
+                  'x_scale', 'y_scale', 'z_scale', 'stride_size', 'validation_split',
+                  'smooth', 'delete_outliers', 'fill_holes', 'ignore', 'only')
 
 class SettingsPredictionForm(forms.ModelForm):
     class Meta:
         model = Upload
-        fields = ('compression', 'batch_size', 'stride_size', 'delete_outliers',
-                  'fill_holes', 'ac_alpha', 'ac_smooth', 'ac_steps')
+        fields = ('compression', 'batch_size', 'stride_size', 
+                  'delete_outliers', 'fill_holes')
 
 @receiver(models.signals.post_delete, sender=Upload)
 def auto_delete_file_on_delete(sender, instance, **kwargs):
@@ -218,10 +220,6 @@ def auto_delete_file_on_delete(sender, instance, **kwargs):
     when corresponding `Upload` object is deleted.
     """
     if instance.pic:
-
-        path_to_slicemaps = instance.pic.path.replace('images', 'dataset', 1)
-        if os.path.isdir(path_to_slicemaps):
-            shutil.rmtree(path_to_slicemaps)
 
         path_to_slices = instance.pic.path.replace('images', 'sliceviewer', 1)
         if os.path.isdir(path_to_slices):

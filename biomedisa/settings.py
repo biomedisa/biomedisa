@@ -104,6 +104,9 @@ USE_L10N = True
 
 USE_TZ = True
 
+# Paraview files
+PARAVIEW_URL = '/paraview/'
+PARAVIEW_ROOT = os.path.join(BASE_DIR, 'biomedisa_app/paraview/')
 
 # Static files (CSS, JavaScript, Images)
 STATIC_URL = '/static/'
@@ -115,3 +118,4 @@ EMAIL_HOST = config['SMTP_SEND_SERVER']
 EMAIL_PORT = config['SMTP_PORT']
 EMAIL_HOST_USER = config['EMAIL_USER']
 EMAIL_HOST_PASSWORD = config['EMAIL_PASSWORD']
+DEFAULT_FROM_EMAIL = 'Biomedisa <'+config['EMAIL']+'>'

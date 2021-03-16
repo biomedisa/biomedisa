@@ -341,7 +341,9 @@ def walk(comm, raw, slices, indices, nbrw, sorw, blockmin, blockmax, name, allLa
         try:
             update_gpu = _build_update_gpu()
             curvature_gpu = _build_curvature_gpu()
-            b_gpu = gpuarray.zeros(raw.shape, dtype=np.float32)
+            b_npy = np.zeros(raw.shape, dtype=np.float32)
+            b_gpu = cuda.mem_alloc(b_npy.nbytes)
+            cuda.memcpy_htod(b_gpu, b_npy)
             final_smooth = np.zeros((blockmax-blockmin, yshape, xshape), dtype=np.uint8)
             sendbuf_smooth = np.zeros(1, dtype=np.int32)
             recvbuf_smooth = np.zeros(1, dtype=np.int32)
@@ -355,10 +357,16 @@ def walk(comm, raw, slices, indices, nbrw, sorw, blockmin, blockmax, name, allLa
             comm.Allreduce([sendbuf_smooth, MPI.INT], [recvbuf_smooth, MPI.INT], op=MPI.MAX)
         if recvbuf_smooth > 0:
             smooth = 0
+            try:
+                b_gpu.free()
+            except:
+                pass
 
     if uncertainty:
         try:
-            max_gpu = gpuarray.zeros((3,)+raw.shape, dtype=np.float32)
+            max_npy = np.zeros((3,)+raw.shape, dtype=np.float32)
+            max_gpu = cuda.mem_alloc(max_npy.nbytes)
+            cuda.memcpy_htod(max_gpu, max_npy)
             kernel_uncertainty = _build_kernel_uncertainty()
             kernel_max = _build_kernel_max()
             sendbuf_uq = np.zeros(1, dtype=np.int32)
@@ -373,6 +381,10 @@ def walk(comm, raw, slices, indices, nbrw, sorw, blockmin, blockmax, name, allLa
             comm.Allreduce([sendbuf_uq, MPI.INT], [recvbuf_uq, MPI.INT], op=MPI.MAX)
         if recvbuf_uq > 0:
             uncertainty = False
+            try:
+                max_gpu.free()
+            except:
+                pass
 
     for label_counter, segment in enumerate(allLabels):
         print('%s:' %(name) + ' ' + str(label_counter+1) + '/' + str(len(allLabels)))

@@ -31,12 +31,15 @@ from . import views
 
 from django.conf import settings
 from django.conf.urls.static import static
+from django.contrib.auth import views as auth_views
 
 urlpatterns = [
     # biomedisa
     url(r'^$', views.index, name='index'),
     # app
     url(r'^app/$', views.app, name='app'),
+    # demo
+    url(r'^paraview/$', views.paraview, name='paraview'),
     # demo
     url(r'^gallery/$', views.gallery, name='gallery'),
     # contact
@@ -66,8 +69,8 @@ urlpatterns = [
     url(r'^run/$', views.run, name='run'),
     url(r'^run/demo/$', views.run_demo, name='run_demo'),
     # visualization
-    url(r'^visualization/(?P<id>\d+)/$', views.visualization, name='visualization'),
-    url(r'^visualization_demo/(?P<id>\d+)/$', views.visualization_demo, name='visualization_demo'),
+    url(r'^visualization/$', views.visualization, name='visualization'),
+    url(r'^visualization_demo/$', views.visualization_demo, name='visualization_demo'),
     # sliceviewer
     url(r'^sliceviewer/(?P<id>\d+)/$', views.sliceviewer, name='sliceviewer'),
     url(r'^sliceviewer_demo/(?P<id>\d+)/$', views.sliceviewer_demo, name='sliceviewer_demo'),
@@ -101,4 +104,10 @@ urlpatterns = [
     url(r'^status/$', views.status, name='status'),
     # dummy
     url(r'^dummy/$', views.dummy, name='dummy'),
-] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT) + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    # password reset
+    url(r'^password_reset/$', auth_views.PasswordResetView.as_view(template_name='registration/password_reset_form.html'), name='password_reset'),
+    url(r'^password_reset/done/$', auth_views.PasswordResetDoneView.as_view(template_name='registration/password_reset_done.html'), name='password_reset_done'),
+    url(r'^reset/(?P<uidb64>[0-9A-Za-z_\-]+)/(?P<token>[0-9A-Za-z]{1,6}-[0-9A-Za-z]{1,32})/$',
+        auth_views.PasswordResetConfirmView.as_view(template_name='registration/password_reset_confirm.html'), name='password_reset_confirm'),
+    url(r'^reset/done/$', auth_views.PasswordResetCompleteView.as_view(template_name='registration/password_reset_complete.html'), name='password_reset_complete'),
+] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT) + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT) + static(settings.PARAVIEW_URL, document_root=settings.PARAVIEW_ROOT)

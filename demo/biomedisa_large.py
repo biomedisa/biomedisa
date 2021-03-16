@@ -83,12 +83,11 @@ def splitlargedata(data):
     return dataListe
 
 def read_labeled_slices(volData):
-    testSlices = np.copy(volData)
     data = np.zeros((0, volData.shape[1], volData.shape[2]), dtype=np.int32)
     indices = []
     i = 0
     while i < volData.shape[0]:
-        slc = testSlices[i]
+        slc = volData[i]
         if np.any(slc):
             data = np.append(data, [volData[i]], axis=0)
             indices.append(i)
