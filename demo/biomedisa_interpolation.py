@@ -33,11 +33,10 @@ import numpy as np
 import time
 
 def read_labeled_slices(arr):
-    testSlices = np.copy(arr)
     data = np.zeros((0, arr.shape[1], arr.shape[2]), dtype=arr.dtype)
     indices = []
     i = 0
-    for k, slc in enumerate(testSlices[:]):
+    for k, slc in enumerate(arr[:]):
         if np.any(slc):
             data = np.append(data, [arr[k]], axis=0)
             indices.append(i)
@@ -89,11 +88,10 @@ def read_indices_allx(arr, ax):
     return indices
 
 def predict_blocksize(bm):
-    testSlices = np.copy(bm.labelData)
-    zsh, ysh, xsh = testSlices.shape
+    zsh, ysh, xsh = bm.labelData.shape
     argmin_z, argmax_z, argmin_y, argmax_y, argmin_x, argmax_x = zsh, 0, ysh, 0, xsh, 0
     for k in range(zsh):
-        y, x = np.nonzero(testSlices[k])
+        y, x = np.nonzero(bm.labelData[k])
         if x.any():
             argmin_x = min(argmin_x, np.amin(x))
             argmax_x = max(argmax_x, np.amax(x))
@@ -169,8 +167,7 @@ if __name__ == '__main__':
             if extension == '.gz':
                 filename = filename[:-4]
             filename = 'final.' + filename
-            dir_path = os.path.dirname(bm.path_to_data)
-            bm.path_to_final = dir_path + '/' + filename + bm.final_image_type
+            bm.path_to_final = bm.path_to_data.replace(os.path.basename(bm.path_to_data), filename + bm.final_image_type)
 
             # path_to_uq and path_to_smooth
             filename, extension = os.path.splitext(bm.path_to_final)

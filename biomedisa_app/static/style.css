@@ -595,3 +595,7 @@ a {
 .messagebox { height: 25px; }
 
 .messages li { color: blue; }
+
+.not-visible {
+    display: none;
+}

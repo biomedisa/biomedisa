@@ -33,7 +33,7 @@ from django.shortcuts import get_object_or_404
 
 from biomedisa_app.models import Upload, Profile
 from biomedisa_app.views import send_notification, send_error_message
-from biomedisa_features.biomedisa_helper import save_data, _error_
+from biomedisa_features.biomedisa_helper import save_data, _error_, unique_file_path
 from biomedisa_features.active_contour import active_contour
 from biomedisa_features.remove_outlier import remove_outlier
 from biomedisa_features.create_slices import create_slices
@@ -99,12 +99,11 @@ def splitlargedata(data):
     return dataListe
 
 def read_labeled_slices(volData):
-    testSlices = np.copy(volData)
     data = np.zeros((0, volData.shape[1], volData.shape[2]), dtype=np.int32)
     indices = []
     i = 0
     while i < volData.shape[0]:
-        slc = testSlices[i]
+        slc = volData[i]
         if np.any(slc):
             data = np.append(data, [volData[i]], axis=0)
             indices.append(i)
@@ -263,6 +262,7 @@ def _diffusion_child(comm, bm=None):
             final2 = np.zeros((bm.zsh, bm.ysh, bm.xsh), dtype=np.uint8)
             final2[bm.argmin_z:bm.argmax_z, bm.argmin_y:bm.argmax_y, bm.argmin_x:bm.argmax_x] = final
             final2 = final2[1:-1, 1:-1, 1:-1]
+            bm.path_to_final = unique_file_path(bm.path_to_final, bm.image.user.username)
             save_data(bm.path_to_final, final2, bm.header, bm.final_image_type, bm.label.compression)
 
             # uncertainty
@@ -280,6 +280,7 @@ def _diffusion_child(comm, bm=None):
                 final2 = np.zeros((bm.zsh, bm.ysh, bm.xsh), dtype=np.uint8)
                 final2[bm.argmin_z:bm.argmax_z, bm.argmin_y:bm.argmax_y, bm.argmin_x:bm.argmax_x] = final_uncertainty
                 final2 = final2[1:-1, 1:-1, 1:-1]
+                bm.path_to_uq = unique_file_path(bm.path_to_uq, bm.image.user.username)
                 save_data(bm.path_to_uq, final2, compress=bm.label.compression)
 
             # smooth
@@ -295,6 +296,7 @@ def _diffusion_child(comm, bm=None):
                 final2 = np.zeros((bm.zsh, bm.ysh, bm.xsh), dtype=np.uint8)
                 final2[bm.argmin_z:bm.argmax_z, bm.argmin_y:bm.argmax_y, bm.argmin_x:bm.argmax_x] = final_smooth
                 final2 = final2[1:-1, 1:-1, 1:-1]
+                bm.path_to_smooth = unique_file_path(bm.path_to_smooth, bm.image.user.username)
                 save_data(bm.path_to_smooth, final2, bm.header, bm.final_image_type, bm.label.compression)
 
             # create final objects
@@ -310,12 +312,7 @@ def _diffusion_child(comm, bm=None):
             if final_smooth is not None:
                 shortfilename = os.path.basename(bm.path_to_smooth)
                 filename = 'images/' + bm.image.user.username + '/' + shortfilename
-                Upload.objects.create(pic=filename, user=bm.image.user, project=bm.image.project, final=5, imageType=3, shortfilename=shortfilename, friend=tmp.id)
-
-            # stop processing
-            bm.image.status = 0
-            bm.image.pid = 0
-            bm.image.save()
+                smooth = Upload.objects.create(pic=filename, user=bm.image.user, project=bm.image.project, final=5, imageType=3, shortfilename=shortfilename, friend=tmp.id)
 
             # write in logs
             t = int(time.time() - bm.TIC)
@@ -336,13 +333,13 @@ def _diffusion_child(comm, bm=None):
             if config['OS'] == 'linux':
                 # acwe
                 q = Queue('acwe', connection=Redis())
-                job = q.enqueue_call(active_contour, args=(bm.path_to_data, bm.path_to_final, tmp.id, bm.label.id, bm.image.id,), timeout=-1)
+                job = q.enqueue_call(active_contour, args=(bm.image.id, tmp.id, bm.label.id,), timeout=-1)
 
                 # cleanup
                 q = Queue('cleanup', connection=Redis())
-                job = q.enqueue_call(remove_outlier, args=(bm.path_to_data, bm.path_to_final, tmp.id, bm.label.id,), timeout=-1)
+                job = q.enqueue_call(remove_outlier, args=(bm.image.id, tmp.id, tmp.id, bm.label.id,), timeout=-1)
                 if final_smooth is not None:
-                    job = q.enqueue_call(remove_outlier, args=(bm.path_to_data, bm.path_to_smooth, tmp.id, bm.label.id, False,), timeout=-1)
+                    job = q.enqueue_call(remove_outlier, args=(bm.image.id, smooth.id, tmp.id, bm.label.id, False,), timeout=-1)
 
                 # create slices
                 q = Queue('slices', connection=Redis())
@@ -352,7 +349,22 @@ def _diffusion_child(comm, bm=None):
                 if final_uncertainty is not None:
                     job = q.enqueue_call(create_slices, args=(bm.path_to_uq, None,), timeout=-1)
 
-            if config['OS'] == 'windows':
+            elif config['OS'] == 'windows':
+
+                # acwe
+                p = Process(target=active_contour, args=(bm.image.id, tmp.id, bm.label.id))
+                p.start()
+                p.join()
+
+                # cleanup
+                p = Process(target=remove_outlier, args=(bm.image.id, tmp.id, tmp.id, bm.label.id))
+                p.start()
+                p.join()
+                if final_smooth is not None:
+                    p = Process(target=remove_outlier, args=(bm.image.id, smooth.id, tmp.id, bm.label.id, False))
+                    p.start()
+                    p.join()
+
                 # create slices
                 p = Process(target=create_slices, args=(bm.path_to_data, bm.path_to_final))
                 p.start()
@@ -365,20 +377,6 @@ def _diffusion_child(comm, bm=None):
                     p = Process(target=create_slices, args=(bm.path_to_uq, None))
                     p.start()
                     p.join()
-
-                # cleanup
-                p = Process(target=remove_outlier, args=(bm.path_to_data, bm.path_to_final, tmp.id, bm.label.id))
-                p.start()
-                p.join()
-                if final_smooth is not None:
-                    p = Process(target=remove_outlier, args=(bm.path_to_data, bm.path_to_smooth, tmp.id, bm.label.id, False))
-                    p.start()
-                    p.join()
-
-                # acwe
-                p = Process(target=active_contour, args=(bm.path_to_data, bm.path_to_final, tmp.id, bm.label.id, bm.image.id))
-                p.start()
-                p.join()
 
     else:
 

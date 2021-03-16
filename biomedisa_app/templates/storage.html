@@ -13,6 +13,11 @@ function sliceviewerFunction(id) {
     window.close();
 }
 
+function visualizationFunction(id) {
+    window.location.href = "/visualization/?selected=" + id + "&next=storage";
+    window.close();
+}
+
 function changeFunction(id, val) {
     window.location.href = "/change_active_final/" + id + "/" + val + "/?next=storage";
     window.close();
@@ -157,6 +162,9 @@ function addClickHandlers() {
 }
 $(document).ready(addClickHandlers);
 </script>
+<!-- Bootstrap CSS -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.5.3/dist/css/bootstrap.min.css" integrity="sha384-TX8t27EcRE3e/ihU7zmQxVncDAy5uIKz4rEkgIXeMed4M0jlfIDPvg6uqKI2xXr2" crossorigin="anonymous">
+<script type="text/javascript" src="/static/main.js" defer></script>
 {% endblock %}
 
 {% block menubar %}
@@ -174,13 +182,23 @@ $(document).ready(addClickHandlers);
       </h2>
 
       {% if storage_full == 0 %}
-      <form action="#" method="post" enctype="multipart/form-data">
+      <div id="alert-box"></div>
+      <div id="image-box" class="not-visible"></div>
+      <br>
+      <form action="#" method="post" enctype="multipart/form-data" id="upload-form">
         {% csrf_token %} {{ form }}
-        <input type="submit" value="Upload" />
       </form>
+
+      <br>
+      <div id="progress-box" class="not-visible"></div>
+      <div id="cancel-box" class="not-visible">
+        <button id="cancel-btn" class="btn btn-danger">cancel</button>
+      </div>
+
   {% else %}
   <p>You've exceeded your storage limit! For uploading additional data, either remove data or ask for more space.</p>
   {% endif %}
+
   {% if messages %}
     <ul class="messages">
       {% for message in messages %}
@@ -204,13 +222,13 @@ $(document).ready(addClickHandlers);
         <div id="img{{ img.id }}" >
           <p style="text-align:left;">
           {% if img.shared == 1 %}
-          <a><img src="/static/file_image_tmp.png" title="image" style="width:50px;height:50px;border:0;"></a>
+          <a><img src="/static/file_image_tmp.svg" title="image" style="width:50px;height:50px;border:0;"></a>
           <span class="delete_link" id="{{img.id}}"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
           <span class="accept_link" id="{{img.id}},'{{img.shared_by}}'"><img src="/static/accept.jpeg" title="accept" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
           {{ img.shortfilename }}
           <span style="float:right;"> </br> </br> {{ img.upload_date }}</span>
           {% else %}
-          <a href="/visualization/{{img.id}}/?next=storage" target="_blank"><img src="/static/file_image.png" title="visualization" style="width:50px;height:50px;border:0;"></a>
+          <a href=# onclick="visualizationFunction({{img.id}})"><img src="/static/file_image.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
           <span class="delete_link" id="{{img.id}}"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
           <a href="/download/{{img.id}}"><img src="/static/downloads.png" alt="download" style="width:20px;height:20px;border:0;"></a>
           <a href=# onclick="sliceviewerFunction({{img.id}})"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
@@ -226,13 +244,13 @@ $(document).ready(addClickHandlers);
         <div id="img{{ img.id }}" >
           <p style="text-align:left;">
           {% if img.shared == 1 %}
-          <a><img src="/static/file_label_tmp.png" title="label" style="width:50px;height:50px;border:0;"></a>
+          <a><img src="/static/file_label_tmp.svg" title="label" style="width:50px;height:50px;border:0;"></a>
           <span class="delete_link" id="{{img.id}}"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
           <span class="accept_link" id="{{img.id}},'{{img.shared_by}}'"><img src="/static/accept.jpeg" title="accept" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
           {{ img.shortfilename }}
           <span style="float:right;"> </br> </br> {{ img.upload_date }}</span>
           {% else %}
-          <a href="/visualization/{{img.id}}/?next=storage" target="_blank"><img src="/static/Label.png" title="visualization" style="width:50px;height:50px;border:0;"></a>
+          <a href=# onclick="visualizationFunction({{img.id}})"><img src="/static/file_label.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
           <span class="delete_link" id="{{img.id}}"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
           <a href="/download/{{img.id}}"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
           <a href=# onclick="sliceviewerFunction({{img.id}})"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
@@ -248,13 +266,34 @@ $(document).ready(addClickHandlers);
         <div id="img{{ img.id }}" >
           <p style="text-align:left;">
           {% if img.shared == 1 %}
-          <a><img src="/static/file_ai_tmp.png" title="network" style="width:50px;height:50px;border:0;"></a>
+          <a><img src="/static/file_ai_tmp.svg" title="network" style="width:50px;height:50px;border:0;"></a>
           <span class="delete_link" id="{{img.id}}"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
           <span class="accept_link" id="{{img.id}},'{{ img.shared_by }}'"><img src="/static/accept.jpeg" title="accept" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
           {{ img.shortfilename }}
           <span style="float:right;"> </br> </br> {{ img.upload_date }}</span>
           {% else %}
-          <a href='#'><img src="/static/ai.ico" title="network" style="width:50px;height:50px;border:0;"></a>
+          <a href='#'><img src="/static/file_ai.svg" title="network" style="width:50px;height:50px;border:0;"></a>
+          <span class="delete_link" id="{{img.id}}"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+          <a href="/download/{{img.id}}"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+          <span class="move_link" id="{{img.id}}"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+          <span class="share_link" id="{{img.id}}"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+          <input type="checkbox" name="selected" value="{{img.id}}"/>
+          <span class="rename_link" id="{{img.id}},{{img.shortfilename}}" title="rename">{{ img.shortfilename }}</span>
+          <span style="float:right;"> </br> </br> {{ img.upload_date }}</span>
+          {% endif %}
+          </p>
+        </div>
+      {% elif img.imageType == 5 %}
+        <div id="img{{ img.id }}" >
+          <p style="text-align:left;">
+          {% if img.shared == 1 %}
+          <a><img src="/static/file_mesh_tmp.svg" title="mesh" style="width:50px;height:50px;border:0;"></a>
+          <span class="delete_link" id="{{img.id}}"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+          <span class="accept_link" id="{{img.id}},'{{img.shared_by}}'"><img src="/static/accept.jpeg" title="accept" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+          {{ img.shortfilename }}
+          <span style="float:right;"> </br> </br> {{ img.upload_date }}</span>
+          {% else %}
+          <a href=# onclick="visualizationFunction({{img.id}})"><img src="/static/file_mesh.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
           <span class="delete_link" id="{{img.id}}"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
           <a href="/download/{{img.id}}"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
           <span class="move_link" id="{{img.id}}"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
@@ -269,13 +308,13 @@ $(document).ready(addClickHandlers);
         <div id="img{{ img.id }}" >
           <p style="text-align:left;">
           {% if img.shared == 1 %}
-          <a><img src="/static/file_final_tmp2.png" title="final" style="width:50px;height:50px;border:0;"></a>
+          <a><img src="/static/file_final_tmp.svg" title="final" style="width:50px;height:50px;border:0;"></a>
           <span class="delete_link" id="{{img.id}}"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
           <span class="accept_link" id="{{img.id}},'{{ img.shared_by }}'"><img src="/static/accept.jpeg" title="accept" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
           {{ img.shortfilename }}
           <span style="float:right;"> </br> </br> {{ img.upload_date }}</span>
           {% else %}
-          <a href="/visualization/{{img.id}}/?next=storage" target="_blank"><img src="/static/file_final.png" title="visualization" style="width:50px;height:50px;border:0;"></a>
+          <a href=# onclick="visualizationFunction({{img.id}})"><img src="/static/file_final.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
           <span class="delete_link" id="{{img.id}}"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
           <a href="/download/{{img.id}}"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
           <a href=# onclick="sliceviewerFunction({{img.id}})"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>

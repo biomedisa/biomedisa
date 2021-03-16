@@ -69,48 +69,15 @@ def contrast(a):
     a = a.astype(np.uint8)
     return a
 
-def create_slicemaps(path_to_slices, A):
-    if not os.path.isdir(path_to_slices):
-        os.makedirs(path_to_slices)
-        os.chmod(path_to_slices, 0o770)
-        zsh, ysh, xsh = A.shape
-        maxSize = max(zsh, ysh)
-        maxsize = max(maxSize, xsh)
-        scaleFactor = 512 / float(maxSize)
-        zsh_t = min(int(zsh*scaleFactor), 512)
-        ysh_t = min(int(ysh*scaleFactor), 512)
-        xsh_t = min(int(xsh*scaleFactor), 512)
-        A = img_resize(A, zsh_t, ysh_t, xsh_t)
-        B = np.zeros((512, 512, 512), dtype=np.uint8)
-        B[:zsh_t, :ysh_t, :xsh_t] = A
-        k, l, j = 0, 0, 0
-        final = np.zeros((4096, 4096), dtype=np.uint8)
-        for i, slc in enumerate(B):
-            final[k*512:(k+1)*512,l*512:(l+1)*512] = slc
-            if (k == 7 and l == 7):
-                im = Image.fromarray(final)
-                im.save(path_to_slices + '/slicemap_%s.png' %(j))
-                final.fill(0)
-                k, l = 0, 0
-                j += 1
-            else:
-                if (i+1) % 8 == 0:
-                    k += 1
-                    l = 0
-                else:
-                    l += 1
-
 def create_slices(path_to_data, path_to_label):
 
     try:
 
         if path_to_data:
             path_to_slices = path_to_data.replace('images', 'sliceviewer', 1)
-            path_to_slicemaps = path_to_data.replace('images', 'dataset', 1)
 
         if path_to_label:
             path_to_label_slices = path_to_label.replace('images', 'sliceviewer', 1)
-            path_to_label_slicemaps = path_to_label.replace('images', 'dataset', 1)
 
         if path_to_data:
 
@@ -146,9 +113,6 @@ def create_slices(path_to_data, path_to_label):
             zsh, ysh, xsh = raw.shape
 
             if not path_to_label:
-
-                # create slicemaps for visualization
-                create_slicemaps(path_to_slicemaps, raw)
 
                 # create slices for slice viewer
                 if not os.path.isdir(path_to_slices):
@@ -204,9 +168,6 @@ def create_slices(path_to_data, path_to_label):
             # img to uint8
             mask = color_to_gray(mask)
             mask = img_to_uint8(mask)
-
-            # create slice maps for visualization
-            create_slicemaps(path_to_label_slicemaps, mask)
 
             # create slices for slice viewer
             if path_to_data and mask.shape == raw.shape:

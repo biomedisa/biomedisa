@@ -26,6 +26,9 @@
 ##                                                                      ##
 ##########################################################################
 
+import django
+django.setup()
+from biomedisa_app.models import Upload
 from biomedisa_features.biomedisa_helper import img_resize, load_data, save_data
 from keras.optimizers import SGD
 from keras.models import Model, load_model
@@ -33,7 +36,9 @@ from keras.layers import (
     Input, Conv3D, MaxPooling3D, UpSampling3D, Activation, Reshape,
     BatchNormalization, Concatenate)
 from keras.utils import to_categorical
+from keras.callbacks import Callback, ModelCheckpoint
 from DataGenerator import DataGenerator
+from PredictDataGenerator import PredictDataGenerator
 import tensorflow as tf
 import numpy as np
 import cv2
@@ -43,10 +48,32 @@ import random
 import numba
 import re
 import os
+import time
 
 class InputError(Exception):
     def __init__(self, message=None):
         self.message = message
+
+def predict_blocksize(labelData):
+    zsh, ysh, xsh = labelData.shape
+    argmin_z, argmax_z, argmin_y, argmax_y, argmin_x, argmax_x = zsh, 0, ysh, 0, xsh, 0
+    for k in range(zsh):
+        y, x = np.nonzero(labelData[k])
+        if x.any():
+            argmin_x = min(argmin_x, np.amin(x))
+            argmax_x = max(argmax_x, np.amax(x))
+            argmin_y = min(argmin_y, np.amin(y))
+            argmax_y = max(argmax_y, np.amax(y))
+            argmin_z = min(argmin_z, k)
+            argmax_z = max(argmax_z, k)
+    zmin, zmax = argmin_z, argmax_z
+    argmin_x = argmin_x - 64 if argmin_x - 64 > 0 else 0
+    argmax_x = argmax_x + 64 if argmax_x + 64 < xsh else xsh
+    argmin_y = argmin_y - 64 if argmin_y - 64 > 0 else 0
+    argmax_y = argmax_y + 64 if argmax_y + 64 < ysh else ysh
+    argmin_z = argmin_z - 64 if argmin_z - 64 > 0 else 0
+    argmax_z = argmax_z + 64 if argmax_z + 64 < zsh else zsh
+    return argmin_z,argmax_z,argmin_y,argmax_y,argmin_x,argmax_x
 
 def get_image_dimensions(header, data):
 
@@ -199,7 +226,8 @@ def get_labels(arr, allLabels):
 # regular
 #=====================
 
-def load_training_data(normalize, img_list, label_list, channels, x_scale, y_scale, z_scale):
+def load_training_data(normalize, img_list, label_list, channels,
+                      x_scale, y_scale, z_scale, crop_data):
 
     # get filenames
     img_names, label_names = [], []
@@ -221,25 +249,77 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
                 tmp_label_names = sorted(tmp_label_names)
                 img_names.extend(tmp_img_names)
                 label_names.extend(tmp_label_names)
+            if len(img_names)==0:
+                InputError.message = "Invalid image TAR file."
+                raise InputError()
+            if len(label_names)==0:
+                InputError.message = "Invalid label TAR file."
+                raise InputError()
         else:
             img_names.append(img_name)
             label_names.append(label_name)
 
-    # load img data
+    # load first label
+    region_of_interest = None
+    a, header, extension = load_data(label_names[0], 'first_queue', True)
+    if a is None:
+        InputError.message = "Invalid label data %s." %(os.path.basename(label_names[0]))
+        raise InputError()
+    if crop_data:
+        region_of_interest = np.zeros(6)
+        argmin_z,argmax_z,argmin_y,argmax_y,argmin_x,argmax_x=predict_blocksize(a)
+        a = np.copy(a[argmin_z:argmax_z,argmin_y:argmax_y,argmin_x:argmax_x], order='C')
+        region_of_interest += [argmin_z,argmax_z,argmin_y,argmax_y,argmin_x,argmax_x]
+    a = a.astype(np.uint8)
+    np_unique = np.unique(a)
+    label = np.zeros((z_scale, y_scale, x_scale), dtype=a.dtype)
+    for k in np_unique:
+        tmp = np.zeros_like(a)
+        tmp[a==k] = 1
+        tmp = img_resize(tmp, z_scale, y_scale, x_scale)
+        label[tmp==1] = k
+
+    # load first img
     img, _ = load_data(img_names[0], 'first_queue')
     if img is None:
         InputError.message = "Invalid image data %s." %(os.path.basename(img_names[0]))
         raise InputError()
+    if crop_data:
+        img = np.copy(img[argmin_z:argmax_z,argmin_y:argmax_y,argmin_x:argmax_x], order='C')
     img = img.astype(np.float32)
     img = img_resize(img, z_scale, y_scale, x_scale)
     img -= np.amin(img)
     img /= np.amax(img)
     mu, sig = np.mean(img), np.std(img)
-    for name in img_names[1:]:
-        a, _ = load_data(name, 'first_queue')
+
+    for img_name, label_name in zip(img_names[1:], label_names[1:]):
+
+        # append label
+        a, _ = load_data(label_name, 'first_queue')
+        if a is None:
+            InputError.message = "Invalid label data %s." %(os.path.basename(name))
+            raise InputError()
+        if crop_data:
+            argmin_z,argmax_z,argmin_y,argmax_y,argmin_x,argmax_x=predict_blocksize(a)
+            a = np.copy(a[argmin_z:argmax_z,argmin_y:argmax_y,argmin_x:argmax_x], order='C')
+            region_of_interest += [argmin_z,argmax_z,argmin_y,argmax_y,argmin_x,argmax_x]
+        a = a.astype(np.uint8)
+        np_unique = np.unique(a)
+        next_label = np.zeros((z_scale, y_scale, x_scale), dtype=a.dtype)
+        for k in np_unique:
+            tmp = np.zeros_like(a)
+            tmp[a==k] = 1
+            tmp = img_resize(tmp, z_scale, y_scale, x_scale)
+            next_label[tmp==1] = k
+        label = np.append(label, next_label, axis=0)
+
+        # append image
+        a, _ = load_data(img_name, 'first_queue')
         if a is None:
             InputError.message = "Invalid image data %s." %(os.path.basename(name))
             raise InputError()
+        if crop_data:
+            a = np.copy(a[argmin_z:argmax_z,argmin_y:argmax_y,argmin_x:argmax_x], order='C')
         a = a.astype(np.float32)
         a = img_resize(a, z_scale, y_scale, x_scale)
         a -= np.amin(a)
@@ -250,37 +330,16 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
             a = a * sig + mu
         img = np.append(img, a, axis=0)
 
-    # scale to [0,1]
+    # automatic cropping
+    if crop_data:
+        region_of_interest /= float(len(img_names))
+        region_of_interest = np.round(region_of_interest)
+        region_of_interest[region_of_interest<0] = 0
+        region_of_interest = region_of_interest.astype(int)
+
+    # scale image data to [0,1]
     img[img<0] = 0
     img[img>1] = 1
-
-    # load label data
-    a, header, extension = load_data(label_names[0], 'first_queue', True)
-    if a is None:
-        InputError.message = "Invalid label data %s." %(os.path.basename(label_names[0]))
-        raise InputError()
-    a = a.astype(np.uint8)
-    np_unique = np.unique(a)
-    label = np.zeros((z_scale, y_scale, x_scale), dtype=a.dtype)
-    for k in np_unique:
-        tmp = np.zeros_like(a)
-        tmp[a==k] = 1
-        tmp = img_resize(tmp, z_scale, y_scale, x_scale)
-        label[tmp==1] = k
-    for name in label_names[1:]:
-        a, _ = load_data(name, 'first_queue')
-        if a is None:
-            InputError.message = "Invalid label data %s." %(os.path.basename(name))
-            raise InputError()
-        a = a.astype(np.uint8)
-        np_unique = np.unique(a)
-        next_label = np.zeros((z_scale, y_scale, x_scale), dtype=a.dtype)
-        for k in np_unique:
-            tmp = np.zeros_like(a)
-            tmp[a==k] = 1
-            tmp = img_resize(tmp, z_scale, y_scale, x_scale)
-            next_label[tmp==1] = k
-        label = np.append(label, next_label, axis=0)
 
     # compute position data
     position = None
@@ -298,11 +357,39 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
     for k, l in enumerate(allLabels):
         label[label==l] = k
 
-    return img, label, position, allLabels, mu, sig, header, extension
+    return img, label, position, allLabels, mu, sig, header, extension, region_of_interest
+
+class CustomCallback(Callback):
+    def __init__(self, id, epochs):
+        self.epochs = epochs
+        self.id = id
+
+    def on_epoch_begin(self, batch, logs={}):
+        self.epoch_time_start = time.time()
+
+    def on_epoch_end(self, epoch, logs=None):
+        image = Upload.objects.get(pk=self.id)
+        if image.status == 3:
+            self.model.stop_training = True
+        else:
+            keys = list(logs.keys())
+            percentage = round((int(epoch)+1)*100/float(self.epochs),1)
+            t = round(time.time() - self.epoch_time_start) * (self.epochs-int(epoch)-1)
+            if t < 3600:
+                time_remaining = str(t // 60) + ' min'
+            else:
+                time_remaining = str(t // 3600) + ' h ' + str((t % 3600) // 60) + ' min'
+            try:
+                val_accuracy = round(float(logs["val_accuracy"])*100,2)
+                image.message = 'Progress {}%, {} remaining, {}% accuracy'.format(percentage,time_remaining,val_accuracy)
+            except KeyError:
+                image.message = 'Progress {}%, {} remaining'.format(percentage,time_remaining)
+            image.save()
+            print("Start epoch {} of training; got log keys: {}".format(epoch, keys))
 
 def train_semantic_segmentaion(img, label, path_to_model, z_patch, y_patch, x_patch, allLabels, epochs,
                         batch_size, channels, validation_split, stride_size, balance, position,
-                        flip_x, flip_y, flip_z, rotate):
+                        flip_x, flip_y, flip_z, rotate, image):
 
     # img shape
     zsh, ysh, xsh = img.shape
@@ -344,13 +431,24 @@ def train_semantic_segmentaion(img, label, path_to_model, z_patch, y_patch, x_pa
               'shuffle': True,
               'augment': (flip_x, flip_y, flip_z, rotate)}
 
-    # generator
-    training_generator = DataGenerator(img, label, position, list_IDs_fg, list_IDs_bg, **params)
+    # data generator
+    if validation_split:
+        np.random.shuffle(list_IDs_fg)
+        np.random.shuffle(list_IDs_bg)
+        split_fg = int(len(list_IDs_fg) * validation_split)
+        split_bg = int(len(list_IDs_bg) * validation_split)
+        list_IDs_fg = list_IDs_fg.copy()
+        list_IDs_bg = list_IDs_bg.copy()
+        training_generator = DataGenerator(img, label, position, list_IDs_fg[:split_fg], list_IDs_bg[:split_bg], **params)
+        validation_generator = DataGenerator(img, label, position, list_IDs_fg[split_fg:], list_IDs_bg[split_bg:], **params)
+    else:
+        training_generator = DataGenerator(img, label, position, list_IDs_fg, list_IDs_bg, **params)
+        validation_generator = None
 
     # optimizer
     sgd = SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
 
-    # Create a MirroredStrategy.
+    # create a MirroredStrategy.
     strategy = tf.distribute.MirroredStrategy()
     print('Number of devices: {}'.format(strategy.num_replicas_in_sync))
 
@@ -361,18 +459,23 @@ def train_semantic_segmentaion(img, label, path_to_model, z_patch, y_patch, x_pa
                       optimizer=sgd,
                       metrics=['accuracy'])
 
+    # callbacks
+    my_callbacks = [CustomCallback(image.id,epochs),
+        ModelCheckpoint(filepath=str(path_to_model))]
+
     # train model
     model.fit(training_generator,
               epochs=epochs,
-              validation_split=validation_split)
+              validation_data=validation_generator,
+              callbacks=[my_callbacks])
               #use_multiprocessing=True,
               #workers=6)
 
     # save model
-    model.save(str(path_to_model))
+    #model.save(str(path_to_model))
 
-def load_prediction_data(path_to_img, channels, x_scale, y_scale, z_scale, \
-                        path_to_model, normalize, mu, sig):
+def load_prediction_data(path_to_img, channels, x_scale, y_scale, z_scale,
+                        normalize, mu, sig, region_of_interest):
 
     # read image data
     img, img_header, img_ext = load_data(path_to_img, 'first_queue', return_extension=True)
@@ -382,6 +485,27 @@ def load_prediction_data(path_to_img, channels, x_scale, y_scale, z_scale, \
     if img_ext != '.am':
         img_header = None
     z_shape, y_shape, x_shape = img.shape
+
+    # automatic cropping of image to region of interest
+    if np.any(region_of_interest):
+        min_z, max_z, min_y, max_y, min_x, max_x = region_of_interest[:]
+        min_z = min(min_z, z_shape)
+        min_y = min(min_y, y_shape)
+        min_x = min(min_x, x_shape)
+        max_z = min(max_z, z_shape)
+        max_y = min(max_y, y_shape)
+        max_x = min(max_x, x_shape)
+        if max_z-min_z < z_shape:
+            min_z, max_z = 0, z_shape
+        if max_y-min_y < y_shape:
+            min_y, max_y = 0, y_shape
+        if max_x-min_x < x_shape:
+            min_x, max_x = 0, x_shape
+        img = np.copy(img[min_z:max_z,min_y:max_y,min_x:max_x], order='C')
+        region_of_interest = np.array([min_z,max_z,min_y,max_y,min_x,max_x,z_shape,y_shape,x_shape])
+        z_shape, y_shape, x_shape = max_z-min_z, max_y-min_y, max_x-min_x
+
+    # scale image data
     img = img.astype(np.float32)
     img = img_resize(img, z_scale, y_scale, x_scale)
     img -= np.amin(img)
@@ -401,36 +525,36 @@ def load_prediction_data(path_to_img, channels, x_scale, y_scale, z_scale, \
         position = np.sqrt(position)
         position /= np.amax(position)
 
-    return img, img_header, position, z_shape, y_shape, x_shape
+    return img, img_header, position, z_shape, y_shape, x_shape, region_of_interest
 
-def predict_semantic_segmentation(img, position, path_to_model, path_to_final, z_patch, y_patch, x_patch, \
-                z_shape, y_shape, x_shape, compress, header, img_header, channels, stride_size, allLabels, batch_size):
+def predict_semantic_segmentation(img, position, path_to_model, path_to_final,
+    z_patch, y_patch, x_patch, z_shape, y_shape, x_shape, compress, header,
+    img_header, channels, stride_size, allLabels, batch_size, region_of_interest):
 
     # img shape
     zsh, ysh, xsh = img.shape
 
-    # get number of 3D-patches
-    nb = 0
+    # list of IDs
+    list_IDs = []
+
+    # get nIds of patches
     for k in range(0, zsh-z_patch+1, stride_size):
         for l in range(0, ysh-y_patch+1, stride_size):
             for m in range(0, xsh-x_patch+1, stride_size):
-                nb += 1
+                list_IDs.append(k*ysh*xsh+l*xsh+m)
 
-    # allocate memory
-    x_test = np.empty((nb, z_patch, y_patch, x_patch, channels), dtype=img.dtype)
+    # make length of list divisible by batch size
+    rest = batch_size - (len(list_IDs) % batch_size)
+    list_IDs = list_IDs + list_IDs[:rest]
 
-    # create testing set
-    nb = 0
-    for k in range(0, zsh-z_patch+1, stride_size):
-        for l in range(0, ysh-y_patch+1, stride_size):
-            for m in range(0, xsh-x_patch+1, stride_size):
-                x_test[nb,:,:,:,0] = img[k:k+z_patch, l:l+y_patch, m:m+x_patch]
-                if channels == 2:
-                    x_test[nb,:,:,:,1] = position[k:k+z_patch, l:l+y_patch, m:m+x_patch]
-                nb += 1
+    # parameters
+    params = {'dim': (z_patch, y_patch, x_patch),
+              'dim_img': (zsh, ysh, xsh),
+              'batch_size': batch_size,
+              'n_channels': channels}
 
-    # reshape testing set
-    x_test = x_test.reshape(nb, z_patch, y_patch, x_patch, channels)
+    # data generator
+    predict_generator = PredictDataGenerator(img, position, list_IDs, **params)
 
     # Create a MirroredStrategy.
     strategy = tf.distribute.MirroredStrategy()
@@ -440,15 +564,15 @@ def predict_semantic_segmentation(img, position, path_to_model, path_to_final, z
         model = load_model(str(path_to_model))
 
     # predict
-    tmp = model.predict(x_test, batch_size=batch_size, verbose=0, steps=None)
+    probabilities = model.predict(predict_generator, verbose=0, steps=None)
 
     # create final
-    final = np.zeros((zsh, ysh, xsh, tmp.shape[4]), dtype=np.float32)
+    final = np.zeros((zsh, ysh, xsh, probabilities.shape[4]), dtype=np.float32)
     nb = 0
     for k in range(0, zsh-z_patch+1, stride_size):
         for l in range(0, ysh-y_patch+1, stride_size):
             for m in range(0, xsh-x_patch+1, stride_size):
-                final[k:k+z_patch, l:l+y_patch, m:m+x_patch] += tmp[nb]
+                final[k:k+z_patch, l:l+y_patch, m:m+x_patch] += probabilities[nb]
                 nb += 1
 
     # get final
@@ -464,13 +588,20 @@ def predict_semantic_segmentation(img, position, path_to_model, path_to_final, z
         tmp = img_resize(tmp, z_shape, y_shape, x_shape)
         label[tmp==1] = k
 
+    # revert automatic cropping
+    if np.any(region_of_interest):
+        min_z,max_z,min_y,max_y,min_x,max_x,z_shape,y_shape,x_shape = region_of_interest[:]
+        tmp = np.zeros((z_shape, y_shape, x_shape), dtype=out.dtype)
+        tmp[min_z:max_z,min_y:max_y,min_x:max_x] = label
+        label = np.copy(tmp)
+
     # save final
     label = label.astype(np.uint8)
     label = get_labels(label, allLabels)
     if header is not None:
         header = get_image_dimensions(header, label)
-    if img_header is not None:
-        header = get_physical_size(header, img_header)
+        if img_header is not None:
+            header = get_physical_size(header, img_header)
     save_data(path_to_final, label, header=header, compress=compress)
 
 def predict_pre_final(img, path_to_model, x_scale, y_scale, z_scale, z_patch, y_patch, x_patch, \
@@ -721,7 +852,7 @@ def train_semantic_segmentaion_refine(img, label, final, path_to_model, patch_si
     # save model
     model.save(str(path_to_model))
 
-def load_refine_data(path_to_img, path_to_final, path_to_model, patch_size, normalize, allLabels, mu, sig):
+def load_refine_data(path_to_img, path_to_final, patch_size, normalize, allLabels, mu, sig):
 
     # read image data
     img, _ = load_data(path_to_img, 'first_queue')
@@ -758,13 +889,13 @@ def load_refine_data(path_to_img, path_to_final, path_to_model, patch_size, norm
 
     return img, label, final, z_shape, y_shape, x_shape
 
-def refine_semantic_segmentation(path_to_img, path_to_final, path_to_model, patch_size,\
-                                 compress, header, img_header, normalize, stride_size, allLabels, \
+def refine_semantic_segmentation(path_to_img, path_to_final, path_to_model, patch_size,
+                                 compress, header, img_header, normalize, stride_size, allLabels,
                                  mu, sig, batch_size):
 
     # load refine data
-    img, label, final, z_shape, y_shape, x_shape = load_refine_data(path_to_img, path_to_final,\
-                                             path_to_model, patch_size, normalize, allLabels, mu, sig)
+    img, label, final, z_shape, y_shape, x_shape = load_refine_data(path_to_img, path_to_final,
+                                             patch_size, normalize, allLabels, mu, sig)
 
     # get number of 3D-patches
     nb = 0
@@ -835,6 +966,6 @@ def refine_semantic_segmentation(path_to_img, path_to_final, path_to_model, patc
     out = out[:z_shape, :y_shape, :x_shape]
     if header is not None:
         header = get_image_dimensions(header, out)
-    if img_header is not None:
-        header = get_physical_size(header, img_header)
+        if img_header is not None:
+            header = get_physical_size(header, img_header)
     save_data(path_to_final, out, header=header, compress=compress)

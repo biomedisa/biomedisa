@@ -69,7 +69,7 @@ function toggleAccordion(qsid) {
 
           <button id="qs5" class="accordion" onclick="toggleAccordion(this.id);"> <b> 5) What should my label file look like?</b> </button>
           <div id="ans5" class="panel">
-              <p> The label file should contain pre-segmented reference slices. It must have exactly the same <i>xyz</i>-dimensions like the uploaded image file. If you use an Amira label file, all your information, like names and colors, will be preserved. Once you label a slice, all segments occuring in this slice must be labeled. Otherwise, these areas are considered as background, and your segmentation will not be correct. Tip: Download one of our showcases from our <b><a href="https://biomedisa.de/gallery/" title="gallery">gallery</a></b> and see how the label files were created. </p>
+              <p> The label file should contain pre-segmented reference slices. It must have exactly the same <i>xyz</i>-dimensions like the uploaded image file. If you use an Amira label file, all your information, like names and colors, will be preserved. Once you label a slice, all segments that appear in this slice must be labeled. Otherwise, these areas are considered as background, and your segmentation will not be correct. Tip: Download one of our showcases from our <b><a href="https://biomedisa.de/gallery/" title="gallery">gallery</a></b> and see how the label files were created. </p>
           </div>
 
           <button id="qs6" class="accordion" onclick="toggleAccordion(this.id);"> <b> 6) Is it possible to label in a different plane than the xy-plane?</b> </button>
@@ -127,12 +127,12 @@ function toggleAccordion(qsid) {
 
           <button id="qs12" class="accordion" onclick="toggleAccordion(this.id);"> <b> 12) Is there a way to visualize my data online?</b> </button>
           <div id="ans12" class="panel">
-              <p> You can have a quick view at your data with the <img src="/static/2D_plain.png" title="slice viewer" style="width:27px;height:18px;border:0;"> slice viewer or visualize it with our 3D rendering software by clicking on the file icon <img src="/static/file_image.png" title="visualize" style="width:18px;height:18px;border:0;">. </p>
+              <p> You can have a quick view at your data with the <img src="/static/2D_plain.png" title="slice viewer" style="width:27px;height:18px;border:0;"> slice viewer or visualize it with our 3D rendering software by clicking on the file icon <img src="/static/file_image.svg" title="visualize" style="width:18px;height:18px;border:0;">. </p>
           </div>
 
           <button id="qs13" class="accordion" onclick="toggleAccordion(this.id);"> <b> 13) How to train a neural network and predict a segmentation?</b> </button>
           <div id="ans13" class="panel">
-            <p> You can train a deep neural network by selecting the some image files and the corresponding fully segmented label files. Then press the AI button <img src="/static/ai_logo.svg" title="train" style="width:18px;height:18px;border:0;">. When training is complete, select the trained network and one or more images for which you want to predict the segmentation. Finally, press the predict button <img src="/static/learn_1.svg" title="predict" style="width:18px;height:18px;border:0;">. Optionally, you can upload your data as a tarball. Here, the names of the label files must match the names of the image files. See our <a href="https://biomedisa.de/gallery/" title="gallery">gallery</a> for an example.
+            <p> You can train a deep neural network by selecting some image files and the corresponding fully segmented label files. Then press the AI button <img src="/static/ai_logo.svg" title="train" style="width:18px;height:18px;border:0;">. When training is complete, select the trained network and one or more images for which you want to predict the segmentation. Finally, press the predict button <img src="/static/learn_1.svg" title="predict" style="width:18px;height:18px;border:0;">. Optionally, you can upload your data as a tarball <b>(.tar & .tar.gz)</b>. Here, the names of the label files must match the names of the image files. See our <a href="https://biomedisa.de/gallery/" title="gallery">gallery</a> for an example.
                 You can also refine your network (this is especially usefull for large images). After the first network has been trained, you can again select the image data, the label data and in addition the already trained network and press the AI button. A prediction with refinement is performed by selecting both the first and the second network.
             </p>
           </div>

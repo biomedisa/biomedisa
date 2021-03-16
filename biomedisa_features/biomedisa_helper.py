@@ -45,6 +45,10 @@ import zipfile
 import numba
 from shutil import copytree
 from multiprocessing import Process
+import itk,vtk
+from vtk.util.numpy_support import vtk_to_numpy, numpy_to_vtk
+from stl import mesh
+import re
 
 if config['OS'] == 'linux':
     from redis import Redis
@@ -94,6 +98,55 @@ def img_to_uint8(img):
         img *= 255.0
         img = img.astype(np.uint8)
     return img
+
+def unique_file_path(path, username):
+
+    # get extension
+    filename = os.path.basename(path)
+    filename, extension = os.path.splitext(filename)
+    if extension == '.gz':
+        filename, extension = os.path.splitext(filename)
+        if extension == '.nii':
+            extension = '.nii.gz'
+        elif extension == '.tar':
+            extension = '.tar.gz'
+
+    # get suffix
+    suffix = re.search("-[0-999]"+extension, path)
+    if suffix:
+        suffix = suffix.group()
+        filename = os.path.basename(path)
+        filename = filename[:-len(suffix)]
+        i = int(suffix[1:-len(extension)])
+    else:
+        suffix = extension
+        i = 1
+
+    # get finaltype
+    addon = ''
+    for feature in ['.filled','.smooth','.acwe','.cleaned','.8bit','.refined',
+                    '.uncertainty','.smooth.cleaned','.cleaned.filled','.denoised']:
+        if filename[-len(feature):] == feature:
+            addon = feature
+
+    if addon:
+        filename = filename[:-len(addon)]
+
+    # maximum lenght of path
+    dir_path = config['PATH_TO_BIOMEDISA'] + '/private_storage/'
+    pic_path = 'images/%s/%s' %(username, filename)
+    limit = 100 - len(addon) - len(suffix)
+    path = dir_path + pic_path[:limit] + addon + suffix
+
+    # check if file already exists
+    file_already_exists = os.path.exists(path)
+    while file_already_exists:
+        limit = 100 - len(addon) - len('-') + len(str(i)) - len(extension)
+        path = dir_path + pic_path[:limit] + addon + '-' + str(i) + extension
+        file_already_exists = os.path.exists(path)
+        i += 1
+
+    return path
 
 def id_generator(size, chars):
     return ''.join(random.choice(chars) for x in range(size))
@@ -216,9 +269,6 @@ def load_data(path_to_data, process='None', return_extension=False):
         return data, header
 
 def _error_(bm, message):
-    bm.image.status = 0
-    bm.image.pid = 0
-    bm.image.save()
     Upload.objects.create(user=bm.image.user, project=bm.image.project, log=1, imageType=None, shortfilename=message)
     bm.path_to_logfile = config['PATH_TO_BIOMEDISA'] + '/log/logfile.txt'
     with open(bm.path_to_logfile, 'a') as logfile:
@@ -376,35 +426,15 @@ def convert_image(id):
         data = img_to_uint8(data)
 
         # create pic path
-        filename, extension = os.path.splitext(img.shortfilename)
+        filename, extension = os.path.splitext(img.pic.path)
         if extension == '.gz':
             filename = filename[:-4]
-        dir_path = config['PATH_TO_BIOMEDISA'] + '/private_storage/'
-        extension = '.tif'
-        addon = '.8bit'
-
-        limit = 100 - len(addon) - len(extension)
-        pic_path = 'images/%s/%s' %(img.user, filename)
-        pic_path = pic_path[:limit] + addon + extension
-        path_to_data = dir_path + pic_path
-
-        # create unique pic path
-        if os.path.exists(path_to_data):
-            CHARACTERS, CODE_SIZE = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz23456789', 7
-            newending = id_generator(CODE_SIZE, CHARACTERS)
-            limit = 100 - 8 - len(addon) - len(extension)
-            pic_path = 'images/%s/%s' %(img.user, filename)
-            pic_path = pic_path[:limit] + '_' + newending + addon + extension
-            path_to_data = dir_path + pic_path
+        path_to_data = unique_file_path(filename+'.8bit.tif', img.user.username)
+        new_short_name = os.path.basename(path_to_data)
+        pic_path = 'images/%s/%s' %(img.user.username, new_short_name)
 
         # save data
         save_data(path_to_data, data, final_image_type='.tif')
-
-        # copy slices for visualization
-        path_to_source = img.pic.path.replace('images', 'dataset', 1)
-        path_to_dest = path_to_data.replace('images', 'dataset', 1)
-        if os.path.exists(path_to_source):
-            copytree(path_to_source, path_to_dest, copy_function=os.link)
 
         # copy slices for sliceviewer
         path_to_source = img.pic.path.replace('images', 'sliceviewer', 1)
@@ -413,9 +443,9 @@ def convert_image(id):
             copytree(path_to_source, path_to_dest, copy_function=os.link)
 
         # create object
-        new_short_name = os.path.basename(pic_path)
         active = 1 if img.imageType == 3 else 0
-        Upload.objects.create(pic=pic_path, user=img.user, project=img.project, imageType=img.imageType, shortfilename=new_short_name, active=active)
+        Upload.objects.create(pic=pic_path, user=img.user, project=img.project,
+            imageType=img.imageType, shortfilename=new_short_name, active=active)
 
         # close process
         img.status = 0
@@ -455,26 +485,12 @@ def smooth_image(id):
         out = smooth_img_3x3(data, out)
 
         # create pic path
-        filename, extension = os.path.splitext(img.shortfilename)
+        filename, extension = os.path.splitext(img.pic.path)
         if extension == '.gz':
             filename = filename[:-4]
-        dir_path = config['PATH_TO_BIOMEDISA'] + '/private_storage/'
-        extension = '.tif'
-        addon = '.denoised'
-
-        limit = 100 - len(addon) - len(extension)
-        pic_path = 'images/%s/%s' %(img.user, filename)
-        pic_path = pic_path[:limit] + addon + extension
-        path_to_data = dir_path + pic_path
-
-        # create unique pic path
-        if os.path.exists(path_to_data):
-            CHARACTERS, CODE_SIZE = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz23456789', 7
-            newending = id_generator(CODE_SIZE, CHARACTERS)
-            limit = 100 - 8 - len(addon) - len(extension)
-            pic_path = 'images/%s/%s' %(img.user, filename)
-            pic_path = pic_path[:limit] + '_' + newending + addon + extension
-            path_to_data = dir_path + pic_path
+        path_to_data = unique_file_path(filename+'.denoised.tif', img.user.username)
+        new_short_name = os.path.basename(path_to_data)
+        pic_path = 'images/%s/%s' %(img.user.username, new_short_name)
 
         # save data
         save_data(path_to_data, out, final_image_type='.tif')
@@ -488,11 +504,191 @@ def smooth_image(id):
             Process(target=create_slices, args=(path_to_data, None)).start()
 
         # create object
-        new_short_name = os.path.basename(pic_path)
         active = 1 if img.imageType == 3 else 0
-        Upload.objects.create(pic=pic_path, user=img.user, project=img.project, imageType=img.imageType, shortfilename=new_short_name, active=active)
+        Upload.objects.create(pic=pic_path, user=img.user, project=img.project,
+            imageType=img.imageType, shortfilename=new_short_name, active=active)
 
         # close process
         img.status = 0
         img.pid = 0
         img.save()
+
+def MarchingCubes(image,threshold):
+
+    # marching cubes
+    mc = vtk.vtkMarchingCubes()
+    mc.SetInputData(image)
+    mc.ComputeNormalsOn()
+    mc.ComputeGradientsOn()
+    mc.SetValue(0, threshold)
+    mc.Update()
+
+    # To remain largest region
+    #confilter = vtk.vtkPolyDataConnectivityFilter()
+    #confilter.SetInputData(mc.GetOutput())
+    #confilter.SetExtractionModeToLargestRegion()
+    #confilter.Update()
+
+    # reduce poly data
+    inputPoly = vtk.vtkPolyData()
+    inputPoly.ShallowCopy(mc.GetOutput())
+
+    print("Before decimation\n"
+          "-----------------\n"
+          "There are " + str(inputPoly.GetNumberOfPoints()) + "points.\n"
+          "There are " + str(inputPoly.GetNumberOfPolys()) + "polygons.\n")
+
+    #decimate = vtk.vtkDecimatePro()
+    decimate = vtk.vtkQuadricDecimation()
+    decimate.SetInputData(inputPoly)
+    decimate.SetTargetReduction(.90)
+    decimate.Update()
+
+    decimatedPoly = vtk.vtkPolyData()
+    decimatedPoly.ShallowCopy(decimate.GetOutput())
+
+    print("After decimation \n"
+          "-----------------\n"
+          "There are " + str(decimatedPoly.GetNumberOfPoints()) + "points.\n"
+          "There are " + str(decimatedPoly.GetNumberOfPolys()) + "polygons.\n")
+
+    # smooth surface
+    smoothFilter = vtk.vtkSmoothPolyDataFilter()
+    smoothFilter.SetInputData(decimatedPoly)
+    smoothFilter.SetNumberOfIterations(15)
+    smoothFilter.SetRelaxationFactor(0.1)
+    smoothFilter.FeatureEdgeSmoothingOff()
+    smoothFilter.BoundarySmoothingOn()
+    smoothFilter.Update()
+
+    decimatedPoly = vtk.vtkPolyData()
+    decimatedPoly.ShallowCopy(smoothFilter.GetOutput())
+
+    return decimatedPoly#confilter.GetOutput()
+
+def CreateSTL(image,path_to_data):
+
+    # get labels
+    zsh,ysh,xsh=image.shape
+    allLabels = np.unique(image)
+    b = np.empty_like(image)
+    arr = np.empty((0,3,3))
+    nTotalCells = [0]
+
+    for label in allLabels[1:]:
+
+        # get label
+        b.fill(0)
+        b[image==label] = 1
+
+        # numpy to vtk
+        sc = numpy_to_vtk(num_array=b.ravel(), deep=True, array_type=vtk.VTK_UNSIGNED_CHAR)
+        imageData = vtk.vtkImageData()
+        imageData.SetOrigin(0, 0, 0)
+        imageData.SetSpacing(1, 1, 1)
+        #imageData.SetDimensions(zsh, ysh, xsh)
+        imageData.SetExtent(0,xsh-1,0,ysh-1,0,zsh-1)
+        imageData.GetPointData().SetScalars(sc)
+
+        # get poly data
+        poly = MarchingCubes(imageData,1)
+
+        # get number of cells
+        nPoints = poly.GetNumberOfPoints()
+        nPolys = poly.GetNumberOfPolys()
+        if nPoints and nPolys:
+
+            # get points
+            points = poly.GetPoints()
+            array = points.GetData()
+            numpy_points = vtk_to_numpy(array)
+
+            # get cells
+            cells = poly.GetPolys()
+            array = cells.GetData()
+            numpy_cells = vtk_to_numpy(array)
+            numpy_cells = numpy_cells.reshape(-1,4)
+
+            # create mesh
+            nCells, nCols = numpy_cells.shape
+            tmp = np.empty((nCells,3,3))
+            for k in range(nCells):
+                for l in range(1,4):
+                    id = numpy_cells[k,l]
+                    tmp[k,l-1] = numpy_points[id]
+
+            # append output
+            arr = np.append(arr, tmp, axis=0)
+            nTotalCells.append(nTotalCells[-1]+nCells)
+
+    # save data as mesh
+    data = np.zeros(nTotalCells[-1], dtype=mesh.Mesh.dtype)
+    data['vectors'] = arr
+    mesh_final = mesh.Mesh(data.copy())
+    for i in range(len(nTotalCells)-1):
+        start = nTotalCells[i]
+        stop = nTotalCells[i+1]
+        mesh_final.attr[start:stop,0] = i+1
+    mesh_final.save(path_to_data)
+
+def create_mesh(id):
+
+    # get object
+    img = get_object_or_404(Upload, pk=id)
+
+    # return error
+    if img.imageType not in [2,3]:
+
+        # return error
+        message = 'No valid label data.'
+        Upload.objects.create(user=img.user, project=img.project, log=1, imageType=None, shortfilename=message)
+
+        # close process
+        img.status = 0
+        img.pid = 0
+        img.save()
+
+    else:
+
+        # set PID
+        if img.status == 1:
+            img.status = 2
+            img.message = 'Processing'
+        img.pid = int(os.getpid())
+        img.save()
+
+        # load data
+        data, _ = load_data(img.pic.path, 'converter')
+
+        if data is None:
+
+            # return error
+            message = 'Invalid data.'
+            Upload.objects.create(user=img.user, project=img.project, log=1, imageType=None, shortfilename=message)
+
+            # close process
+            img.status = 0
+            img.pid = 0
+            img.save()
+
+        else:
+
+            # create pic path
+            filename, extension = os.path.splitext(img.pic.path)
+            if extension == '.gz':
+                filename = filename[:-4]
+            path_to_data = unique_file_path(filename+'.stl', img.user.username)
+            new_short_name = os.path.basename(path_to_data)
+            pic_path = 'images/%s/%s' %(img.user.username, new_short_name)
+
+            # create stl file
+            CreateSTL(data, path_to_data)
+
+            # create biomedisa object
+            tmp = Upload.objects.create(pic=pic_path, user=img.user, project=img.project, 
+                imageType=5, shortfilename=new_short_name)
+
+            # close process
+            img.status = 0
+            img.pid = 0
+            img.save()

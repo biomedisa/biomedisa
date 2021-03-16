@@ -33,9 +33,8 @@ from django.shortcuts import get_object_or_404
 from biomedisa_app.config import config
 from biomedisa_app.models import Upload
 from biomedisa_features.create_slices import create_slices
-from biomedisa_features.biomedisa_helper import load_data, save_data
+from biomedisa_features.biomedisa_helper import load_data, save_data, unique_file_path
 from multiprocessing import Process
-
 import numpy as np
 from scipy import ndimage
 
@@ -55,135 +54,199 @@ def reduce_blocksize(data):
             argmax_y = max(argmax_y, np.amax(y))
             argmin_z = min(argmin_z, k)
             argmax_z = max(argmax_z, k)
-    argmin_x = argmin_x - 10 if argmin_x - 10 > 0 else 0
-    argmax_x = argmax_x + 10 if argmax_x + 10 < xsh else xsh
-    argmin_y = argmin_y - 10 if argmin_y - 10 > 0 else 0
-    argmax_y = argmax_y + 10 if argmax_y + 10 < ysh else ysh
-    argmin_z = argmin_z - 10 if argmin_z - 10 > 0 else 0
-    argmax_z = argmax_z + 10 if argmax_z + 10 < zsh else zsh
-    data = data[argmin_z:argmax_z, argmin_y:argmax_y, argmin_x:argmax_x]
+    argmin_x = max(argmin_x - 1, 0)
+    argmax_x = min(argmax_x + 1, xsh-1) + 1
+    argmin_y = max(argmin_y - 1, 0)
+    argmax_y = min(argmax_y + 1, ysh-1) + 1
+    argmin_z = max(argmin_z - 1, 0)
+    argmax_z = min(argmax_z + 1, zsh-1) + 1
+    data = np.copy(data[argmin_z:argmax_z, argmin_y:argmax_y, argmin_x:argmax_x])
     return data, argmin_z, argmax_z, argmin_y, argmax_y, argmin_x, argmax_x
 
-def clean(image_i, threshold):
-    image = np.copy(image_i)
-    allLabels = np.unique(image)[1:]
-    tmp = np.empty_like(image)
+def clean(image, threshold=0.9):
+    image_i = np.copy(image)
+    allLabels = np.unique(image_i)
+    mask = np.empty_like(image_i)
     s = [[[0,0,0], [0,1,0], [0,0,0]], [[0,1,0], [1,1,1], [0,1,0]], [[0,0,0], [0,1,0], [0,0,0]]]
-    for k in allLabels:
-        label = image==k
-        #label_size = np.sum(label)
-        tmp.fill(0)
-        tmp[label] = 1
-        labeled_array, _ = ndimage.label(tmp, structure=s)
+    for k in allLabels[1:]:
+
+        # get mask
+        label = image_i==k
+        mask.fill(0)
+        mask[label] = 1
+
+        # reduce size
+        reduced, argmin_z, argmax_z, argmin_y, argmax_y, argmin_x, argmax_x = reduce_blocksize(mask)
+
+        # get clusters
+        labeled_array, _ = ndimage.label(reduced, structure=s)
         size = np.bincount(labeled_array.ravel())
+
+        # get reference size
         biggest_label = np.argmax(size[1:]) + 1
         label_size = size[biggest_label]
-        image[label] = 0
+
+        # preserve large segments
+        reduced.fill(0)
         for l, m in enumerate(size[1:]):
             if m > threshold * label_size:
-                image[labeled_array==l+1] = k
-    return image
+                reduced[labeled_array==l+1] = 1
 
-def fill(image_i, threshold):
-    image = np.copy(image_i)
-    allLabels = np.unique(image)[1:]
-    tmp = np.empty_like(image)
-    foreground = np.empty_like(tmp)
+        # get original size
+        mask.fill(0)
+        mask[argmin_z:argmax_z, argmin_y:argmax_y, argmin_x:argmax_x] = reduced
+
+        # write cleaned label to array
+        image_i[label] = 0
+        image_i[mask==1] = k
+
+    return image_i
+
+def fill(image, threshold=0.9):
+    image_i = np.copy(image)
+    allLabels = np.unique(image_i)
+    mask = np.empty_like(image_i)
     s = [[[0,0,0], [0,1,0], [0,0,0]], [[0,1,0], [1,1,1], [0,1,0]], [[0,0,0], [0,1,0], [0,0,0]]]
-    for k in allLabels:
-        label = image==k
-        tmp.fill(1)
-        tmp[label] = 0    # with holes
-        label_size = np.sum(label)
-        labeled_array, _ = ndimage.label(tmp, structure=s)
+    for k in allLabels[1:]:
+
+        # get mask
+        label = image_i==k
+        mask.fill(0)
+        mask[label] = 1
+
+        # reduce size
+        reduced, argmin_z, argmax_z, argmin_y, argmax_y, argmin_x, argmax_x = reduce_blocksize(mask)
+
+        # reference size
+        label_size = np.sum(reduced)
+
+        # invert
+        reduced = 1 - reduced # background and holes of object
+
+        # get clusters
+        labeled_array, _ = ndimage.label(reduced, structure=s)
         size = np.bincount(labeled_array.ravel())
         biggest_label = np.argmax(size)
-        foreground.fill(1)
-        foreground[labeled_array==biggest_label] = 0    # without holes
-        holes = np.copy(foreground - 1 + tmp)           # holes only == 1
-        labeled_array, _ = ndimage.label(holes, structure=s)
-        size = np.bincount(labeled_array.ravel())
-        image_copy = np.copy(image)
-        image[foreground==1] = k
+
+        # get label with all holes filled
+        reduced.fill(1)
+        reduced[labeled_array==biggest_label] = 0
+
+        # preserve large holes
         for l, m in enumerate(size[1:]):
-            if m > threshold * label_size:
-                image[labeled_array==l+1] = image_copy[labeled_array==l+1]
-    return image
+            if m > threshold * label_size and l+1 != biggest_label:
+                reduced[labeled_array==l+1] = 0
 
-def remove_outlier(path_to_data, path_to_final, friend_id, labelObject_id, fill_holes=True):
+        # get original size
+        mask.fill(0)
+        mask[argmin_z:argmax_z, argmin_y:argmax_y, argmin_x:argmax_x] = reduced
 
-    # get label object
-    labelObject = get_object_or_404(Upload, pk=labelObject_id)
+        # write filled label to array
+        image_i[label] = 0
+        image_i[mask==1] = k
 
-    # final filenames
-    filename, extension = os.path.splitext(path_to_final)
-    if extension == '.gz':
-        extension = '.nii.gz'
-        filename = filename[:-4]
-    path_to_cleaned = filename + '.cleaned' + extension
-    path_to_filled = filename + '.filled' + extension
-    path_to_cleaned_filled = filename + '.cleaned.filled' + extension
+    return image_i
 
-    # load data
-    final, header = load_data(path_to_final, 'cleanup')
-    if extension not in ['.tif','.am']:
-        _, header = load_data(labelObject.pic.path, 'cleanup')
+def remove_outlier(image_id, final_id, friend_id, label_id, fill_holes=True):
 
-    # reduce block size
-    zsh, ysh, xsh = final.shape
-    final, argmin_z, argmax_z, argmin_y, argmax_y, argmin_x, argmax_x = reduce_blocksize(final)
+    # get objects
+    try:
+        image = Upload.objects.get(pk=image_id)
+        final = Upload.objects.get(pk=final_id)
+        friend = Upload.objects.get(pk=friend_id)
+        label = Upload.objects.get(pk=label_id)
+        success = True
+    except Upload.DoesNotExist:
+        success = False
 
-    # remove outlier and fill holes
-    final_cleaned_tmp = clean(final, labelObject.delete_outliers)
-    if fill_holes:
-        final_filled_tmp = fill(final, labelObject.fill_holes)
-        final_cleaned_filled_tmp = fill(final_cleaned_tmp, labelObject.fill_holes)
+    # path to data
+    path_to_data = image.pic.path
+    path_to_final = final.pic.path
 
-    # retrieve full size
-    final_cleaned = np.zeros((zsh, ysh, xsh), dtype=final.dtype)
-    final_cleaned[argmin_z:argmax_z, argmin_y:argmax_y, argmin_x:argmax_x] = final_cleaned_tmp
-    if fill_holes:
-        final_filled = np.zeros((zsh, ysh, xsh), dtype=final.dtype)
-        final_filled[argmin_z:argmax_z, argmin_y:argmax_y, argmin_x:argmax_x] = final_filled_tmp
-        final_cleaned_filled = np.zeros((zsh, ysh, xsh), dtype=final.dtype)
-        final_cleaned_filled[argmin_z:argmax_z, argmin_y:argmax_y, argmin_x:argmax_x] = final_cleaned_filled_tmp
+    if success:
 
-    # save results
-    save_data(path_to_cleaned, final_cleaned, header, extension, labelObject.compression)
-    if fill_holes:
-        save_data(path_to_filled, final_filled, header, extension, labelObject.compression)
-        save_data(path_to_cleaned_filled, final_cleaned_filled, header, extension, labelObject.compression)
+        # final filenames
+        filename, extension = os.path.splitext(path_to_final)
+        if extension == '.gz':
+            extension = '.nii.gz'
+            filename = filename[:-4]
+        path_to_cleaned = filename + '.cleaned' + extension
+        path_to_filled = filename + '.filled' + extension
+        path_to_cleaned_filled = filename + '.cleaned.filled' + extension
 
-    # create slices for sliceviewer
-    if config['OS'] == 'linux':
-        q_slices = Queue('slices', connection=Redis())
-        job = q_slices.enqueue_call(create_slices, args=(path_to_data, path_to_cleaned,), timeout=-1)
-        if fill_holes:
-            job = q_slices.enqueue_call(create_slices, args=(path_to_data, path_to_filled,), timeout=-1)
-            job = q_slices.enqueue_call(create_slices, args=(path_to_data, path_to_cleaned_filled,), timeout=-1)
-    elif config['OS'] == 'windows':
-        p = Process(target=create_slices, args=(path_to_data, path_to_cleaned))
-        p.start()
-        p.join()
-        if fill_holes:
-            p = Process(target=create_slices, args=(path_to_data, path_to_filled))
-            p.start()
-            p.join()
-            p = Process(target=create_slices, args=(path_to_data, path_to_cleaned_filled))
-            p.start()
-            p.join()
+        # load data and header
+        final, header = load_data(path_to_final, 'cleanup')
+        if extension not in ['.tif','.am']:
+            _, header = load_data(label.pic.path, 'cleanup')
 
-    # create django objects
-    tmp = get_object_or_404(Upload, pk=friend_id)
-    shortfilename = os.path.basename(path_to_cleaned)
-    filename = 'images/' + str(tmp.user) + '/' + shortfilename
-    if not fill_holes:
-        Upload.objects.create(pic=filename, user=tmp.user, project=tmp.project, final=6, imageType=3, shortfilename=shortfilename, friend=friend_id)
-    else:
-        Upload.objects.create(pic=filename, user=tmp.user, project=tmp.project, final=2, imageType=3, shortfilename=shortfilename, friend=friend_id)
-        shortfilename = os.path.basename(path_to_cleaned_filled)
-        filename = 'images/' + str(tmp.user) + '/' + shortfilename
-        Upload.objects.create(pic=filename, user=tmp.user, project=tmp.project, final=8, imageType=3, shortfilename=shortfilename, friend=friend_id)
-        shortfilename = os.path.basename(path_to_filled)
-        filename = 'images/' + str(tmp.user) + '/' + shortfilename
-        Upload.objects.create(pic=filename, user=tmp.user, project=tmp.project, final=7, imageType=3, shortfilename=shortfilename, friend=friend_id)
+        # remove outlier
+        final_cleaned = clean(final, label.delete_outliers)
+
+        try:
+            # check if final still exists
+            friend = Upload.objects.get(pk=friend_id)
+
+            # save results
+            path_to_cleaned = unique_file_path(path_to_cleaned, label.user.username)
+            save_data(path_to_cleaned, final_cleaned, header, extension, label.compression)
+
+            # save django object
+            shortfilename = os.path.basename(path_to_cleaned)
+            pic_path = 'images/' + friend.user.username + '/' + shortfilename
+            if fill_holes:
+                Upload.objects.create(pic=pic_path, user=friend.user, project=friend.project, final=2, imageType=3, shortfilename=shortfilename, friend=friend_id)
+            else:
+                Upload.objects.create(pic=pic_path, user=friend.user, project=friend.project, final=6, imageType=3, shortfilename=shortfilename, friend=friend_id)
+
+            # create slices for sliceviewer
+            if config['OS'] == 'linux':
+                q_slices = Queue('slices', connection=Redis())
+                job = q_slices.enqueue_call(create_slices, args=(path_to_data, path_to_cleaned,), timeout=-1)
+            elif config['OS'] == 'windows':
+                p = Process(target=create_slices, args=(path_to_data, path_to_cleaned))
+                p.start()
+                p.join()
+
+        except Upload.DoesNotExist:
+            success = False
+
+        # fill holes
+        if fill_holes and success:
+
+            final_filled = fill(final, label.fill_holes)
+            final_cleaned_filled = final_cleaned + (final_filled - final)
+
+            try:
+                # check if final still exists
+                friend = Upload.objects.get(pk=friend_id)
+
+                # save results
+                path_to_filled = unique_file_path(path_to_filled, label.user.username)
+                save_data(path_to_filled, final_filled, header, extension, label.compression)
+                path_to_cleaned_filled = unique_file_path(path_to_cleaned_filled, label.user.username)
+                save_data(path_to_cleaned_filled, final_cleaned_filled, header, extension, label.compression)
+
+                # save django object
+                shortfilename = os.path.basename(path_to_cleaned_filled)
+                pic_path = 'images/' + friend.user.username + '/' + shortfilename
+                Upload.objects.create(pic=pic_path, user=friend.user, project=friend.project, final=8, imageType=3, shortfilename=shortfilename, friend=friend_id)
+                shortfilename = os.path.basename(path_to_filled)
+                pic_path = 'images/' + friend.user.username + '/' + shortfilename
+                Upload.objects.create(pic=pic_path, user=friend.user, project=friend.project, final=7, imageType=3, shortfilename=shortfilename, friend=friend_id)
+
+                # create slices for sliceviewer
+                if config['OS'] == 'linux':
+                    q_slices = Queue('slices', connection=Redis())
+                    job = q_slices.enqueue_call(create_slices, args=(path_to_data, path_to_filled,), timeout=-1)
+                    job = q_slices.enqueue_call(create_slices, args=(path_to_data, path_to_cleaned_filled,), timeout=-1)
+                elif config['OS'] == 'windows':
+                    p = Process(target=create_slices, args=(path_to_data, path_to_filled))
+                    p.start()
+                    p.join()
+                    p = Process(target=create_slices, args=(path_to_data, path_to_cleaned_filled))
+                    p.start()
+                    p.join()
+
+            except Upload.DoesNotExist:
+                pass
+
