@@ -25,7 +25,7 @@ sudo apt-get install libsm6 libxrender-dev libmysqlclient-dev \
 ### Install pip packages
 ```
 sudo -H pip3 install --upgrade pip setuptools scikit-build 
-sudo -H pip3 install --upgrade numpy scipy h5py colorama itk vtk \
+sudo -H pip3 install --upgrade numpy scipy h5py colorama itk vtk wget \
     numba imagecodecs-lite tifffile scikit-image opencv-python numpy-stl \
     Pillow SimpleParse nibabel medpy SimpleITK mpi4py django rq mysqlclient
 ```
@@ -86,7 +86,6 @@ wait_timeout = 604800
 
 # Migrate database and create superuser
 cd ~/git/biomedisa
-python3 manage.py makemigrations
 python3 manage.py migrate
 python3 manage.py createsuperuser
 ```

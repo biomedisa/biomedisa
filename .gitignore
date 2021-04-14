@@ -5,4 +5,6 @@ config.py
 /tmp/*
 /media/*
 /private_storage/*
-paraview/
+/biomedisa_app/paraview
+paraview.zip
+!**/.gitkeep

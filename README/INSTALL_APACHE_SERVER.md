@@ -23,6 +23,11 @@ sudo nano /etc/apache2/sites-available/000-default.conf
         Require all granted
         </Directory>
 
+        Alias /paraview /home/USER/git/biomedisa/biomedisa_app/paraview
+        <Directory /home/USER/git/biomedisa/biomedisa_app/paraview>
+        Require all granted
+        </Directory>
+
         <Directory /home/USER/git/biomedisa/biomedisa>
         <Files wsgi.py>
         Require all granted

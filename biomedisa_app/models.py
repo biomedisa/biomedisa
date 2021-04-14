@@ -37,6 +37,7 @@ from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
 from django.contrib.auth.password_validation import validate_password
 from django.core.files.storage import FileSystemStorage
+from django.utils.deconstruct import deconstructible
 import shutil
 import os
 
@@ -129,9 +130,13 @@ class CustomUserCreationForm(forms.Form):
         profile.save()
         return self.cleaned_data
 
+@deconstructible
+class MyFileSystemStorage(FileSystemStorage):
+    def __init__(self):
+        super(MyFileSystemStorage, self).__init__(location=config['PATH_TO_BIOMEDISA'] + '/private_storage/')
+
 class Upload(models.Model):
-    private_storage = FileSystemStorage(location=config['PATH_TO_BIOMEDISA'] + '/private_storage/')
-    pic = models.FileField("", upload_to=user_directory_path, storage=private_storage)
+    pic = models.FileField("", upload_to=user_directory_path, storage=MyFileSystemStorage())
     upload_date = models.DateTimeField(auto_now_add=True, null=True)
     user = models.ForeignKey(User, on_delete=models.DO_NOTHING)
     CHOICES = zip( range(1,10), range(1,10) )
