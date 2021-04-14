@@ -15,6 +15,6 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='upload',
             name='cnnProject',
-            field=models.TextField(default='MyFirstProject', null=True),
+            field=models.TextField(null=True),
         ),
     ]

@@ -138,7 +138,7 @@ Open Command Prompt (e.g. Windows Search `Command Prompt`).
 ```
 pip3 install --upgrade pip pypiwin32 setuptools wheel numpy scipy h5py colorama numba
 pip3 install --upgrade imagecodecs-lite tifffile scikit-image opencv-python Pillow
-pip3 install --upgrade nibabel medpy SimpleITK simpleparse
+pip3 install --upgrade nibabel medpy SimpleITK simpleparse itk vtk numpy-stl
 ```
 
 #### Install NVIDIA Driver
@@ -285,7 +285,7 @@ Train a neural network with 200 epochs and batch size of 24. The result will be 
 python3 biomedisa_deeplearning.py heart label -train -epochs 200 -bs 24
 ```
 
-Predict the result of the test image. The result will be saved as `final.testing_axial_crop_pat13.tif`.
+Use the trained network to predict the result of the test image. The result will be saved as `final.testing_axial_crop_pat13.tif`.
 ```
 python3 biomedisa_deeplearning.py testing_axial_crop_pat13.nii.gz heart.h5 -predict -bs 6
 ```

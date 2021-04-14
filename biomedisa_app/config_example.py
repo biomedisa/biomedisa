@@ -1,6 +1,6 @@
 config = {
     'OS' : 'linux', # either 'linux' or 'windows'
-    'SERVER' : 'https://biomedisa.org', # the URL of your homepage e.g. 'https://biomedisa.org' or your internal IP e.g. '192.168.176.30'
+    'SERVER' : 'http://localhost:8080', # localhost, URL of your homepage e.g. 'https://biomedisa.org' or your internal IP e.g. 'http://192.168.176.30'
     'SERVER_ALIAS' : 'biomedisa-001', # an alias name for your server (for email notification and logfiles)
     'PATH_TO_BIOMEDISA' : '/home/dummy/git/biomedisa', # this is the path to your main biomedisa folder e.g. '/home/dummy/git/biomedisa'
     'SECRET_KEY' : '...', # some random string

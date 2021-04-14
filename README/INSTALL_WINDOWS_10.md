@@ -78,6 +78,7 @@ Open Command Prompt (e.g. Windows Search `Command Prompt`).
 pip3 install --upgrade pip pypiwin32 setuptools wheel numpy scipy h5py colorama numba
 pip3 install --upgrade imagecodecs-lite tifffile scikit-image opencv-python Pillow
 pip3 install --upgrade nibabel medpy SimpleITK django mysqlclient simpleparse
+pip3 install --upgrade itk vtk numpy-stl wget
 ```
 
 # Adapt Biomedisa config
@@ -99,7 +100,6 @@ In particular, adapt the following lines in `biomedisa/biomedisa_app/config.py`
 # Set up database
 Go to your biomedisa directory (e.g. cd git/biomedisa)
 ```
-python manage.py makemigrations
 python manage.py migrate
 python manage.py createsuperuser
 ```

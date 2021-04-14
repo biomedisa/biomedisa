@@ -114,7 +114,7 @@ from decimal import Decimal
 import hashlib
 from shutil import copytree
 import tarfile, zipfile
-import shutil
+import shutil, wget
 import subprocess
 
 # list of demo files
@@ -346,20 +346,26 @@ def sliceviewer(request, id):
     stock_to_show = get_object_or_404(Upload, pk=id)
     if stock_to_show.user == request.user:
 
-        prefix = generate_activation_key()
-        path_to_slices = '/media/' + prefix
-        src = config['PATH_TO_BIOMEDISA'] + '/private_storage/sliceviewer/%s/%s' %(request.user, stock_to_show.shortfilename)
-        dest = config['PATH_TO_BIOMEDISA'] + path_to_slices
-        os.symlink(src, dest)
-        path_to_slices += '/'
+        if config['OS'] == 'linux':
+            prefix = generate_activation_key()
+            path_to_slices = '/media/' + prefix
+            src = config['PATH_TO_BIOMEDISA'] + '/private_storage/sliceviewer/%s/%s' %(request.user, stock_to_show.shortfilename)
+            dest = config['PATH_TO_BIOMEDISA'] + path_to_slices
+            os.symlink(src, dest)
+            path_to_slices += '/'
 
-        # create symlinks wich are removed when "app" is called or user loggs out
-        try:
-            symlinks = request.session["symlinks"]
-            symlinks.append(dest)
-            request.session["symlinks"] = symlinks
-        except:
-            request.session["symlinks"] = [dest]
+            # create symlinks wich are removed when "app" is called or user loggs out
+            try:
+                symlinks = request.session["symlinks"]
+                symlinks.append(dest)
+                request.session["symlinks"] = symlinks
+            except:
+                request.session["symlinks"] = [dest]
+
+        elif config['OS'] == 'windows':
+            path_to_slices = '/private_storage/sliceviewer/%s/%s' %(request.user, stock_to_show.shortfilename)
+            dest = config['PATH_TO_BIOMEDISA'] + path_to_slices
+            path_to_slices += '/'
 
         if os.path.isdir(dest):
             nos = len(os.listdir(dest)) - 1
@@ -379,6 +385,14 @@ def sliceviewer(request, id):
 @login_required
 def visualization(request):
     if request.method == 'GET':
+
+        # download paraview
+        if not os.path.exists(config['PATH_TO_BIOMEDISA'] + '/biomedisa_app/paraview'):
+            wget.download('https://biomedisa.org/media/paraview.zip', out=config['PATH_TO_BIOMEDISA'] + '/biomedisa_app/paraview.zip')
+            zip_ref = zipfile.ZipFile(config['PATH_TO_BIOMEDISA'] + '/biomedisa_app/paraview.zip', 'r')
+            zip_ref.extractall(path=config['PATH_TO_BIOMEDISA'] + '/biomedisa_app')
+            zip_ref.close()
+
         ids = request.GET.get('selected','')
         ids = ids.split(',')
         name,url="",""
@@ -387,18 +401,23 @@ def visualization(request):
             id = int(id)
             stock_to_show = get_object_or_404(Upload, pk=id)
             if stock_to_show.user == request.user:
-                prefix = generate_activation_key()
-                path_to_link = '/media/' + prefix
-                dest = config['PATH_TO_BIOMEDISA'] + path_to_link
-                os.symlink(stock_to_show.pic.path, dest)
 
-                # create symlinks wich are removed when "app" is called or user loggs out
-                try:
-                    symlinks = request.session["symlinks"]
-                    symlinks.append(dest)
-                    request.session["symlinks"] = symlinks
-                except:
-                    request.session["symlinks"] = [dest]
+                if config['OS'] == 'linux':
+                    prefix = generate_activation_key()
+                    path_to_link = '/media/' + prefix
+                    dest = config['PATH_TO_BIOMEDISA'] + path_to_link
+                    os.symlink(stock_to_show.pic.path, dest)
+
+                    # create symlinks wich are removed when "app" is called or user loggs out
+                    try:
+                        symlinks = request.session["symlinks"]
+                        symlinks.append(dest)
+                        request.session["symlinks"] = symlinks
+                    except:
+                        request.session["symlinks"] = [dest]
+
+                elif config['OS'] == 'windows':
+                    path_to_link = '/private_storage/' + str(stock_to_show.pic)
 
                 name += ","+stock_to_show.shortfilename
                 url += ","+config['SERVER']+path_to_link
@@ -753,8 +772,9 @@ def init_keras_3D(image, label, model, refine, predict, img_list, label_list, qu
     if image.status > 0:
 
         # search for failed jobs in queue
-        q = Queue('check_queue', connection=Redis())
-        job = q.enqueue_call(init_check_queue, args=(image.id, image.queue,), timeout=-1)
+        if config['OS'] == 'linux':
+            q = Queue('check_queue', connection=Redis())
+            job = q.enqueue_call(init_check_queue, args=(image.id, image.queue,), timeout=-1)
 
         # set status to processing
         if image.status == 1:
@@ -1034,9 +1054,11 @@ def features(request, action):
                     img.save()
                 elif config['OS'] == 'windows':
                     if int(action) == 7:
-                        Process(target=convert_image, args=(img.id)).start()
+                        Process(target=convert_image, args=(img.id,)).start()
                     elif int(action) == 8:
-                        Process(target=smooth_image, args=(img.id)).start()
+                        Process(target=smooth_image, args=(img.id,)).start()
+                    elif int(action) == 11:
+                        Process(target=create_mesh, args=(img.id,)).start()
                     img.status = 2
                     img.message = 'Processing'
                     img.save()
@@ -1693,8 +1715,9 @@ def init_random_walk(image, label, second_queue):
     if image.status > 0:
 
         # search for failed jobs in queue
-        q = Queue('check_queue', connection=Redis())
-        job = q.enqueue_call(init_check_queue, args=(image.id, image.queue,), timeout=-1)
+        if config['OS'] == 'linux':
+            q = Queue('check_queue', connection=Redis())
+            job = q.enqueue_call(init_check_queue, args=(image.id, image.queue,), timeout=-1)
 
         # set status to processing
         if image.status == 1:
