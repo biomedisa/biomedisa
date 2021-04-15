@@ -23,8 +23,8 @@ Biomedisa (https://biomedisa.org) is a free and easy-to-use open-source online p
 + 32 GB RAM or more (strongly depends on the size of the processed images).
 
 # Software requirements
-+ [NVIDIA GPU drivers](https://www.nvidia.com/drivers) - CUDA 10.1 requires 418.x or higher
-+ [CUDA Toolkit 10.1](https://developer.nvidia.com/cuda-toolkit-archive)
++ [NVIDIA GPU drivers](https://www.nvidia.com/drivers) - CUDA 11.0 requires 455.x or higher
++ [CUDA Toolkit 11.0](https://developer.nvidia.com/cuda-toolkit-archive)
 + [Open MPI 2.1.1](https://www.open-mpi.org/)
 
 # Operating systems
@@ -65,29 +65,35 @@ cd ~/git
 git clone https://github.com/biomedisa/biomedisa
 ```
 
-#### Setting up CUDA environment
+#### Install NVIDIA driver
 
 ```
-# Add NVIDIA package repositories
-wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/cuda-repo-ubuntu1804_10.1.243-1_amd64.deb
-sudo dpkg -i cuda-repo-ubuntu1804_10.1.243-1_amd64.deb
-sudo apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/7fa2af80.pub
-sudo apt-get update
-
-# Install NVIDIA driver
-sudo apt-get install --no-install-recommends nvidia-driver-450
+# Install NVIDIA driver >=455
+sudo apt-get install nvidia-driver-455
 
 # Reboot the system
 sudo reboot
 
 # Verify that NVIDIA driver can be loaded properly
 nvidia-smi
+```
 
-# Install CUDA 10.1
-sudo apt-get install --no-install-recommends cuda-10-1
+#### Install CUDA 11.0
+
+```
+# Add NVIDIA package repositories
+wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/cuda-ubuntu1804.pin
+sudo mv cuda-ubuntu1804.pin /etc/apt/preferences.d/cuda-repository-pin-600
+sudo apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/7fa2af80.pub
+sudo add-apt-repository "deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/ /"
+sudo apt-get update
+sudo apt-get install --no-install-recommends cuda-11-0
+
+# Reboot. Check that GPUs are visible using the command
+nvidia-smi
 
 # Add the following lines to your .bashrc (e.g. nano ~/.bashrc)
-export CUDA_HOME=/usr/local/cuda-10.1
+export CUDA_HOME=/usr/local/cuda-11.0
 export LD_LIBRARY_PATH=${CUDA_HOME}/lib64
 export PATH=${CUDA_HOME}/bin:${PATH}
 
@@ -96,7 +102,7 @@ source ~/.bashrc
 nvcc --version
 
 # Install PyCUDA
-sudo -H PATH=/usr/local/cuda-10.1/bin:${PATH} pip3 install --upgrade pycuda
+sudo -H PATH=/usr/local/cuda-11.0/bin:${PATH} pip3 install --upgrade pycuda
 
 # Verify that PyCUDA is working properly
 python3 ~/git/biomedisa/biomedisa_features/pycuda_test.py
@@ -104,7 +110,7 @@ python3 ~/git/biomedisa/biomedisa_features/pycuda_test.py
 
 ## Windows 10
 
-### Install Microsoft Visual Studio 2017
+#### Install Microsoft Visual Studio 2017
 Download and install [MS Visual Studio](https://visualstudio.microsoft.com/de/thank-you-downloading-visual-studio/?sku=Community&rel=15&rr=https%3A%2F%2Fwww.wintotal.de%2Fdownload%2Fmicrosoft-visual-studio-community-2017%2F).
 ```
 Select "Desktop development with C++"
@@ -112,7 +118,7 @@ Install
 Restart Windows
 ```
 
-### Set Path Variables
+#### Set Path Variables
 Open Windows Search  
 Type `View advanced system settings`  
 Click `Environment Variables...`  
@@ -149,7 +155,7 @@ Choose *Recommended/Beta:* Studio Driver
 #### Install CUDA Toolkit 11.0
 Download and install [CUDA Toolkit 11.0](https://developer.nvidia.com/cuda-downloads).
 
-### Disable TDR in Nsight Monitor
+#### Disable TDR in Nsight Monitor
 ```
 Windows Search "Nsight Monitor" (run as administrator)
 Click the "NVIDIA Nsight" symbol in the right corner of your menu bar
@@ -186,7 +192,7 @@ python biomedisa/biomedisa_features/pycuda_test.py
 
 # Run examples
 
-### Run small examples
+#### Run small example
 Change to the demo directory.
 ```
 cd git/biomedisa/demo
@@ -201,7 +207,7 @@ python3 biomedisa_interpolation.py tumor.tif labels.tumor.tif
 python biomedisa_interpolation.py tumor.tif labels.tumor.tif
 ```
 
-### Run further examples
+#### Run further examples
 Download the examples from https://biomedisa.org/gallery/ or directly as follows:
 ```
 # Trigonopterus
@@ -234,34 +240,66 @@ Run the segmentation using e.g. 4 GPUs
 mpiexec -n 4 python3 biomedisa_interpolation.py NMB_F2875.tif labels.NMB_F2875.tif
 ```
 
-Obtain uncertainty and smooting as optional results
+Obtain uncertainty and smoothing as optional results
 ```
 mpiexec -n 4 python3 biomedisa_interpolation.py NMB_F2875.tif labels.NMB_F2875.tif -uq -s 100
 ```
 
-Enable labeling in different planes (not only xy-plane)
+Use pre-segmentation in different planes (not exclusively xy-plane)
 ```
 mpiexec -n 4 python3 'path_to_image' 'path_to_labels' -allx
 ```
 # Fast installation of Deep Learning feature
 
+## Ubuntu 18.04.5
 If you have not already done so, follow the installation instructions [Fast installation of semi-automatic segmentation feature](#fast-installation-of-semi-automatic-segmentation-feature) (Ubuntu 18.04.5). Then install TensorFlow and Keras.
 
-### Install TensorFlow and Keras
+#### Install Tensorflow and Keras
 ```
-# Install cuDNN
 wget http://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu1804/x86_64/nvidia-machine-learning-repo-ubuntu1804_1.0.0-1_amd64.deb
 sudo apt install ./nvidia-machine-learning-repo-ubuntu1804_1.0.0-1_amd64.deb
 sudo apt-get update
-sudo apt-get install --no-install-recommends \
-    libcudnn7=7.6.5.32-1+cuda10.1 \
-    libcudnn7-dev=7.6.5.32-1+cuda10.1
 
-# Install TensorFlow and Keras
+wget https://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu1804/x86_64/libnvinfer7_7.1.3-1+cuda11.0_amd64.deb
+sudo apt install ./libnvinfer7_7.1.3-1+cuda11.0_amd64.deb
+sudo apt-get update
+
+# Install development and runtime libraries (~4GB)
+sudo apt-get install --no-install-recommends \
+    libcudnn8=8.0.4.30-1+cuda11.0  \
+    libcudnn8-dev=8.0.4.30-1+cuda11.0
+
+# Install TensorRT. Requires that libcudnn8 is installed above.
+sudo apt-get install -y --no-install-recommends libnvinfer7=7.1.3-1+cuda11.0 \
+    libnvinfer-dev=7.1.3-1+cuda11.0 \
+    libnvinfer-plugin7=7.1.3-1+cuda11.0
+
+# Install Tensorflow and Keras
 sudo -H pip3 install --upgrade tensorflow-gpu keras
 ```
+## Windows 10
+If you have not already done so, follow the installation instructions [Fast installation of semi-automatic segmentation feature](#fast-installation-of-semi-automatic-segmentation-feature) (Windows 10). Then install TensorFlow and Keras.
 
-### Run example
+#### Install cuDNN
+Download [cuDNN](https://developer.nvidia.com/rdp/cudnn-archive) (NVIDIA account (free) required).  
+Extract the ZIP folder.
+
+#### Set Path Variables
+Open Windows Search  
+Type `View advanced system settings`  
+Click `Environment Variables...`  
+Add the following value to the **System variable** `Path`
+```
+C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.0\extras\CUPTI\lib64
+C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.0\include
+C:\Users\USERNAME\cuda\bin      (the path where you extraced cuDNN)
+```
+#### Install Tensorflow and Keras
+```
+pip3 install --upgrade tensorflow-gpu keras
+```
+
+# Run example
 Change to the demo directory.
 ```
 cd git/biomedisa/demo
@@ -280,21 +318,29 @@ tar -xf training_hearts.tar
 tar -xf training_hearts_labels.tar
 ```
 
-Train a neural network with 200 epochs and batch size of 24. The result will be saved as `heart.h5`.
+Train a neural network with 200 epochs and batch size (-bs) of 24. The result will be saved as `heart.h5`. If you have only a single GPU, reduce batch size to 6.
 ```
+# Ubuntu
 python3 biomedisa_deeplearning.py heart label -train -epochs 200 -bs 24
+
+# Windows
+python biomedisa_deeplearning.py heart label -train -epochs 200 -bs 24
 ```
 
 Use the trained network to predict the result of the test image. The result will be saved as `final.testing_axial_crop_pat13.tif`.
 ```
+# Ubuntu
 python3 biomedisa_deeplearning.py testing_axial_crop_pat13.nii.gz heart.h5 -predict -bs 6
+
+# Windows
+python biomedisa_deeplearning.py testing_axial_crop_pat13.nii.gz heart.h5 -predict -bs 6
 ```
 
 # Full installation of Biomedisa online platform
 
 ### Ubuntu 18.04.5
 
-Please follow the [installation instructions](https://github.com/biomedisa/biomedisa/blob/master/README/INSTALL_UBUNTU_18.04.5.md). Alternatively, clone the repository and run the install script `install.sh`.
+Please follow the [installation instructions](https://github.com/biomedisa/biomedisa/blob/master/README/INSTALL_UBUNTU_18.04.5.md).
 
 ### Windows 10
 

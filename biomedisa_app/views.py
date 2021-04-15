@@ -595,6 +595,8 @@ def storage(request):
                     path_to_dir, extension = os.path.splitext(path_to_dir)
                 if extension == '.zip':
                     zip_ref = zipfile.ZipFile(newimg.pic.path, 'r')
+
+
                     zip_ref.extractall(path=path_to_dir)
                     zip_ref.close()
                 elif extension == '.tar':
@@ -795,12 +797,23 @@ def init_keras_3D(image, label, model, refine, predict, img_list, label_list, qu
         host = config['THIRD_QUEUE_HOST']
 
     # run keras
-    if host:
-        p = subprocess.Popen(['ssh', host, 'python3', cwd+'keras_3D.py',\
-            str(image.id), str(label.id), str(model), str(refine), str(predict), str(img_list), str(label_list)])
-    else:
-        p = subprocess.Popen(['python3', 'keras_3D.py', str(image.id), str(label.id),\
-            str(model), str(refine), str(predict), str(img_list), str(label_list)], cwd=cwd)
+    if config['OS'] == 'linux':
+        if host:
+            p = subprocess.Popen(['ssh', host, 'python3', cwd+'keras_3D.py',\
+                str(image.id), str(label.id), str(model), str(refine), str(predict), str(img_list), str(label_list)])
+        else:
+            p = subprocess.Popen(['python3', 'keras_3D.py', str(image.id), str(label.id),\
+                str(model), str(refine), str(predict), str(img_list), str(label_list)], cwd=cwd)
+
+    elif config['OS'] == 'windows':
+        p = subprocess.Popen(['python', '-u', 'keras_3D.py', str(image.id), str(label.id),\
+                str(model), str(refine), str(predict), str(img_list), str(label_list)], cwd=cwd, stdout=subprocess.PIPE)
+
+        # print output
+        for line in iter(p.stdout.readline, b''):
+            line = str(line,'utf-8')
+            print(line.rstrip())
+        p.stdout.close()
 
     # wait for process to finish
     p.wait()
@@ -885,21 +898,24 @@ def features(request, action):
 
                         q = Queue(keras_queue, connection=Redis())
                         job = q.enqueue_call(init_keras_3D, args=(img.id, img.id, model, refine, 1, [], [], queue_name), timeout=-1)
+                        lenq = len(q)
+                        img.job_id = job.id
+                        if lenq == 0:
+                            img.status = 2
+                            img.message = 'Processing'
+                        else:
+                            img.status = 1
+                            img.message = 'Queue %s position %s of %s' %(queue_name, lenq, lenq)
+                        img.save()
 
                     elif config['OS'] == 'windows':
                         img.queue = 1
                         queue_name = 'A'
                         Process(target=init_keras_3D, args=(img.id, img.id, model, refine, 1, [], [], queue_name)).start()
-
-                    lenq = len(q)
-                    img.job_id = job.id
-                    if lenq == 0:
                         img.status = 2
                         img.message = 'Processing'
-                    else:
-                        img.status = 1
-                        img.message = 'Queue %s position %s of %s' %(queue_name, lenq, lenq)
-                    img.save()
+                        img.save()
+
                 elif img.imageType in [2,3]:
                     request.session['state'] = 'No vaild image selected.'
         else:
@@ -934,8 +950,8 @@ def features(request, action):
                 raw_out = raw
                 label_out = label
                 ref_project = project
-                raw_list += raw.pic.path + ':'
-                label_list += label.pic.path + ':'
+                raw_list += raw.pic.path + ';'
+                label_list += label.pic.path + ';'
 
         # train neural network
         if not raw_list:
@@ -954,19 +970,23 @@ def features(request, action):
                     queue_name = 'A'
                 q = Queue(keras_queue, connection=Redis())
                 job = q.enqueue_call(init_keras_3D, args=(raw_out.id, label_out.id, model, 0, 0, raw_list, label_list, queue_name), timeout=-1)
+                lenq = len(q)
+                raw_out.job_id = job.id
+                if lenq == 0:
+                    raw_out.status = 2
+                    raw_out.message = 'Progress 0%'
+                else:
+                    raw_out.status = 1
+                    raw_out.message = 'Queue %s position %s of %s' %(queue_name, lenq, lenq)
+                raw_out.save()
+
             elif config['OS'] == 'windows':
                 raw_out.queue = 1
                 queue_name = 'A'
                 Process(target=init_keras_3D, args=(raw_out.id, label_out.id, model, 0, 0, raw_list, label_list, queue_name)).start()
-            lenq = len(q)
-            raw_out.job_id = job.id
-            if lenq == 0:
                 raw_out.status = 2
                 raw_out.message = 'Progress 0%'
-            else:
-                raw_out.status = 1
-                raw_out.message = 'Queue %s position %s of %s' %(queue_name, lenq, lenq)
-            raw_out.save()
+                raw_out.save()
 
     # duplicate file
     elif int(action) == 6:
@@ -1149,6 +1169,7 @@ def app(request):
             # create user directories
             for directory in ['images', 'sliceviewer']:
                 path_to_data = config['PATH_TO_BIOMEDISA'] + '/private_storage/' + directory + '/' + str(profile.user.username)
+
                 if not os.path.isdir(path_to_data):
                     os.makedirs(path_to_data)
                     try:
@@ -1754,8 +1775,7 @@ def init_random_walk(image, label, second_queue):
         elif config['OS'] == 'windows':
             p = subprocess.Popen(['mpiexec', '-np', ngpus, 'python', '-u', 'rw_main.py', str(image.id), str(label.id)], cwd=cwd, stdout=subprocess.PIPE)
 
-        # print output
-        if config['OS'] == 'windows':
+            # print output
             for line in iter(p.stdout.readline, b''):
                 line = str(line,'utf-8')
                 print(line.rstrip())
