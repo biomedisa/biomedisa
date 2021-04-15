@@ -261,8 +261,8 @@ if __name__ == '__main__':
         model_id = int(sys.argv[3])
         refine_model_id = int(sys.argv[4])
         predict = int(sys.argv[5])
-        raw_list = sys.argv[6].split(':')[:-1]
-        label_list = sys.argv[7].split(':')[:-1]
+        raw_list = sys.argv[6].split(';')[:-1]
+        label_list = sys.argv[7].split(';')[:-1]
 
         # path to image
         path_to_img = image.pic.path
@@ -364,12 +364,17 @@ if __name__ == '__main__':
                 tmp.save()
 
                 # create slices, cleanup and acwe
-                q = Queue('slices', connection=Redis())
-                job = q.enqueue_call(create_slices, args=(path_to_img, path_to_final,), timeout=-1)
-                q = Queue('acwe', connection=Redis())
-                job = q.enqueue_call(active_contour, args=(image.id, tmp.id, model.id,), timeout=-1)
-                q = Queue('cleanup', connection=Redis())
-                job = q.enqueue_call(remove_outlier, args=(image.id, tmp.id, tmp.id, model.id,), timeout=-1)
+                if config['OS'] == 'linux':
+                    q = Queue('slices', connection=Redis())
+                    job = q.enqueue_call(create_slices, args=(path_to_img, path_to_final,), timeout=-1)
+                    q = Queue('acwe', connection=Redis())
+                    job = q.enqueue_call(active_contour, args=(image.id, tmp.id, model.id,), timeout=-1)
+                    q = Queue('cleanup', connection=Redis())
+                    job = q.enqueue_call(remove_outlier, args=(image.id, tmp.id, tmp.id, model.id,), timeout=-1)
+                elif config['OS'] == 'windows':
+                    Process(target=create_slices, args=(path_to_img, path_to_final)).start()
+                    Process(target=active_contour, args=(image.id, tmp.id, model.id)).start()
+                    Process(target=remove_outlier, args=(image.id, tmp.id, tmp.id, model.id)).start()
 
             # write in logs and send notification
             if predict:

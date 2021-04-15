@@ -90,29 +90,35 @@ python3 manage.py migrate
 python3 manage.py createsuperuser
 ```
 
-### Setting up CUDA environment
+### Install NVIDIA driver
 
 ```
-# Add NVIDIA package repositories
-wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/cuda-repo-ubuntu1804_10.1.243-1_amd64.deb
-sudo dpkg -i cuda-repo-ubuntu1804_10.1.243-1_amd64.deb
-sudo apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/7fa2af80.pub
-sudo apt-get update
-
-# Install NVIDIA driver
-sudo apt-get install --no-install-recommends nvidia-driver-450
+# Install NVIDIA driver >=455
+sudo apt-get install nvidia-driver-455
 
 # Reboot the system
 sudo reboot
 
 # Verify that NVIDIA driver can be loaded properly
 nvidia-smi
+```
 
-# Install CUDA 10.1
-sudo apt-get install --no-install-recommends cuda-10-1
+### Install CUDA 11.0
+
+```
+# Add NVIDIA package repositories
+wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/cuda-ubuntu1804.pin
+sudo mv cuda-ubuntu1804.pin /etc/apt/preferences.d/cuda-repository-pin-600
+sudo apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/7fa2af80.pub
+sudo add-apt-repository "deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/ /"
+sudo apt-get update
+sudo apt-get install --no-install-recommends cuda-11-0
+
+# Reboot. Check that GPUs are visible using the command
+nvidia-smi
 
 # Add the following lines to your .bashrc (e.g. nano ~/.bashrc)
-export CUDA_HOME=/usr/local/cuda-10.1
+export CUDA_HOME=/usr/local/cuda-11.0
 export LD_LIBRARY_PATH=${CUDA_HOME}/lib64
 export PATH=${CUDA_HOME}/bin:${PATH}
 
@@ -121,27 +127,37 @@ source ~/.bashrc
 nvcc --version
 
 # Install PyCUDA
-sudo -H PATH=/usr/local/cuda-10.1/bin:${PATH} pip3 install --upgrade pycuda
+sudo -H PATH=/usr/local/cuda-11.0/bin:${PATH} pip3 install --upgrade pycuda
 
 # Verify that PyCUDA is working properly
 python3 ~/git/biomedisa/biomedisa_features/pycuda_test.py
 ```
 
-# Install Tensorflow and Keras
+### Install Tensorflow and Keras
 ```
-# Install cuDNN
 wget http://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu1804/x86_64/nvidia-machine-learning-repo-ubuntu1804_1.0.0-1_amd64.deb
 sudo apt install ./nvidia-machine-learning-repo-ubuntu1804_1.0.0-1_amd64.deb
 sudo apt-get update
+
+wget https://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu1804/x86_64/libnvinfer7_7.1.3-1+cuda11.0_amd64.deb
+sudo apt install ./libnvinfer7_7.1.3-1+cuda11.0_amd64.deb
+sudo apt-get update
+
+# Install development and runtime libraries (~4GB)
 sudo apt-get install --no-install-recommends \
-    libcudnn7=7.6.5.32-1+cuda10.1 \
-    libcudnn7-dev=7.6.5.32-1+cuda10.1
+    libcudnn8=8.0.4.30-1+cuda11.0  \
+    libcudnn8-dev=8.0.4.30-1+cuda11.0
+
+# Install TensorRT. Requires that libcudnn8 is installed above.
+sudo apt-get install -y --no-install-recommends libnvinfer7=7.1.3-1+cuda11.0 \
+    libnvinfer-dev=7.1.3-1+cuda11.0 \
+    libnvinfer-plugin7=7.1.3-1+cuda11.0
 
 # Install Tensorflow and Keras
 sudo -H pip3 install --upgrade tensorflow-gpu keras
 ```
 
-# Run Biomedisa
+### Run Biomedisa
 
 Start workers (this has to be done after each reboot)
 ```
@@ -153,8 +169,8 @@ Start Biomedisa locally
 ```
 python3 manage.py runserver 0.0.0.0:8000
 ```
-# Open Biomedisa
+### Open Biomedisa
 Open Biomedisa in your local browser http://localhost:8000/ and log in as the `superuser` you created.
 
-# Install Apache Server
+### Install Apache Server
 Follow the [installation instructions](https://github.com/biomedisa/biomedisa/blob/master/README/INSTALL_APACHE_SERVER.md).

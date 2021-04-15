@@ -139,10 +139,30 @@ python git/biomedisa/biomedisa_features/pycuda_test.py
 ```
 
 # Run Biomedisa
-If you want to use the 2D slice viewer, run the Command Prompt with "as administrator".
 ```
 python git/biomedisa/manage.py runserver localhost:8080
 ```
 
 # Open Biomedisa
 Open Biomedisa in your local browser http://localhost:8080/ and log in as the `superuser` you created.
+
+# Biomedisa AI (optional)
+
+## Install cuDNN
+Download [cuDNN](https://developer.nvidia.com/rdp/cudnn-archive) (NVIDIA account (free) required).  
+Extract the ZIP folder.
+
+## Set Path Variables
+Open Windows Search  
+Type `View advanced system settings`  
+Click `Environment Variables...`  
+Add the following value to the **System variable** `Path`
+```
+C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.0\extras\CUPTI\lib64
+C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.0\include
+C:\Users\USERNAME\cuda\bin      (the path where you extraced cuDNN)
+```
+## Install Tensorflow and Keras
+```
+pip3 install --upgrade tensorflow-gpu keras
+```

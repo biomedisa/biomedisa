@@ -352,31 +352,19 @@ def _diffusion_child(comm, bm=None):
             elif config['OS'] == 'windows':
 
                 # acwe
-                p = Process(target=active_contour, args=(bm.image.id, tmp.id, bm.label.id))
-                p.start()
-                p.join()
+                Process(target=active_contour, args=(bm.image.id, tmp.id, bm.label.id)).start()
 
                 # cleanup
-                p = Process(target=remove_outlier, args=(bm.image.id, tmp.id, tmp.id, bm.label.id))
-                p.start()
-                p.join()
+                Process(target=remove_outlier, args=(bm.image.id, tmp.id, tmp.id, bm.label.id)).start()
                 if final_smooth is not None:
-                    p = Process(target=remove_outlier, args=(bm.image.id, smooth.id, tmp.id, bm.label.id, False))
-                    p.start()
-                    p.join()
+                    Process(target=remove_outlier, args=(bm.image.id, smooth.id, tmp.id, bm.label.id, False)).start()
 
                 # create slices
-                p = Process(target=create_slices, args=(bm.path_to_data, bm.path_to_final))
-                p.start()
-                p.join()
+                Process(target=create_slices, args=(bm.path_to_data, bm.path_to_final)).start()
                 if final_smooth is not None:
-                    p = Process(target=create_slices, args=(bm.path_to_data, bm.path_to_smooth))
-                    p.start()
-                    p.join()
+                    Process(target=create_slices, args=(bm.path_to_data, bm.path_to_smooth)).start()
                 if final_uncertainty is not None:
-                    p = Process(target=create_slices, args=(bm.path_to_uq, None))
-                    p.start()
-                    p.join()
+                    Process(target=create_slices, args=(bm.path_to_uq, None)).start()
 
     else:
 
