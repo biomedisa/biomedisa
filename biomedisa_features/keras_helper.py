@@ -30,13 +30,13 @@ import django
 django.setup()
 from biomedisa_app.models import Upload
 from biomedisa_features.biomedisa_helper import img_resize, load_data, save_data
-from keras.optimizers import SGD
-from keras.models import Model, load_model
-from keras.layers import (
+from tensorflow.keras.optimizers import SGD
+from tensorflow.keras.models import Model, load_model
+from tensorflow.keras.layers import (
     Input, Conv3D, MaxPooling3D, UpSampling3D, Activation, Reshape,
     BatchNormalization, Concatenate)
-from keras.utils import to_categorical
-from keras.callbacks import Callback, ModelCheckpoint
+from tensorflow.keras.utils import to_categorical
+from tensorflow.keras.callbacks import Callback, ModelCheckpoint
 from DataGenerator import DataGenerator
 from PredictDataGenerator import PredictDataGenerator
 import tensorflow as tf
@@ -601,7 +601,10 @@ def predict_semantic_segmentation(img, position, path_to_model, path_to_final,
     if header is not None:
         header = get_image_dimensions(header, label)
         if img_header is not None:
-            header = get_physical_size(header, img_header)
+            try:
+                header = get_physical_size(header, img_header)
+            except:
+                pass
     save_data(path_to_final, label, header=header, compress=compress)
 
 def predict_pre_final(img, path_to_model, x_scale, y_scale, z_scale, z_patch, y_patch, x_patch, \
@@ -967,5 +970,8 @@ def refine_semantic_segmentation(path_to_img, path_to_final, path_to_model, patc
     if header is not None:
         header = get_image_dimensions(header, out)
         if img_header is not None:
-            header = get_physical_size(header, img_header)
+            try:
+                header = get_physical_size(header, img_header)
+            except:
+                pass
     save_data(path_to_final, out, header=header, compress=compress)

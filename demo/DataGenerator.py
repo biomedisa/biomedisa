@@ -1,5 +1,5 @@
 import numpy as np
-import keras
+import tensorflow as tf
 import numba
 
 @numba.jit(nopython=True)#parallel=True
@@ -31,7 +31,7 @@ def rotate_patch(src,trg,k,l,m,cos_a,sin_a,z_patch,y_patch,x_patch,imageHeight,i
                 trg[z-k,y-l,x-m] = val
     return trg
 
-class DataGenerator(keras.utils.Sequence):
+class DataGenerator(tf.keras.utils.Sequence):
     'Generates data for Keras'
     def __init__(self, img, label, position, list_IDs_fg, list_IDs_bg, batch_size=32, dim=(32,32,32),
                  dim_img=(32,32,32), n_channels=1, n_classes=10, shuffle=True, augment=(False,False,False,0)):
@@ -160,4 +160,4 @@ class DataGenerator(keras.utils.Sequence):
             if self.n_channels == 2:
                 X[i,:,:,:,1] = self.position[k:k+self.dim[0],l:l+self.dim[1],m:m+self.dim[2]]
 
-        return X, keras.utils.to_categorical(y, num_classes=self.n_classes)
+        return X, tf.keras.utils.to_categorical(y, num_classes=self.n_classes)

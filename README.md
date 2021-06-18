@@ -8,7 +8,8 @@
 - [Run examples](#run-examples)
 - [Fast installation of Deep Learning feature](#fast-installation-of-deep-learning-feature)
 - [Run example](#run-example)
-- [Full installation of Biomedisa online platform](#Full-installation-of-biomedisa-online-platform)
+- [Full installation of Biomedisa online platform](#full-installation-of-biomedisa-online-platform)
+- [Update Biomedisa](#update-biomedisa)
 - [Releases](#releases)
 - [Authors](#authors)
 - [FAQ](#faq)
@@ -208,7 +209,7 @@ python biomedisa_interpolation.py tumor.tif labels.tumor.tif
 ```
 
 #### Run further examples
-Download the examples from https://biomedisa.org/gallery/ or directly as follows:
+Download the examples from the [gallery](https://biomedisa.org/gallery/) or directly as follows:
 ```
 # Trigonopterus
 wget --no-check-certificate https://biomedisa.org/download/demo/3 -O trigonopterus.tif
@@ -281,7 +282,7 @@ sudo -H pip3 install --upgrade tensorflow-gpu keras
 If you have not already done so, follow the installation instructions [Fast installation of semi-automatic segmentation feature](#fast-installation-of-semi-automatic-segmentation-feature) (Windows 10). Then install TensorFlow and Keras.
 
 #### Install cuDNN
-Download [cuDNN](https://developer.nvidia.com/rdp/cudnn-archive) (NVIDIA account (free) required).  
+Download [cuDNN](https://developer.nvidia.com/rdp/cudnn-archive) (free NVIDIA account required).  
 Extract the ZIP folder.
 
 #### Set Path Variables
@@ -292,7 +293,7 @@ Add the following value to the **System variable** `Path`
 ```
 C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.0\extras\CUPTI\lib64
 C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.0\include
-C:\Users\USERNAME\cuda\bin      (the path where you extraced cuDNN)
+C:\Users\USERNAME\cuda\bin      (The path where you extracted cuDNN)
 ```
 #### Install Tensorflow and Keras
 ```
@@ -305,14 +306,14 @@ Change to the demo directory.
 cd git/biomedisa/demo
 ```
 
-Download the Deep Learning example `human heart` from https://biomedisa.org/gallery/ or directly as follows:
+Download the Deep Learning example `human heart` from the [gallery](https://biomedisa.org/gallery/) or directly as follows:
 ```
-wget --no-check-certificate https://biomedisa.org/download/demo/15 -O training_hearts.tar
-wget --no-check-certificate https://biomedisa.org/download/demo/16 -O training_hearts_labels.tar
-wget --no-check-certificate https://biomedisa.org/download/demo/18 -O testing_axial_crop_pat13.nii.gz
+wget https://biomedisa.org/media/training_hearts.tar
+wget https://biomedisa.org/media/training_hearts_labels.tar
+wget https://biomedisa.org/media/testing_axial_crop_pat13.nii.gz
 ```
 
-Extract data. This creates a `heart` directory containing the image data and a `label` directory containing the label data.
+Extract the data. This creates a `heart` directory containing the image data and a `label` directory containing the label data.
 ```
 tar -xf training_hearts.tar
 tar -xf training_hearts_labels.tar
@@ -325,6 +326,11 @@ python3 biomedisa_deeplearning.py heart label -train -epochs 200 -bs 24
 
 # Windows
 python biomedisa_deeplearning.py heart label -train -epochs 200 -bs 24
+```
+
+Alternatively, you can download the trained network from the [gallery](https://biomedisa.org/gallery/) or directly with the command
+```
+wget https://biomedisa.org/media/heart.h5
 ```
 
 Use the trained network to predict the result of the test image. The result will be saved as `final.testing_axial_crop_pat13.tif`.
@@ -345,6 +351,23 @@ Please follow the [installation instructions](https://github.com/biomedisa/biome
 ### Windows 10
 
 Please follow the [installation instructions](https://github.com/biomedisa/biomedisa/blob/master/README/INSTALL_WINDOWS_10.md).
+
+# Update Biomedisa
+If you've used `git clone` change to the Biomedisa directory and make a pull request
+```
+cd git/biomedisa
+git pull
+```
+
+When you have fully installed Biomedisa (including the MySQL database), update the database 
+```
+python3 manage.py migrate
+```
+
+If you installed an [Apache Server](https://github.com/biomedisa/biomedisa/blob/master/README/INSTALL_APACHE_SERVER.md), restart the server
+```
+sudo service apache2 restart
+```
 
 # Releases
 

@@ -167,10 +167,10 @@ cd ~/git/biomedisa
 
 Start Biomedisa locally
 ```
-python3 manage.py runserver 0.0.0.0:8000
+python3 manage.py runserver localhost:8080
 ```
 ### Open Biomedisa
-Open Biomedisa in your local browser http://localhost:8000/ and log in as the `superuser` you created.
+Open Biomedisa in your local browser http://localhost:8080/ and log in as the `superuser` you created.
 
 ### Install Apache Server
 Follow the [installation instructions](https://github.com/biomedisa/biomedisa/blob/master/README/INSTALL_APACHE_SERVER.md).
