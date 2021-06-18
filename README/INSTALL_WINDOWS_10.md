@@ -149,7 +149,7 @@ Open Biomedisa in your local browser http://localhost:8080/ and log in as the `s
 # Biomedisa AI (optional)
 
 ## Install cuDNN
-Download [cuDNN](https://developer.nvidia.com/rdp/cudnn-archive) (NVIDIA account (free) required).  
+Download [cuDNN](https://developer.nvidia.com/rdp/cudnn-archive) (free NVIDIA account required).  
 Extract the ZIP folder.
 
 ## Set Path Variables
@@ -162,7 +162,7 @@ C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.0\extras\CUPTI\lib64
 C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.0\include
 C:\Users\USERNAME\cuda\bin      (the path where you extraced cuDNN)
 ```
-## Install Tensorflow and Keras
+## Install TensorFlow
 ```
-pip3 install --upgrade tensorflow-gpu keras
+pip3 install tensorflow-gpu==2.4.1
 ```
