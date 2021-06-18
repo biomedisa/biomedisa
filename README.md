@@ -253,9 +253,9 @@ mpiexec -n 4 python3 'path_to_image' 'path_to_labels' -allx
 # Fast installation of Deep Learning feature
 
 ## Ubuntu 18.04.5
-If you have not already done so, follow the installation instructions [Fast installation of semi-automatic segmentation feature](#fast-installation-of-semi-automatic-segmentation-feature) (Ubuntu 18.04.5). Then install TensorFlow and Keras.
+If you have not already done so, follow the installation instructions [Fast installation of semi-automatic segmentation feature](#fast-installation-of-semi-automatic-segmentation-feature) (Ubuntu 18.04.5). Then install TensorFlow.
 
-#### Install Tensorflow and Keras
+#### Install TensorFlow
 ```
 wget http://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu1804/x86_64/nvidia-machine-learning-repo-ubuntu1804_1.0.0-1_amd64.deb
 sudo apt install ./nvidia-machine-learning-repo-ubuntu1804_1.0.0-1_amd64.deb
@@ -275,11 +275,11 @@ sudo apt-get install -y --no-install-recommends libnvinfer7=7.1.3-1+cuda11.0 \
     libnvinfer-dev=7.1.3-1+cuda11.0 \
     libnvinfer-plugin7=7.1.3-1+cuda11.0
 
-# Install Tensorflow and Keras
-sudo -H pip3 install --upgrade tensorflow-gpu keras
+# Install TensorFlow
+sudo -H pip3 install tensorflow-gpu==2.4.1
 ```
 ## Windows 10
-If you have not already done so, follow the installation instructions [Fast installation of semi-automatic segmentation feature](#fast-installation-of-semi-automatic-segmentation-feature) (Windows 10). Then install TensorFlow and Keras.
+If you have not already done so, follow the installation instructions [Fast installation of semi-automatic segmentation feature](#fast-installation-of-semi-automatic-segmentation-feature) (Windows 10). Then install TensorFlow.
 
 #### Install cuDNN
 Download [cuDNN](https://developer.nvidia.com/rdp/cudnn-archive) (free NVIDIA account required).  
@@ -295,9 +295,9 @@ C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.0\extras\CUPTI\lib64
 C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.0\include
 C:\Users\USERNAME\cuda\bin      (The path where you extracted cuDNN)
 ```
-#### Install Tensorflow and Keras
+#### Install TensorFlow
 ```
-pip3 install --upgrade tensorflow-gpu keras
+pip3 install tensorflow-gpu==2.4.1
 ```
 
 # Run example

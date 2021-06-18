@@ -6,7 +6,7 @@
 - [Download or clone Biomedisa](#download-or-clone-biomedisa)
 - [Install MySQL database](#install-mysql-database)
 - [Setting up CUDA environment](#setting-up-cuda-environment)
-- [Install Tensorflow and Keras](#install-tensorflow-and-keras)
+- [Install TensorFlow](#install-tensorflow)
 - [Run Biomedisa](#run-biomedisa)
 - [Install Apache Server](#install-apache-server)
 
@@ -133,7 +133,7 @@ sudo -H PATH=/usr/local/cuda-11.0/bin:${PATH} pip3 install --upgrade pycuda
 python3 ~/git/biomedisa/biomedisa_features/pycuda_test.py
 ```
 
-### Install Tensorflow and Keras
+### Install TensorFlow
 ```
 wget http://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu1804/x86_64/nvidia-machine-learning-repo-ubuntu1804_1.0.0-1_amd64.deb
 sudo apt install ./nvidia-machine-learning-repo-ubuntu1804_1.0.0-1_amd64.deb
@@ -153,8 +153,8 @@ sudo apt-get install -y --no-install-recommends libnvinfer7=7.1.3-1+cuda11.0 \
     libnvinfer-dev=7.1.3-1+cuda11.0 \
     libnvinfer-plugin7=7.1.3-1+cuda11.0
 
-# Install Tensorflow and Keras
-sudo -H pip3 install --upgrade tensorflow-gpu keras
+# Install TensorFlow
+sudo -H pip3 install tensorflow-gpu==2.4.1
 ```
 
 ### Run Biomedisa
