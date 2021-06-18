@@ -1,7 +1,7 @@
 import numpy as np
-import keras
+import tensorflow as tf
 
-class PredictDataGenerator(keras.utils.Sequence):
+class PredictDataGenerator(tf.keras.utils.Sequence):
     def __init__(self, img, position, list_IDs, batch_size=32, dim=(32,32,32),
                  dim_img=(32,32,32), n_channels=1):
         'Initialization'

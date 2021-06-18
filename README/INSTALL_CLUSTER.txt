@@ -41,9 +41,9 @@ chmod 600 ~/.ssh/authorized_keys
 
 # on your remote server add the following lines to ".ssh/environment"
 -------------------------------
-CUDA_HOME=/usr/local/cuda-10.1
-LD_LIBRARY_PATH=/usr/local/cuda-10.1/lib64
-PATH=/usr/local/cuda-10.1/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games
+CUDA_HOME=/usr/local/cuda-11.0
+LD_LIBRARY_PATH=/usr/local/cuda-11.0/lib64
+PATH=/usr/local/cuda-11.0/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games
 
 
 # on your remote_server add the following lines to "/etc/ssh/sshd_config"
@@ -56,7 +56,7 @@ PermitUserEnvironment yes
 sudo service ssh restart
 
 
-# on your biomedisa server check if "CUDA_HOME=/usr/local/cuda-10.1" is listed on your remote server
+# on your biomedisa server check if "CUDA_HOME=/usr/local/cuda-11.0" is listed on your remote server
 -------------------------------
 ssh -v dummy@remote_server env
 

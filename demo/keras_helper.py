@@ -27,13 +27,13 @@
 ##########################################################################
 
 from biomedisa_helper import img_resize, load_data, save_data
-from keras.optimizers import SGD
-from keras.models import Model, load_model
-from keras.layers import (
+from tensorflow.keras.optimizers import SGD
+from tensorflow.keras.models import Model, load_model
+from tensorflow.keras.layers import (
     Input, Conv3D, MaxPooling3D, UpSampling3D, Activation, Reshape,
     BatchNormalization, Concatenate)
-from keras.utils import to_categorical
-from keras.callbacks import Callback, ModelCheckpoint
+from tensorflow.keras.utils import to_categorical
+from tensorflow.keras.callbacks import Callback, ModelCheckpoint
 from DataGenerator import DataGenerator
 from PredictDataGenerator import PredictDataGenerator
 import tensorflow as tf
