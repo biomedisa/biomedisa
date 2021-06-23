@@ -183,13 +183,14 @@ def load_data_(path_to_data, process):
 
     elif extension == '.zip':
         try:
-            files = glob.glob(path_to_data[:-4] + '/*/*')
-            if not files:
-                files = glob.glob(path_to_data[:-4] + '/*')
+            files = glob.glob(path_to_data[:-4]+'/**/*', recursive=True)
             for name in files:
-                try:
-                    img, _ = load(name)
-                except:
+                if os.path.isfile(name):
+                    try:
+                        img, _ = load(name)
+                    except:
+                        files.remove(name)
+                else:
                     files.remove(name)
             files.sort()
 

@@ -81,7 +81,7 @@ def conv_network(train, predict, refine, img_list, label_list, path_to_model,
                             img_list, label_list, channels, x_scale, y_scale, z_scale, crop_data)
 
             # train network
-            train_semantic_segmentaion(img, labelData, path_to_model, z_patch, y_patch, x_patch, allLabels, epochs,
+            train_semantic_segmentation(img, labelData, path_to_model, z_patch, y_patch, x_patch, allLabels, epochs,
                             batch_size, channels, label.validation_split, stride_size, balance, position,
                             label.flip_x, label.flip_y, label.flip_z, label.rotate, image)
 
@@ -137,7 +137,7 @@ def conv_network(train, predict, refine, img_list, label_list, path_to_model,
             path_to_refine_model = unique_file_path(path_to_refine_model, image.user.username)
 
             # train refinement network
-            train_semantic_segmentaion_refine(img, labelData, final, path_to_refine_model, patch_size, epochs,
+            train_semantic_segmentation_refine(img, labelData, final, path_to_refine_model, patch_size, epochs,
                             batch_size_refine, allLabels, label.validation_split, stride_size_refining)
 
             # save meta data

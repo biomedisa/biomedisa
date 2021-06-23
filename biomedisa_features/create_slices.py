@@ -88,7 +88,7 @@ def create_slices(path_to_data, path_to_label):
             if extension == '.tar':
                 img_names = []
                 for data_type in ['.tif','.tiff','.am','.hdr','.mhd','.mha','.nrrd','.nii','.nii.gz']:
-                    tmp_img_names = glob(path_to_dir+'/*/*'+data_type)+glob(path_to_dir+'/*'+data_type)
+                    tmp_img_names = glob(path_to_dir+'/**/*'+data_type, recursive=True)
                     tmp_img_names = sorted(tmp_img_names)
                     img_names.extend(tmp_img_names)
                 raw, _ = load_data(img_names[0], 'create_slices')
@@ -146,7 +146,7 @@ def create_slices(path_to_data, path_to_label):
             if extension == '.tar':
                 img_names = []
                 for data_type in ['.tif','.tiff','.am','.hdr','.mhd','.mha','.nrrd','.nii','.nii.gz']:
-                    tmp_img_names = glob(path_to_dir+'/*/*'+data_type)+glob(path_to_dir+'/*'+data_type)
+                    tmp_img_names = glob(path_to_dir+'/**/*'+data_type, recursive=True)
                     tmp_img_names = sorted(tmp_img_names)
                     img_names.extend(tmp_img_names)
                 # load and scale label data corresponding to img data
