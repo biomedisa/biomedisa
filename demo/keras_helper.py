@@ -229,8 +229,8 @@ def load_training_data(normalize, img_dir, label_dir, channels,
     # get filenames
     img_names, label_names = [], []
     for data_type in ['.am','.tif','.tiff','.hdr','.mhd','.mha','.nrrd','.nii','.nii.gz']:
-        tmp_img_names = glob(img_dir+'/*/*'+data_type)+glob(img_dir+'/*'+data_type)
-        tmp_label_names = glob(label_dir+'/*/*'+data_type)+glob(label_dir+'/*'+data_type)
+        tmp_img_names = glob(img_dir+'/**/*'+data_type, recursive=True)
+        tmp_label_names = glob(label_dir+'/**/*'+data_type, recursive=True)
         tmp_img_names = sorted(tmp_img_names)
         tmp_label_names = sorted(tmp_label_names)
         img_names.extend(tmp_img_names)
@@ -336,7 +336,7 @@ def load_training_data(normalize, img_dir, label_dir, channels,
 
     return img, label, position, allLabels, mu, sig, header, extension, region_of_interest
 
-def train_semantic_segmentaion(img, label, path_to_model, z_patch, y_patch, x_patch, allLabels, epochs,
+def train_semantic_segmentation(img, label, path_to_model, z_patch, y_patch, x_patch, allLabels, epochs,
                         batch_size, channels, validation_split, stride_size, balance, position,
                         flip_x, flip_y, flip_z, rotate):
 
@@ -397,8 +397,12 @@ def train_semantic_segmentaion(img, label, path_to_model, z_patch, y_patch, x_pa
     # optimizer
     sgd = SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
 
-    # create a MirroredStrategy.
-    strategy = tf.distribute.MirroredStrategy()
+    # create a MirroredStrategy
+    if os.name == 'nt':
+        cdo = tf.distribute.HierarchicalCopyAllReduce()
+    else:
+        cdo = tf.distribute.NcclAllReduce()
+    strategy = tf.distribute.MirroredStrategy(cross_device_ops=cdo)
     print('Number of devices: {}'.format(strategy.num_replicas_in_sync))
 
     # compile model
@@ -498,8 +502,12 @@ def predict_semantic_segmentation(img, position, path_to_model, path_to_final,
     # data generator
     predict_generator = PredictDataGenerator(img, position, list_IDs, **params)
 
-    # Create a MirroredStrategy.
-    strategy = tf.distribute.MirroredStrategy()
+    # create a MirroredStrategy
+    if os.name == 'nt':
+        cdo = tf.distribute.HierarchicalCopyAllReduce()
+    else:
+        cdo = tf.distribute.NcclAllReduce()
+    strategy = tf.distribute.MirroredStrategy(cross_device_ops=cdo)
 
     # load model
     with strategy.scope():
@@ -597,8 +605,12 @@ def predict_pre_final(img, path_to_model, x_scale, y_scale, z_scale, z_patch, y_
     # reshape testing set
     x_test = x_test.reshape(nb, z_patch, y_patch, x_patch, channels)
 
-    # Create a MirroredStrategy.
-    strategy = tf.distribute.MirroredStrategy()
+    # create a MirroredStrategy
+    if os.name == 'nt':
+        cdo = tf.distribute.HierarchicalCopyAllReduce()
+    else:
+        cdo = tf.distribute.NcclAllReduce()
+    strategy = tf.distribute.MirroredStrategy(cross_device_ops=cdo)
 
     # load model
     with strategy.scope():
@@ -652,8 +664,8 @@ def load_training_data_refine(path_to_model, x_scale, y_scale, z_scale, patch_si
 
         if img_ext == '.tar' and label_ext == '.tar':
             for data_type in ['.am','.tif','.tiff','.hdr','.mhd','.mha','.nrrd','.nii','.nii.gz']:
-                tmp_img_names = glob(img_dir+'/*/*'+data_type)+glob(img_dir+'/*'+data_type)
-                tmp_label_names = glob(label_dir+'/*/*'+data_type)+glob(label_dir+'/*'+data_type)
+                tmp_img_names = glob(img_dir+'/**/*'+data_type, recursive=True)
+                tmp_label_names = glob(label_dir+'/**/*'+data_type, recursive=True)
                 tmp_img_names = sorted(tmp_img_names)
                 tmp_label_names = sorted(tmp_label_names)
                 img_names.extend(tmp_img_names)
@@ -743,7 +755,7 @@ def config_training_data_refine(img, label, final, patch_size, stride_size):
 
     return x_train, y_train
 
-def train_semantic_segmentaion_refine(img, label, final, path_to_model, patch_size, \
+def train_semantic_segmentation_refine(img, label, final, path_to_model, patch_size, \
                     epochs, batch_size, allLabels, validation_split, stride_size):
 
     # number of labels
@@ -774,8 +786,12 @@ def train_semantic_segmentaion_refine(img, label, final, path_to_model, patch_si
     # optimizer
     sgd = SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
 
-    # Create a MirroredStrategy.
-    strategy = tf.distribute.MirroredStrategy()
+    # create a MirroredStrategy
+    if os.name == 'nt':
+        cdo = tf.distribute.HierarchicalCopyAllReduce()
+    else:
+        cdo = tf.distribute.NcclAllReduce()
+    strategy = tf.distribute.MirroredStrategy(cross_device_ops=cdo)
     print('Number of devices: {}'.format(strategy.num_replicas_in_sync))
 
     # compile model
@@ -867,8 +883,12 @@ def refine_semantic_segmentation(path_to_img, path_to_final, path_to_model, patc
     # reshape prediction data
     x_test = x_test.reshape(nb, patch_size, patch_size, patch_size, 2)
 
-    # Create a MirroredStrategy.
-    strategy = tf.distribute.MirroredStrategy()
+    # create a MirroredStrategy
+    if os.name == 'nt':
+        cdo = tf.distribute.HierarchicalCopyAllReduce()
+    else:
+        cdo = tf.distribute.NcclAllReduce()
+    strategy = tf.distribute.MirroredStrategy(cross_device_ops=cdo)
 
     # load model
     with strategy.scope():

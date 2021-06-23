@@ -68,7 +68,7 @@ def conv_network(train, predict, path_to_model,
                             path_to_img, path_to_labels, channels, x_scale, y_scale, z_scale, crop_data)
 
             # train network
-            train_semantic_segmentaion(img, labelData, path_to_model, z_patch, y_patch, x_patch, allLabels, epochs,
+            train_semantic_segmentation(img, labelData, path_to_model, z_patch, y_patch, x_patch, allLabels, epochs,
                             batch_size, channels, validation_split, stride_size, balance, position,
                             flip_x, flip_y, flip_z, rotate)
 

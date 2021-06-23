@@ -75,6 +75,9 @@ def rgb2gray(img):
 
 def load_data_(path_to_data, process):
 
+    if os.path.isdir(path_to_data):
+        path_to_data = path_to_data+'.zip'
+
     extension = os.path.splitext(path_to_data)[1]
     if extension == '.gz':
         extension = '.nii.gz'
@@ -101,13 +104,20 @@ def load_data_(path_to_data, process):
 
     elif extension == '.zip':
         try:
-            files = glob.glob(path_to_data[:-4] + '/*/*')
-            if not files:
-                files = glob.glob(path_to_data[:-4] + '/*')
+            # extract data if necessary
+            if not os.path.isdir(path_to_data[:-4]):
+                zip_ref = zipfile.ZipFile(path_to_data, 'r')
+                zip_ref.extractall(path=path_to_data[:-4])
+                zip_ref.close()
+
+            files = glob.glob(path_to_data[:-4]+'/**/*', recursive=True)
             for name in files:
-                try:
-                    img, _ = load(name)
-                except:
+                if os.path.isfile(name):
+                    try:
+                        img, _ = load(name)
+                    except:
+                        files.remove(name)
+                else:
                     files.remove(name)
             files.sort()
 
