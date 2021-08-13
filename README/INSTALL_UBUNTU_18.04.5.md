@@ -27,7 +27,7 @@ sudo apt-get install libsm6 libxrender-dev libmysqlclient-dev \
 sudo -H pip3 install --upgrade pip setuptools scikit-build 
 sudo -H pip3 install --upgrade numpy scipy h5py colorama itk vtk wget \
     numba imagecodecs-lite tifffile scikit-image opencv-python numpy-stl \
-    Pillow SimpleParse nibabel medpy SimpleITK mpi4py django rq mysqlclient
+    Pillow nibabel medpy SimpleITK mpi4py django rq mysqlclient
 ```
 
 ### Download or clone Biomedisa

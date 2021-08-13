@@ -5,272 +5,263 @@ Grammar to parse headers in Amira files
 
 import sys
 import re
-from pprint import pprint
 import time
+import collections
 
-# simpleparse
-from simpleparse.parser import Parser
-from simpleparse.common import numbers, strings  # @UnusedImport
-from simpleparse.dispatchprocessor import DispatchProcessor, getString, dispatchList, dispatch, singleMap, multiMap  # @UnusedImport
+from pprint import pprint
 
+TOKEN_NAME = 'name'
+TOKEN_NUMBER = 'number'
+TOKEN_STRING = 'string'
+TOKEN_OP = 'op'
+TOKEN_COMMENT = 'comment'
+TOKEN_NEWLINE = 'newline'
+TOKEN_COMMA = 'comma'
+TOKEN_COLON = 'colon'
+TOKEN_EQUALS = 'equals'
+TOKEN_ENDMARKER = 'endmarker'
+TOKEN_BYTEDATA_INFO = 'bytedata_info'
 
-class AmiraDispatchProcessor(DispatchProcessor):
-    """Class defining methods to handle each token specified in the grammar"""
-    def designation(self, tup, buffer_):  # @UnusedVariable
-        tag, left, right, taglist = tup
-        return {'designation': singleMap(taglist, self, buffer_)}
-    def filetype(self, tup, buffer_):
-        tag, left, right, taglist = tup
-        return getString((tag, left, right, taglist), buffer_)
-    def dimension(self, tup, buffer_):
-        tag, left, right, taglist = tup
-        return getString((tag, left, right, taglist), buffer_)
-    def format(self, tup, buffer_):
-        tag, left, right, taglist = tup
-        return getString((tag, left, right, taglist), buffer_)
-    def version(self, tup, buffer_):
-        tag, left, right, taglist = tup
-        return getString((tag, left, right, taglist), buffer_)
-    def extra_format(self, tup, buffer_):
-        tag, left, right, taglist = tup
-        return getString((tag, left, right, taglist), buffer_)
-    def comment(self, tup, buffer_):  # @UnusedVariable
-        tag, left, right, taglist = tup
-        return {'comment': singleMap(taglist, self, buffer_)}
-    def date(self, tup, buffer_):
-        tag, left, right, taglist = tup
-        return getString((tag, left, right, taglist), buffer_)
-    def definitions(self, tup, buffer_):  # @UnusedVariable
-        tag, left, right, taglist = tup
-        return {'definitions': dispatchList(self, taglist, buffer_)}
-    def definition(self, tup, buffer_):  # @UnusedVariable
-        tag, left, right, taglist = tup
-        return singleMap(taglist, self, buffer_)
-    def definition_name(self, tup, buffer_):
-        tag, left, right, taglist = tup
-        return getString((tag, left, right, taglist), buffer_)
-    def definition_value(self, tup, buffer_):  # @UnusedVariable
-        tag, left, right, taglist = tup
-        _av = dispatchList(self, taglist, buffer_)
-        if len(_av) == 1:
-            return _av[0]
-        elif len(_av) > 1:
-            return _av
+class Matcher:
+    def __init__(self,rexp):
+        self.rexp = rexp
+    def __call__(self, buf ):
+        matchobj = self.rexp.match( buf )
+        return matchobj is not None
+
+re_file_info = re.compile(r'^#(\s*)(AmiraMesh|HyperSurface|Avizo)(\s*)(?:3D)?(\s+)(BINARY-LITTLE-ENDIAN|BINARY|ASCII)(\s+)(\d+\.\d*)$')
+is_file_info = Matcher(re_file_info)
+
+re_string_literal = re.compile(r'^".*"$')
+is_string_literal = Matcher(re_string_literal)
+
+re_bytedata_info = re.compile(r'^(Lattice)(\s+)\{(\s*)(\w+)(\s+)(\w+)(\s*)\}(\s+)@(\d+)(\((\w+),(\d+)\))?$')
+is_bytedata_info = Matcher(re_bytedata_info)
+
+re_float = re.compile(r'^[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?$')
+is_number = Matcher(re_float)
+
+re_name = re.compile(r'^[a-zA-Z0-9_&:-]+(\[\d\])?$')
+is_name = Matcher(re_name)
+
+re_quoted_whitespace_splitter = re.compile(r'(".*")|[ \t\n]')
+
+def lim_repr(value):
+    full = repr(value)
+    if len(full) > 100:
+        full = full[:97]+'...'
+    return full
+
+class Tokenizer:
+    def __init__( self, str ):
+        self.buf = str
+        self.last_tokens = []
+        self._designation = {}
+        self._data_pointers = {}
+        self._definitions = {}
+        self._parameters = {}
+
+    def add_defines(self, define_dict ):
+        self._definitions.update(define_dict)
+    def add_parameters(self, dict ):
+        self._parameters.update(dict)
+    def get_tokens( self ):
+        # keep a running accumulation of last 2 tokens
+        for token_enum,token in enumerate(self._get_tokens()):
+            self.last_tokens.append( token )
+            while len(self.last_tokens) > 3:
+                self.last_tokens.pop(0)
+            if token_enum==0:
+                if token[0] == TOKEN_COMMENT:
+                    matchobj = re_file_info.match( token[1] )
+                    if matchobj is not None:
+                        items = list(filter(lambda x : x is not None and len(x.strip())>0, matchobj.groups()))
+                        if "3D" in items:
+                            self._designation =  {'filetype':items[0],
+                                                  'dimension':items[1],
+                                                  'format': items[-2],
+                                                  'version':items[-1]}
+                        else:
+                            self._designation =  {'filetype':items[0],
+                                                  'format': items[-2],
+                                                  'version':items[-1]}
+                else:
+                    warnings.warn('Unknown file type. Parsing may fail.')
+            yield token
+    def _get_tokens( self ):
+        newline = '\n' #b'\n'
+        lineno = 0
+        while len(self.buf) > 0:
+            # get the next line -------
+            idx = self.buf.index(newline)+1
+            this_line, self.buf = self.buf[:idx], self.buf[idx:]
+            lineno += 1
+
+            # now parse the line into tokens ----
+            if this_line.lstrip().startswith('#'):
+                yield ( TOKEN_COMMENT, this_line[:-1], (lineno,0), (lineno, len(this_line)-1), this_line )
+                yield ( TOKEN_NEWLINE, this_line[-1:], (lineno,len(this_line)-1), (lineno, len(this_line)), this_line )
+            elif this_line==newline:
+                yield ( TOKEN_NEWLINE, this_line, (lineno,0), (lineno, 1), this_line )
+            elif is_bytedata_info( this_line ):
+                matchobj = re_bytedata_info.match( this_line )
+                items = list(filter(lambda x : x is not None and len(x.strip())>0, matchobj.groups()))
+                assert(len(items)>=4)
+                esdict = {'pointer_name':items[0],
+                        'data_type':items[1],
+                        'data_name':items[2],
+                        'data_index': int(items[3])}
+                if len(items)>4:
+                    esdict['data_format'] = items[-2]
+                    esdict['data_length'] = int(items[-1])
+                self._data_pointers[items[3]]=esdict
+                yield ( TOKEN_BYTEDATA_INFO, this_line, (lineno,0), (lineno, 1), this_line )
+            else:
+                parts = re_quoted_whitespace_splitter.split(this_line)
+                parts.append(newline) # append newline
+                parts = [p for p in parts if p is not None and len(p)]
+
+                maybe_comma_part_idx = len(parts)-2 if len(parts) >= 2 else None
+
+                colno = 0
+                for part_idx, part in enumerate(parts):
+                    startcol = colno
+                    endcol = len(part)+startcol
+                    colno = endcol + 1
+
+                    if part_idx == maybe_comma_part_idx:
+                        if len(part) > 1 and part.endswith(','):
+                            # Remove the comma from further processing
+                            part = part[:-1]
+                            endcol -= 1
+                            # Emit a comma token.
+                            yield ( TOKEN_COMMA, part, (lineno,endcol), (lineno, endcol+1), this_line )
+                    if part in ['{','}']:
+                        yield ( TOKEN_OP, part, (lineno,startcol), (lineno, endcol), this_line )
+                    elif part==newline:
+                        yield ( TOKEN_NEWLINE, part, (lineno,startcol-1), (lineno, endcol-1), this_line )
+                    elif part==':':
+                        yield ( TOKEN_COLON, part, (lineno,startcol-1), (lineno, endcol-1), this_line )
+                    elif part=='=':
+                        yield ( TOKEN_EQUALS, part, (lineno,startcol-1), (lineno, endcol-1), this_line )
+                    elif part==',':
+                        yield ( TOKEN_COMMA, part, (lineno,startcol-1), (lineno, endcol-1), this_line )
+                    elif is_number(part):
+                        yield ( TOKEN_NUMBER, part, (lineno,startcol), (lineno, endcol), this_line )
+                    elif is_name(part):
+                        yield ( TOKEN_NAME, part, (lineno,startcol), (lineno, endcol), this_line )
+                    elif is_string_literal(part):
+                        yield ( TOKEN_STRING, part, (lineno,startcol), (lineno, endcol), this_line )
+                    else:
+                        raise NotImplementedError( 'cannot tokenize part %r (line %r)'%(lim_repr(part), lim_repr(this_line)) )
+        yield ( TOKEN_ENDMARKER, '', (lineno,0), (lineno, 0), '' )
+
+def atom( src, token, tokenizer, level=0, block_descent=False ):
+    space = '  '*level
+    end_block = None
+    if token[0]==TOKEN_NAME:
+        name = token[1]
+
+        if block_descent:
+            result = name
         else:
-            raise ValueError('definition value list is empty:', _av)
-    def parameters(self, tup, buffer_):  # @UnusedVariable
-        tag, left, right, taglist = tup
-        return {'parameters': dispatchList(self, taglist, buffer_)}
-    def parameter(self, tup, buffer_):  # @UnusedVariable
-        tag, left, right, taglist = tup
-        return singleMap(taglist, self, buffer_)
-    def nested_parameter(self, tup, buffer_):  # @UnusedVariable
-        tag, left, right, taglist = tup
-        return singleMap(taglist, self, buffer_)
-    def nested_parameter_name(self, tup, buffer_):
-        tag, left, right, taglist = tup
-        return getString((tag, left, right, taglist), buffer_)
-    def nested_parameter_values(self, tup, buffer_):  # @UnusedVariable
-        tag, left, right, taglist = tup
-        return dispatchList(self, taglist, buffer_)
-    def nested_parameter_value(self, tup, buffer_):  # @UnusedVariable
-        tag, left, right, taglist = tup
-        return singleMap(taglist, self, buffer_)
-    def name(self, tup, buffer_):
-        tag, left, right, taglist = tup
-        return getString((tag, left, right, taglist), buffer_)
-    def attributes(self, tup, buffer_):  # @UnusedVariable
-        tag, left, right, taglist = tup
-        _a = dispatchList(self, taglist, buffer_)
-        if _a:
-            return _a
-        else:
-            return
-    def attribute(self, tup, buffer_):  # @UnusedVariable
-        tag, left, right, taglist = tup
-        return singleMap(taglist, self, buffer_)
-    def attribute_name(self, tup, buffer_):
-        tag, left, right, taglist = tup
-        return getString((tag, left, right, taglist), buffer_)
-    def attribute_value(self, tup, buffer_):  # @UnusedVariable
-        tag, left, right, taglist = tup
-        _av = dispatchList(self, taglist, buffer_)
-        if len(_av) == 1:
-            return _av[0]
-        elif len(_av) > 1:
-            return _av
-        elif len(_av) == 0:
-            return None
-        else:
-            raise ValueError('attribute value list is empty:', _av)
-    def nested_attributes(self, tup, buffer_):  # @UnusedVariable
-        tag, left, right, taglist = tup
-        return dispatchList(self, taglist, buffer_)
-    def nested_attribute(self, tup, buffer_):  # @UnusedVariable
-        tag, left, right, taglist = tup
-        return singleMap(taglist, self, buffer_)
-    def nested_attribute_name(self, tup, buffer_):
-        tag, left, right, taglist = tup
-        return getString((tag, left, right, taglist), buffer_)
-    def nested_attribute_values(self, tup, buffer_):  # @UnusedVariable
-        tag, left, right, taglist = tup
-        return dispatchList(self, taglist, buffer_)
-    def nested_attribute_value(self, tup, buffer_):
-        tag, left, right, taglist = tup
-        return singleMap(taglist, self, buffer_)
-    def nested_attribute_value_name(self, tup, buffer_):
-        tag, left, right, taglist = tup
-        return getString((tag, left, right, taglist), buffer_)
-    def nested_attribute_value_value(self, tup, buffer_):
-        tag, left, right, taglist = tup
-        _av = dispatchList(self, taglist, buffer_)
-        if len(_av) == 1:
-            return _av[0]
-        elif len(_av) > 1:
-            return _av
-        elif len(_av) == 0:
-            return None
-        else:
-            raise ValueError('nested attribute value list is empty:', _av)
-    def inline_parameter(self, tup, buffer_):
-        tag, left, right, taglist = tup
-        return singleMap(taglist, self, buffer_)
-    def inline_parameter_name(self, tup, buffer_):
-        tag, left, right, taglist = tup
-        return getString((tag, left, right, taglist), buffer_)
-    def inline_parameter_value(self, tup, buffer_):
-        tag, left, right, taglist = tup
-        if taglist[0][0] == "qstring":
-            return getString((tag, left, right, taglist), buffer_)
-        else:
-            return dispatchList(self, taglist, buffer_)
-    def data_pointers(self, tup, buffer_):
-        tag, left, right, taglist = tup
-        return {'data_pointers': dispatchList(self, taglist, buffer_)}
-    def data_pointer(self, tup, buffer_):
-        tag, left, right, taglist = tup
-        return singleMap(taglist, self, buffer_)
-    def pointer_name(self, tup, buffer_):
-        tag, left, right, taglist = tup
-        return getString((tag, left, right, taglist), buffer_)
-    def data_type(self, tup, buffer_):
-        tag, left, right, taglist = tup
-        return getString((tag, left, right, taglist), buffer_)
-    def data_dimension(self, tup, buffer_):
-        tag, left, right, taglist = tup
-        return int(getString((tag, left, right, taglist), buffer_))
-    def data_name(self, tup, buffer_):
-        tag, left, right, taglist = tup
-        return getString((tag, left, right, taglist), buffer_)
-    def data_index(self, tup, buffer_):
-        tag, left, right, taglist = tup
-        return int(getString((tag, left, right, taglist), buffer_))
-    def data_format(self, tup, buffer_):
-        tag, left, right, taglist = tup
-        return getString((tag, left, right, taglist), buffer_)
-    def data_length(self, tup, buffer_):
-        tag, left, right, taglist = tup
-        return int(getString((tag, left, right, taglist), buffer_))
-    def hyphname(self, tup, buffer_):
-        tag, left, right, taglist = tup
-        return getString((tag, left, right, taglist), buffer_)
-    def xstring(self, tup, buffer_):
-        tag, left, right, taglist = tup
-        return getString((tag, left, right, taglist), buffer_)
-    def qstring(self, tup, buffer_):
-        tag, left, right, taglist = tup
-        return getString((tag, left, right, taglist), buffer_)
-    def number(self, tup, buffer_):
-        tag, left, right, taglist = tup
-        if taglist[0][0] == 'int':
-            return int(getString((tag, left, right, taglist), buffer_))
-        elif taglist[0][0] == 'float':
-            return float(getString((tag, left, right, taglist), buffer_))
-        else:
-            return getString((tag, left, right, taglist), buffer_)
-    def number_seq(self, tup, buffer_):
-        tag, left, right, taglist = tup
-        return dispatchList(self, taglist, buffer_)
+            next_token = next(src)
 
+            if next_token[0] == TOKEN_OP and next_token[1]=='{':
+                # this name begins a '{' block
+                value, ended_with = atom( src, next_token, tokenizer, level=level+1 ) # create {}
+                result = {name: value}
 
-# Amira Header Grammar
-amira_header_grammar = r'''
-amira                        :=    designation, tsn, comment*, tsn*, definitions, tsn*, parameters*, tsn, data_pointers, tsn
+            else:
+                # continue until newline
+                elements = []
+                ended_with = None
+                force_colon = False
+                while not (next_token[0] == TOKEN_NEWLINE):
 
-designation                  :=    ("#", ts, filetype, ts, dimension*, ts*, format, ts, version, ts*, extra_format*, tsn) / ("#", ts, filetype, ts, version, ts, format, tsn)
-filetype                     :=    "AmiraMesh" / "HyperSurface" / "Avizo"
-dimension                    :=    "3D"
-format                       :=    "BINARY-LITTLE-ENDIAN" / "BINARY" / "ASCII"
-version                      :=    number
-extra_format                 :=    "<", "hxsurface", ">"
+                    if next_token[0] == TOKEN_COLON:
+                        force_colon = True
+                        next_token = next(src)
 
-comment                      :=    ts, ("#", ts, "CreationDate:", ts, date) / ("#", ts, xstring) , tsn
-date                         :=    xstring
+                    value, ended_with = atom( src, next_token, tokenizer, level=level+1, block_descent=force_colon ) # fill element of []
+                    elements.append( value )
+                    if ended_with is not None:
+                        break
+                    next_token = next(src)
 
-definitions                  :=    definition*
-definition                   :=    ("define", ts, definition_name, ts, definition_value) / ("n", definition_name, ts, definition_value), tsn
-definition_name              :=    hyphname
-definition_value             :=    number, (ts, number)*
+                if ended_with is not None:
+                    end_block = ended_with
+                else:
+                    # loop ended because we hit a newline
+                    end_block = 'newline'
 
-parameters                   :=    "Parameters", ts, "{", tsn, parameter*, "}", tsn
-parameter                    :=    nested_parameter / inline_parameter / comment
+                elements = [e for e in elements if e is not None]
+                if len(elements)==0:
+                    result = name
+                elif len(elements)==1:
+                    result = {name: elements[0]}
+                else:
+                    result = {name: elements}
+    elif token[0] in [TOKEN_COMMENT, TOKEN_COMMA]:
+        result = None
+    elif token[0] == TOKEN_OP and token[1]=='}':
+        result = None
+        end_block = 'block'
+    elif token[0] == TOKEN_NEWLINE:
+        result = None
+        end_block = 'newline'
+    elif token[0] == TOKEN_OP and token[1]=='{':
+        if block_descent:
+            raise RuntimeError('descent blocked but encountered block')
 
-nested_parameter             :=    ts, nested_parameter_name, ts, "{", tsn, nested_parameter_values, ts, "}", tsn
-nested_parameter_name        :=    hyphname
-nested_parameter_values      :=    nested_parameter_value*
-nested_parameter_value       :=    ts, name, ts, ("{", tsn, attributes, ts, "}") / ("{", tsn, nested_attributes, ts, "}") / inline_parameter_value, tsn
-name                         :=    hyphname
+        elements = []
 
-attributes                   :=    attribute*
-attribute                    :=    ts, attribute_name, ts, attribute_value, c*, tsn
-attribute_name               :=    hyphname
-attribute_values             :=    attribute_value*
-attribute_value              :=    ("-"*, "\""*, ((number, (ts, number)*) / xstring)*, "\""*)
+        # parse to end of block
+        next_token = next(src)
+        while not (next_token[0] == TOKEN_OP and next_token[1] == '}'):
+            value, ended_with = atom( src, next_token, tokenizer, level=level+1 ) # fill element of {}
+            elements.append( value )
+            if ended_with=='block':
+                break
+            next_token = next(src)
 
-nested_attributes            :=    nested_attribute*
-nested_attribute             :=    ts, nested_attribute_name, ts, "{", tsn, nested_attribute_values, ts, "}", tsn
-nested_attribute_name        :=    hyphname
-nested_attribute_values      :=    nested_attribute_value*
-nested_attribute_value       :=    ts, nested_attribute_value_name, ts, nested_attribute_value_value, c*, tsn
-nested_attribute_value_name  :=    hyphname
-nested_attribute_value_value :=    "-"*, "\""*, ((number, (ts, number)*) / xstring)*, "\""*
+        elements = [e for e in elements if e is not None]
+        result = collections.OrderedDict()
+        for element in elements:
+            if isinstance(element,dict):
+                for key in element:
+                    assert key not in result
+                    result[key] = element[key]
+            else:
+                assert isinstance(element,type(u'unicode string'))
+                assert element not in result
+                result[element] = None
+    elif token[0]==TOKEN_NUMBER:
+        try:
+            value = int(token[1])
+        except ValueError:
+            value = float(token[1])
+        result = value
+    elif token[0]==TOKEN_STRING:
+        value = token[1]
+        result = value
+    elif token[0]==TOKEN_BYTEDATA_INFO:
+        result = None
+    elif token[0]==TOKEN_EQUALS:
+        result = None
+    else:
+        raise ValueError('unexpected token type: %r'%(token[0],))
 
-inline_parameter             :=    ts, inline_parameter_name, ts, inline_parameter_value, c*, tsn
-inline_parameter_name        :=    hyphname
-inline_parameter_value       :=    (number, (ts, number)*) / qstring, c*
+    return result, end_block
 
-data_pointers                :=    data_pointer*
-data_pointer                 :=    pointer_name, ts, "{", ts, data_type, "["*, data_dimension*, "]"*, ts, data_name, ts, "}", ts, "="*, ts, "@", data_index, "("*, data_format*, ","*, data_length*, ")"*, tsn
-pointer_name                 :=    hyphname
-data_type                    :=    hyphname
-data_dimension               :=    number
-data_name                    :=    hyphname
-data_index                   :=    number
-data_format                  :=    "HxByteRLE" / "HxZip"
-data_length                  :=    number
-
-hyphname                     :=    [A-Za-z_], [A-Za-z0-9_\-]*
-qstring                      :=    "\"", "["*, [A-Za-z0-9_,=.\(\|)(\):/ \t\n]*, "]"*, "\""
-xstring                      :=    [A-Za-z], [A-Za-z0-9(\|)_\- (\xef)(\xbf)(\xbd)]*
-number_seq                   :=    number, (ts, number)*
-
-# silent production rules
-<tsn>                        :=    [ \t\n]*
-<ts>                         :=    [ \t]*
-<c>                          :=    ","
-'''
-
-
-def detect_format(fn, format_bytes=50, verbose=False, *args, **kwargs):
+def detect_format(fn, format_bytes=50, *args, **kwargs):
     """Detect Amira file format (AmiraMesh or HyperSurface)
 
     :param str fn: file name
     :param int format_bytes: number of bytes in which to search for the format [default: 50]
-    :param bool verbose: verbose (default) or not
     :return str file_format: either ``AmiraMesh`` or ``HyperSurface``
     """
     assert format_bytes > 0
-    assert verbose in [True, False]
 
     with open(fn, 'rb') as f:
         rough_header = f.read(format_bytes)
@@ -284,13 +275,10 @@ def detect_format(fn, format_bytes=50, verbose=False, *args, **kwargs):
         else:
             file_format = "Undefined"
 
-    if verbose:
-        print(sys.stderr,  "{} file detected...".format(file_format))
-
     return file_format
 
 
-def get_header(fn, file_format, header_bytes=536870912, verbose=False, *args, **kwargs):
+def get_header(fn, file_format, header_bytes=536870912, *args, **kwargs):
     """Apply rules for detecting the boundary of the header
 
     :param str fn: file name
@@ -307,12 +295,8 @@ def get_header(fn, file_format, header_bytes=536870912, verbose=False, *args, **
         with open(fn, 'rb') as f:
             rough_header = f.read(header_count)
             if file_format == "AmiraMesh" or file_format == "Avizo":
-                if verbose:
-                    print(sys.stderr, "Using pattern: (?P<data>.*)\\n@1\\n")
                 m = re.search(b'(?P<data>.*)\n@1\n', rough_header, flags=re.S)
             elif file_format == "HyperSurface":
-                if verbose:
-                    print(sys.stderr, "Using pattern: (?P<data>.*)\\nVertices [0-9]*\\n")
                 m = re.search(b'(?P<data>.*)\nVertices [0-9]*\n', rough_header, flags=re.S)
             elif file_format == "Undefined":
                 raise ValueError("Unable to parse undefined file")
@@ -323,63 +307,48 @@ def get_header(fn, file_format, header_bytes=536870912, verbose=False, *args, **
             data = m.group('data')
             return data
 
-def parse_header(data, verbose=False, *args, **kwargs):
+def parse_header(data, *args, **kwargs):
     """Parse the data using the grammar specified in this module
 
     :param str data: delimited data to be parsed for metadata
     :return list parsed_data: structured metadata
     """
     # the parser
-    if verbose:
-        print(sys.stderr, "Creating parser object...")
-    parser = Parser(amira_header_grammar)
+    tokenizer = Tokenizer( data )
+    src = tokenizer.get_tokens()
 
-    # the processor
-    if verbose:
-        print(sys.stderr, "Defining dispatch processor...")
-    amira_processor = AmiraDispatchProcessor()
+    token = next(src)
 
-    # parsing
-    if verbose:
-        print(sys.stderr, "Parsing data...")
-    success, parsed_data, next_item = parser.parse(data, production='amira', processor=amira_processor)
+    while token[0] != TOKEN_ENDMARKER:
+        this_atom, ended_with = atom(src, token, tokenizer) # get top-level atom
+        if this_atom is not None:
+            if isinstance( this_atom, dict ):
+                if 'define' in this_atom:
+                    tokenizer.add_defines( this_atom['define'] )
+                else:
+                    tokenizer.add_parameters( this_atom )
+        token = next(src)
 
-    if success:
-        if verbose:
-            print(sys.stderr, "Successfully parsed data...")
-        return parsed_data
-    else:
-        raise TypeError("Parse: {}\nNext: {}\n".format(parsed_data, next_item))
+    result = {'designation' : tokenizer._designation,
+            'definitions' : tokenizer._definitions,
+            'data_pointers': tokenizer._data_pointers,
+            'parameters': tokenizer._parameters}
+    return result
 
-
-def get_parsed_data(fn, *args, **kwargs):
+def get_parsed_header(data, *args, **kwargs):
     """All above functions as a single function
 
     :param str fn: file name
     :return list parsed_data: structured metadata
     """
+    assert(isinstance(data, str) or isinstance(data, bytes))
 
-    file_format = detect_format(fn, *args, **kwargs)
-    raw_header = get_header(fn, file_format, *args, **kwargs)
-
-    # remove parameters block
-    p = raw_header.find(b'Parameters {')
-    x = raw_header.find(b'Lattice {')
-    header_wo_params = raw_header[:p] + raw_header[x:]
-
-    # clean text header from reading as binary - remove b'', "\\n" to '\n'
-    header_wo_params = str(header_wo_params).strip("b'").replace("\\n", '\n')
-
-    parsed_data = parse_header(header_wo_params, *args, **kwargs)
-
-    return raw_header, parsed_data
-
-def get_parsed_data_str(raw_header, *args, **kwargs):
-    """All above functions as a single function
-
-    :param str raw_header: raw header
-    :return list parsed_data: structured metadata
-    """
+    # if data is str, it is a filename
+    if isinstance(data, str):
+        file_format = detect_format(data, *args, **kwargs)
+        raw_header = get_header(data, file_format, *args, **kwargs)
+    else: # otherwise data is raw header in bytes
+        raw_header = data
 
     # remove parameters block
     p = raw_header.find(b'Parameters {')
@@ -388,6 +357,10 @@ def get_parsed_data_str(raw_header, *args, **kwargs):
 
     # clean text header from reading as binary - remove b'', "\\n" to '\n'
     header_wo_params = str(header_wo_params).strip("b'").replace("\\n", '\n')
+
+    # end in new line
+    if header_wo_params[-1] != '\n':
+        header_wo_params += '\n'
 
     parsed_data = parse_header(header_wo_params, *args, **kwargs)
 
