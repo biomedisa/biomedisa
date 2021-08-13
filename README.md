@@ -55,7 +55,7 @@ sudo apt-get install libsm6 libxrender-dev cmake \
 sudo -H pip3 install --upgrade pip setuptools scikit-build 
 sudo -H pip3 install --upgrade numpy scipy h5py colorama numpy-stl \
     numba imagecodecs-lite tifffile scikit-image opencv-python \
-    Pillow SimpleParse nibabel medpy SimpleITK mpi4py itk vtk
+    Pillow nibabel medpy SimpleITK mpi4py itk vtk
 ```
 
 #### Download or clone Biomedisa
@@ -145,7 +145,7 @@ Open Command Prompt (e.g. Windows Search `Command Prompt`).
 ```
 pip3 install --upgrade pip pypiwin32 setuptools wheel numpy scipy h5py colorama numba
 pip3 install --upgrade imagecodecs-lite tifffile scikit-image opencv-python Pillow
-pip3 install --upgrade nibabel medpy SimpleITK simpleparse itk vtk numpy-stl
+pip3 install --upgrade nibabel medpy SimpleITK itk vtk numpy-stl
 ```
 
 #### Install NVIDIA Driver

@@ -45,7 +45,7 @@ Data pointers are identified by the name ``data_pointer_<n>``.
 import sys
 import pprint
 
-from .amira_grammar import get_parsed_data, get_parsed_data_str
+from .amira_grammar import get_parsed_header
 
 class Block(object):
     """Generic block to be loaded with attributes"""
@@ -108,7 +108,7 @@ class AmiraHeader(object):
         :return ah: object of class ``AmiraHeader`` containing header metadata
         :rtype: ah: :py:class:`ahds.header.AmiraHeader`
         """
-        raw, parsed  = get_parsed_data(fn, *args, **kwargs)
+        raw, parsed  = get_parsed_header(fn, *args, **kwargs)
         return AmiraHeader(raw, parsed)
 
     @classmethod
@@ -119,7 +119,7 @@ class AmiraHeader(object):
         :return ah: object of class ``AmiraHeader`` containing header metadata
         :rtype: ah: :py:class:`ahds.header.AmiraHeader`
         """
-        raw, parsed  = get_parsed_data_str(raw, *args, **kwargs)
+        raw, parsed  = get_parsed_header(raw, *args, **kwargs)
         return AmiraHeader(raw, parsed)
 
     @property
@@ -132,23 +132,11 @@ class AmiraHeader(object):
         """Show the raw header data"""
         return self._parsed_data
 
-    def __len__(self):
-        return len(self._parsed_data)
-
-    @staticmethod
-    def flatten_dict(in_dict):
-        block_data = dict()
-        for block in in_dict:
-            block_data[list(block.keys())[0]] = block[list(block.keys())[0]]
-        return block_data
-
     def _load(self):
-        # first flatten the dict
-        block_data = self.flatten_dict(self._parsed_data)
-        self._load_designation(block_data['designation'])
-        self._load_definitions(block_data['definitions'])
-        self._load_data_pointers(block_data['data_pointers'])
-        # self._load_parameters(block_data['parameters'])
+        self._load_designation(self._parsed_data['designation'])
+        self._load_definitions(self._parsed_data['definitions'])
+        self._load_data_pointers(self._parsed_data['data_pointers'])
+        # self._load_parameters(self._parsed_data['parameters'])
 
     @property
     def designation(self):
@@ -214,8 +202,8 @@ class AmiraHeader(object):
 
     def _load_definitions(self, block_data):
         self._definitions = Block('definitions')
-        for definition in block_data:
-            self._definitions.add_attr(definition['definition_name'], definition['definition_value'])
+        for key in block_data:
+            self._definitions.add_attr(key, block_data[key])
 
     def _load_parameters(self, block_data):
         self._parameters = Block('parameters')
@@ -249,10 +237,11 @@ class AmiraHeader(object):
 
     def _load_data_pointers(self, block_data):
         self._data_pointers = Block('data_pointers')
-        for data_pointer in block_data:
-            data_pointer_name = "data_pointer_{}".format(data_pointer['data_index'])
+        for data_index in block_data:
+            data_pointer_name = "data_pointer_{}".format(data_index)
             self._data_pointers.add_attr(data_pointer_name, Block(data_pointer_name))
             pointer_obj = getattr(self._data_pointers, data_pointer_name)
+            data_pointer = block_data[data_index]
 
             if 'pointer_name' in data_pointer:
                 pointer_obj.add_attr('pointer_name', data_pointer['pointer_name'])
