@@ -42,7 +42,7 @@ git clone https://github.com/biomedisa/biomedisa
 ### Adapt Biomedisa config
 Make `config.py` as a copy of `config_example.py`
 ```
-cp ~git/biomedisa/biomedisa_app/config_example.py ~git/biomedisa/biomedisa_app/config.py
+cp biomedisa/biomedisa_app/config_example.py biomedisa/biomedisa_app/config.py
 ```
 In particular, adapt the following lines in `biomedisa/biomedisa_app/config.py`
 ```
