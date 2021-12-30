@@ -46,7 +46,7 @@ LD_LIBRARY_PATH=/usr/local/cuda-11.0/lib64
 PATH=/usr/local/cuda-11.0/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games
 
 
-# on your remote_server add the following lines to "/etc/ssh/sshd_config"
+# on your remote_server add the following line to "/etc/ssh/sshd_config"
 -------------------------------
 PermitUserEnvironment yes
 

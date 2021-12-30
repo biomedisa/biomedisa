@@ -31,7 +31,9 @@ Biomedisa (https://biomedisa.org) is a free and easy-to-use open-source online p
 
 # Full installation (GUI)
 + [Ubuntu 18.04.5](https://github.com/biomedisa/biomedisa/blob/master/README/UBUNTU_18.04.5.md)
-+ [Windows 10](https://github.com/biomedisa/biomedisa/blob/master/README/WINDOWS_10.md)
++ [Windows 10 (21H1 or lower)](https://github.com/biomedisa/biomedisa/blob/master/README/WINDOWS_10.md)
++ [Windows 10 (21H2)](https://github.com/biomedisa/biomedisa/blob/master/README/WINDOWS_11_AMPERE.md)
++ [Windows 11](https://github.com/biomedisa/biomedisa/blob/master/README/WINDOWS_11_AMPERE.md)
 
 # Run interpolation examples
 
