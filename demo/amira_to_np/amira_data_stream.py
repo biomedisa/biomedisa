@@ -934,7 +934,7 @@ class DataStreams(object):
         self.__data_streams = self.__configure()
     def __configure(self):
         with open(self.__fn, 'rb') as f:
-            self.__stream_data = f.read().strip(b'\n')
+            self.__stream_data = f.read() #.strip(b'\n')
             if self.__amira_header.designation.filetype == "AmiraMesh" or self.__amira_header.designation.filetype == "Avizo":
                 self.__filetype = self.__amira_header.designation.filetype
                 i = 0

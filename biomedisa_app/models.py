@@ -77,6 +77,9 @@ class CustomUserCreationForm(forms.Form):
     password2 = forms.CharField(label='Confirm password', widget=forms.PasswordInput)
     institution = forms.CharField(label='Institution')
     subject = forms.CharField(label='Subject of research')
+    numeric1 = forms.CharField(label='num1', widget=forms.HiddenInput())
+    numeric2 = forms.CharField(label='num2', widget=forms.HiddenInput())
+    verification = forms.CharField(label='Are you human?')
     message = forms.CharField(required=False, widget=forms.Textarea(attrs={'rows': 8, 'cols': 50}))
 
     def clean_password1(self):
@@ -90,29 +93,40 @@ class CustomUserCreationForm(forms.Form):
         username = self.cleaned_data['username'].lower()
         r = User.objects.filter(username=username)
         if r.count():
-            raise ValidationError("Username already exists")
+            raise ValidationError("Username already exists.")
         return username
 
     def clean_email(self):
         email = self.cleaned_data['email'].lower()
         r = User.objects.filter(email=email)
         if r.count():
-            raise ValidationError("Email already exists")
+            raise ValidationError("Email is already in use.")
         return email
 
     def clean_password2(self):
         password1 = self.cleaned_data.get('password1')
         password2 = self.cleaned_data.get('password2')
         if password1 and password2 and password1 != password2:
-            raise ValidationError("Password doesn't match")
+            raise ValidationError("Passwords do not match.")
         return password2
 
     def clean_subject(self):
         subject = self.cleaned_data.get('subject')
         institution = self.cleaned_data.get('institution')
         if institution == subject:
-            raise ValidationError("Institute and subject must be different")
+            raise ValidationError("Institute and subject must be different.")
         return subject
+
+    def clean_verification(self):
+        num1 = self.cleaned_data.get('numeric1')
+        num2 = self.cleaned_data.get('numeric2')
+        verification = self.cleaned_data.get('verification')
+        try:
+            if int(verification) != int(num1) + int(num2):
+                raise ValidationError("Invalid input.")
+            return verification
+        except ValueError:
+            raise ValidationError("Invalid input.")
 
     def save(self, datas, commit=True):
         user = User.objects.create_user(

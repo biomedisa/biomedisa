@@ -116,6 +116,7 @@ from shutil import copytree
 import tarfile, zipfile
 import shutil, wget
 import subprocess
+import glob
 
 # list of demo files
 pk_list = [3856, 3857, 14244, \
@@ -276,9 +277,13 @@ def register(request):
             return redirect('register')
 
     else:
+        num1, num2 = np.random.randint(0, high=31, size=2, dtype=int)
         f = CustomUserCreationForm()
+        f.fields["numeric1"].initial = str(num1)
+        f.fields["numeric2"].initial = str(num2)
+        f.fields["verification"].initial = 'Please enter the sum of '+str(num1)+' and '+str(num2)
 
-    return render(request, 'register.html', {'form': f})
+    return render(request, 'register.html', {'form':f})
 
 # 15. activate user account
 def activation(request, key):
@@ -1641,63 +1646,51 @@ def delete_demo(request):
     return redirect(gallery)
 
 # 38. download_demo
-def download_demo(request, id):
-    int_id = int(id)
-    file_names = ["screw_joint.tif", "labels.screw_joint.tif", "final.screw_joint.tif", \
-                 "trigonopterus.tif", "labels.trigonopterus_smart.am", "final.trigonopterus_smart.am", \
-                 "tumor.tif", "labels.tumor.tif", "final.tumor.itf", \
-                 "NMB_F2875.tif", "labels.NMB_F2875.tif", "final.NMB_F2875.tif", \
-                 "NRM-PZ_Ar65720.tif", "labels.NRM-PZ_Ar65720.am", "final.NRM-PZ_Ar65720.am", \
-                 "training_heart.tar", "training_heart_labels.tar", "heart.h5", \
-                 "testing_axial_crop_pat13.nii.gz", "final.testing_axial_crop_pat13.tif", \
-                 'wasp_from_amber.tif', 'labels.wasp_from_amber.am', 'final.wasp_from_amber.am', \
-                 'cockroach.tif', 'labels.cockroach.am', 'final.cockroach.am', \
-                 'theropod_claw.tif', 'labels.theropod_claw.tif', 'final.theropod_claw.tif', \
-                 'bull_ant_queen.am', 'labels.bull_ant_queen_head.am', 'final.bull_ant_queen_head.am', \
-                 'mouse_molar_teeth.tar', 'labels.mouse_molar_teeth.tar', 'final.mouse_molar_teeth.tar']
-    if 0 <= int_id < len(pk_list):
-        filename = file_names[int_id]
-        stock_to_download = get_object_or_404(Upload, pk=pk_list[int_id])
-        path_to_file = stock_to_download.pic.path
-        wrapper = FileWrapper(open(path_to_file, 'rb'))
-        imgsize = os.path.getsize(path_to_file)
-        if imgsize < 5000000000:
-            response = HttpResponse(wrapper, content_type='%s' %(filename))
-        else:
-            response = StreamingHttpResponse(wrapper, content_type='%s' %(filename))
-        response['Content-Disposition'] = 'attachment; filename="%s"' %(filename)
-        response['Content-Length'] = imgsize
-        return response
+def download_demo(request):
+    if request.method == 'GET':
+        id = request.GET.get('id')
+        demo_files = glob.glob(config['PATH_TO_BIOMEDISA'] + '/media/data/*')
+        demo_files = [os.path.basename(x) for x in demo_files]
+        max_str = max(demo_files, key=len)
+        if id[:len(max_str)] in demo_files:
+            path_to_file = config['PATH_TO_BIOMEDISA'] + '/media/data/' + id
+            wrapper = FileWrapper(open(path_to_file, 'rb'))
+            imgsize = os.path.getsize(path_to_file)
+            if imgsize < 5000000000:
+                response = HttpResponse(wrapper, content_type='%s' %(id))
+            else:
+                response = StreamingHttpResponse(wrapper, content_type='%s' %(id))
+            response['Content-Disposition'] = 'attachment; filename="%s"' %(id)
+            response['Content-Length'] = imgsize
+            return response
 
 # 39. visualization_demo
 def visualization_demo(request):
     if request.method == 'GET':
-        ids = request.GET.get('ids')
-        ids = ids.split(',')
-        name,url="",""
-        for id in ids:
-            id = str(id)
-            path_to_link = '/media/paraview/' + id
-            name += ","+id
-            url += ","+config['SERVER']+path_to_link
-        name = name[1:]
-        url = url[1:]
-        URL=config['SERVER']+"/paraview/?name=["+name+"]&url=["+url+"]"
-        return HttpResponseRedirect(URL)
+        id = request.GET.get('id')
+        demo_files = glob.glob(config['PATH_TO_BIOMEDISA'] + '/media/paraview/*')
+        demo_files = [os.path.basename(x) for x in demo_files]
+        max_str = max(demo_files, key=len)
+        if id[:len(max_str)] in demo_files:
+            url = config['SERVER'] + '/media/paraview/' + id
+            URL = config['SERVER'] + "/paraview/?name=["+id+"]&url=["+url+"]"
+            return HttpResponseRedirect(URL)
 
 # 40. sliceviewer_demo
-def sliceviewer_demo(request, id):
-    int_id = int(id)
-    if 0 <= int_id < len(pk_list):
-        stock_to_show = get_object_or_404(Upload, pk=pk_list[int_id])
-        filename = stock_to_show.shortfilename
-        path_to_slices = "/media/sliceviewer/demo/%s" %(filename)
-        full_path = config['PATH_TO_BIOMEDISA'] + path_to_slices
-        nos = len(os.listdir(full_path)) - 1
-        path_to_slices += '/'
-        im = Image.open(full_path + '/0.png')
-        imshape = np.asarray(im).shape
-        return render(request, 'sliceviewer.html', {'path_to_slices':path_to_slices, 'nos':nos, 'imshape_x':imshape[1], 'imshape_y':imshape[0]})
+def sliceviewer_demo(request):
+    if request.method == 'GET':
+        id = request.GET.get('id')
+        demo_files = glob.glob(config['PATH_TO_BIOMEDISA'] + '/media/data/*')
+        demo_files = [os.path.basename(x) for x in demo_files]
+        max_str = max(demo_files, key=len)
+        if id[:len(max_str)] in demo_files:
+            path_to_slices = "/media/sliceviewer/" + id
+            full_path = config['PATH_TO_BIOMEDISA'] + path_to_slices
+            nos = len(os.listdir(full_path)) - 1
+            path_to_slices += '/'
+            im = Image.open(full_path + '/0.png')
+            imshape = np.asarray(im).shape
+            return render(request, 'sliceviewer.html', {'path_to_slices':path_to_slices, 'nos':nos, 'imshape_x':imshape[1], 'imshape_y':imshape[0]})
 
 # 41. delete
 @login_required

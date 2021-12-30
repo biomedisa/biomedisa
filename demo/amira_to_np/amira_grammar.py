@@ -278,7 +278,7 @@ def detect_format(fn, format_bytes=50, *args, **kwargs):
     return file_format
 
 
-def get_header(fn, file_format, header_bytes=536870912, *args, **kwargs):
+def get_header(fn, file_format, header_bytes=536870912, *args, **kwargs): #2097152
     """Apply rules for detecting the boundary of the header
 
     :param str fn: file name
@@ -295,16 +295,18 @@ def get_header(fn, file_format, header_bytes=536870912, *args, **kwargs):
         with open(fn, 'rb') as f:
             rough_header = f.read(header_count)
             if file_format == "AmiraMesh" or file_format == "Avizo":
-                m = re.search(b'(?P<data>.*)\n@1\n', rough_header, flags=re.S)
+                m = re.search(b'(?P<data>)\n@1\n', rough_header, flags=re.S)
             elif file_format == "HyperSurface":
-                m = re.search(b'(?P<data>.*)\nVertices [0-9]*\n', rough_header, flags=re.S)
+                m = re.search(b'(?P<data>)\nVertices [0-9]*\n', rough_header, flags=re.S)
             elif file_format == "Undefined":
                 raise ValueError("Unable to parse undefined file")
         if m is None:
             header_count += header_bytes
         else:
             # select the data
-            data = m.group('data')
+            # data = m.group('data')
+            idx = m.start()
+            data = rough_header[:idx]
             return data
 
 def parse_header(data, *args, **kwargs):

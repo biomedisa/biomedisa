@@ -1,48 +1,48 @@
-#  Installation instructions (Ubuntu 18.04.5 LTS)
+#  Ubuntu 18.04.5 LTS (full installation)
 
-- [Install Python and pip](#nstall-python-and-pip)
-- [Install software dependencies](#Install-software-dependencies)
+- [Install Python and pip](#install-python-and-pip)
+- [Install software dependencies](#install-software-dependencies)
 - [Install pip packages](#install-pip-packages)
 - [Download or clone Biomedisa](#download-or-clone-biomedisa)
 - [Install MySQL database](#install-mysql-database)
-- [Setting up CUDA environment](#setting-up-cuda-environment)
+- [Install NVIDIA driver and CUDA 11.0](#install-nvidia-driver-and-cuda-11.0)
 - [Install TensorFlow](#install-tensorflow)
 - [Run Biomedisa](#run-biomedisa)
-- [Install Apache Server](#install-apache-server)
+- [Install Apache Server (optional)](#install-apache-server-optional)
 
-### Install Python and pip
+#### Install Python and pip
 ```
 sudo apt-get install python3 python3-dev python3-pip
 ```
 
-### Install software dependencies
+#### Install software dependencies
 ```
 sudo apt-get install libsm6 libxrender-dev libmysqlclient-dev \
     libboost-python-dev build-essential screen libssl-dev cmake \
     openmpi-bin openmpi-doc libopenmpi-dev redis-server
 ```
 
-### Install pip packages
+#### Install pip packages
 ```
-sudo -H pip3 install --upgrade pip setuptools scikit-build 
-sudo -H pip3 install --upgrade numpy scipy h5py colorama itk vtk wget \
-    numba imagecodecs-lite tifffile scikit-image opencv-python numpy-stl \
-    Pillow nibabel medpy SimpleITK mpi4py django rq mysqlclient
+sudo -H pip3 install --upgrade pip setuptools testresources scikit-build
+sudo -H pip3 install --upgrade numpy scipy h5py colorama wget numpy-stl \
+    numba imagecodecs-lite tifffile scikit-image opencv-python \
+    Pillow nibabel medpy SimpleITK mpi4py itk vtk rq mysqlclient
+sudo -H pip3 install django==3.2.6
 ```
 
-### Download or clone Biomedisa
+#### Download or clone Biomedisa
 ```
-# Clone repository
 sudo apt-get install git
 mkdir ~/git
 cd ~/git
 git clone https://github.com/biomedisa/biomedisa
 ```
 
-### Adapt Biomedisa config
+#### Adapt Biomedisa config
 Make `config.py` as a copy of `config_example.py`
 ```
-cp ~git/biomedisa/biomedisa_app/config_example.py ~git/biomedisa/biomedisa_app/config.py
+cp biomedisa/biomedisa_app/config_example.py biomedisa/biomedisa_app/config.py
 ```
 In particular, adapt the following lines in `biomedisa/biomedisa_app/config.py`
 ```
@@ -53,7 +53,7 @@ In particular, adapt the following lines in `biomedisa/biomedisa_app/config.py`
 'FIRST_QUEUE_NGPUS' : 4, # total number of GPUs available
 ```
 
-### Install MySQL database
+#### Install MySQL database
 ```
 # Install MySQL
 sudo apt-get install mysql-server
@@ -90,21 +90,7 @@ python3 manage.py migrate
 python3 manage.py createsuperuser
 ```
 
-### Install NVIDIA driver
-
-```
-# Install NVIDIA driver >=455
-sudo apt-get install nvidia-driver-455
-
-# Reboot the system
-sudo reboot
-
-# Verify that NVIDIA driver can be loaded properly
-nvidia-smi
-```
-
-### Install CUDA 11.0
-
+#### Install NVIDIA driver and CUDA 11.0
 ```
 # Add NVIDIA package repositories
 wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/cuda-ubuntu1804.pin
@@ -133,7 +119,7 @@ sudo -H PATH=/usr/local/cuda-11.0/bin:${PATH} pip3 install --upgrade pycuda
 python3 ~/git/biomedisa/biomedisa_features/pycuda_test.py
 ```
 
-### Install TensorFlow
+#### Install TensorFlow
 ```
 wget http://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu1804/x86_64/nvidia-machine-learning-repo-ubuntu1804_1.0.0-1_amd64.deb
 sudo apt install ./nvidia-machine-learning-repo-ubuntu1804_1.0.0-1_amd64.deb
@@ -157,8 +143,7 @@ sudo apt-get install -y --no-install-recommends libnvinfer7=7.1.3-1+cuda11.0 \
 sudo -H pip3 install tensorflow-gpu==2.4.1
 ```
 
-### Run Biomedisa
-
+#### Run Biomedisa
 Start workers (this has to be done after each reboot)
 ```
 cd ~/git/biomedisa
@@ -169,8 +154,9 @@ Start Biomedisa locally
 ```
 python3 manage.py runserver localhost:8080
 ```
-### Open Biomedisa
+
+#### Open Biomedisa
 Open Biomedisa in your local browser http://localhost:8080/ and log in as the `superuser` you created.
 
-### Install Apache Server
-Follow the [installation instructions](https://github.com/biomedisa/biomedisa/blob/master/README/INSTALL_APACHE_SERVER.md).
+#### Install Apache Server (optional)
+Follow the [installation instructions](https://github.com/biomedisa/biomedisa/blob/master/README/APACHE_SERVER.md).

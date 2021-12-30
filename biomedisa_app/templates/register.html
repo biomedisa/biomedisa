@@ -22,7 +22,7 @@
             {% endif %}
           </div>
 
-          <form method="post" class="form1">
+          <form method="post" class="form1" id="register_table">
              {% csrf_token %}
              <table>
                 {{ form.as_table }}
@@ -32,7 +32,6 @@
                 </tr>
              </table>
           </form>
-
        </div>
      </div>
 

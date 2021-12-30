@@ -64,7 +64,7 @@ urlpatterns = [
     url(r'^delete_account/$', views.delete_account, name='delete_account'),
     # download files
     url(r'^download/(?P<id>\d+)/$', views.download, name='download'),
-    url(r'^download/demo/(?P<id>\d+)/$', views.download_demo, name='download_demo'),
+    url(r'^download/demo/$', views.download_demo, name='download_demo'),
     # run segmentation
     url(r'^run/$', views.run, name='run'),
     url(r'^run/demo/$', views.run_demo, name='run_demo'),
@@ -73,7 +73,7 @@ urlpatterns = [
     url(r'^visualization_demo/$', views.visualization_demo, name='visualization_demo'),
     # sliceviewer
     url(r'^sliceviewer/(?P<id>\d+)/$', views.sliceviewer, name='sliceviewer'),
-    url(r'^sliceviewer_demo/(?P<id>\d+)/$', views.sliceviewer_demo, name='sliceviewer_demo'),
+    url(r'^sliceviewer_demo/$', views.sliceviewer_demo, name='sliceviewer_demo'),
     # stop running process or remove from queue
     url(r'^remove_from_queue/$', views.remove_from_queue, name='remove_from_queue'),
     # reset a file

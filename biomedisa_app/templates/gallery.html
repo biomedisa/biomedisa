@@ -27,7 +27,7 @@ function alertFunction(state) {
 function sliceViewer(id) {
     var r = confirm('This will download large amounts of data! Continue?');
     if (r == true) {
-        window.location.href = "/sliceviewer_demo/" + id;
+        window.location.href = "/sliceviewer_demo/?id=" + id;
         window.close();
         }
     }
@@ -79,10 +79,10 @@ $(document).ready(addClickHandlers);
 
       <p>
       <div>
-      <a href="/visualization_demo/?ids=trigonopterus.tif" target="_blank"><img src="/static/file_image.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
+      <a href="/visualization_demo/?id=trigonopterus.tif" target="_blank"><img src="/static/file_image.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
       <a href=# onclick="alertFunction('You can not delete the data.')"><img src="/static/icon-deletelink.svg" title="delete" style="width:20px;height:20px;border:0;"></a>
-      <a href="/download/demo/3"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
-      <a href=# onclick="sliceViewer(3)"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
+      <a href="/download/demo/?id=trigonopterus.tif"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+      <a href=# onclick="sliceViewer('trigonopterus.tif')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
       <a href=# onclick="alertFunction('Move data to long term storage')"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;"></a>
       {% if user.is_authenticated %}
       <span class="share_link" id=3><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span></br>
@@ -95,10 +95,10 @@ $(document).ready(addClickHandlers);
 
       <p>
       <div>
-      <a href="/visualization_demo/?ids=trigonopterus.tif,labels.trigonopterus_smart.tif" target="_blank"><img src="/static/file_label.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
+      <a href="/visualization_demo/?id=labels.trigonopterus_smart.tif" target="_blank"><img src="/static/file_label.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
       <a href=# onclick="alertFunction('Nice try...but no.')"><img src="/static/icon-deletelink.svg" title="delete" style="width:20px;height:20px;border:0;"></a>
-      <a href="/download/demo/4"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
-      <a href=# onclick="sliceViewer(4)"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
+      <a href="/download/demo/?id=labels.trigonopterus_smart.am"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+      <a href=# onclick="sliceViewer('labels.trigonopterus_smart.am')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
       <a href=# onclick="alertFunction('Move data to long term storage')"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;"></a>
       {% if user.is_authenticated %}
       <span class="share_link" id=4><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span></br>
@@ -111,10 +111,10 @@ $(document).ready(addClickHandlers);
 
       <p>
       <div>
-      <a href="/visualization_demo/?ids=trigonopterus.tif,final.trigonopterus_smart.tif" target="_blank"><img src="/static/file_final.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
+      <a href="/visualization_demo/?id=final.trigonopterus_smart.tif" target="_blank"><img src="/static/file_final.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
       <a href=# onclick="alertFunction('Maybe next time.')"><img src="/static/icon-deletelink.svg" title="delete" style="width:20px;height:20px;border:0;"></a>
-      <a href="/download/demo/5"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
-      <a href=# onclick="sliceViewer(5)"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
+      <a href="/download/demo/?id=final.trigonopterus_smart.am"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+      <a href=# onclick="sliceViewer('final.trigonopterus_smart.am')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
       <a href=# onclick="alertFunction('Move data to long term storage')"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;"></a>
       {% if user.is_authenticated %}
       <span class="share_link" id=5><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span></br>
@@ -122,6 +122,17 @@ $(document).ready(addClickHandlers);
       <a href=# onclick="alertFunction('Share data with other users or create a download link')"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;"></a></br>
       {% endif %}
       final.trigonopterus_smart.am
+      </div>
+      </p>
+
+      <p>
+      <div>
+      <a href="/visualization_demo/?id=final.trigonopterus_smart.stl" target="_blank"><img src="/static/file_mesh.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
+      <a href=# onclick="alertFunction('You can not delete the data.')"><img src="/static/icon-deletelink.svg" title="delete" style="width:20px;height:20px;border:0;"></a>
+      <a href="/download/demo/?id=final.trigonopterus_smart.stl"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+      <a href=# onclick="alertFunction('Move data to long term storage')"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;"></a>
+      <a href=# onclick="alertFunction('Share data with other users or create a download link')"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;"></a></br>
+      final.trigonopterus_smart.stl
       </div>
       </p>
 
@@ -140,10 +151,10 @@ $(document).ready(addClickHandlers);
 
       <p>
       <div>
-      <a href="/visualization_demo/?ids=wasp_from_amber.tif" target="_blank"><img src="/static/file_image.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
+      <a href="/visualization_demo/?id=wasp_from_amber.tif" target="_blank"><img src="/static/file_image.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
       <a href=# onclick="alertFunction('You can not delete the data.')"><img src="/static/icon-deletelink.svg" title="delete" style="width:20px;height:20px;border:0;"></a>
-      <a href="/download/demo/20"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
-      <a href=# onclick="sliceViewer(20)"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
+      <a href="/download/demo/?id=wasp_from_amber.tif"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+      <a href=# onclick="sliceViewer('wasp_from_amber.tif')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
       <a href=# onclick="alertFunction('Move data to long term storage')"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;"></a>
       {% if user.is_authenticated %}
       <span class="share_link" id=20><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span></br>
@@ -156,10 +167,10 @@ $(document).ready(addClickHandlers);
 
       <p>
       <div>
-      <a href="/visualization_demo/?ids=wasp_from_amber.tif,labels.wasp_from_amber.tif" target="_blank"><img src="/static/file_label.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
+      <a href="/visualization_demo/?id=labels.wasp_from_amber.tif" target="_blank"><img src="/static/file_label.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
       <a href=# onclick="alertFunction('You did your best.')"><img src="/static/icon-deletelink.svg" title="delete" style="width:20px;height:20px;border:0;"></a>
-      <a href="/download/demo/21"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
-      <a href=# onclick="sliceViewer(21)"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
+      <a href="/download/demo/?id=labels.wasp_from_amber.am"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+      <a href=# onclick="sliceViewer('labels.wasp_from_amber.am')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
       <a href=# onclick="alertFunction('Move data to long term storage')"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;"></a>
       {% if user.is_authenticated %}
       <span class="share_link" id=21><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span></br>
@@ -172,10 +183,10 @@ $(document).ready(addClickHandlers);
 
       <p>
       <div>
-      <a href="/visualization_demo/?ids=wasp_from_amber.tif,final.wasp_from_amber.tif" target="_blank"><img src="/static/file_final.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
+      <a href="/visualization_demo/?id=final.wasp_from_amber.tif" target="_blank"><img src="/static/file_final.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
       <a href=# onclick="alertFunction('Nice try, but still no.')"><img src="/static/icon-deletelink.svg" title="delete" style="width:20px;height:20px;border:0;"></a>
-      <a href="/download/demo/22"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
-      <a href=# onclick="sliceViewer(22)"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
+      <a href="/download/demo/?id=final.wasp_from_amber.am"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+      <a href=# onclick="sliceViewer('final.wasp_from_amber.am')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
       <a href=# onclick="alertFunction('Move data to long term storage')"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;"></a>
       {% if user.is_authenticated %}
       <span class="share_link" id=22><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span></br>
@@ -183,6 +194,17 @@ $(document).ready(addClickHandlers);
       <a href=# onclick="alertFunction('Share data with other users or create a download link')"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;"></a></br>
       {% endif %}
       final.wasp_from_amber.am
+      </div>
+      </p>
+
+      <p>
+      <div>
+      <a href="/visualization_demo/?id=final.wasp_from_amber.stl" target="_blank"><img src="/static/file_mesh.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
+      <a href=# onclick="alertFunction('You can not delete the data.')"><img src="/static/icon-deletelink.svg" title="delete" style="width:20px;height:20px;border:0;"></a>
+      <a href="/download/demo/?id=final.wasp_from_amber.stl"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+      <a href=# onclick="alertFunction('Move data to long term storage')"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;"></a>
+      <a href=# onclick="alertFunction('Share data with other users or create a download link')"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;"></a></br>
+      final.wasp_from_amber.stl
       </div>
       </p>
 
@@ -201,10 +223,10 @@ $(document).ready(addClickHandlers);
 
       <p>
       <div>
-      <a href="/visualization_demo/?ids=bull_ant_queen.tif" target="_blank"><img src="/static/file_image.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
+      <a href="/visualization_demo/?id=bull_ant_queen.tif" target="_blank"><img src="/static/file_image.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
       <a href=# onclick="alertFunction('You can not delete the data.')"><img src="/static/icon-deletelink.svg" title="delete" style="width:20px;height:20px;border:0;"></a>
-      <a href="/download/demo/29"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
-      <a href=# onclick="sliceViewer(29)"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
+      <a href="/download/demo/?id=bull_ant_queen.am"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+      <a href=# onclick="sliceViewer('bull_ant_queen.am')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
       <a href=# onclick="alertFunction('Move data to long term storage')"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;"></a>
       {% if user.is_authenticated %}
       <span class="share_link" id=29><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span></br>
@@ -217,10 +239,10 @@ $(document).ready(addClickHandlers);
 
       <p>
       <div>
-      <a href="/visualization_demo/?ids=bull_ant_queen.tif,labels.bull_ant_queen.tif" target="_blank"><img src="/static/file_label.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
+      <a href="/visualization_demo/?id=labels.bull_ant_queen_head.tif" target="_blank"><img src="/static/file_label.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
       <a href=# onclick="alertFunction('You did your best.')"><img src="/static/icon-deletelink.svg" title="delete" style="width:20px;height:20px;border:0;"></a>
-      <a href="/download/demo/30"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
-      <a href=# onclick="sliceViewer(30)"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
+      <a href="/download/demo/?id=labels.bull_ant_queen_head.am"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+      <a href=# onclick="sliceViewer('labels.bull_ant_queen_head.am')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
       <a href=# onclick="alertFunction('Move data to long term storage')"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;"></a>
       {% if user.is_authenticated %}
       <span class="share_link" id=30><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span></br>
@@ -233,10 +255,10 @@ $(document).ready(addClickHandlers);
 
       <p>
       <div>
-      <a href="/visualization_demo/?ids=bull_ant_queen.tif,final.bull_ant_queen.tif" target="_blank"><img src="/static/file_final.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
+      <a href="/visualization_demo/?id=final.bull_ant_queen_head.tif" target="_blank"><img src="/static/file_final.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
       <a href=# onclick="alertFunction('Nice try, but still no.')"><img src="/static/icon-deletelink.svg" title="delete" style="width:20px;height:20px;border:0;"></a>
-      <a href="/download/demo/31"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
-      <a href=# onclick="sliceViewer(31)"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
+      <a href="/download/demo/?id=final.bull_ant_queen_head.am"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+      <a href=# onclick="sliceViewer('final.bull_ant_queen_head.am')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
       <a href=# onclick="alertFunction('Move data to long term storage')"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;"></a>
       {% if user.is_authenticated %}
       <span class="share_link" id=31><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span></br>
@@ -244,6 +266,17 @@ $(document).ready(addClickHandlers);
       <a href=# onclick="alertFunction('Share data with other users or create a download link')"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;"></a></br>
       {% endif %}
       final.bull_ant_queen_head.am
+      </div>
+      </p>
+
+      <p>
+      <div>
+      <a href="/visualization_demo/?id=final.bull_ant_queen_head.stl" target="_blank"><img src="/static/file_mesh.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
+      <a href=# onclick="alertFunction('You can not delete the data.')"><img src="/static/icon-deletelink.svg" title="delete" style="width:20px;height:20px;border:0;"></a>
+      <a href="/download/demo/?id=final.bull_ant_queen_head.stl"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+      <a href=# onclick="alertFunction('Move data to long term storage')"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;"></a>
+      <a href=# onclick="alertFunction('Share data with other users or create a download link')"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;"></a></br>
+      final.bull_ant_queen_head.stl
       </div>
       </p>
 
@@ -259,55 +292,55 @@ $(document).ready(addClickHandlers);
 
       <p>
       <div>
-      <a><img src="/static/mouse_molar_tooth.png" title="mouse molar tooth" style="width:107px;height:136px;border:0;padding-left:40px;"></a>
+      <a href="/visualization_demo/?id=final.mouse_molar_tooth.stl" target="_blank"><img src="/static/mouse_molar_tooth.png" title="mouse molar tooth" style="width:107px;height:136px;border:0;padding-left:40px;"></a>
       </div>
       </p>
 
       <p>
       <div>
-      <a href="/visualization_demo/?ids=mouse_molar_tooth.tif" target="_blank"><img src="/static/file_image.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
+      <a href="/visualization_demo/?id=mouse_molar_tooth.tif" target="_blank"><img src="/static/file_image.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
       <a href=# onclick="alertFunction('You can not delete the data.')"><img src="/static/icon-deletelink.svg" title="delete" style="width:20px;height:20px;border:0;"></a>
-      <a href="/download/demo/32"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
-      <a href=# onclick="sliceViewer(32)"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
+      <a href="/download/demo/?id=mouse_molar_tooth.tif"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+      <a href=# onclick="sliceViewer('mouse_molar_tooth.tif')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
       <a href=# onclick="alertFunction('Move data to long term storage')"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;"></a>
       {% if user.is_authenticated %}
       <span class="share_link" id=32><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span></br>
       {% else %}
       <a href=# onclick="alertFunction('Share data with other users or create a download link')"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;"></a></br>
       {% endif %}
-      mouse_molar_teeth.tar
+      mouse_molar_tooth.tif
       </div>
       </p>
 
       <p>
       <div>
-      <a href="/visualization_demo/?ids=mouse_molar_tooth.tif,labels.mouse_molar_tooth.tif" target="_blank"><img src="/static/file_label.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
+      <a href="/visualization_demo/?id=labels.mouse_molar_tooth.tif" target="_blank"><img src="/static/file_label.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
       <a href=# onclick="alertFunction('I really admire your effort.')"><img src="/static/icon-deletelink.svg" title="delete" style="width:20px;height:20px;border:0;"></a>
-      <a href="/download/demo/33"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
-      <a href=# onclick="sliceViewer(33)"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
+      <a href="/download/demo/?id=labels.mouse_molar_tooth.tif"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+      <a href=# onclick="sliceViewer('labels.mouse_molar_tooth.tif')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
       <a href=# onclick="alertFunction('Move data to long term storage')"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;"></a>
       {% if user.is_authenticated %}
       <span class="share_link" id=33><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span></br>
       {% else %}
       <a href=# onclick="alertFunction('Share data with other users or create a download link')"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;"></a></br>
       {% endif %}
-      labels.mouse_molar_teeth.tar
+      labels.mouse_molar_tooth.tif
       </div>
       </p>
 
       <p>
       <div>
-      <a href="/visualization_demo/?ids=mouse_molar_tooth.tif,final.mouse_molar_tooth.tif" target="_blank"><img src="/static/file_final.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
+      <a href="/visualization_demo/?id=final.mouse_molar_tooth.tif" target="_blank"><img src="/static/file_final.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
       <a href=# onclick="alertFunction('You tried hard.')"><img src="/static/icon-deletelink.svg" title="delete" style="width:20px;height:20px;border:0;"></a>
-      <a href="/download/demo/34"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
-      <a href=# onclick="sliceViewer(34)"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
+      <a href="/download/demo/?id=final.mouse_molar_tooth.tif"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+      <a href=# onclick="sliceViewer('final.mouse_molar_tooth.tif')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
       <a href=# onclick="alertFunction('Move data to long term storage')"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;"></a>
       {% if user.is_authenticated %}
       <span class="share_link" id=34><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span></br>
       {% else %}
       <a href=# onclick="alertFunction('Share data with other users or create a download link')"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;"></a></br>
       {% endif %}
-      final.mouse_molar_teeth.tar
+      final.mouse_molar_tooth.tif
       </div>
       </p>
 
@@ -328,8 +361,8 @@ $(document).ready(addClickHandlers);
       <div>
       <a href=#><img src="/static/file_image.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
       <a href=# onclick="alertFunction('You can not delete the data.')"><img src="/static/icon-deletelink.svg" title="delete" style="width:20px;height:20px;border:0;"></a>
-      <a href="/download/demo/15"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
-      <a href=# onclick="sliceViewer(15)"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
+      <a href="/download/demo/?id=training_heart.tar"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+      <a href=# onclick="sliceViewer('training_heart.tar')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
       <a href=# onclick="alertFunction('Move data to long term storage')"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;"></a>
       {% if user.is_authenticated %}
       <span class="share_link" id=15><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span></br>
@@ -344,8 +377,8 @@ $(document).ready(addClickHandlers);
       <div>
       <a href=#><img src="/static/file_label.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
       <a href=# onclick="alertFunction('Pink fluffy unicorns...')"><img src="/static/icon-deletelink.svg" title="delete" style="width:20px;height:20px;border:0;"></a>
-      <a href="/download/demo/16"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
-      <a href=# onclick="sliceViewer(16)"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
+      <a href="/download/demo/?id=training_heart_labels.tar"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+      <a href=# onclick="sliceViewer('training_heart_labels.tar')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
       <a href=# onclick="alertFunction('Move data to long term storage')"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;"></a>
       {% if user.is_authenticated %}
       <span class="share_link" id=16><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span></br>
@@ -360,7 +393,7 @@ $(document).ready(addClickHandlers);
       <div>
       <a href=#><img src="/static/file_ai.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
       <a href=# onclick="alertFunction('...dancing on rainbows.')"><img src="/static/icon-deletelink.svg" title="delete" style="width:20px;height:20px;border:0;"></a>
-      <a href="/download/demo/17"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+      <a href="/download/demo/?id=heart.h5"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
       <a href=#><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
       <a href=# onclick="alertFunction('Move data to long term storage')"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;"></a>
       {% if user.is_authenticated %}
@@ -387,10 +420,10 @@ $(document).ready(addClickHandlers);
 
       <p>
       <div>
-      <a href="/visualization_demo/?ids=testing_axial_crop_pat13.tif" target="_blank"><img src="/static/file_image.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
+      <a href="/visualization_demo/?id=testing_axial_crop_pat13.tif" target="_blank"><img src="/static/file_image.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
       <a href=# onclick="alertFunction('You mean our nose, comrade.')"><img src="/static/icon-deletelink.svg" title="delete" style="width:20px;height:20px;border:0;"></a>
-      <a href="/download/demo/18"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
-      <a href=# onclick="sliceViewer(18)"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
+      <a href="/download/demo/?id=testing_axial_crop_pat13.nii.gz"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+      <a href=# onclick="sliceViewer('testing_axial_crop_pat13.nii.gz')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
       <a href=# onclick="alertFunction('Move data to long term storage')"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;"></a>
       {% if user.is_authenticated %}
       <span class="share_link" id=18><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span></br>
@@ -403,10 +436,10 @@ $(document).ready(addClickHandlers);
 
       <p>
       <div style="margin-bottom:128px;">
-      <a href="/visualization_demo/?ids=testing_axial_crop_pat13.tif,final.testing_axial_crop_pat13.tif" target="_blank"><img src="/static/file_final.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
+      <a href="/visualization_demo/?id=final.testing_axial_crop_pat13.tif" target="_blank"><img src="/static/file_final.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
       <a href=# onclick="alertFunction('This does not make any sense but I love it!')"><img src="/static/icon-deletelink.svg" title="delete" style="width:20px;height:20px;border:0;"></a>
-      <a href="/download/demo/19"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
-      <a href=# onclick="sliceViewer(19)"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
+      <a href="/download/demo/?id=final.testing_axial_crop_pat13.tif"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+      <a href=# onclick="sliceViewer('final.testing_axial_crop_pat13.tif')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
       <a href=# onclick="alertFunction('Move data to long term storage')"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;"></a>
       {% if user.is_authenticated %}
       <span class="share_link" id=19><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span></br>
@@ -435,10 +468,10 @@ $(document).ready(addClickHandlers);
 
       <p>
       <div>
-      <a href="/visualization_demo/?ids=theropod_claw.tif" target="_blank"><img src="/static/file_image.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
+      <a href="/visualization_demo/?id=theropod_claw.tif" target="_blank"><img src="/static/file_image.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
       <a href=# onclick="alertFunction('You can not delete the data.')"><img src="/static/icon-deletelink.svg" title="delete" style="width:20px;height:20px;border:0;"></a>
-      <a href="/download/demo/26"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
-      <a href=# onclick="sliceViewer(26)"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
+      <a href="/download/demo/?id=theropod_claw.tif"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+      <a href=# onclick="sliceViewer('theropod_claw.tif')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
       <a href=# onclick="alertFunction('Move data to long term storage')"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;"></a>
       {% if user.is_authenticated %}
       <span class="share_link" id=26><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span></br>
@@ -451,10 +484,10 @@ $(document).ready(addClickHandlers);
 
       <p>
       <div>
-      <a href="/visualization_demo/?ids=theropod_claw.tif,labels.theropod_claw.tif" target="_blank"><img src="/static/file_label.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
+      <a href="/visualization_demo/?id=labels.theropod_claw.tif" target="_blank"><img src="/static/file_label.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
       <a href=# onclick="alertFunction('Nice try...but no.')"><img src="/static/icon-deletelink.svg" title="delete" style="width:20px;height:20px;border:0;"></a>
-      <a href="/download/demo/27"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
-      <a href=# onclick="sliceViewer(27)"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
+      <a href="/download/demo/?id=labels.theropod_claw.tif"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+      <a href=# onclick="sliceViewer('labels.theropod_claw.tif')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
       <a href=# onclick="alertFunction('Move data to long term storage')"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;"></a>
       {% if user.is_authenticated %}
       <span class="share_link" id=27><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span></br>
@@ -467,10 +500,10 @@ $(document).ready(addClickHandlers);
 
       <p>
       <div>
-      <a href="/visualization_demo/?ids=theropod_claw.tif,final.theropod_claw.tif" target="_blank"><img src="/static/file_final.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
+      <a href="/visualization_demo/?id=final.theropod_claw.tif" target="_blank"><img src="/static/file_final.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
       <a href=# onclick="alertFunction('Maybe next time.')"><img src="/static/icon-deletelink.svg" title="delete" style="width:20px;height:20px;border:0;"></a>
-      <a href="/download/demo/28"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
-      <a href=# onclick="sliceViewer(28)"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
+      <a href="/download/demo/?id=final.theropod_claw.tif"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+      <a href=# onclick="sliceViewer('final.theropod_claw.tif')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
       <a href=# onclick="alertFunction('Move data to long term storage')"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;"></a>
       {% if user.is_authenticated %}
       <span class="share_link" id=28><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span></br>
@@ -478,6 +511,17 @@ $(document).ready(addClickHandlers);
       <a href=# onclick="alertFunction('Share data with other users or create a download link')"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;"></a></br>
       {% endif %}
       final.theropod_claw.tif
+      </div>
+      </p>
+
+      <p>
+      <div>
+      <a href="/visualization_demo/?id=final.theropod_claw.stl" target="_blank"><img src="/static/file_mesh.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
+      <a href=# onclick="alertFunction('You can not delete the data.')"><img src="/static/icon-deletelink.svg" title="delete" style="width:20px;height:20px;border:0;"></a>
+      <a href="/download/demo/?id=final.theropod_claw.stl"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+      <a href=# onclick="alertFunction('Move data to long term storage')"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;"></a>
+      <a href=# onclick="alertFunction('Share data with other users or create a download link')"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;"></a></br>
+      final.theropod_claw.stl
       </div>
       </p>
 
@@ -496,10 +540,10 @@ $(document).ready(addClickHandlers);
 
       <p>
       <div>
-      <a href="/visualization_demo/?ids=cockroach.tif" target="_blank"><img src="/static/file_image.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
+      <a href="/visualization_demo/?id=cockroach.tif" target="_blank"><img src="/static/file_image.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
       <a href=# onclick="alertFunction('You can not delete the data.')"><img src="/static/icon-deletelink.svg" title="delete" style="width:20px;height:20px;border:0;"></a>
-      <a href="/download/demo/23"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
-      <a href=# onclick="sliceViewer(23)"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
+      <a href="/download/demo/?id=cockroach.tif"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+      <a href=# onclick="sliceViewer('cockroach.tif')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
       <a href=# onclick="alertFunction('Move data to long term storage')"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;"></a>
       {% if user.is_authenticated %}
       <span class="share_link" id=23><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span></br>
@@ -512,10 +556,10 @@ $(document).ready(addClickHandlers);
 
       <p>
       <div>
-      <a href="/visualization_demo/?ids=cockroach.tif,labels.cockroach.tif" target="_blank"><img src="/static/file_label.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
+      <a href="/visualization_demo/?id=labels.cockroach.tif" target="_blank"><img src="/static/file_label.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
       <a href=# onclick="alertFunction('I really admire your effort.')"><img src="/static/icon-deletelink.svg" title="delete" style="width:20px;height:20px;border:0;"></a>
-      <a href="/download/demo/24"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
-      <a href=# onclick="sliceViewer(24)"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
+      <a href="/download/demo/?id=labels.cockroach.am"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+      <a href=# onclick="sliceViewer('labels.cockroach.am')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
       <a href=# onclick="alertFunction('Move data to long term storage')"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;"></a>
       {% if user.is_authenticated %}
       <span class="share_link" id=24><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span></br>
@@ -528,10 +572,10 @@ $(document).ready(addClickHandlers);
 
       <p>
       <div>
-      <a href="/visualization_demo/?ids=cockroach.tif,final.cockroach.tif" target="_blank"><img src="/static/file_final.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
+      <a href="/visualization_demo/?id=final.cockroach.tif" target="_blank"><img src="/static/file_final.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
       <a href=# onclick="alertFunction('You tried hard.')"><img src="/static/icon-deletelink.svg" title="delete" style="width:20px;height:20px;border:0;"></a>
-      <a href="/download/demo/25"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
-      <a href=# onclick="sliceViewer(25)"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
+      <a href="/download/demo/?id=final.cockroach.am"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+      <a href=# onclick="sliceViewer('final.cockroach.am')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
       <a href=# onclick="alertFunction('Move data to long term storage')"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;"></a>
       {% if user.is_authenticated %}
       <span class="share_link" id=25><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span></br>
@@ -539,6 +583,17 @@ $(document).ready(addClickHandlers);
       <a href=# onclick="alertFunction('Share data with other users or create a download link')"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;"></a></br>
       {% endif %}
       final.cockroach.am
+      </div>
+      </p>
+
+      <p>
+      <div>
+      <a href="/visualization_demo/?id=final.cockroach.stl" target="_blank"><img src="/static/file_mesh.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
+      <a href=# onclick="alertFunction('You can not delete the data.')"><img src="/static/icon-deletelink.svg" title="delete" style="width:20px;height:20px;border:0;"></a>
+      <a href="/download/demo/?id=final.cockroach.stl"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+      <a href=# onclick="alertFunction('Move data to long term storage')"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;"></a>
+      <a href=# onclick="alertFunction('Share data with other users or create a download link')"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;"></a></br>
+      final.cockroach.stl
       </div>
       </p>
 
@@ -557,10 +612,10 @@ $(document).ready(addClickHandlers);
 
       <p>
       <div>
-      <a href="/visualization_demo/?ids=NMB_F2875.tif" target="_blank"><img src="/static/file_image.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
+      <a href="/visualization_demo/?id=NMB_F2875.tif" target="_blank"><img src="/static/file_image.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
       <a href=# onclick="alertFunction('You can not delete the data.')"><img src="/static/icon-deletelink.svg" title="delete" style="width:20px;height:20px;border:0;"></a>
-      <a href="/download/demo/9"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
-      <a href=# onclick="sliceViewer(9)"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
+      <a href="/download/demo/?id=NMB_F2875.tif"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+      <a href=# onclick="sliceViewer('NMB_F2875.tif')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
       <a href=# onclick="alertFunction('Move data to long term storage')"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;"></a>
       {% if user.is_authenticated %}
       <span class="share_link" id=9><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span></br>
@@ -573,10 +628,10 @@ $(document).ready(addClickHandlers);
 
       <p>
       <div>
-      <a href="/visualization_demo/?ids=NMB_F2875.tif,labels.NMB_F2875.tif" target="_blank"><img src="/static/file_label.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
+      <a href="/visualization_demo/?id=labels.NMB_F2875.tif" target="_blank"><img src="/static/file_label.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
       <a href=# onclick="alertFunction('Nice try...but no.')"><img src="/static/icon-deletelink.svg" title="delete" style="width:20px;height:20px;border:0;"></a>
-      <a href="/download/demo/10"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
-      <a href=# onclick="sliceViewer(10)"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
+      <a href="/download/demo/?id=labels.NMB_F2875.tif"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+      <a href=# onclick="sliceViewer('labels.NMB_F2875.tif')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
       <a href=# onclick="alertFunction('Move data to long term storage')"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;"></a>
       {% if user.is_authenticated %}
       <span class="share_link" id=10><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span></br>
@@ -589,10 +644,10 @@ $(document).ready(addClickHandlers);
 
       <p>
       <div>
-      <a href="/visualization_demo/?ids=NMB_F2875.tif,final.NMB_F2875.tif" target="_blank"><img src="/static/file_final.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
+      <a href="/visualization_demo/?id=final.NMB_F2875.tif" target="_blank"><img src="/static/file_final.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
       <a href=# onclick="alertFunction('Maybe next time.')"><img src="/static/icon-deletelink.svg" title="delete" style="width:20px;height:20px;border:0;"></a>
-      <a href="/download/demo/11"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
-      <a href=# onclick="sliceViewer(11)"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
+      <a href="/download/demo/?id=final.NMB_F2875.tif"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+      <a href=# onclick="sliceViewer('final.NMB_F2875.tif')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
       <a href=# onclick="alertFunction('Move data to long term storage')"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;"></a>
       {% if user.is_authenticated %}
       <span class="share_link" id=11><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span></br>
@@ -600,6 +655,17 @@ $(document).ready(addClickHandlers);
       <a href=# onclick="alertFunction('Share data with other users or create a download link')"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;"></a></br>
       {% endif %}
       final.NMB_F2875.tif
+      </div>
+      </p>
+
+      <p>
+      <div>
+      <a href="/visualization_demo/?id=final.NMB_F2875.stl" target="_blank"><img src="/static/file_mesh.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
+      <a href=# onclick="alertFunction('You can not delete the data.')"><img src="/static/icon-deletelink.svg" title="delete" style="width:20px;height:20px;border:0;"></a>
+      <a href="/download/demo/?id=final.NMB_F2875.stl"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+      <a href=# onclick="alertFunction('Move data to long term storage')"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;"></a>
+      <a href=# onclick="alertFunction('Share data with other users or create a download link')"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;"></a></br>
+      final.NMB_F2875.stl
       </div>
       </p>
 
@@ -621,10 +687,10 @@ $(document).ready(addClickHandlers);
 
       <p>
       <div>
-      <a href="/visualization_demo/?ids=tumor.tif" target="_blank"><img src="/static/file_image.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
+      <a href="/visualization_demo/?id=tumor.tif" target="_blank"><img src="/static/file_image.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
       <a href=# onclick="alertFunction('You can not delete the data.')"><img src="/static/icon-deletelink.svg" title="delete" style="width:20px;height:20px;border:0;"></a>
-      <a href="/download/demo/6"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
-      <a href=# onclick="sliceViewer(6)"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
+      <a href="/download/demo/?id=tumor.tif"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+      <a href=# onclick="sliceViewer('tumor.tif')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
       <a href=# onclick="alertFunction('Move data to long term storage')"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;"></a>
       {% if user.is_authenticated %}
       <span class="share_link" id=6><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span></br>
@@ -637,10 +703,10 @@ $(document).ready(addClickHandlers);
 
       <p>
       <div>
-      <a href="/visualization_demo/?ids=tumor.tif,labels.tumor.tif" target="_blank"><img src="/static/file_label.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
+      <a href="/visualization_demo/?id=labels.tumor.tif" target="_blank"><img src="/static/file_label.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
       <a href=# onclick="alertFunction('I really admire your effort.')"><img src="/static/icon-deletelink.svg" title="delete" style="width:20px;height:20px;border:0;"></a>
-      <a href="/download/demo/7"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
-      <a href=# onclick="sliceViewer(7)"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
+      <a href="/download/demo/?id=labels.tumor.tif"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+      <a href=# onclick="sliceViewer('labels.tumor.tif')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
       <a href=# onclick="alertFunction('Move data to long term storage')"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;"></a>
       {% if user.is_authenticated %}
       <span class="share_link" id=7><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span></br>
@@ -653,10 +719,10 @@ $(document).ready(addClickHandlers);
 
       <p>
       <div>
-      <a href="/visualization_demo/?ids=tumor.tif,final.tumor.tif" target="_blank"><img src="/static/file_final.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
+      <a href="/visualization_demo/?id=final.tumor.tif" target="_blank"><img src="/static/file_final.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
       <a href=# onclick="alertFunction('You tried hard.')"><img src="/static/icon-deletelink.svg" title="delete" style="width:20px;height:20px;border:0;"></a>
-      <a href="/download/demo/8"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
-      <a href=# onclick="sliceViewer(8)"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
+      <a href="/download/demo/?id=final.tumor.tif"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+      <a href=# onclick="sliceViewer('final.tumor.tif')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
       <a href=# onclick="alertFunction('Move data to long term storage')"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;"></a>
       {% if user.is_authenticated %}
       <span class="share_link" id=8><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span></br>
@@ -682,10 +748,10 @@ $(document).ready(addClickHandlers);
 
       <p>
       <div>
-      <a href="/visualization_demo/?ids=screw_joint.tif" target="_blank"><img src="/static/file_image.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
+      <a href="/visualization_demo/?id=screw_joint.tif" target="_blank"><img src="/static/file_image.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
       <a href=# onclick="alertFunction('You can not delete the data.')"><img src="/static/icon-deletelink.svg" title="delete" style="width:20px;height:20px;border:0;"></a>
-      <a href="/download/demo/0"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
-      <a href=# onclick="sliceViewer(0)"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
+      <a href="/download/demo/?id=screw_joint.tif"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+      <a href=# onclick="sliceViewer('screw_joint.tif')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
       <a href=# onclick="alertFunction('Move data to long term storage')"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;"></a>
       {% if user.is_authenticated %}
       <span class="share_link" id=0><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span></br>
@@ -698,10 +764,10 @@ $(document).ready(addClickHandlers);
 
       <p>
       <div>
-      <a href="/visualization_demo/?ids=screw_joint.tif,labels.screw_joint.tif" target="_blank"><img src="/static/file_label.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
+      <a href="/visualization_demo/?id=labels.screw_joint.tif" target="_blank"><img src="/static/file_label.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
       <a href=# onclick="alertFunction('Never give up!')"><img src="/static/icon-deletelink.svg" title="delete" style="width:20px;height:20px;border:0;"></a>
-      <a href="/download/demo/1"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
-      <a href=# onclick="sliceViewer(1)"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
+      <a href="/download/demo/?id=labels.screw_joint.tif"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+      <a href=# onclick="sliceViewer('labels.screw_joint.tif')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
       <a href=# onclick="alertFunction('Move data to long term storage')"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;"></a>
       {% if user.is_authenticated %}
       <span class="share_link" id=1><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span></br>
@@ -715,10 +781,10 @@ $(document).ready(addClickHandlers);
       {% if k == 2 %}
           <p>
           <div>
-          <a href="/visualization_demo/?ids=screw_joint.tif,final.screw_joint.tif" target="_blank"><img src="/static/file_final.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
+          <a href="/visualization_demo/?id=final.screw_joint.tif" target="_blank"><img src="/static/file_final.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
       <a href=# onclick="alertFunction('Where have all the pinguins gone?')"><img src="/static/icon-deletelink.svg" title="delete" style="width:20px;height:20px;border:0;"></a>
-          <a href="/download/demo/2"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
-          <a href=# onclick="sliceViewer(2)"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
+          <a href="/download/demo/?id=final.screw_joint.tif"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+          <a href=# onclick="sliceViewer('final.screw_joint.tif')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
           <a href=# onclick="alertFunction('Move data to long term storage')"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;"></a>
           {% if user.is_authenticated %}
           <span class="share_link" id=2><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span></br>
