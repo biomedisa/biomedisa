@@ -1,11 +1,11 @@
-#  Ubuntu 18.04.5 LTS (full installation)
+#  Ubuntu 20.04.3 LTS (full installation)
 
 - [Install Python and pip](#install-python-and-pip)
 - [Install software dependencies](#install-software-dependencies)
 - [Install pip packages](#install-pip-packages)
 - [Download or clone Biomedisa](#download-or-clone-biomedisa)
 - [Install MySQL database](#install-mysql-database)
-- [Install NVIDIA driver and CUDA 11.0](#install-nvidia-driver-and-cuda-11.0)
+- [Install CUDA 11.4](#install-cuda-11.4)
 - [Install TensorFlow](#install-tensorflow)
 - [Run Biomedisa](#run-biomedisa)
 - [Install Apache Server (optional)](#install-apache-server-optional)
@@ -58,24 +58,27 @@ In particular, adapt the following lines in `biomedisa/biomedisa_app/config.py`
 # Install MySQL
 sudo apt-get install mysql-server
 
-    *****************************
-    set root password for MySQL database
-    *****************************
-    if password was not set during installation
-    login as sudo and set your password manually
-    *****************************
-    sudo mysql -u root -p
-    ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'biomedisa_root_password';
-    quit;
-    sudo service mysql stop
-    sudo service mysql start
-    *****************************
+# Login to MySQL (as root)
+sudo mysql -u root -p
 
-# Login to MySQL (with the password you just set)
+# If ERROR 2002 (HY000): Can't connect to local MySQL server through socket '/var/run/mysqld/mysqld.sock' (2)
+sudo service mysql stop
+sudo usermod -d /var/lib/mysql/ mysql
+sudo service mysql start
+sudo mysql -u root -p
+
+# Set root password for MySQL database
+ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'biomedisa_root_password';
+quit;
+sudo service mysql stop
+sudo service mysql start
+
+# Login to MySQL (with the 'biomedisa_root_password' you just set)
 mysql -u root -p
 
 # Create a user 'biomedisa' with password 'biomedisa_user_password' (same as set for 'DJANGO_DATABASE')
-GRANT ALL PRIVILEGES ON *.* TO 'biomedisa'@'localhost' IDENTIFIED BY 'biomedisa_user_password';
+CREATE USER 'biomedisa'@'localhost' IDENTIFIED BY 'biomedisa_user_password';
+GRANT ALL PRIVILEGES ON *.* TO 'biomedisa'@'localhost' WITH GRANT OPTION;
 
 # Create Biomedisa database
 CREATE DATABASE biomedisa_database;
@@ -90,21 +93,21 @@ python3 manage.py migrate
 python3 manage.py createsuperuser
 ```
 
-#### Install NVIDIA driver and CUDA 11.0
+#### Install CUDA 11.4
 ```
 # Add NVIDIA package repositories
-wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/cuda-ubuntu1804.pin
-sudo mv cuda-ubuntu1804.pin /etc/apt/preferences.d/cuda-repository-pin-600
-sudo apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/7fa2af80.pub
-sudo add-apt-repository "deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/ /"
+wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-ubuntu2004.pin
+sudo mv cuda-ubuntu2004.pin /etc/apt/preferences.d/cuda-repository-pin-600
+sudo apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/7fa2af80.pub
+sudo add-apt-repository "deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/ /"
 sudo apt-get update
-sudo apt-get install --no-install-recommends cuda-11-0
+sudo apt-get install --no-install-recommends cuda-11-4
 
 # Reboot. Check that GPUs are visible using the command
 nvidia-smi
 
 # Add the following lines to your .bashrc (e.g. nano ~/.bashrc)
-export CUDA_HOME=/usr/local/cuda-11.0
+export CUDA_HOME=/usr/local/cuda-11.4
 export LD_LIBRARY_PATH=${CUDA_HOME}/lib64
 export PATH=${CUDA_HOME}/bin:${PATH}
 
@@ -113,7 +116,7 @@ source ~/.bashrc
 nvcc --version
 
 # Install PyCUDA
-sudo -H PATH=/usr/local/cuda-11.0/bin:${PATH} pip3 install --upgrade pycuda
+sudo -H "PATH=/usr/local/cuda-11.4/bin:${PATH}" pip3 install --upgrade pycuda
 
 # Verify that PyCUDA is working properly
 python3 ~/git/biomedisa/biomedisa_features/pycuda_test.py
@@ -121,26 +124,26 @@ python3 ~/git/biomedisa/biomedisa_features/pycuda_test.py
 
 #### Install TensorFlow
 ```
-wget http://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu1804/x86_64/nvidia-machine-learning-repo-ubuntu1804_1.0.0-1_amd64.deb
-sudo apt install ./nvidia-machine-learning-repo-ubuntu1804_1.0.0-1_amd64.deb
+wget https://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu2004/x86_64/nvidia-machine-learning-repo-ubuntu2004_1.0.0-1_amd64.deb
+sudo apt install ./nvidia-machine-learning-repo-ubuntu2004_1.0.0-1_amd64.deb
 sudo apt-get update
 
-wget https://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu1804/x86_64/libnvinfer7_7.1.3-1+cuda11.0_amd64.deb
-sudo apt install ./libnvinfer7_7.1.3-1+cuda11.0_amd64.deb
+wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/libnvinfer8_8.2.1-1+cuda11.4_amd64.deb
+sudo apt install ./libnvinfer8_8.2.1-1+cuda11.4_amd64.deb
 sudo apt-get update
 
 # Install development and runtime libraries (~4GB)
 sudo apt-get install --no-install-recommends \
-    libcudnn8=8.0.4.30-1+cuda11.0  \
-    libcudnn8-dev=8.0.4.30-1+cuda11.0
+    libcudnn8=8.2.4.15-1+cuda11.4  \
+    libcudnn8-dev=8.2.4.15-1+cuda11.4
 
 # Install TensorRT. Requires that libcudnn8 is installed above.
-sudo apt-get install -y --no-install-recommends libnvinfer7=7.1.3-1+cuda11.0 \
-    libnvinfer-dev=7.1.3-1+cuda11.0 \
-    libnvinfer-plugin7=7.1.3-1+cuda11.0
+sudo apt-get install -y --no-install-recommends libnvinfer8=8.2.1-1+cuda11.4 \
+    libnvinfer-dev=8.2.1-1+cuda11.4 \
+    libnvinfer-plugin8=8.2.1-1+cuda11.4
 
 # Install TensorFlow
-sudo -H pip3 install tensorflow-gpu==2.4.1
+sudo -H pip3 install tensorflow-gpu
 ```
 
 #### Run Biomedisa
