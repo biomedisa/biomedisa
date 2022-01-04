@@ -1,4 +1,4 @@
-# Ubuntu 18.04.5 LTS (command-line-only)
+# Ubuntu 18.04.5 LTS + CUDA 11.0 (command-line-only)
 
 - [Install Python and pip](#install-python-and-pip)
 - [Install software dependencies](#install-software-dependencies)

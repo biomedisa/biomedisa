@@ -26,9 +26,9 @@ Biomedisa (https://biomedisa.org) is a free and easy-to-use open-source online p
 + [CUDA Toolkit](https://developer.nvidia.com/cuda-toolkit-archive) - CUDA 11.0 or higher.
 
 # Installation (command-line-only)
-+ [Ubuntu 18.04.5 + CUDA 11.0 (Pascal, Volta)](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu18.04+cuda11.0_cli.md)
-+ [Ubuntu 20.04.3 + CUDA 11.0 (Pascal, Volta)](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu20.04+cuda11.0_cli.md)
-+ [Ubuntu 20.04.3 + CUDA 11.4 (Ampere)](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu20.04+cuda11.4_cli.md)
++ [Ubuntu 18.04.5 + CUDA 11.0 (Pascal, Volta)](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu1804+cuda11.0_cli.md)
++ [Ubuntu 20.04.3 + CUDA 11.0 (Pascal, Volta)](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu2004+cuda11.0_cli.md)
++ [Ubuntu 20.04.3 + CUDA 11.4 (Ampere)](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu2004+cuda11.4_cli.md)
 + [Windows 10 + CUDA 11.0 (Pascal, Volta)](https://github.com/biomedisa/biomedisa/blob/master/README/windows10+cuda11.0_cli.md)
 
 # Full installation (GUI)
