@@ -1,4 +1,4 @@
-#  Ubuntu 20.04.3 LTS (full installation)
+#  Ubuntu 20.04.3 LTS + CUDA 11.4 (full installation)
 
 - [Install Python and pip](#install-python-and-pip)
 - [Install software dependencies](#install-software-dependencies)

@@ -1,4 +1,4 @@
-# Windows 10 (command-line-only)
+# Windows 10 + CUDA 11.0 (command-line-only)
 
 - [Install Microsoft Visual Studio 2017](#install-microsoft-visual-studio-2017)
 - [Set Path Variables](#set-path-variables)

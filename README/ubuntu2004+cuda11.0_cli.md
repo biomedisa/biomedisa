@@ -1,4 +1,4 @@
-# Ubuntu 20.04.3 LTS (command-line-only)
+# Ubuntu 20.04.3 LTS + CUDA 11.0 (command-line-only)
 
 - [Install Python and pip](#install-python-and-pip)
 - [Install software dependencies](#install-software-dependencies)

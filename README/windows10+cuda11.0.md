@@ -1,4 +1,4 @@
-# Windows 10 (full installation)
+# Windows 10 + CUDA 11.0 (full installation)
 
 #### Download or clone Biomedisa
 Download and install [Git](https://github.com/git-for-windows/git/releases/download/v2.28.0.windows.1/Git-2.28.0-64-bit.exe).
