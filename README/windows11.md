@@ -23,7 +23,7 @@ wsl --install
 
 #### Download and extract installation files
 + [Biomedisa + Cuda 11.0 (Pascal, Volta)](https://biomedisa.org/media/Biomedisa-22.01.1p.zip)
-+ [Biomedisa + Cuda 11.4 (Ampere)](https://biomedisa.org/media/Biomedisa-21.12.1.zip)
++ [Biomedisa + Cuda 11.4 (Ampere)](https://biomedisa.org/media/Biomedisa-22.01.1.zip)
 
 #### Run installation script
 ```
