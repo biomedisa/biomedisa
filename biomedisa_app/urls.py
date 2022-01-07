@@ -78,8 +78,6 @@ urlpatterns = [
     url(r'^remove_from_queue/$', views.remove_from_queue, name='remove_from_queue'),
     # reset a file
     url(r'^reset/(?P<id>\d+)/$', views.reset, name='reset'),
-    # list of publications
-    url(r'^publications/$', views.publications, name='publications'),
     # create account
     url(r'^register/$', views.register, name='register'),
     url(r'^activate/(?P<key>.+)$', views.activation, name='activation'),

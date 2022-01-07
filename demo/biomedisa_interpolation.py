@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 ##########################################################################
 ##                                                                      ##
 ##  Copyright (c) 2020 Philipp Lösel. All rights reserved.              ##

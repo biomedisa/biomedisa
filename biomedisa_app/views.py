@@ -32,7 +32,6 @@
 # 07. faq(request)
 # 08. contact(request)
 # 09. impressum(request)
-# 10. publications(request)
 # 11. logout_user(request)
 # 12. sendEmail(datas)
 # 13. generate_activation_key()
@@ -177,10 +176,6 @@ def contact(request):
 # 09. impressum
 def impressum(request):
     return render(request, 'impressum.html')
-
-# 10. publications
-def publications(request):
-    return render(request, 'publications.html')
 
 # 11. logout_user
 @login_required
