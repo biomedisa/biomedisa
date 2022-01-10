@@ -57,7 +57,7 @@ python3 ~/git/biomedisa/demo/biomedisa_interpolation.py ~/Downloads/tumor.tif ~/
 python git/biomedisa/demo/biomedisa_interpolation.py Downloads/tumor.tif Downloads/labels.tumor.tif
 
 # Windows 10 21H2 and 11 (replace "Biomedisa-2x.xx.x" with your Biomedisa version, use "wsl -l -v" to get the version)
-wsl -d Biomedisa-2x.xx.x -u biomedisa ~/git/biomedisa/demo/biomedisa_interpolation.py Downloads/tumor.tif Downloads/labels.tumor.tif
+%USERPROFILE%\AppData\Biomedisa-2x.xx.x\biomedisa_interpolation.cmd Downloads/tumor.tif Downloads/labels.tumor.tif
 ```
 
 #### Further examples
@@ -104,7 +104,7 @@ python3 ~/git/biomedisa/demo/biomedisa_deeplearning.py ~/Downloads/testing_axial
 python git/biomedisa/demo/biomedisa_deeplearning.py Downloads/testing_axial_crop_pat13.nii.gz Downloads/heart.h5 -predict -bs 6
 
 # Windows 10 21H2 and 11 (replace "Biomedisa-2x.xx.x" with your Biomedisa version, use "wsl -l -v" to get the version)
-wsl -d Biomedisa-2x.xx.x -u biomedisa ~/git/biomedisa/demo/biomedisa_interpolation.py Downloads/testing_axial_crop_pat13.nii.gz Downloads/heart.h5 -p -bs 6
+wsl -d Biomedisa-2x.xx.x -u biomedisa python3 ~/git/biomedisa/demo/biomedisa_deeplearning.py Downloads/testing_axial_crop_pat13.nii.gz Downloads/heart.h5 -p -bs 6
 ```
 
 To train the neural network yourself, download and extract the training data from the [gallery](https://biomedisa.org/gallery/) or directly as follows:
@@ -125,7 +125,7 @@ python3 ~/git/biomedisa/demo/biomedisa_deeplearning.py ~/Downloads/training_hear
 python git/biomedisa/demo/biomedisa_deeplearning.py Downloads/training_heart Downloads/training_heart_labels -train -epochs 200 -bs 24
 
 # Windows 10 21H2 and 11 (replace "Biomedisa-2x.xx.x" with your Biomedisa version, use "wsl -l -v" to get the version)
-wsl -d Biomedisa-2x.xx.x -u biomedisa ~/git/biomedisa/demo/biomedisa_interpolation.py Downloads/training_heart Downloads/training_heart_labels -train -epochs 200 -bs 24
+wsl -d Biomedisa-2x.xx.x -u biomedisa python3 ~/git/biomedisa/demo/biomedisa_deeplearning.py Downloads/training_heart Downloads/training_heart_labels -train -epochs 200 -bs 24
 ```
 
 # Update Biomedisa
