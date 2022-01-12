@@ -57,7 +57,8 @@ python3 ~/git/biomedisa/demo/biomedisa_interpolation.py ~/Downloads/tumor.tif ~/
 python git/biomedisa/demo/biomedisa_interpolation.py Downloads/tumor.tif Downloads/labels.tumor.tif
 
 # Windows 10 21H2 and 11 (replace "Biomedisa-2x.xx.x" with your Biomedisa version, use "wsl -l -v" to get the version)
-%USERPROFILE%\AppData\Biomedisa-2x.xx.x\biomedisa_interpolation.cmd Downloads/tumor.tif Downloads/labels.tumor.tif
+cd AppData\Biomedisa-2x.xx.x
+biomedisa_interpolation.cmd Downloads/tumor.tif Downloads/labels.tumor.tif
 ```
 
 #### Further examples
@@ -74,7 +75,12 @@ wget --no-check-certificate https://biomedisa.org/download/demo/?id=labels.NMB_F
 
 Run the segmentation using e.g. 4 GPUs.
 ```
+# Ubuntu
 mpiexec -n 4 python3 ~/git/biomedisa/demo/biomedisa_interpolation.py ~/Downloads/NMB_F2875.tif ~/Downloads/labels.NMB_F2875.tif
+
+# Windows 10 21H2 and 11 (replace "Biomedisa-2x.xx.x" with your Biomedisa version, use "wsl -l -v" to get the version)
+cd AppData\Biomedisa-2x.xx.x
+biomedisa_interpolation.cmd -n 4 Downloads/NMB_F2875.tif Downloads/labels.NMB_F2875.tif
 ```
 
 Obtain uncertainty and smoothing as optional results.
