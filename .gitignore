@@ -8,3 +8,4 @@ config.py
 /biomedisa_app/paraview
 paraview.zip
 !**/.gitkeep
+DJANGO_KEY.txt

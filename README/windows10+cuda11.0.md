@@ -92,11 +92,9 @@ In particular, adapt the following lines in `biomedisa/biomedisa_app/config.py`
 ```
 'OS' - Must be 'windows'
 'PATH_TO_BIOMEDISA' - This is where your biomedisa folder is located e.g. 'C:/Users/USERNAME/git/biomedisa'
-'SECRET_KEY' - randomly choose a new key
 'DJANGO_DATABASE' - Change this password according to the password set during MySQL setup
 'ALLOWED_HOSTS' - ['YOUR_IP', 'localhost', '0.0.0.0']
 'DEBUG' - Must be True
-'FIRST_QUEUE_NGPUS' - the total number of GPUs available
 ```
 
 #### Set up database

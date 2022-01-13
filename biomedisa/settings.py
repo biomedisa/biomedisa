@@ -1,4 +1,9 @@
 import os, sys
+import string
+import random
+
+def id_generator(size=50, chars=string.ascii_uppercase + string.ascii_lowercase + string.digits):
+    return ''.join(random.SystemRandom().choice(chars) for _ in range(size))
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -7,7 +12,14 @@ sys.path.append(BASE_DIR)
 from biomedisa_app.config import config
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = config['SECRET_KEY']
+if not os.path.exists('DJANGO_KEY.txt'):
+    SECRET_KEY = id_generator()
+    f = open('DJANGO_KEY.txt', 'w')
+    f.write(SECRET_KEY)
+    f.close()
+else:
+    f = open('DJANGO_KEY.txt', 'r')
+    SECRET_KEY = f.read()
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config['DEBUG']
