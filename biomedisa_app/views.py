@@ -1368,20 +1368,23 @@ def app(request):
             'datasize':datasize, 'storage_full':storage_full, 'storage_size':storage_size,
             'process_running':process_running, 'process_list':process_list})
 
+# return error
+def return_error(img, error_message):
+    img.status = 0
+    img.pid = 0
+    img.save()
+    Upload.objects.create(user=img.user, project=img.project, log=1, imageType=None, shortfilename=error_message)
+    path_to_logfile = config['PATH_TO_BIOMEDISA'] + '/log/logfile.txt'
+    with open(path_to_logfile, 'a') as logfile:
+        print('%s %s %s %s' %(time.ctime(), img.user.username, img.shortfilename, error_message), file=logfile)
+    send_error_message(img.user.username, img.shortfilename, error_message)
+
 # search for failed jobs
 def init_check_queue(id, processing_queue):
     images = Upload.objects.filter(status=2, queue=processing_queue)
     for img in images:
         if img.id != id:
-            img.status = 0
-            img.pid = 0
-            img.save()
-            error_message = 'Something went wrong. Please restart.'
-            Upload.objects.create(user=img.user, project=img.project, log=1, imageType=None, shortfilename=error_message)
-            path_to_logfile = config['PATH_TO_BIOMEDISA'] + '/log/logfile.txt'
-            with open(path_to_logfile, 'a') as logfile:
-                print('%s %s %s %s' %(time.ctime(), img.user.username, img.shortfilename, error_message), file=logfile)
-            send_error_message(img.user.username, img.shortfilename, error_message)
+            return_error(img, 'Something went wrong. Please restart.')
 
 # 28. constant_time_compare
 def constant_time_compare(val1, val2):
@@ -1745,6 +1748,22 @@ def init_random_walk(image, label, second_queue):
             cluster = config['SECOND_QUEUE_CLUSTER']
         else:
             ngpus = str(config['FIRST_QUEUE_NGPUS'])
+            if ngpus == 'all':
+
+                # import pycuda
+                try:
+                    import pycuda.driver as drv
+                except ImportError:
+                    return_error(image, 'No NVIDIA GPUs detected.')
+                    raise ImportError('PyCUDA is not installed or no NVIDIA CUDA-Enabled GPUs detected.')
+                drv.init()
+
+                # get number of available gpus
+                ngpus = str(drv.Device.count())
+                if int(ngpus) == 0:
+                    return_error(image, 'No NVIDIA GPUs detected.')
+                    raise Exception('No NVIDIA CUDA-Enabled GPUs detected.')
+
             host = config['FIRST_QUEUE_HOST']
             cluster = config['FIRST_QUEUE_CLUSTER']
 
@@ -1847,6 +1866,7 @@ def run(request):
             results = {'success':True}
         except:
             pass
+
     return JsonResponse(results)
 
 # 44. stop running job
