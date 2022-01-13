@@ -3,6 +3,7 @@ config = {
     'SERVER' : 'http://localhost:8080', # localhost, URL of your homepage e.g. 'https://biomedisa.org' or your internal IP e.g. 'http://192.168.176.30'
     'SERVER_ALIAS' : 'biomedisa-001', # an alias name for your server (for email notification and logfiles)
     'PATH_TO_BIOMEDISA' : '/home/dummy/git/biomedisa', # this is the path to your main biomedisa folder e.g. '/home/dummy/git/biomedisa'
+    'SECRET_KEY' : '...', # some random string
     'DJANGO_DATABASE' : '...', # password of your mysql database
     'ALLOWED_HOSTS' : ['192.168.176.30', 'localhost', '0.0.0.0'], # you must tell django explicitly which hosts are allowed (e.g. your IP or the url of your homepage)
     'SECURE_MODE' : False, # supported only on linux (this mode is highly recommended if you use biomedisa for production with users you do not trust)
