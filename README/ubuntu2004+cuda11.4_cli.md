@@ -70,8 +70,8 @@ wget http://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu2
 sudo apt install ./nvidia-machine-learning-repo-ubuntu2004_1.0.0-1_amd64.deb
 sudo apt-get update
 
-wget https://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu2004/x86_64/libnvinfer8_8.2.1-1+cuda11.4_amd64.deb
-sudo apt install ./libnvinfer8_8.2.1-1+cuda11.4_amd64.deb
+wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/libnvinfer8_8.2.3-1+cuda11.4_amd64.deb
+sudo apt install ./libnvinfer8_8.2.3-1+cuda11.4_amd64.deb
 sudo apt-get update
 
 # Install development and runtime libraries (~4GB)
@@ -80,9 +80,9 @@ sudo apt-get install --no-install-recommends \
     libcudnn8-dev=8.2.4.15-1+cuda11.4
 
 # Install TensorRT. Requires that libcudnn8 is installed above.
-sudo apt-get install -y --no-install-recommends libnvinfer8=8.2.1-1+cuda11.4 \
-    libnvinfer-dev=8.2.1-1+cuda11.4 \
-    libnvinfer-plugin8=8.2.1-1+cuda11.4
+sudo apt-get install -y --no-install-recommends libnvinfer8=8.2.3-1+cuda11.4 \
+    libnvinfer-dev=8.2.3-1+cuda11.4 \
+    libnvinfer-plugin8=8.2.3-1+cuda11.4
 
 # Install TensorFlow
 sudo -H pip3 install tensorflow-gpu
