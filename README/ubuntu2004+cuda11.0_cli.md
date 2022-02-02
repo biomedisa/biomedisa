@@ -70,7 +70,7 @@ wget http://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu2
 sudo apt install ./nvidia-machine-learning-repo-ubuntu2004_1.0.0-1_amd64.deb
 sudo apt-get update
 
-wget https://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu2004/x86_64/libnvinfer8_8.0.0-1+cuda11.0_amd64.deb
+wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/libnvinfer8_8.0.0-1+cuda11.0_amd64.deb
 sudo apt install ./libnvinfer8_8.0.0-1+cuda11.0_amd64.deb
 sudo apt-get update
 
