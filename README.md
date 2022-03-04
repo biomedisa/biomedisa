@@ -104,10 +104,10 @@ wget --no-check-certificate https://biomedisa.org/download/demo/?id=testing_axia
 Use the trained neural network to **predict the result** of the test image. The result will be saved in `Downloads` as `final.testing_axial_crop_pat13.tif`.
 ```
 # Ubuntu
-python3 ~/git/biomedisa/demo/biomedisa_deeplearning.py ~/Downloads/testing_axial_crop_pat13.nii.gz ~/Downloads/heart.h5 -predict -bs 6
+python3 ~/git/biomedisa/demo/biomedisa_deeplearning.py ~/Downloads/testing_axial_crop_pat13.nii.gz ~/Downloads/heart.h5 --predict -bs 6
 
 # Windows
-python git/biomedisa/demo/biomedisa_deeplearning.py Downloads/testing_axial_crop_pat13.nii.gz Downloads/heart.h5 -predict -bs 6
+python git/biomedisa/demo/biomedisa_deeplearning.py Downloads/testing_axial_crop_pat13.nii.gz Downloads/heart.h5 --predict -bs 6
 
 # Windows 10 21H2 and 11 (replace "Biomedisa-2x.xx.x" with your Biomedisa version, use "wsl -l -v" to get the version)
 wsl -d Biomedisa-2x.xx.x -u biomedisa python3 ~/git/biomedisa/demo/biomedisa_deeplearning.py Downloads/testing_axial_crop_pat13.nii.gz Downloads/heart.h5 -p -bs 6
@@ -125,13 +125,19 @@ tar -xf training_heart_labels.tar
 **Train a neural network** with 200 epochs and batch size (-bs) of 24. The result will be saved in `Downloads` as `heart.h5`. If you have a single GPU or low memory, reduce the batch size to 6.
 ```
 # Ubuntu
-python3 ~/git/biomedisa/demo/biomedisa_deeplearning.py ~/Downloads/training_heart ~/Downloads/training_heart_labels -train -epochs 200 -bs 24
+python3 ~/git/biomedisa/demo/biomedisa_deeplearning.py ~/Downloads/training_heart ~/Downloads/training_heart_labels --train --epochs 200 -bs 24
 
 # Windows
-python git/biomedisa/demo/biomedisa_deeplearning.py Downloads/training_heart Downloads/training_heart_labels -train -epochs 200 -bs 24
+python git/biomedisa/demo/biomedisa_deeplearning.py Downloads/training_heart Downloads/training_heart_labels --train --epochs 200 -bs 24
 
 # Windows 10 21H2 and 11 (replace "Biomedisa-2x.xx.x" with your Biomedisa version, use "wsl -l -v" to get the version)
-wsl -d Biomedisa-2x.xx.x -u biomedisa python3 ~/git/biomedisa/demo/biomedisa_deeplearning.py Downloads/training_heart Downloads/training_heart_labels -train -epochs 200 -bs 24
+wsl -d Biomedisa-2x.xx.x -u biomedisa python3 ~/git/biomedisa/demo/biomedisa_deeplearning.py Downloads/training_heart Downloads/training_heart_labels --train --epochs 200 -bs 24
+```
+
+To use e.g. 80 \% of your training data for training and 20 \% for validation of your model, use **--validation_split 0.8** (or **-vs 0.8**)
+```
+# Ubuntu
+python3 ~/git/biomedisa/demo/biomedisa_deeplearning.py ~/Downloads/training_heart ~/Downloads/training_heart_labels --train -vs 0.8
 ```
 
 # Update Biomedisa
