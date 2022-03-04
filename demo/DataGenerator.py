@@ -33,13 +33,12 @@ def rotate_patch(src,trg,k,l,m,cos_a,sin_a,z_patch,y_patch,x_patch,imageHeight,i
 
 class DataGenerator(tf.keras.utils.Sequence):
     'Generates data for Keras'
-    def __init__(self, img, label, position, list_IDs_fg, list_IDs_bg, batch_size=32, dim=(32,32,32),
-                 dim_img=(32,32,32), n_channels=1, n_classes=10, shuffle=True, augment=(False,False,False,0)):
+    def __init__(self, img, label, position, list_IDs, counts, shuffle, batch_size=32, dim=(32,32,32),
+                 dim_img=(32,32,32), n_classes=10, n_channels=1, class_weights=False, augment=(False,False,False,0)):
         'Initialization'
         self.dim = dim
         self.dim_img = dim_img
-        self.list_IDs_fg = list_IDs_fg
-        self.list_IDs_bg = list_IDs_bg
+        self.list_IDs = list_IDs
         self.batch_size = batch_size
         self.label = label
         self.img = img
@@ -48,61 +47,33 @@ class DataGenerator(tf.keras.utils.Sequence):
         self.n_classes = n_classes
         self.shuffle = shuffle
         self.augment = augment
+        self.counts = counts
+        self.class_weights = class_weights
         self.on_epoch_end()
 
     def __len__(self):
         'Denotes the number of batches per epoch'
-        if len(self.list_IDs_bg) > 0:
-            len_IDs = 2 * max(len(self.list_IDs_fg), len(self.list_IDs_bg))
-        else:
-            len_IDs = len(self.list_IDs_fg)
+        len_IDs = len(self.list_IDs)
         return int(np.floor(len_IDs / self.batch_size))
 
     def __getitem__(self, index):
         'Generate one batch of data'
+        # Generate indexes of the batch
+        indexes = self.indexes[index*self.batch_size:(index+1)*self.batch_size]
 
-        if len(self.list_IDs_bg) > 0:
-
-            # len IDs
-            len_IDs = max(len(self.list_IDs_fg), len(self.list_IDs_bg))
-
-            # upsample lists of indexes to the same size
-            repetitions = int(np.floor(len_IDs / len(self.list_IDs_fg))) + 1
-            upsampled_indexes_fg = np.tile(self.indexes_fg, repetitions)
-            upsampled_indexes_fg = upsampled_indexes_fg[:len_IDs]
-
-            repetitions = int(np.floor(len_IDs / len(self.list_IDs_bg))) + 1
-            upsampled_indexes_bg = np.tile(self.indexes_bg, repetitions)
-            upsampled_indexes_bg = upsampled_indexes_bg[:len_IDs]
-
-            # Generate indexes of the batch
-            tmp_batch_size = int(self.batch_size / 2)
-            indexes_fg = upsampled_indexes_fg[index*tmp_batch_size:(index+1)*tmp_batch_size]
-            indexes_bg = upsampled_indexes_bg[index*tmp_batch_size:(index+1)*tmp_batch_size]
-
-            # Find list of IDs
-            list_IDs_temp = [self.list_IDs_fg[k] for k in indexes_fg] + [self.list_IDs_bg[k] for k in indexes_bg]
-
-        else:
-
-            # Generate indexes of the batch
-            indexes_fg = self.indexes_fg[index*self.batch_size:(index+1)*self.batch_size]
-
-            # Find list of IDs
-            list_IDs_temp = [self.list_IDs_fg[k] for k in indexes_fg]
+        # Find list of IDs
+        list_IDs_temp = [self.list_IDs[k] for k in indexes]
 
         # Generate data
-        X, y = self.__data_generation(list_IDs_temp)
+        X, y, sample_weights = self.__data_generation(list_IDs_temp)
 
-        return X, y
+        return X, y, sample_weights
 
-    def on_epoch_end(self):
+    def on_epoch_end(self, logs={}):
         'Updates indexes after each epoch'
-        self.indexes_fg = np.arange(len(self.list_IDs_fg))
-        self.indexes_bg = np.arange(len(self.list_IDs_bg))
+        self.indexes = np.arange(len(self.list_IDs))
         if self.shuffle == True:
-            np.random.shuffle(self.indexes_fg)
-            np.random.shuffle(self.indexes_bg)
+            np.random.shuffle(self.indexes)
 
     def __data_generation(self, list_IDs_temp):
         'Generates data containing batch_size samples' # X : (n_samples, *dim, n_channels)
@@ -160,4 +131,12 @@ class DataGenerator(tf.keras.utils.Sequence):
             if self.n_channels == 2:
                 X[i,:,:,:,1] = self.position[k:k+self.dim[0],l:l+self.dim[1],m:m+self.dim[2]]
 
-        return X, tf.keras.utils.to_categorical(y, num_classes=self.n_classes)
+        # sample weights
+        sample_weights = np.ones(y.shape, dtype=np.float32)
+        if self.class_weights:
+            counts_max = np.amax(self.counts)
+            for i in range(self.n_classes):
+                sample_weights[y==i] = counts_max / self.counts[i]
+
+        return X, tf.keras.utils.to_categorical(y, num_classes=self.n_classes), sample_weights
+

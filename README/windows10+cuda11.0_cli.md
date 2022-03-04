@@ -47,7 +47,7 @@ Open Command Prompt (e.g. Windows Search `Command Prompt`).
 ```
 pip3 install --upgrade pip pypiwin32 setuptools wheel numpy scipy h5py colorama numba
 pip3 install --upgrade imagecodecs-lite tifffile scikit-image opencv-python Pillow
-pip3 install --upgrade nibabel medpy SimpleITK itk vtk numpy-stl
+pip3 install --upgrade nibabel medpy SimpleITK itk vtk numpy-stl matplotlib
 ```
 
 #### Install NVIDIA Driver

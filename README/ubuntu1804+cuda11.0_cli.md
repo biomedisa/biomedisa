@@ -24,7 +24,7 @@ sudo apt-get install libsm6 libxrender-dev \
 sudo -H pip3 install --upgrade pip setuptools testresources scikit-build
 sudo -H pip3 install --upgrade numpy scipy h5py colorama numpy-stl \
     numba imagecodecs-lite tifffile scikit-image opencv-python \
-    Pillow nibabel medpy SimpleITK mpi4py itk vtk
+    Pillow nibabel medpy SimpleITK mpi4py itk vtk matplotlib
 ```
 
 #### Download or clone Biomedisa

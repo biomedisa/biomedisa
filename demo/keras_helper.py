@@ -36,6 +36,7 @@ from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.callbacks import Callback, ModelCheckpoint
 from DataGenerator import DataGenerator
 from PredictDataGenerator import PredictDataGenerator
+import matplotlib.pyplot as plt
 import tensorflow as tf
 import numpy as np
 import cv2
@@ -46,10 +47,37 @@ import numba
 import re
 import os
 import time
+import h5py
 
 class InputError(Exception):
     def __init__(self, message=None):
         self.message = message
+
+def save_history(history, path_to_model):
+    # summarize history for accuracy
+    plt.plot(history['accuracy'])
+    plt.plot(history['val_accuracy'])
+    if 'val_loss' in history:
+        plt.legend(['train', 'test'], loc='upper left')
+    else:
+        plt.legend(['train', 'test (Dice)'], loc='upper left')
+    plt.title('model accuracy')
+    plt.ylabel('accuracy')
+    plt.xlabel('epoch')
+    plt.tight_layout()  # To prevent overlapping of subplots
+    plt.savefig(path_to_model.replace(".h5","_acc.png"), dpi=300, bbox_inches='tight')
+    plt.clf()
+    # summarize history for loss
+    plt.plot(history['loss'])
+    if 'val_loss' in history:
+        plt.plot(history['val_loss'])
+    plt.title('model loss')
+    plt.ylabel('loss')
+    plt.xlabel('epoch')
+    plt.legend(['train', 'test'], loc='upper left')
+    plt.tight_layout()  # To prevent overlapping of subplots
+    plt.savefig(path_to_model.replace(".h5","_loss.png"), dpi=300, bbox_inches='tight')
+    plt.clf()
 
 def predict_blocksize(labelData):
     zsh, ysh, xsh = labelData.shape
@@ -224,7 +252,7 @@ def get_labels(arr, allLabels):
 #=====================
 
 def load_training_data(normalize, img_dir, label_dir, channels,
-                      x_scale, y_scale, z_scale, crop_data):
+                      x_scale, y_scale, z_scale, crop_data, configuration_data=None, allLabels=None):
 
     # get filenames
     img_names, label_names = [], []
@@ -267,8 +295,13 @@ def load_training_data(normalize, img_dir, label_dir, channels,
     img = img_resize(img, z_scale, y_scale, x_scale)
     img -= np.amin(img)
     img /= np.amax(img)
-    mu, sig = np.mean(img), np.std(img)
-
+    if configuration_data is not None:
+        mu, sig = configuration_data[5], configuration_data[6]
+        mu_tmp, sig_tmp = np.mean(img), np.std(img)
+        img = (img - mu_tmp) / sig_tmp
+        img = img * sig + mu
+    else:
+        mu, sig = np.mean(img), np.std(img)
     for img_name, label_name in zip(img_names[1:], label_names[1:]):
 
         # append label
@@ -330,40 +363,158 @@ def load_training_data(normalize, img_dir, label_dir, channels,
             position = np.append(position, a, axis=0)
 
     # labels must be in ascending order
-    allLabels = np.unique(label)
-    for k, l in enumerate(allLabels):
-        label[label==l] = k
+    if allLabels is not None:
+        counts = None
+        for k, l in enumerate(allLabels):
+            label[label==l] = k
+    else:
+        allLabels, counts = np.unique(label, return_counts=True)
+        for k, l in enumerate(allLabels):
+            label[label==l] = k
 
-    return img, label, position, allLabels, mu, sig, header, extension, region_of_interest
+    # configuration data
+    configuration_data = np.array([channels, x_scale, y_scale, z_scale, normalize, mu, sig])
 
-def train_semantic_segmentation(img, label, path_to_model, z_patch, y_patch, x_patch, allLabels, epochs,
-                        batch_size, channels, validation_split, stride_size, balance, position,
-                        flip_x, flip_y, flip_z, rotate):
+    return img, label, position, allLabels, configuration_data, header, extension, region_of_interest, counts
+
+class MetaData(Callback):
+    def __init__(self, path_to_model, configuration_data, allLabels, extension, header, region_of_interest):
+        self.path_to_model = path_to_model
+        self.configuration_data = configuration_data
+        self.allLabels = allLabels
+        self.extension = extension
+        self.header = header
+        self.region_of_interest = region_of_interest
+
+    def on_epoch_end(self, epoch, logs={}):
+        hf = h5py.File(self.path_to_model, 'r')
+        if not '/meta' in hf:
+            hf.close()
+            hf = h5py.File(self.path_to_model, 'r+')
+            group = hf.create_group('meta')
+            group.create_dataset('configuration', data=self.configuration_data)
+            group.create_dataset('labels', data=self.allLabels)
+            if self.extension == '.am':
+                group.create_dataset('extension', data=self.extension)
+                group.create_dataset('header', data=self.header)
+            if self.region_of_interest is not None:
+                group.create_dataset('region_of_interest', data=self.region_of_interest)
+        hf.close()
+
+class Metrics(Callback):
+    def __init__(self, img, label, list_IDs, dim_patch, dim_img, batch_size, path_to_model, early_stopping):
+        self.dim_patch = dim_patch
+        self.dim_img = dim_img
+        self.list_IDs = list_IDs
+        self.batch_size = batch_size
+        self.label = label
+        self.img = img
+        self.path_to_model = path_to_model
+        self.early_stopping = early_stopping
+
+    def on_train_begin(self, logs={}):
+        self.history = {}
+        self.history['val_accuracy'] = []
+        self.history['accuracy'] = []
+        self.history['loss'] = []
+
+    def on_epoch_end(self, epoch, logs={}):
+        len_IDs = len(self.list_IDs)
+        n_batches = int(np.floor(len_IDs / self.batch_size))
+        intersection, union = 0, 0
+
+        for batch in range(n_batches):
+            # Generate indexes of the batch
+            list_IDs_batch = self.list_IDs[batch*self.batch_size:(batch+1)*self.batch_size]
+
+            # Initialization
+            X_val = np.empty((self.batch_size, *self.dim_patch, 1), dtype=np.float32)
+            y_val = np.empty((self.batch_size, *self.dim_patch), dtype=np.int32)
+
+            # Generate data
+            for i, ID in enumerate(list_IDs_batch):
+
+                # get patch indices
+                k = ID // (self.dim_img[1]*self.dim_img[2])
+                rest = ID % (self.dim_img[1]*self.dim_img[2])
+                l = rest // self.dim_img[2]
+                m = rest % self.dim_img[2]
+
+                X_val[i,:,:,:,0] = self.img[k:k+self.dim_patch[0],l:l+self.dim_patch[1],m:m+self.dim_patch[2]]
+                y_val[i,:,:,:] = self.label[k:k+self.dim_patch[0],l:l+self.dim_patch[1],m:m+self.dim_patch[2]]
+
+            # Prediction segmentation
+            y_predict = np.asarray(self.model.predict(X_val, verbose=0, steps=None))
+            y_predict = np.argmax(y_predict, axis=-1)
+
+            # Compute dice score
+            intersection += 2 * np.logical_and(y_val==y_predict, (y_val+y_predict)>0).sum()
+            union += (y_val>0).sum() + (y_predict>0).sum()
+
+        # accuracy
+        dice = 0 if union==0 else intersection / union
+
+        # save best model only
+        if epoch == 0:
+            self.model.save(str(self.path_to_model))
+
+        elif round(dice,5) > max(self.history['val_accuracy']):
+            self.model.save(str(self.path_to_model))
+
+        # add accuracy to history
+        self.history['val_accuracy'].append(round(dice,5))
+        self.history['accuracy'].append(round(logs["accuracy"],5))
+        self.history['loss'].append(round(logs["loss"],5))
+        save_history(self.history, self.path_to_model)
+
+        # print accuracies
+        print()
+        print('val_acc (Dice):', self.history['val_accuracy'])
+        print('train_acc:', self.history['accuracy'])
+        print()
+
+        # early stopping
+        if self.early_stopping and max(self.history['val_accuracy']) not in self.history['val_accuracy'][-10:]:
+            self.model.stop_training = True
+
+def train_semantic_segmentation(normalize, path_to_img, path_to_labels, x_scale, y_scale,
+                            z_scale, crop_data, path_to_model, z_patch, y_patch, x_patch, epochs,
+                            batch_size, channels, validation_split, stride_size, class_weights,
+                            flip_x, flip_y, flip_z, rotate, early_stopping, val_dice, learning_rate,
+                            path_val_img, path_val_labels):
+
+    # load training data
+    img, label, position, allLabels, configuration_data, header, extension, region_of_interest, counts = load_training_data(normalize,
+                    path_to_img, path_to_labels, channels, x_scale, y_scale, z_scale, crop_data, None, None)
+
+    if path_val_img:
+        # validation data
+        img_val, label_val, _, _, _, _, _, _, _ = load_training_data(normalize,
+                        path_val_img, path_val_labels, channels, x_scale, y_scale, z_scale, crop_data, configuration_data, allLabels)
+
+        # img_val shape
+        zsh_val, ysh_val, xsh_val = img_val.shape
+
+        # list of validation IDs
+        list_IDs_val = []
+
+        # get validation IDs of patches
+        for k in range(0, zsh_val-z_patch+1, z_patch):
+            for l in range(0, ysh_val-y_patch+1, y_patch):
+                for m in range(0, xsh_val-x_patch+1, x_patch):
+                    list_IDs_val.append(k*ysh_val*xsh_val+l*xsh_val+m)
 
     # img shape
     zsh, ysh, xsh = img.shape
 
     # list of IDs
-    list_IDs_fg, list_IDs_bg = [], []
+    list_IDs = []
 
     # get IDs of patches
-    if balance:
-        for k in range(0, zsh-z_patch+1, stride_size):
-            for l in range(0, ysh-y_patch+1, stride_size):
-                for m in range(0, xsh-x_patch+1, stride_size):
-                    if np.any(label[k:k+z_patch, l:l+y_patch, m:m+x_patch]):
-                        list_IDs_fg.append(k*ysh*xsh+l*xsh+m)
-                    else:
-                        list_IDs_bg.append(k*ysh*xsh+l*xsh+m)
-    else:
-        for k in range(0, zsh-z_patch+1, stride_size):
-            for l in range(0, ysh-y_patch+1, stride_size):
-                for m in range(0, xsh-x_patch+1, stride_size):
-                    list_IDs_fg.append(k*ysh*xsh+l*xsh+m)
-
-    # if balance, batch_size must be even
-    if balance and batch_size % 2 > 0:
-        batch_size -= 1
+    for k in range(0, zsh-z_patch+1, stride_size):
+        for l in range(0, ysh-y_patch+1, stride_size):
+            for m in range(0, xsh-x_patch+1, stride_size):
+                list_IDs.append(k*ysh*xsh+l*xsh+m)
 
     # number of labels
     nb_labels = len(allLabels)
@@ -372,30 +523,41 @@ def train_semantic_segmentation(img, label, path_to_model, z_patch, y_patch, x_p
     input_shape = (z_patch, y_patch, x_patch, channels)
 
     # parameters
-    params = {'dim': (z_patch, y_patch, x_patch),
+    params = {'batch_size': batch_size,
+              'dim': (z_patch, y_patch, x_patch),
               'dim_img': (zsh, ysh, xsh),
-              'batch_size': batch_size,
               'n_classes': nb_labels,
               'n_channels': channels,
-              'shuffle': True,
+              'class_weights': class_weights,
               'augment': (flip_x, flip_y, flip_z, rotate)}
 
     # data generator
-    if validation_split:
-        np.random.shuffle(list_IDs_fg)
-        np.random.shuffle(list_IDs_bg)
-        split_fg = int(len(list_IDs_fg) * validation_split)
-        split_bg = int(len(list_IDs_bg) * validation_split)
-        list_IDs_fg = list_IDs_fg.copy()
-        list_IDs_bg = list_IDs_bg.copy()
-        training_generator = DataGenerator(img, label, position, list_IDs_fg[:split_fg], list_IDs_bg[:split_bg], **params)
-        validation_generator = DataGenerator(img, label, position, list_IDs_fg[split_fg:], list_IDs_bg[split_bg:], **params)
+    if path_val_img:
+        training_generator = DataGenerator(img, label, position, list_IDs, counts, True, **params)
+        if val_dice:
+            metrics = Metrics(img_val, label_val, list_IDs_val, (z_patch, y_patch, x_patch), (zsh_val, ysh_val, xsh_val), batch_size,
+                              path_to_model, early_stopping)
+            validation_generator = None
+        else:
+            params['dim_img'] = (zsh_val, ysh_val, xsh_val)
+            validation_generator = DataGenerator(img_val, label_val, position, list_IDs_val, counts, False, **params)
+            metrics = None
+    elif validation_split:
+        split = int(len(list_IDs) * validation_split)
+        training_generator = DataGenerator(img, label, position, list_IDs[:split], counts, True, **params)
+        if val_dice:
+            metrics = Metrics(img, label, list_IDs[split:], (z_patch,y_patch,x_patch), (zsh,ysh,xsh), batch_size,
+                              path_to_model, early_stopping)
+            validation_generator = None
+        else:
+            validation_generator = DataGenerator(img, label, position, list_IDs[split:], counts, False, **params)
+            metrics = None
     else:
-        training_generator = DataGenerator(img, label, position, list_IDs_fg, list_IDs_bg, **params)
+        training_generator = DataGenerator(img, label, position, list_IDs, counts, True, **params)
         validation_generator = None
 
     # optimizer
-    sgd = SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
+    sgd = SGD(lr=learning_rate, decay=1e-6, momentum=0.9, nesterov=True)
 
     # create a MirroredStrategy
     if os.name == 'nt':
@@ -412,13 +574,34 @@ def train_semantic_segmentation(img, label, path_to_model, z_patch, y_patch, x_p
                       optimizer=sgd,
                       metrics=['accuracy'])
 
-    # train model
-    model.fit(training_generator,
-              epochs=epochs,
-              validation_data=validation_generator)
+    # save meta data
+    meta_data = MetaData(path_to_model, configuration_data, allLabels, extension, header, region_of_interest)
 
-    # save model
-    model.save(str(path_to_model))
+    # model checkpoint
+    if path_val_img or validation_split:
+        if val_dice:
+            callbacks = [metrics, meta_data]
+        else:
+            model_checkpoint_callback = ModelCheckpoint(
+                filepath=str(path_to_model),
+                save_weights_only=False,
+                monitor='val_accuracy',
+                mode='max',
+                save_best_only=True)
+            callbacks = [model_checkpoint_callback, meta_data]
+    else:
+        callbacks = [ModelCheckpoint(filepath=str(path_to_model)), meta_data]
+
+    # train model
+    history = model.fit(training_generator,
+              epochs=epochs,
+              validation_data=validation_generator,
+              callbacks=callbacks)
+
+    # save results in figure on train end
+    if path_val_img or validation_split:
+        if not val_dice:
+            save_history(history.history, path_to_model)
 
 def load_prediction_data(path_to_img, channels, x_scale, y_scale, z_scale,
                         normalize, mu, sig, region_of_interest):

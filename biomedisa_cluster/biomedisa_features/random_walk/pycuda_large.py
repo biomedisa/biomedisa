@@ -251,11 +251,12 @@ def walk(comm, raw, slices, indices, nbrw, sorw, blockmin, blockmax, name, allLa
     slices = slices.astype(np.int32)
     slices = reduceBlocksize(slices)
 
-    # allocate hist arrays
+    # allocate hits arrays
     hits = np.empty(raw.shape, dtype=np.float32)
     final = np.zeros((blockmax-blockmin, ysh, xsh), dtype=np.uint8)
 
     memory_error = False
+    subdomains = False
 
     try:
         if np.any(indices):
@@ -264,7 +265,6 @@ def walk(comm, raw, slices, indices, nbrw, sorw, blockmin, blockmax, name, allLa
             indices_gpu = gpuarray.to_gpu(indices)
             slices_gpu = gpuarray.to_gpu(slices)
             grid = (int(x_grid), int(y_grid), int(slshape))
-
         raw_gpu = gpuarray.to_gpu(raw)
         hits_gpu = cuda.mem_alloc(hits.nbytes)
 
@@ -274,19 +274,19 @@ def walk(comm, raw, slices, indices, nbrw, sorw, blockmin, blockmax, name, allLa
         comm.Allreduce([sendbuf, MPI.INT], [recvbuf, MPI.INT], op=MPI.MAX)
 
     except Exception as e:
-        print('Error: GPU out of memory. Data too large.')
+        print('Warning: GPU ran out of memory. Volume is splitted into subdomains.')
+        subdomains = True
         sendbuf = np.zeros(1, dtype=np.int32) + 1
         recvbuf = np.zeros(1, dtype=np.int32)
         comm.Barrier()
         comm.Allreduce([sendbuf, MPI.INT], [recvbuf, MPI.INT], op=MPI.MAX)
-
-    if recvbuf > 0:
-        memory_error = True
         try:
             hits_gpu.free()
         except:
             pass
-        return memory_error, None, None, None
+
+    if recvbuf > 0:
+        smooth, uncertainty = 0, 0
 
     if smooth:
         try:
@@ -343,15 +343,81 @@ def walk(comm, raw, slices, indices, nbrw, sorw, blockmin, blockmax, name, allLa
         # current segment
         segment_gpu = np.int32(segment)
 
-        # reset array of hits
-        fill_gpu(hits_gpu, xsh_gpu, ysh_gpu, block=block, grid=grid2)
+        # split volume into subdomains
+        if subdomains:
+            try:
+                hits.fill(0)
+                sub_n = (blockmax-blockmin) // 100 + 1
+                for sub_k in range(sub_n):
+                    sub_block_min = sub_k*100+blockmin
+                    sub_block_max = (sub_k+1)*100+blockmin
+                    data_block_min = max(sub_block_min-100,0)
+                    data_block_max = min(sub_block_max+100,zsh)
 
-        # compute random walks
-        if np.any(indices):
-            kernel(segment_gpu, raw_gpu, slices_gpu, hits_gpu, xsh_gpu, ysh_gpu, zsh_gpu, indices_gpu, sorw, nbrw, block=block, grid=grid)
+                    # get subindices
+                    sub_indices = []
+                    sub_slices = np.empty((0, ysh, xsh), dtype=slices.dtype)
+                    for k, sub_i in enumerate(indices):
+                        if sub_block_min <= sub_i < sub_block_max and np.any(slices[k]==segment):
+                            sub_indices.append(sub_i)
+                            sub_slices = np.append(sub_slices, [slices[k]], axis=0)
 
-        # get hits
-        cuda.memcpy_dtoh(hits, hits_gpu)
+                    # allocate memory and compute random walks on subdomain
+                    if np.any(sub_indices):
+                        sub_slshape = sub_slices.shape[0]
+                        sub_indices = np.array(sub_indices, dtype=np.int32) - data_block_min
+                        sub_indices_gpu = gpuarray.to_gpu(sub_indices)
+                        sub_slices_gpu = gpuarray.to_gpu(sub_slices)
+
+                        sub_zsh = data_block_max - data_block_min
+                        sub_zsh_gpu = np.int32(sub_zsh)
+                        sub_raw = np.copy(raw[data_block_min:data_block_max])
+                        sub_raw_gpu = gpuarray.to_gpu(sub_raw)
+                        sub_hits = np.empty(sub_raw.shape, dtype=np.float32)
+                        sub_hits_gpu = cuda.mem_alloc(sub_hits.nbytes)
+                        fill_gpu(sub_hits_gpu, xsh_gpu, ysh_gpu, block=block, grid=(int(x_grid), int(y_grid), int(sub_zsh)))
+                        kernel(segment_gpu, sub_raw_gpu, sub_slices_gpu, sub_hits_gpu, xsh_gpu, ysh_gpu, sub_zsh_gpu, sub_indices_gpu, sorw, nbrw, block=block, grid=(int(x_grid), int(y_grid), int(sub_slshape)))
+                        cuda.memcpy_dtoh(sub_hits, sub_hits_gpu)
+                        hits[data_block_min:data_block_max] += sub_hits
+                        sub_hits_gpu.free()
+            except Exception as e:
+                print('Error: GPU out of memory. Data too large.')
+                memory_error = True
+                try:
+                    sub_hits_gpu.free()
+                except:
+                    pass
+
+        # computation of random walks on the entire volume
+        else:
+            # reset array of hits
+            fill_gpu(hits_gpu, xsh_gpu, ysh_gpu, block=block, grid=grid2)
+
+            # compute random walks
+            if np.any(indices):
+                kernel(segment_gpu, raw_gpu, slices_gpu, hits_gpu, xsh_gpu, ysh_gpu, zsh_gpu, indices_gpu, sorw, nbrw, block=block, grid=grid)
+
+            # get hits
+            cuda.memcpy_dtoh(hits, hits_gpu)
+
+        # memory error
+        if memory_error:
+            sendbuf = np.zeros(1, dtype=np.int32) + 1
+            recvbuf = np.zeros(1, dtype=np.int32)
+            comm.Barrier()
+            comm.Allreduce([sendbuf, MPI.INT], [recvbuf, MPI.INT], op=MPI.MAX)
+        else:
+            sendbuf = np.zeros(1, dtype=np.int32)
+            recvbuf = np.zeros(1, dtype=np.int32)
+            comm.Barrier()
+            comm.Allreduce([sendbuf, MPI.INT], [recvbuf, MPI.INT], op=MPI.MAX)
+        if recvbuf > 0:
+            memory_error = True
+            try:
+                hits_gpu.free()
+            except:
+                pass
+            return memory_error, None, None, None
 
         # communicate hits
         if size > 1:

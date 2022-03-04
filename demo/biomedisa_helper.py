@@ -192,6 +192,10 @@ def pre_processing(bm):
     bm.labelData = bm.labelData.astype(np.int32)
     bm.allLabels = np.unique(bm.labelData)
 
+    # add background label if not existing
+    if not np.any(bm.allLabels==0):
+        bm.allLabels = np.append(0, bm.allLabels)
+
     # compute only specific labels
     labels_to_compute = (bm.label.only).split(',')
     if not any([x in ['all', 'All', 'ALL'] for x in labels_to_compute]):

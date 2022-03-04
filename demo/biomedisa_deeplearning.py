@@ -41,8 +41,10 @@ import time
 def conv_network(train, predict, path_to_model,
             compress, epochs, batch_size, path_to_labels,
             stride_size, channels, normalize, path_to_img,
-            x_scale, y_scale, z_scale, balance, crop_data,
-            flip_x, flip_y, flip_z, rotate, validation_split):
+            x_scale, y_scale, z_scale, class_weights, crop_data,
+            flip_x, flip_y, flip_z, rotate, validation_split,
+            early_stopping, val_dice, learning_rate,
+            path_val_img, path_val_labels):
 
     # get number of GPUs
     strategy = tf.distribute.MirroredStrategy()
@@ -64,15 +66,12 @@ def conv_network(train, predict, path_to_model,
     if train:
 
         try:
-            # load training data
-            img, labelData, position, allLabels, mu, sig, header, extension, region_of_interest = load_training_data(normalize,
-                            path_to_img, path_to_labels, channels, x_scale, y_scale, z_scale, crop_data)
-
             # train network
-            train_semantic_segmentation(img, labelData, path_to_model, z_patch, y_patch, x_patch, allLabels, epochs,
-                            batch_size, channels, validation_split, stride_size, balance, position,
-                            flip_x, flip_y, flip_z, rotate)
-
+            train_semantic_segmentation(normalize, path_to_img, path_to_labels, x_scale, y_scale,
+                            z_scale, crop_data, path_to_model, z_patch, y_patch, x_patch, epochs,
+                            batch_size, channels, validation_split, stride_size, class_weights,
+                            flip_x, flip_y, flip_z, rotate, early_stopping, val_dice, learning_rate,
+                            path_val_img, path_val_labels)
         except InputError:
             print('Error:', InputError.message)
             return success, InputError.message, None, None
@@ -85,18 +84,6 @@ def conv_network(train, predict, path_to_model,
         except Exception as e:
             print('Error:', e)
             return success, e, None, None
-
-        # save meta data
-        hf = h5py.File(path_to_model, 'r+')
-        group = hf.create_group('meta')
-        group.create_dataset('configuration', data=np.array([channels, x_scale, y_scale, z_scale, normalize, mu, sig]))
-        group.create_dataset('labels', data=allLabels)
-        if extension == '.am':
-            group.create_dataset('extension', data=extension)
-            group.create_dataset('header', data=header)
-        if region_of_interest is not None:
-            group.create_dataset('region_of_interest', data=region_of_interest)
-        hf.close()
 
     if predict:
 
@@ -159,8 +146,8 @@ if __name__ == '__main__':
     TIC = time.time()
 
     # get arguments
-    predict = 1 if any(x in sys.argv for x in ['-predict','-p']) else 0
-    train = 1 if any(x in sys.argv for x in ['-train','-t']) else 0
+    predict = 1 if any(x in sys.argv for x in ['--predict','-p']) else 0
+    train = 1 if any(x in sys.argv for x in ['--train','-t']) else 0
 
     # path to data
     path_to_img = sys.argv[1]
@@ -173,11 +160,13 @@ if __name__ == '__main__':
 
     # parameters
     parameters = sys.argv
-    balance = 1 if any(x in parameters for x in ['-balance','-b']) else 0     # balance class members of training patches
-    crop_data = 1 if any(x in parameters for x in ['-crop']) else 0           # rop data automatically to region of interest
-    flip_x = True if any(x in parameters for x in ['-flip_x']) else False     # flip axis during training
-    flip_y = True if any(x in parameters for x in ['-flip_y']) else False     # flip axis during training
-    flip_z = True if any(x in parameters for x in ['-flip_z']) else False     # flip axis during training
+    balance = 1 if any(x in parameters for x in ['--balance','-b']) else 0                          # balance class members of training patches
+    crop_data = 1 if any(x in parameters for x in ['--crop']) else 0                                # rop data automatically to region of interest
+    flip_x = True if any(x in parameters for x in ['--flip_x']) else False                          # flip x-axis during training
+    flip_y = True if any(x in parameters for x in ['--flip_y']) else False                          # flip y-axis during training
+    flip_z = True if any(x in parameters for x in ['--flip_z']) else False                          # flip z-axis during training
+    early_stopping = True if any(x in parameters for x in ['--early_stopping','-es']) else False    # early_stopping
+    val_dice = True if any(x in parameters for x in ['--val_dice','-vd']) else False                # use dice score on validation data
 
     compress = 6            # wheter final result should be compressed or not
     epochs = 200            # epochs the network is trained
@@ -190,30 +179,39 @@ if __name__ == '__main__':
     validation_split = 0.0  # percentage used for validation
     stride_size = 32        # stride size for patches
     batch_size = 24         # batch size
+    learning_rate = 0.01    # learning rate
+    path_val_img = None     # validation images
+    path_val_labels = None  # validation labels
 
     for k in range(len(parameters)):
-        if parameters[k] in ['-compress','-c']:
+        if parameters[k] in ['--compress','-c']:
             compress = int(parameters[k+1])
-        if parameters[k] in ['-epochs','-e']:
+        if parameters[k] in ['--epochs','-e']:
             epochs = int(parameters[k+1])
-        if parameters[k] in ['-channels']:
+        if parameters[k] in ['--channels']:
             channels = int(parameters[k+1])
-        if parameters[k] in ['-normalize']:
+        if parameters[k] in ['--normalize']:
             normalize = int(parameters[k+1])
-        if parameters[k] in ['-xsize','-xs']:
+        if parameters[k] in ['--xsize','-xs']:
             x_scale = int(parameters[k+1])
-        if parameters[k] in ['-ysize','-ys']:
+        if parameters[k] in ['--ysize','-ys']:
             y_scale = int(parameters[k+1])
-        if parameters[k] in ['-zsize','-zs']:
+        if parameters[k] in ['--zsize','-zs']:
             z_scale = int(parameters[k+1])
-        if parameters[k] in ['-rotate','-r']:
+        if parameters[k] in ['--rotate','-r']:
             rotate = int(parameters[k+1])
-        if parameters[k] in ['-validation_split','-vs']:
+        if parameters[k] in ['--validation_split','-vs']:
             validation_split = float(parameters[k+1])
-        if parameters[k] in ['-stride_size','-ss']:
+        if parameters[k] in ['--stride_size','-ss']:
             stride_size = int(parameters[k+1])
-        if parameters[k] in ['-batch_size','-bs']:
+        if parameters[k] in ['--batch_size','-bs']:
             batch_size = int(parameters[k+1])
+        if parameters[k] in ['--learning_rate','-lr']:
+            learning_rate = float(parameters[k+1])
+        if parameters[k] in ['--val_images','-vi']:
+            path_val_img = str(parameters[k+1])
+        if parameters[k] in ['--val_labels','-vl']:
+            path_val_labels = str(parameters[k+1])
 
     # train network or predict segmentation
     conv_network(
@@ -221,7 +219,8 @@ if __name__ == '__main__':
         epochs, batch_size, path_to_labels, stride_size, channels,
         normalize, path_to_img, x_scale, y_scale, z_scale,
         balance, crop_data, flip_x, flip_y, flip_z, rotate,
-        validation_split
+        validation_split, early_stopping, val_dice, learning_rate,
+        path_val_img, path_val_labels
         )
 
     # calculation time

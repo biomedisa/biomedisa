@@ -433,8 +433,8 @@ def train_semantic_segmentation(img, label, path_to_model, z_patch, y_patch, x_p
 
     # data generator
     if validation_split:
-        np.random.shuffle(list_IDs_fg)
-        np.random.shuffle(list_IDs_bg)
+        #np.random.shuffle(list_IDs_fg)
+        #np.random.shuffle(list_IDs_bg)
         split_fg = int(len(list_IDs_fg) * validation_split)
         split_bg = int(len(list_IDs_bg) * validation_split)
         list_IDs_fg = list_IDs_fg.copy()
@@ -464,8 +464,18 @@ def train_semantic_segmentation(img, label, path_to_model, z_patch, y_patch, x_p
                       metrics=['accuracy'])
 
     # callbacks
-    my_callbacks = [CustomCallback(image.id,epochs),
-        ModelCheckpoint(filepath=str(path_to_model))]
+    if validation_split:
+        model_checkpoint_callback = ModelCheckpoint(
+            filepath=str(path_to_model),
+            save_weights_only=False,
+            monitor='val_accuracy',
+            mode='max',
+            save_best_only=True)
+        my_callbacks = [CustomCallback(image.id,epochs),
+            model_checkpoint_callback]
+    else:
+        my_callbacks = [CustomCallback(image.id,epochs),
+            ModelCheckpoint(filepath=str(path_to_model))]
 
     # train model
     model.fit(training_generator,

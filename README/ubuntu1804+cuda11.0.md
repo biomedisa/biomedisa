@@ -27,7 +27,7 @@ sudo apt-get install libsm6 libxrender-dev libmysqlclient-dev \
 sudo -H pip3 install --upgrade pip setuptools testresources scikit-build
 sudo -H pip3 install --upgrade numpy scipy h5py colorama wget numpy-stl \
     numba imagecodecs-lite tifffile scikit-image opencv-python \
-    Pillow nibabel medpy SimpleITK mpi4py itk vtk rq mysqlclient
+    Pillow nibabel medpy SimpleITK mpi4py itk vtk rq mysqlclient matplotlib
 sudo -H pip3 install django==3.2.6
 ```
 
