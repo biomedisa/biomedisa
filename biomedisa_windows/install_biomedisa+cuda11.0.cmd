@@ -1,7 +1,7 @@
 @echo off
 
 REM get latest Biomedisa version
-curl https://biomedisa.org/media/latest_version.txt --output latest_version.txt
+curl https://biomedisa.org/media/latest_version_p.txt --output latest_version.txt
 FOR /F "tokens=* delims=" %%v in (latest_version.txt) DO (set VERSION=%%v)
 
 REM test Biomedisa installation
@@ -25,16 +25,14 @@ REM verify installation
 wsl -u biomedisa -d %VERSION% touch installation_successful.txt
 if exist installation_successful.txt (
 
-REM download biomedisa files
-curl https://raw.githubusercontent.com/biomedisa/biomedisa/master/biomedisa_installer/biomedisa.ico --output "%USERPROFILE%\AppData\%VERSION%\biomedisa.ico"
-curl https://raw.githubusercontent.com/biomedisa/biomedisa/master/biomedisa_installer/biomedisa_start.cmd --output "%USERPROFILE%\AppData\%VERSION%\biomedisa_start.cmd"
-curl https://raw.githubusercontent.com/biomedisa/biomedisa/master/biomedisa_installer/biomedisa_start.sh --output "%USERPROFILE%\AppData\%VERSION%\biomedisa_start.sh"
-curl https://raw.githubusercontent.com/biomedisa/biomedisa/master/biomedisa_installer/last_update.txt --output "%USERPROFILE%\AppData\%VERSION%\last_update.txt"
-curl https://raw.githubusercontent.com/biomedisa/biomedisa/master/biomedisa_installer/biomedisa_interpolation.cmd --output "%USERPROFILE%\AppData\%VERSION%\biomedisa_interpolation.cmd"
-curl https://raw.githubusercontent.com/biomedisa/biomedisa/master/biomedisa_installer/biomedisa_interpolation.sh --output "%USERPROFILE%\AppData\%VERSION%\biomedisa_interpolation.sh"
-curl https://raw.githubusercontent.com/biomedisa/biomedisa/master/biomedisa_installer/upgrade_biomedisa.cmd --output "%USERPROFILE%\AppData\%VERSION%\upgrade_biomedisa.cmd"
-
 REM copy biomedisa files
+copy biomedisa.ico "%USERPROFILE%\AppData\%VERSION%\biomedisa.ico"
+copy biomedisa_start.cmd "%USERPROFILE%\AppData\%VERSION%\biomedisa_start.cmd"
+copy biomedisa_start.sh "%USERPROFILE%\AppData\%VERSION%\biomedisa_start.sh"
+copy last_update.txt "%USERPROFILE%\AppData\%VERSION%\last_update.txt"
+copy biomedisa_interpolation.cmd "%USERPROFILE%\AppData\%VERSION%\biomedisa_interpolation.cmd"
+copy biomedisa_interpolation.sh "%USERPROFILE%\AppData\%VERSION%\biomedisa_interpolation.sh"
+copy upgrade_biomedisa.cmd "%USERPROFILE%\AppData\%VERSION%\upgrade_biomedisa.cmd"
 copy latest_version.txt "%USERPROFILE%\AppData\%VERSION%\version.txt"
 
 REM create shortcut on Desktop
