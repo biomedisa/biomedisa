@@ -22,20 +22,18 @@ Biomedisa (https://biomedisa.org) is a free and easy-to-use open-source online p
 + 32 GB RAM or more (strongly depends on the size of the processed images).
 
 # Software requirements
-+ [NVIDIA GPU drivers](https://www.nvidia.com/drivers) - 455.x or higher.
-+ [CUDA Toolkit](https://developer.nvidia.com/cuda-toolkit-archive) - CUDA 11.0 or higher.
++ [NVIDIA GPU drivers](https://www.nvidia.com/drivers)
++ [CUDA Toolkit](https://developer.nvidia.com/cuda-toolkit-archive)
 
 # Installation (command-line-only)
 + [Ubuntu 18.04.5 + CUDA 11.0 (Pascal, Volta)](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu1804+cuda11.0_cli.md)
 + [Ubuntu 20.04.3 + CUDA 11.0 (Pascal, Volta)](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu2004+cuda11.0_cli.md)
 + [Ubuntu 20.04.3 + CUDA 11.4 (Ampere)](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu2004+cuda11.4_cli.md)
-+ [Windows 10 + CUDA 11.0 (Pascal, Volta)](https://github.com/biomedisa/biomedisa/blob/master/README/windows10+cuda11.0_cli.md)
 
 # Full installation (GUI)
 + [Ubuntu 18.04.5 + CUDA 11.0 (Pascal, Volta)](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu1804+cuda11.0.md)
 + [Ubuntu 20.04.3 + CUDA 11.4 (Ampere)](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu2004+cuda11.4.md)
-+ [Windows 10 (21H1 or lower) + CUDA 11.0 (Pascal, Volta)](https://github.com/biomedisa/biomedisa/blob/master/README/windows10+cuda11.0.md)
-+ [Windows 10 (21H2)](https://github.com/biomedisa/biomedisa/blob/master/README/windows11.md)
++ [Windows 10 (21H2 or higher)](https://github.com/biomedisa/biomedisa/blob/master/README/windows11.md)
 + [Windows 11](https://github.com/biomedisa/biomedisa/blob/master/README/windows11.md)
 
 # Run interpolation examples
@@ -53,10 +51,7 @@ Run Biomedisa (~3 seconds). The result will be saved in `Downloads` as `final.tu
 # Ubuntu
 python3 ~/git/biomedisa/demo/biomedisa_interpolation.py ~/Downloads/tumor.tif ~/Downloads/labels.tumor.tif
 
-# Windows
-python git/biomedisa/demo/biomedisa_interpolation.py Downloads/tumor.tif Downloads/labels.tumor.tif
-
-# Windows 10 21H2 and 11 (replace "Biomedisa-2x.xx.x" with your Biomedisa version, use "wsl -l -v" to get the version)
+# Windows (replace "Biomedisa-2x.xx.x" with your Biomedisa version, use "wsl -l -v" to get the version)
 cd AppData\Biomedisa-2x.xx.x
 biomedisa_interpolation.cmd Downloads/tumor.tif Downloads/labels.tumor.tif
 ```
@@ -78,7 +73,7 @@ Run the segmentation using e.g. 4 GPUs.
 # Ubuntu
 mpiexec -n 4 python3 ~/git/biomedisa/demo/biomedisa_interpolation.py ~/Downloads/NMB_F2875.tif ~/Downloads/labels.NMB_F2875.tif
 
-# Windows 10 21H2 and 11 (replace "Biomedisa-2x.xx.x" with your Biomedisa version, use "wsl -l -v" to get the version)
+# Windows (replace "Biomedisa-2x.xx.x" with your Biomedisa version, use "wsl -l -v" to get the version)
 cd AppData\Biomedisa-2x.xx.x
 biomedisa_interpolation.cmd -n 4 Downloads/NMB_F2875.tif Downloads/labels.NMB_F2875.tif
 ```
@@ -106,10 +101,7 @@ Use the trained neural network to **predict the result** of the test image. The 
 # Ubuntu
 python3 ~/git/biomedisa/demo/biomedisa_deeplearning.py ~/Downloads/testing_axial_crop_pat13.nii.gz ~/Downloads/heart.h5 --predict -bs 6
 
-# Windows
-python git/biomedisa/demo/biomedisa_deeplearning.py Downloads/testing_axial_crop_pat13.nii.gz Downloads/heart.h5 --predict -bs 6
-
-# Windows 10 21H2 and 11 (replace "Biomedisa-2x.xx.x" with your Biomedisa version, use "wsl -l -v" to get the version)
+# Windows (replace "Biomedisa-2x.xx.x" with your Biomedisa version, use "wsl -l -v" to get the version)
 wsl -d Biomedisa-2x.xx.x -u biomedisa python3 ~/git/biomedisa/demo/biomedisa_deeplearning.py Downloads/testing_axial_crop_pat13.nii.gz Downloads/heart.h5 -p -bs 6
 ```
 
@@ -127,17 +119,14 @@ tar -xf training_heart_labels.tar
 # Ubuntu
 python3 ~/git/biomedisa/demo/biomedisa_deeplearning.py ~/Downloads/training_heart ~/Downloads/training_heart_labels --train --epochs 200 -bs 24
 
-# Windows
-python git/biomedisa/demo/biomedisa_deeplearning.py Downloads/training_heart Downloads/training_heart_labels --train --epochs 200 -bs 24
-
-# Windows 10 21H2 and 11 (replace "Biomedisa-2x.xx.x" with your Biomedisa version, use "wsl -l -v" to get the version)
+# Windows (replace "Biomedisa-2x.xx.x" with your Biomedisa version, use "wsl -l -v" to get the version)
 wsl -d Biomedisa-2x.xx.x -u biomedisa python3 ~/git/biomedisa/demo/biomedisa_deeplearning.py Downloads/training_heart Downloads/training_heart_labels --train --epochs 200 -bs 24
 ```
 
-To use e.g. 80 \% of your training data for training and 20 \% for validation of your model, use **--validation_split 0.8** (or **-vs 0.8**)
+Specify directories containing validation images and validation labels
 ```
 # Ubuntu
-python3 ~/git/biomedisa/demo/biomedisa_deeplearning.py ~/Downloads/training_heart ~/Downloads/training_heart_labels --train -vs 0.8
+python3 ~/git/biomedisa/demo/biomedisa_deeplearning.py ~/Downloads/training_heart ~/Downloads/training_heart_labels --train --val_images ~/Downloads/validation_images --val_labels ~/Downloads/validation_labels
 ```
 
 # Update Biomedisa

@@ -1,3 +1,8 @@
+```diff
+- Deprecated and will be removed in the future!
+```
+Please use [Windows 10 (version 21H2 or higher) and Windows 11](https://github.com/biomedisa/biomedisa/blob/master/README/windows11.md) instead.
+
 # Windows 10 + CUDA 11.0 (command-line-only)
 
 - [Install Microsoft Visual Studio 2017](#install-microsoft-visual-studio-2017)
