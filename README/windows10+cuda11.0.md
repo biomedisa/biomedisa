@@ -1,3 +1,8 @@
+```diff
+- Deprecated and will be removed in the future!
+```
+Please use [Windows 10 (version 21H2 or higher) and Windows 11](https://github.com/biomedisa/biomedisa/blob/master/README/windows11.md) instead.
+
 # Windows 10 + CUDA 11.0 (full installation)
 
 #### Download or clone Biomedisa
@@ -79,8 +84,9 @@ Open Command Prompt (e.g. Windows Search `Command Prompt`).
 ```
 pip3 install --upgrade pip pypiwin32 setuptools wheel numpy scipy h5py colorama numba
 pip3 install --upgrade imagecodecs-lite tifffile scikit-image opencv-python Pillow
-pip3 install --upgrade nibabel medpy SimpleITK django mysqlclient
+pip3 install --upgrade nibabel medpy SimpleITK mysqlclient
 pip3 install --upgrade itk vtk numpy-stl wget matplotlib
+pip3 install django==3.2.6
 ```
 
 #### Adapt Biomedisa config
