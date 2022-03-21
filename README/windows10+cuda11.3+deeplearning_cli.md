@@ -1,4 +1,4 @@
-# Minimal Deeplearning Installation + Windows 10 + CUDA 11.3 (command-line-only)
+# Deep Learning + Windows 10 + CUDA 11.3 (command-line-only)
 
 - [Install NVIDIA driver](#install-nvidia-driver)
 - [Install Anaconda3](#install-anaconda3)

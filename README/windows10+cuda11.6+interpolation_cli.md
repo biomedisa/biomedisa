@@ -1,4 +1,4 @@
-# Minimal Interpolation Installation + Windows 10 + CUDA 11.6 (command-line-only)
+# Smart Interpolation + Windows 10 + CUDA 11.6 (command-line-only)
 
 - [Install Microsoft Visual Studio 2022](#install-microsoft-visual-studio-2022)
 - [Set Path Variables](#set-path-variables)
