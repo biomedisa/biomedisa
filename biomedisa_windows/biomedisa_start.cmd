@@ -39,6 +39,7 @@ if not %LATEST_VERSION% == %VERSION% (
         wsl -d %VERSION% service mysql start
         wsl -d %VERSION% -u biomedisa python3 /home/biomedisa/git/biomedisa/manage.py migrate
         echo %CURRENT_DATE% > last_update.txt
+        wsl --shutdown
         wsl -d %VERSION% bash biomedisa_start.sh %VERSION%
     )
 ) else (wsl -d %VERSION% bash biomedisa_start.sh %VERSION%)
