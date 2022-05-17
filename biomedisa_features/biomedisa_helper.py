@@ -32,7 +32,7 @@ from django.shortcuts import get_object_or_404
 from biomedisa_app.models import Upload
 from biomedisa_app.config import config
 from biomedisa_features.amira_to_np.amira_helper import amira_to_np, np_to_amira
-from tifffile import imread, imsave
+from tifffile import imread, imwrite
 from medpy.io import load, save
 from PIL import Image
 import numpy as np
@@ -371,8 +371,8 @@ def save_data(path_to_final, final, header=None, final_image_type=None, compress
     else:
         imageSize = int(final.nbytes * 10e-7)
         bigtiff = True if imageSize > 2000 else False
-        compress = 6 if compress else 0
-        imsave(path_to_final, final, bigtiff=bigtiff, compress=compress)
+        compress = 'zlib' if compress else None
+        imwrite(path_to_final, final, bigtiff=bigtiff, compression=compress)
 
 def color_to_gray(labelData):
     if len(labelData.shape) == 4 and labelData.shape[1] == 3:
