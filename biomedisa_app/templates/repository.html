@@ -1,0 +1,287 @@
+{% extends 'base.html' %}
+
+{% block scripts %}
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.js"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.8.16/jquery-ui.js"></script>
+<script type="text/javascript">
+function alertFunction(state) {
+    alert(state);
+    window.location.href = "/cleanstate/storage";
+    window.close();
+}
+
+function sliceviewerFunction(id) {
+    window.location.href = "/sliceviewer/repository/?id=" + id + "&object=specimen";
+    window.close();
+}
+
+function visualizationFunction(id) {
+    window.location.href = "/visualization/?selected=" + id + "&next=storage";
+    window.close();
+}
+
+function changeFunction(id, val) {
+    window.location.href = "/change_active_final/" + id + "/" + val + "/?next=storage";
+    window.close();
+}
+
+function toggle(value) {
+    checkboxes = document.getElementsByName('selected');
+    for (var i = 0,
+        n = checkboxes.length; i < n; i++) {
+        checkboxes[i].checked = value;
+    }
+}
+
+function deleteFunction(id) {
+  $.getJSON("/delete/", { id:id, object:'specimen' }, function(json){
+    if (json['success'] == true) {
+        divid = "#img" + id;
+        $(divid).hide();
+    } else {
+      alert("Something went wrong... ");
+    }
+  });
+}
+
+function moveFunction(id, project) {
+  $.getJSON("/move/", { id:id, project:project }, function(json){
+    if (json['success'] == true) {
+      if ('msg' in json) {
+        alert(json['msg']);
+      } else {
+        divid = "#img" + id;
+        $(divid).hide();
+      }
+    } else {
+      alert("Something went wrong... ");
+    }
+  });
+}
+
+function shareFunction(id, username) {
+  $.getJSON("/share/", { id:id, username:username }, function(json){
+    if (json['success'] == true) {
+      if ('msg' in json) {
+        alert(json['msg']);
+      }
+    } else {
+      alert("Something went wrong... ");
+    }
+  });
+}
+
+function acceptFunction(id) {
+  $.getJSON("/accept/", { id:id }, function(json){
+    if (json['success'] == true) {
+      if ('msg' in json) {
+        alert(json['msg']);
+      }
+      setTimeout(function(){
+        window.location.reload();
+      });
+    } else {
+      alert("Something went wrong... ");
+    }
+  });
+}
+
+function renameFunction(id, filename) {
+  $.getJSON("/rename/", { id:id, filename:filename }, function(json){
+    if (json['success'] == true) {
+      if ('msg' in json) {
+        alert(json['msg']);
+      } else {
+          window.location.reload();
+      }
+    } else {
+      alert("Something went wrong... ");
+    }
+  });
+}
+
+function createFunction(id) {
+  $.getJSON("/dummy/", { id:id }, function(json){
+    if (json['success'] == true) {
+      window.location.href = "/create/" + id;
+      window.close();
+    } else {
+      alert("Something went wrong... ");
+    }
+  });
+}
+
+function addClickHandlers() {
+  $(".delete_link").click( function() {
+    var r = confirm("Delete File?");
+    if (r == true) {
+      deleteFunction(this.id);
+    }
+  });
+
+  $(".move_link").click( function() {
+    var project = prompt("Move to Project");
+    if (project != '' && project != null) {
+      project = parseInt(project);
+      if (!isNaN(project) && project > 0 && project < 10) {
+        moveFunction(this.id, project);
+      }
+    }
+  });
+
+  $(".share_link").click( function() {
+    var username = prompt("Please enter an username or email \nyou may enter multiple users (user1;user2;user3) \n(leave blank for generating a download link)");
+    if (username != '' && username != null) {
+      shareFunction(this.id, username);
+    } else if (username == '' && username != null) {
+      createFunction(this.id);
+    }
+  });
+
+  $(".rename_link").click( function() {
+    var res = (this.id).split(",");
+    var id = parseInt(res[0]);
+    var name = res[1];
+    var filename = prompt("Enter new filename", name);
+    if (filename != '' && filename != null) {
+      renameFunction(id, filename);
+    }
+  });
+
+  $(".accept_link").click( function() {
+    var res = (this.id).split(",")
+    var id = res[0]
+    var shared_by = res[1]
+
+    var r = confirm("Accept file shared by " + shared_by + "?");
+    if (r == true) {
+      acceptFunction(id);
+    }
+  });
+}
+$(document).ready(addClickHandlers);
+</script>
+{% endblock %}
+
+{% block menubar %}
+{% include 'menu_bar.html' with activate="repository" user=user %}
+{% endblock %}
+
+{% block content %}
+
+<div class="fbg">
+  <div class="fbg_resize">
+
+  <h2 style="text-align:left;text-transform:uppercase">
+  {{repository}}
+  </h2>
+
+  {% if messages %}
+    <ul class="messages">
+      {% for message in messages %}
+        <p class="warning">{{ message }}</p>
+      {% endfor %}
+    </ul>
+  {% endif %}
+  </br>
+
+  <!-- search for specimens -->
+  <form class="searchfield" method="GET" action="" >
+    Species:
+    <input class="searchfield" type="search" name="search" id="tags"> 
+      <script>
+        $( function() {
+        var availableTags = [
+          {% for specimen in all_specimens %}
+            "{{specimen.subfamily}}",
+            "{{specimen.genus}}",
+            "{{specimen.species}}",
+            "{{specimen.caste}}",
+          {% endfor %}
+          ];
+        $( "#tags" ).autocomplete({
+          source: availableTags
+          });
+        });
+    </script>
+    <button class="searchfield" type="submit"> Search </button>
+  </form>
+  </br>
+
+  <form>
+    <table style="width:100%" border="0">
+    <!-- iterate over all specimens with model -->
+    {% for img in specimens_with_model %}
+      {%if forloop.counter0|divisibleby:"2" %}
+        <tr>
+      {% endif %}
+      <td>
+        <div id="img{{ img.id }}" >
+          <p style="text-align:left;">
+          <!-- sketchfab animation -->
+          {% if img.sketchfab %}
+            <iframe id="view360Iframe" style="width: 425px; height: 238px" scrolling="0" src="https://sketchfab.com/models/{{img.sketchfab}}/embed?ui_infos=0&amp;ui_watermark=0&amp;ui_help=0&amp;ui_settings=0&amp;ui_inspector=0&amp;ui_annotations=0&amp;ui_stop=1&amp;ui_vr=0&amp;preload=1&amp;autostart=0&amp;ui_hint=2&amp;autospin=0.2">
+            </iframe>
+          </br></br>
+          {% endif %}
+          <!-- get name of specimen -->
+          {% if img.subfamily or img.genus or img.species or img.caste %}
+              <span>{{ img.subfamily }} | {{ img.genus }} | {{ img.species }} | {{ img.caste }}</span>
+              {% else %}
+              <span>{{ img.internal_id }}</span>
+          {% endif %}
+          <!-- feature buttons -->
+          <span class="delete_link" id="{{img.id}}"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+          <a href="/repository/specimen/{{img.id}}"><img src="/static/info.png" alt="info" style="width:20px;height:20px;border:0;"></a>
+          </p>
+        </div>
+      </td>
+      {%if forloop.counter|divisibleby:"2" %}
+        <tr>
+      {% endif %}
+    {% endfor %}
+    </table>
+  </form>
+
+  <form>
+    <table style="width:100%" border="0">
+    <!-- iterate over all specimens without model -->
+    {% for img in specimens %}
+      {%if forloop.counter0|divisibleby:"2" %}
+        <tr>
+      {% endif %}
+      <td>
+        <div id="img{{ img.id }}" >
+          <p style="text-align:left;">
+          <!-- sketchfab animation -->
+          {% if img.sketchfab %}
+            <iframe id="view360Iframe" style="width: 425px; height: 238px" scrolling="0" src="https://sketchfab.com/models/{{img.sketchfab}}/embed?ui_infos=0&amp;ui_watermark=0&amp;ui_help=0&amp;ui_settings=0&amp;ui_inspector=0&amp;ui_annotations=0&amp;ui_stop=1&amp;ui_vr=0&amp;preload=1&amp;autostart=0&amp;ui_hint=2&amp;autospin=0.2">
+            </iframe>
+          </br></br>
+          {% endif %}
+          <!-- get name of specimen -->
+          {% if img.subfamily or img.genus or img.species or img.caste %}
+              <span>{{ img.subfamily }} | {{ img.genus }} | {{ img.species }} | {{ img.caste }}</span>
+              {% else %}
+              <span>{{ img.internal_id }}</span>
+          {% endif %}
+          <!-- feature buttons -->
+          <span class="delete_link" id="{{img.id}}"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+          <a href="/repository/specimen/{{img.id}}"><img src="/static/info.png" alt="info" style="width:20px;height:20px;border:0;"></a>
+          </p>
+        </div>
+      </td>
+      {%if forloop.counter|divisibleby:"2" %}
+        <tr>
+      {% endif %}
+    {% endfor %}
+    </table>
+  </form>
+
+  <div class="clr"></div>
+  </div>
+</div>
+{%if state %}
+<script>alertFunction("{{state}}")</script>
+{% endif %}
+{% endblock %}

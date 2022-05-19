@@ -9,6 +9,47 @@ function deleteFunction(id, status, message) {
             window.close();
             }
     }
+
+function removeFunction(id) {
+  $.getJSON("/repository/unsubscribe/" + id, function(json){
+    if (json['success'] == true) {
+      setTimeout(function(){
+        window.location.reload();
+      });
+    } else {
+      alert("Something went wrong... ");
+    }
+  });
+}
+
+function shareFunction(id, username) {
+  $.getJSON("/share_repository/", { id:id, username:username }, function(json){
+    if (json['success'] == true) {
+      if ('msg' in json) {
+        alert(json['msg']);
+      }
+    } else {
+      alert("Something went wrong... ");
+    }
+  });
+}
+
+function addClickHandlers() {
+  $(".remove_link").click( function() {
+    var r = confirm("Unsubscribe from the repository?");
+    if (r == true) {
+      removeFunction(this.id);
+    }
+  });
+
+  $(".share_link").click( function() {
+    var username = prompt("Please enter an user you want to add.");
+    if (username != '' && username != null) {
+      shareFunction(this.id, username);
+    }
+  });
+}
+$(document).ready(addClickHandlers);
 </script>
 {% endblock %}
 
@@ -45,8 +86,18 @@ function deleteFunction(id, status, message) {
 
           </br>
           </br>
-          <a  href=# onclick="deleteFunction()">Delete account</a>
+          <a href=# onclick="deleteFunction()">Delete account</a>
 
+          </br>
+          </br>
+          {% if repositories %}
+            <h2> <span>My Repositories</span> </h2>
+            {% for repo in repositories %}
+              <a href="/repository/{{repo.id}}">{{ repo.repository_alias }}</a>
+              <span class="remove_link" id="{{repo.id}}"><img src="/static/icon-deletelink.svg" title="unsubscribe" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+              <span class="share_link" id="{{repo.id}}"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+            {% endfor %}
+          {% endif %}
       </div>
     </div>
 

@@ -93,9 +93,12 @@ from django.contrib.auth.forms import PasswordChangeForm
 from django.template import Template, Context
 from django.core.mail import send_mail
 from django.utils import timezone
+from django.db.models import Q
 
 from biomedisa_app.models import (UploadForm, Upload, StorageForm, Profile,
-    UserForm, SettingsForm, SettingsPredictionForm, CustomUserCreationForm)
+    UserForm, SettingsForm, SettingsPredictionForm, CustomUserCreationForm,
+    Repository, Specimen, SpecimenForm, TomographicData, TomographicDataForm,
+    ProcessedData)
 from biomedisa_features.create_slices import create_slices
 from biomedisa_features.biomedisa_helper import (load_data, save_data, img_to_uint8, id_generator,
     convert_image, smooth_image, create_mesh, unique_file_path)
@@ -176,6 +179,267 @@ def contact(request):
 # 09. impressum
 def impressum(request):
     return render(request, 'impressum.html')
+
+# 10. repository
+@login_required
+def create_repository(request):
+
+    if request.user.is_superuser:
+        repository_alias = 'AntScan'
+        repository_name = '2020_12_antscan'
+        repository_id = 'r22D001'
+
+        # list all repositories
+        repositories = Repository.objects.filter()
+        print(repositories)
+
+        # creat repository
+        '''repository = Repository.objects.create(repository_alias=repository_alias, repository_name=repository_name, repository_id=repository_id)
+        repository.users.add(request.user)
+        repository.save()
+
+        # add user to repository
+        repository = get_object_or_404(Repository, repository_id=repository_id)
+        user_to_add = User.objects.get(username=request.user.username)
+        repository.users.add(user_to_add)
+        repository.save()
+        print(repository.users.all())'''
+
+        # create specimen and TomographicData
+        '''repository = get_object_or_404(Repository, repository_id=repository_id)
+        basename = config['PATH_TO_BIOMEDISA'] + '/media/'
+        for res in [2,5,10]:
+            files = glob.glob(basename + repository_name + f'/{res}x/*/*.tif')
+            for file in files:
+                if 'slices' in os.path.basename(file):
+                    internal_id = f'{res}x/' + os.path.basename(os.path.dirname(file))[:-3]
+                    step_scans = os.path.basename(os.path.dirname(file))[-1]
+                    filename = file[len(basename):]
+                    if Specimen.objects.filter(internal_id=internal_id, repository=repository).exists():
+                        specimen = get_object_or_404(Specimen, internal_id=internal_id, repository=repository)
+                    else:
+                        specimen = Specimen.objects.create(internal_id=internal_id, repository=repository)
+                    if not TomographicData.objects.filter(pic=filename, specimen=specimen, imageType=1, step_scans=step_scans).exists():
+                        TomographicData.objects.create(pic=filename, specimen=specimen, imageType=1, step_scans=step_scans)'''
+
+        # delete all specimens
+        '''specimens = Specimen.objects.filter()
+        for specimen in specimens:
+            specimen.delete()
+
+        # delete all repositories
+        repository = Repository.objects.filter()
+        for repo in repository:
+            repo.delete()'''
+
+@login_required
+def repository(request, id):
+
+    try:
+        state = request.session["state"]
+    except KeyError:
+        state = None
+
+    # get repository
+    id = int(id)
+    repository = get_object_or_404(Repository, pk=id)
+
+    # search for specimen containing query
+    if request.user in repository.users.all():
+        query = request.GET.get('search')
+        if query:
+            specimens = Specimen.objects.filter(Q(internal_id__icontains=query) | Q(subfamily__icontains=query) | Q(genus__icontains=query)\
+             | Q(species__icontains=query) | Q(caste__icontains=query), repository=repository, sketchfab=None)
+            specimens_with_model = Specimen.objects.filter(Q(internal_id__icontains=query) | Q(subfamily__icontains=query) | Q(genus__icontains=query)\
+             | Q(species__icontains=query) | Q(caste__icontains=query), repository=repository).exclude(sketchfab=None)
+        else:
+            specimens = Specimen.objects.filter(repository=repository, sketchfab=None)
+            specimens_with_model = Specimen.objects.filter(repository=repository).exclude(sketchfab=None)
+        all_specimens = Specimen.objects.filter(repository=repository)
+        return render(request, 'repository.html', {'state':state, 'specimens':specimens, 'repository':repository.repository_alias,
+                    'specimens_with_model':specimens_with_model, 'all_specimens':all_specimens})
+
+@login_required
+def share_repository(request):
+    results = {'success':False}
+    if request.method == 'GET':
+        id = int(request.GET.get('id'))
+        username = str(request.GET.get('username'))
+        repository = get_object_or_404(Repository, pk=id)
+        if request.user in repository.users.all():
+            if User.objects.filter(username=username).exists():
+                user_to_add = User.objects.get(username=username)
+                repository.users.add(user_to_add)
+                repository.save()
+                results = {'success':True, 'msg':'Repository shared successfully.'}
+                if config['OS'] == 'linux':
+                    q = Queue('share_notification', connection=Redis())
+                    job = q.enqueue_call(repository_share_notify, args=(username, repository.repository_alias, request.user.username,), timeout=-1)
+                elif config['OS'] == 'windows':
+                    Process(target=repository_share_notify, args=(username, repository.repository_alias, request.user.username)).start()
+            else:
+                results = {'success':True, 'msg':'User does not exist.'}
+    return JsonResponse(results)
+
+def repository_share_notify(username, repository, shared_by):
+    user = User.objects.get(username=username)
+    if user.first_name:
+        username = user.first_name
+    if user.profile.notification and user.email:
+        # prepare data package
+        datas={}
+        datas['email'] = user.email
+        datas['email_path'] = '/ShareRepository.txt'
+        datas['email_subject'] = shared_by + ' shared a repository with you'
+        datas['context'] = Context({'host':config['SERVER'], 'shared_by':shared_by, 'username':username, 'repository':repository})
+        # send notification
+        sendEmail(datas)
+
+@login_required
+def unsubscribe_from_repository(request, id):
+    results = {'success':False}
+    repository = get_object_or_404(Repository, pk=id)
+    user_to_remove = User.objects.get(username=request.user)
+    if request.user in repository.users.all():
+        repository.users.remove(user_to_remove)
+        repository.save()
+        results = {'success':True}
+    return JsonResponse(results)
+
+@login_required
+def specimen_info(request, id):
+    id = int(id)
+    specimen = get_object_or_404(Specimen, pk=id)
+    if request.user in specimen.repository.users.all():
+        initial={'subfamily':specimen.subfamily,'genus':specimen.genus,'species':specimen.species,'caste':specimen.caste,
+                'status':specimen.status,'location':specimen.location,'date':specimen.date,'collected_by':specimen.collected_by,
+                'collection_date':specimen.collection_date,'determined_by':specimen.determined_by,'collection':specimen.collection,
+                'specimen_id':specimen.specimen_id,'notes':specimen.notes,'internal_id':specimen.internal_id,'sketchfab':specimen.sketchfab}
+        if request.method == 'POST':
+            data = SpecimenForm(request.POST)
+            if data.is_valid():
+                cd = data.cleaned_data
+                if cd != initial:
+                    if cd['sketchfab'] == '':
+                        cd['sketchfab'] = None
+                    for key in cd.keys():
+                        specimen.__dict__[key] = cd[key]
+                    specimen.save()
+                    messages.success(request, 'Information updated successfully.')
+                return redirect(specimen_info, id)
+        else:
+            specimen_form = SpecimenForm(initial=initial)
+            name = specimen.internal_id if not any([specimen.subfamily, specimen.genus, specimen.species, specimen.caste]) else "{subfamily} | {genus} | {species} | {caste}".format(subfamily=specimen.subfamily, genus=specimen.genus, species=specimen.species, caste=specimen.caste)
+            tomographic_data = TomographicData.objects.filter(specimen=specimen)
+            sketchfab_id = specimen.sketchfab
+            return render(request, 'specimen_info.html', {'specimen_form':specimen_form,'tomographic_data':tomographic_data,'name':name,'specimen':specimen})
+
+@login_required
+def tomographic_info(request, id):
+    id = int(id)
+    tomographic_data = get_object_or_404(TomographicData, pk=id)
+    if request.user in tomographic_data.specimen.repository.users.all():
+        initial={'facility':tomographic_data.facility,'technique':tomographic_data.technique,'projections':tomographic_data.projections,
+                 'frames_s':tomographic_data.frames_s,'scintillator':tomographic_data.scintillator,'voxel_size':tomographic_data.voxel_size,
+                 'volume_size':tomographic_data.volume_size,'step_scans':tomographic_data.step_scans}
+        if request.method == 'POST':
+            data = TomographicDataForm(request.POST)
+            if data.is_valid():
+                cd = data.cleaned_data
+                if cd != initial:
+                    for key in cd.keys():
+                        tomographic_data.__dict__[key] = cd[key]
+                    tomographic_data.save()
+                    messages.success(request, 'Information updated successfully.')
+                return redirect(tomographic_info, id)
+        else:
+            # preview tomographic data
+            path_to_slices = '/media/' + os.path.dirname(tomographic_data.pic.name) + '/slices'
+            full_path = config['PATH_TO_BIOMEDISA'] + path_to_slices
+            if os.path.exists(full_path):
+                nos = len(os.listdir(full_path)) - 1
+                path_to_slices += '/'
+                im = Image.open(full_path + '/0.png')
+                imshape = np.asarray(im).shape
+            else:
+                nos = 0
+                imshape = (0,0)
+            # tomographic form
+            tomographic_form = TomographicDataForm(initial=initial)
+            return render(request, 'tomographic_info.html', {'tomographic_form':tomographic_form,'name':tomographic_data.pic.name,
+                                                             'related_specimen':tomographic_data.specimen.id, 'path_to_slices':path_to_slices,
+                                                             'nos':nos, 'imshape_x':imshape[1]//2, 'imshape_y':imshape[0]//2})
+
+@login_required
+def sliceviewer_repository(request):
+    if request.method == 'GET':
+        id = int(request.GET.get('id'))
+        obj = str(request.GET.get('object'))[:11]
+        if obj == 'tomographic':
+            tomographic_data = get_object_or_404(TomographicData, pk=id)
+        elif obj == 'specimen':
+            specimen = get_object_or_404(Specimen, pk=id)
+            tomographic_data = TomographicData.objects.filter(specimen=specimen)[0]
+        if request.user in tomographic_data.specimen.repository.users.all():
+            path_to_slices = '/media/' + os.path.dirname(tomographic_data.pic.name) + '/slices'
+            full_path = config['PATH_TO_BIOMEDISA'] + path_to_slices
+            nos = len(os.listdir(full_path)) - 1
+            path_to_slices += '/'
+            im = Image.open(full_path + '/0.png')
+            imshape = np.asarray(im).shape
+            return render(request, 'sliceviewer.html', {'path_to_slices':path_to_slices, 'nos':nos, 'imshape_x':imshape[1], 'imshape_y':imshape[0]})
+
+@login_required
+def download_repository(request, id):
+    id = int(id)
+    tomographic_data = get_object_or_404(TomographicData, pk=id)
+    if request.user in tomographic_data.specimen.repository.users.all():
+        filename = tomographic_data.pic.name
+        path_to_file = tomographic_data.pic.path
+        wrapper = FileWrapper(open(path_to_file, 'rb'))
+        imgsize = os.path.getsize(path_to_file)
+        if imgsize < 5000000000:
+            response = HttpResponse(wrapper, content_type=filename)
+        else:
+            response = StreamingHttpResponse(wrapper, content_type=filename)
+        response['Content-Disposition'] = 'attachment; filename="%s"' %(filename)
+        response['Content-Length'] = imgsize
+        return response
+
+@login_required
+def share_repository_data(request):
+    results = {'success':False}
+    if request.method == 'GET':
+        id = int(request.GET.get('id'))
+
+        tomographic_data = get_object_or_404(TomographicData, pk=id)
+        if request.user in tomographic_data.specimen.repository.users.all():
+
+            # new file path
+            shortfilename = tomographic_data.pic.name.replace('/','_')
+            pic_path = 'images/' + request.user.username + '/' + shortfilename
+
+            # rename image if path already exists
+            if os.path.exists(config['PATH_TO_BIOMEDISA'] + '/private_storage/' + pic_path):
+                path_to_data = unique_file_path(pic_path, request.user.username)
+                pic_path = 'images/' + request.user.username + '/' + os.path.basename(path_to_data)
+                shortfilename = os.path.basename(path_to_data)
+
+            # create object
+            img = Upload.objects.create(pic=pic_path, user=request.user, project=0, shortfilename=shortfilename)
+
+            # copy file
+            shutil.copy2(tomographic_data.pic.path, img.pic.path)
+
+            # copy slices
+            path_to_src = os.path.dirname(tomographic_data.pic.path) + '/slices'
+            path_to_dest = img.pic.path.replace('images', 'sliceviewer', 1)
+
+            if os.path.exists(path_to_src):
+                copytree(path_to_src, path_to_dest)
+
+            results = {'success':True, 'msg':'Successfully shared data.'}
+    return JsonResponse(results)
 
 # 11. logout_user
 @login_required
@@ -543,8 +807,9 @@ def update_profile(request):
         else:
             messages.error(request, 'Please correct the error below.')
     else:
+        repositories = Repository.objects.filter(users=request.user)
         user_form = UserForm(instance=request.user, initial={'notification':profile.notification})
-    return render(request, 'profile.html', {'user_form': user_form})
+    return render(request, 'profile.html', {'user_form':user_form, 'repositories':repositories})
 
 # 22. change_password
 @login_required
@@ -1121,6 +1386,9 @@ def app(request):
     # create profile for superuser
     if request.user.is_superuser:
 
+        # create new repository
+        #create_repository(request)
+
         # remove files if upload does not exist
         '''import glob
         profiles = Profile.objects.filter()
@@ -1696,15 +1964,28 @@ def delete(request):
     results = {'success':False}
     if request.method == 'GET':
         id = int(request.GET.get('id'))
+        obj = str(request.GET.get('object'))[:11]
         try:
-            stock_to_delete = get_object_or_404(Upload, pk=id)
-            if stock_to_delete.user == request.user and stock_to_delete.status==0:
-                if stock_to_delete.final:
-                    images = Upload.objects.filter(user=request.user, friend=stock_to_delete.friend)
-                    for img in images:
-                        img.delete()
-                else:
+            # delete tomographic data object
+            if obj == 'tomographic':
+                stock_to_delete = get_object_or_404(TomographicData, pk=id)
+                if request.user in stock_to_delete.specimen.repository.users.all():
                     stock_to_delete.delete()
+            # delete specimen object
+            elif obj == 'specimen':
+                stock_to_delete = get_object_or_404(Specimen, pk=id)
+                if request.user in stock_to_delete.repository.users.all():
+                    stock_to_delete.delete()
+            # delete upload object
+            else:
+                stock_to_delete = get_object_or_404(Upload, pk=id)
+                if stock_to_delete.user == request.user and stock_to_delete.status==0:
+                    if stock_to_delete.final:
+                        images = Upload.objects.filter(user=request.user, friend=stock_to_delete.friend)
+                        for img in images:
+                            img.delete()
+                    else:
+                        stock_to_delete.delete()
             results = {'success':True}
         except:
             pass

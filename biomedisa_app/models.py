@@ -233,6 +233,82 @@ class SettingsPredictionForm(forms.ModelForm):
         fields = ('compression', 'batch_size', 'stride_size', 
                   'delete_outliers', 'fill_holes')
 
+def repository_directory_path(instance, filename):
+    filename = filename.encode('ascii', 'ignore').decode()
+    filename = os.path.basename(filename)
+    filename, extension = os.path.splitext(filename)
+    if extension == '.gz':
+        filename, extension = os.path.splitext(filename)
+        if extension == '.nii':
+            extension = '.nii.gz'
+        elif extension == '.tar':
+            extension = '.tar.gz'
+    limit = 100 - len(extension)
+    filename = filename[:limit] + extension
+    return filename
+
+class Repository(models.Model):
+    repository_alias = models.TextField(null=True)
+    repository_name = models.TextField(null=True)
+    repository_id = models.CharField(default=0, max_length=7)
+    users = models.ManyToManyField(User, related_name="repository")
+
+class Specimen(models.Model):
+    internal_id = models.CharField(null=True, max_length=255, blank=True)
+    upload_date = models.DateTimeField(auto_now_add=True, null=True)
+    repository = models.ForeignKey(Repository, on_delete=models.DO_NOTHING)
+    subfamily = models.CharField(null=True, max_length=255, blank=True)
+    genus = models.CharField(null=True, max_length=255, blank=True)
+    species = models.CharField(null=True, max_length=255, blank=True)
+    caste = models.CharField(null=True, max_length=255, blank=True)
+    status = models.CharField(null=True, max_length=255, blank=True)
+    location = models.CharField(null=True, max_length=255, blank=True)
+    date = models.DateField(null=True, blank=True)
+    collected_by = models.CharField(null=True, max_length=255, blank=True)
+    collection_date = models.DateField(null=True, blank=True)
+    determined_by = models.CharField(null=True, max_length=255, blank=True)
+    collection = models.CharField(null=True, max_length=255, blank=True)
+    specimen_id = models.CharField(null=True, max_length=255, blank=True)
+    notes = models.TextField(null=True, blank=True)
+    sketchfab = models.TextField(null=True, blank=True)
+
+class TomographicData(models.Model):
+    pic = models.FileField("", upload_to=repository_directory_path)
+    upload_date = models.DateTimeField(auto_now_add=True, null=True)
+    specimen = models.ForeignKey(Specimen, on_delete=models.CASCADE)
+    imageType = models.IntegerField("Type", default=1, null=True)
+    shortfilename = models.TextField(null=True)
+    facility = models.DateField(null=True, blank=True)
+    technique = models.CharField(null=True, max_length=255, blank=True)
+    projections = models.CharField(null=True, max_length=255, blank=True)
+    frames_s = models.CharField(null=True, max_length=255, blank=True)
+    scintillator = models.DateField(null=True, blank=True)
+    voxel_size = models.CharField(null=True, max_length=255, blank=True)
+    volume_size = models.CharField(null=True, max_length=255, blank=True)
+    step_scans = models.CharField(null=True, max_length=255, blank=True)
+
+class ProcessedData(models.Model):
+    pic = models.FileField("", upload_to=repository_directory_path)
+    upload_date = models.DateTimeField(auto_now_add=True, null=True)
+    specimen = models.ForeignKey(Specimen, on_delete=models.CASCADE)
+    imageType = models.IntegerField("Type", default=1, null=True)
+    shortfilename = models.TextField(null=True)
+
+class SpecimenForm(forms.ModelForm):
+    class Meta:
+        model = Specimen
+        widgets = {'sketchfab': forms.Textarea(attrs={'rows':1})}
+        fields = ('subfamily', 'genus', 'species', 'caste', 'status',
+                  'location', 'date', 'collected_by', 'collection_date',
+                  'determined_by', 'collection', 'specimen_id', 'internal_id',
+                  'sketchfab', 'notes')
+
+class TomographicDataForm(forms.ModelForm):
+    class Meta:
+        model = TomographicData
+        fields = ('facility','technique', 'projections', 'frames_s', 'scintillator',
+                  'voxel_size', 'volume_size', 'step_scans')
+
 @receiver(models.signals.post_delete, sender=Upload)
 def auto_delete_file_on_delete(sender, instance, **kwargs):
     """Deletes file from filesystem
