@@ -257,8 +257,12 @@ def save_data(path_to_final, final, header=None, final_image_type=None, compress
     else:
         imageSize = int(final.nbytes * 10e-7)
         bigtiff = True if imageSize > 2000 else False
-        compress = 'zlib' if compress else None
-        imwrite(path_to_final, final, bigtiff=bigtiff, compression=compress)
+        try:
+            compress = 'zlib' if compress else None
+            imwrite(path_to_final, final, bigtiff=bigtiff, compression=compress)
+        except:
+            compress = 6 if compress else 0
+            imwrite(path_to_final, final, bigtiff=bigtiff, compress=compress)
 
 def color_to_gray(labelData):
     if len(labelData.shape) == 4 and labelData.shape[1] == 3:

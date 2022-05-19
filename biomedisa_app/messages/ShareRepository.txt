@@ -1,0 +1,7 @@
+Dear {{username}},
+
+{{shared_by}} shared the repository {{repository}} with you. Please log in to your profile {{host}}/profile/
+
+---------------------- 
+This is an automatic notification from Biomedisa. Please log in to {{host}}/app/ to process your data.
+If you do not wish to receive notifications, please deactivate this service at {{host}}/profile/.

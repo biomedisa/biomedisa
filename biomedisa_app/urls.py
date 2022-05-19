@@ -36,6 +36,15 @@ from django.contrib.auth import views as auth_views
 urlpatterns = [
     # biomedisa
     url(r'^$', views.index, name='index'),
+    # repository
+    url(r'^repository/(?P<id>\d+)/$', views.repository, name='repository'),
+    url(r'^repository/specimen/(?P<id>\d+)/$', views.specimen_info, name='specimen_info'),
+    url(r'^repository/data/(?P<id>\d+)/$', views.tomographic_info, name='tomographic_info'),
+    url(r'^repository/sliceviewer/$', views.sliceviewer_repository, name='sliceviewer_repository'),
+    url(r'^repository/download/(?P<id>\d+)/$', views.download_repository, name='download_repository'),
+    url(r'^repository/share_data/$', views.share_repository_data, name='share_repository_data'),
+    url(r'^repository/unsubscribe/(?P<id>\d+)/$', views.unsubscribe_from_repository, name='unsubscribe_from_repository'),
+    url(r'^share_repository/$', views.share_repository, name='share_repository'),
     # app
     url(r'^app/$', views.app, name='app'),
     # demo

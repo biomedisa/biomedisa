@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+
+{% block scripts %}
+    <style type="text/css"></style>
+    <script type="text/javascript" src="/static/sliceviewer/external/jquery.js"></script>
+    <script type="text/javascript" src="/static/sliceviewer/external/jquery.mousewheel.js"></script>
+    <script type="text/javascript" src="/static/sliceviewer/external/jquery.ui.core.js"></script>
+    <script type="text/javascript" src="/static/sliceviewer/external/jquery.ui.widget.js"></script>
+    <script type="text/javascript" src="/static/sliceviewer/external/jquery.ui.mouse.js"></script>
+    <script type="text/javascript" src="/static/sliceviewer/external/jquery.ui.slider.js"></script>
+    <script type="text/javascript" src="/static/sliceviewer/external/jquery.ui.touch-punch.js"></script>
+    <script type="text/javascript" src="/static/sliceviewer/src/sliceviewer.js"></script>
+    <script type="text/javascript">
+    $(function() {
+        images = [];
+        for (i = 0; i <= {{nos}}; i++) {
+            str = "{{ path_to_slices }}";
+            str = str + i + ".png";
+            images.push(str);
+        } 
+        $("#viewer").sliceviewer({
+            images: images, width: {{imshape_x}}, height: {{imshape_y}}
+        });
+    })
+    </script>
+{% endblock %}
+
+{% block menubar %}
+{% include 'menu_bar.html' with activate="repository" user=user %}
+{% endblock %}
+
+{% block content %}
+<div class="fbg">
+  <div class="fbg_resize">
+    <div class="col c0">
+      <h2> <span> {{ name }} </span> </h2>
+
+      {% if nos %}
+      <div id="viewer" >
+      </div>
+      {% endif %}
+
+      <div class="messagebox">
+      {% if messages %}
+      <ul class="messages">
+        {% for message in messages %}
+          <li class="success alert">{{ message }}</li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+      </div>
+
+      <form method="post" class="form1">
+        {% csrf_token %}
+        {{ tomographic_form.as_p }}
+        <button type="submit">Save changes</button>
+      </form>
+
+      </br>
+      <a href="/repository/specimen/{{related_specimen}}">Go back</a>
+
+    </div>
+    <div class="clr"></div>
+  </div>
+</div>
+{% endblock %}
