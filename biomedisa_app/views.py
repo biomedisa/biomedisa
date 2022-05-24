@@ -256,8 +256,9 @@ def repository(request, id):
             specimens = Specimen.objects.filter(repository=repository, sketchfab=None)
             specimens_with_model = Specimen.objects.filter(repository=repository).exclude(sketchfab=None)
         all_specimens = Specimen.objects.filter(repository=repository)
-        return render(request, 'repository.html', {'state':state, 'specimens':specimens, 'repository':repository.repository_alias,
-                    'specimens_with_model':specimens_with_model, 'all_specimens':all_specimens})
+        return render(request, 'repository.html', {'state':state, 'specimens':specimens, 'repository_alias':repository.repository_alias,
+                    'specimens_with_model':specimens_with_model, 'all_specimens':all_specimens, 'featured_img':repository.featured_img,
+                    'featured_img_width':repository.featured_img_width, 'featured_img_height':repository.featured_img_height})
 
 @login_required
 def share_repository(request):

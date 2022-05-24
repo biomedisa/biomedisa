@@ -58,7 +58,7 @@ function moveFunction(id, project) {
 }
 
 function shareFunction(id) {
-  $.getJSON("/share/repository/", { id:id }, function(json){
+  $.getJSON("/repository/share_data/", { id:id }, function(json){
     if (json['success'] == true) {
       if ('msg' in json) {
         alert(json['msg']);

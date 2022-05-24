@@ -252,6 +252,9 @@ class Repository(models.Model):
     repository_name = models.TextField(null=True)
     repository_id = models.CharField(default=0, max_length=7)
     users = models.ManyToManyField(User, related_name="repository")
+    featured_img = models.TextField(null=True)
+    featured_img_width = models.TextField(null=True)
+    featured_img_height = models.TextField(null=True)
 
 class Specimen(models.Model):
     internal_id = models.CharField(null=True, max_length=255, blank=True)

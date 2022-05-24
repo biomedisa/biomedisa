@@ -97,17 +97,17 @@ def read_labeled_slices(volData):
     return indices, data
 
 def read_labeled_slices_allx(volData):
-    gradient = np.zeros(volData.shape, dtype=np.int32)
+    gradient = np.zeros(volData.shape, dtype=np.int8)
     ones = np.zeros_like(gradient)
     ones[volData > 0] = 1
     tmp = ones[:,:-1] - ones[:,1:]
-    tmp *= tmp
+    tmp = np.abs(tmp)
     gradient[:,:-1] += tmp
     gradient[:,1:] += tmp
     ones[gradient == 2] = 0
     gradient.fill(0)
     tmp = ones[:,:,:-1] - ones[:,:,1:]
-    tmp *= tmp
+    tmp = np.abs(tmp)
     gradient[:,:,:-1] += tmp
     gradient[:,:,1:] += tmp
     ones[gradient == 2] = 0
@@ -167,6 +167,7 @@ def _diffusion_child(comm, bm=None):
 
             # read labeled slices
             if bm.label.allaxis:
+                labelblock = labelblock.astype(np.int32)
                 labelblock[:blockmin - datablockmin] = -1
                 labelblock[blockmax - datablockmin:] = -1
                 indices_child, labels_child = [], []
@@ -384,3 +385,4 @@ def _diffusion_child(comm, bm=None):
                     dataTemp = dataTemp.copy(order='C')
                     comm.send([dataTemp.shape[0], dataTemp.shape[1], dataTemp.shape[2]], dest=0, tag=10+(2*k))
                     comm.Send([dataTemp, MPI.BYTE], dest=0, tag=10+(2*k+1))
+

@@ -34,7 +34,7 @@ import numpy as np
 import time
 
 def read_labeled_slices(arr):
-    data = np.zeros((0, arr.shape[1], arr.shape[2]), dtype=arr.dtype)
+    data = np.zeros((0, arr.shape[1], arr.shape[2]), dtype=np.int32)
     indices = []
     i = 0
     for k, slc in enumerate(arr[:]):
@@ -60,7 +60,7 @@ def read_labeled_slices_allx(arr, ax):
     gradient[:,:,1:] += tmp
     ones[gradient == 2] = 0
     indices = []
-    data = np.zeros((0, arr.shape[1], arr.shape[2]), dtype=arr.dtype)
+    data = np.zeros((0, arr.shape[1], arr.shape[2]), dtype=np.int32)
     for k, slc in enumerate(ones[:]):
         if np.any(slc):
             data = np.append(data, [arr[k]], axis=0)
@@ -149,9 +149,12 @@ if __name__ == '__main__':
         bm.label.nbrw = 10
         bm.label.sorw = 4000
         bm.label.compression = True
+        bm.label.uncertainty = True if any(x in sys.argv for x in ['--uncertainty','-uq']) else False
         bm.label.allaxis = 1 if '-allx' in sys.argv else 0
-        bm.label.smooth = int(sys.argv[sys.argv.index('-s')+1]) if '-s' in sys.argv else 0
-        bm.label.uncertainty = True if '-uq' in sys.argv else False
+        bm.label.smooth = 0
+        for i, val in enumerate(sys.argv):
+            if val in ['--smooth','-s']:
+                bm.label.smooth = int(sys.argv[i+1])
         bm.process = 'biomedisa_interpolation'
         bm = pre_processing(bm)
 
@@ -196,7 +199,7 @@ if __name__ == '__main__':
 
             # add boundaries
             zsh, ysh, xsh = bm.data.shape
-            tmp = np.zeros((1+zsh+1, 1+ysh+1, 1+xsh+1), dtype=np.int32)
+            tmp = np.zeros((1+zsh+1, 1+ysh+1, 1+xsh+1), dtype=bm.labelData.dtype)
             tmp[1:-1, 1:-1, 1:-1] = bm.labelData
             bm.labelData = tmp.copy(order='C')
             tmp = np.zeros((1+zsh+1, 1+ysh+1, 1+xsh+1), dtype=bm.data.dtype)

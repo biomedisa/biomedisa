@@ -167,14 +167,22 @@ $(document).ready(addClickHandlers);
 {% include 'menu_bar.html' with activate="repository" user=user %}
 {% endblock %}
 
+{% block slideshow %}
+  {% if featured_img %}
+  <img src="/static/{{featured_img}}" width="{{featured_img_width}}" height="{{featured_img_height}}" alt="" />
+  {% endif %}
+{% endblock %}
+
 {% block content %}
 
 <div class="fbg">
   <div class="fbg_resize">
 
-  <h2 style="text-align:left;text-transform:uppercase">
-  {{repository}}
-  </h2>
+  {% if featured_img == None %}
+    <h2 style="text-align:left;text-transform:uppercase">
+    {{repository_alias}}
+    </h2>
+  {% endif %}
 
   {% if messages %}
     <ul class="messages">
@@ -197,6 +205,7 @@ $(document).ready(addClickHandlers);
             "{{specimen.genus}}",
             "{{specimen.species}}",
             "{{specimen.caste}}",
+            "{{specimen.internal_id}}",
           {% endfor %}
           ];
         $( "#tags" ).autocomplete({
