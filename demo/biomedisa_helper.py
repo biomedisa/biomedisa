@@ -187,10 +187,19 @@ def pre_processing(bm):
     if bm.data.shape != bm.labelData.shape:
         return _error_(bm, 'Image and label must have the same x,y,z-dimensions.')
 
-    # pre-process label data
-    bm.labelData = color_to_gray(bm.labelData)
-    bm.labelData = bm.labelData.astype(np.int32)
+    # get labels
     bm.allLabels = np.unique(bm.labelData)
+    if np.any(bm.allLabels > 255):
+        bm.labelData[bm.labelData > 255] = 0
+        index = np.argwhere(bm.allLabels > 255)
+        bm.allLabels = np.delete(bm.allLabels, index)
+        print('Warning: Only labels 0-255 are allowed. Labels higher than 255 will be removed.')
+    if np.any(bm.allLabels < 0):
+        bm.labelData[bm.labelData < 0] = 0
+        index = np.argwhere(bm.allLabels < 0)
+        bm.allLabels = np.delete(bm.allLabels, index)
+        print('Warning: Only labels 0-255 are allowed. Labels smaller than 0 will be removed.')
+    bm.labelData = bm.labelData.astype(np.uint8)
 
     # add background label if not existing
     if not np.any(bm.allLabels==0):
@@ -222,12 +231,6 @@ def pre_processing(bm):
 
     if bm.nol < 2:
         return _error_(bm, 'No labeled slices found.')
-
-    if np.any(bm.allLabels > 255):
-        return _error_(bm, 'No labels higher than 255 allowed.')
-
-    if np.any(bm.allLabels < 0):
-        return _error_(bm, 'No negative labels allowed.')
 
     bm.success = True
     return bm
@@ -288,3 +291,4 @@ def delbackground(labels):
     index = np.argmax(labelcounts)
     labels[labels==allLabels[index]] = 0
     return labels
+
