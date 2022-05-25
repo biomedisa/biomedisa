@@ -52,7 +52,7 @@ if __name__ == '__main__':
             sub_x = max(int(sys.argv[i+1]), 1)
         if val in ['--overlap','-ol']:
             overlap = max(int(sys.argv[i+1]), 0)
-        if val in ['--processes','-np']:
+        if val in ['-n','-np']:
             nump = max(int(sys.argv[i+1]), 1)
         if val in ['--smooth','-s']:
             smooth = int(sys.argv[i+1])
