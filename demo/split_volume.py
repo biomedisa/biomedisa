@@ -26,10 +26,11 @@
 ##                                                                      ##
 ##########################################################################
 
-import os, sys
+import os, sys, glob
 from biomedisa_helper import load_data, save_data
 import numpy as np
 import subprocess
+import platform
 
 if __name__ == '__main__':
 
@@ -38,7 +39,7 @@ if __name__ == '__main__':
     path_to_labels = sys.argv[2]
 
     # get arguments
-    np = 1
+    nump = 1
     overlap = 100
     sub_z, sub_y, sub_x = 1, 1, 1
     for i, val in enumerate(sys.argv):
@@ -51,10 +52,15 @@ if __name__ == '__main__':
         if val in ['--overlap','-ol']:
             overlap = max(int(sys.argv[i+1]), 0)
         if val in ['--processes','-np']:
-            np = max(int(sys.argv[i+1]), 1)
+            nump = max(int(sys.argv[i+1]), 1)
 
     # base directory
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+    # clean tmp folder
+    filelist = glob.glob(BASE_DIR+'/tmp/*.tif')
+    for f in filelist:
+        os.remove(f)
 
     # data shape
     data, _ = load_data(path_to_data, 'split_volume')
@@ -104,7 +110,15 @@ if __name__ == '__main__':
 
                 # run segmentation
                 cwd = BASE_DIR + '/demo/'
-                p = subprocess.Popen(['mpiexec', '-np', f'{np}', 'python3', 'biomedisa_interpolation.py', BASE_DIR+f'/tmp/sub_volume_{subvolume}.tif', BASE_DIR+'/tmp/labels.sub_volume.tif'], cwd=cwd)
+                if platform.system() == 'Windows':
+                    p = subprocess.Popen(['mpiexec', '-np', f'{nump}', 'python', 'biomedisa_interpolation.py', BASE_DIR+f'/tmp/sub_volume_{subvolume}.tif', BASE_DIR+'/tmp/labels.sub_volume.tif'], cwd=cwd, stdout=subprocess.PIPE)
+                    # print output
+                    for line in iter(p.stdout.readline, b''):
+                        line = str(line,'utf-8')
+                        print(line.rstrip())
+                    p.stdout.close()
+                else:
+                    p = subprocess.Popen(['mpiexec', '-np', f'{nump}', 'python3', 'biomedisa_interpolation.py', BASE_DIR+f'/tmp/sub_volume_{subvolume}.tif', BASE_DIR+'/tmp/labels.sub_volume.tif'], cwd=cwd)
                 p.wait()
 
                 # remove tmp files
