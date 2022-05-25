@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2020 Philipp Lösel. All rights reserved.              ##
+##  Copyright (c) 2022 Philipp Lösel. All rights reserved.              ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
