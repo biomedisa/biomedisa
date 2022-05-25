@@ -90,6 +90,13 @@ Use pre-segmentation with different orientations (not exclusively xy-plane).
 mpiexec -n 4 python3 ~/git/biomedisa/demo/biomedisa_interpolation.py 'path_to_image' 'path_to_labels' -allx
 ```
 
+#### Memory Error
+If memory errors (either GPU or host memory) occur, you can start the segmentation as follows
+```
+python3 ~/git/biomedisa/demo/split_volume.py 'path_to_image' 'path_to_labels' -n 4 -sz 2 -sy 2 -sx 2
+```
+Where `-n` determines the number of GPUs and each axis (`x`,`y` and `z`) is divided into two overlapping parts. The volume is thus divided into `2*2*2=8` subvolumes. These are segmented separately and then reassembled.
+
 # Run AI example
 
 Download a trained neural network and a test image from the [gallery](https://biomedisa.org/gallery/) or directly as follows:
@@ -138,12 +145,12 @@ cd git/biomedisa
 git pull
 ```
 
-If you have fully installed Biomedisa (including MySQL database), update the database.
+If you have installed the full version of Biomedisa (including MySQL database), you also need to update the database.
 ```
 python3 manage.py migrate
 ```
 
-If you have installed an [Apache Server](https://github.com/biomedisa/biomedisa/blob/master/README/APACHE_SERVER.md), restart the server.
+If you have installed an [Apache Server](https://github.com/biomedisa/biomedisa/blob/master/README/APACHE_SERVER.md), you need to restart the server.
 ```
 sudo service apache2 restart
 ```
