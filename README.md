@@ -91,7 +91,7 @@ mpiexec -n 4 python3 ~/git/biomedisa/demo/biomedisa_interpolation.py 'path_to_im
 ```
 
 #### Memory Error
-If memory errors (either GPU or host memory) occur, you can start the segmentation as follows
+If memory errors (either GPU or host memory) occur, you can start the segmentation as follows:
 ```
 python3 ~/git/biomedisa/demo/split_volume.py 'path_to_image' 'path_to_labels' -n 4 -sz 2 -sy 2 -sx 2
 ```
@@ -99,13 +99,14 @@ Where `-n` determines the number of GPUs and each axis (`x`,`y` and `z`) is divi
 
 # Run AI example
 
+#### Automatic segmentation based on a trained network
 Download a trained neural network and a test image from the [gallery](https://biomedisa.org/gallery/) or directly as follows:
 ```
 wget --no-check-certificate https://biomedisa.org/download/demo/?id=heart.h5 -O ~/Downloads/heart.h5
 wget --no-check-certificate https://biomedisa.org/download/demo/?id=testing_axial_crop_pat13.nii.gz -O ~/Downloads/testing_axial_crop_pat13.nii.gz
 ```
 
-Use the trained neural network to **predict the result** of the test image. The result will be saved in `Downloads` as `final.testing_axial_crop_pat13.tif`.
+Use the trained neural network to predict the result of the test image. The result will be saved in `Downloads` as `final.testing_axial_crop_pat13.tif`.
 ```
 # Ubuntu
 python3 ~/git/biomedisa/demo/biomedisa_deeplearning.py ~/Downloads/testing_axial_crop_pat13.nii.gz ~/Downloads/heart.h5 --predict -bs 6
@@ -114,6 +115,7 @@ python3 ~/git/biomedisa/demo/biomedisa_deeplearning.py ~/Downloads/testing_axial
 wsl -d Biomedisa-2x.xx.x -u biomedisa python3 ~/git/biomedisa/demo/biomedisa_deeplearning.py Downloads/testing_axial_crop_pat13.nii.gz Downloads/heart.h5 -p -bs 6
 ```
 
+#### Train a neural network for automatic segmentation
 To train the neural network yourself, download and extract the training data from the [gallery](https://biomedisa.org/gallery/) or directly as follows:
 ```
 wget --no-check-certificate https://biomedisa.org/download/demo/?id=training_heart.tar -O ~/Downloads/training_heart.tar
@@ -123,7 +125,7 @@ tar -xf training_heart.tar
 tar -xf training_heart_labels.tar
 ```
 
-**Train a neural network** with 200 epochs and batch size (-bs) of 24. The result will be saved in `Downloads` as `heart.h5`. If you have a single GPU or low memory, reduce the batch size to 6.
+Train a neural network with 200 epochs and batch size (-bs) of 24. The result will be saved in `Downloads` as `heart.h5`. If you have a single GPU or low memory, reduce the batch size to 6.
 ```
 # Ubuntu
 python3 ~/git/biomedisa/demo/biomedisa_deeplearning.py ~/Downloads/training_heart ~/Downloads/training_heart_labels --train --epochs 200 -bs 24
@@ -132,10 +134,17 @@ python3 ~/git/biomedisa/demo/biomedisa_deeplearning.py ~/Downloads/training_hear
 wsl -d Biomedisa-2x.xx.x -u biomedisa python3 ~/git/biomedisa/demo/biomedisa_deeplearning.py Downloads/training_heart Downloads/training_heart_labels --train --epochs 200 -bs 24
 ```
 
-Specify directories containing validation images and validation labels
+#### Validate the network during training
+Specify directories containing validation images and validation labels.
 ```
 # Ubuntu
 python3 ~/git/biomedisa/demo/biomedisa_deeplearning.py ~/Downloads/training_heart ~/Downloads/training_heart_labels --train --val_images ~/Downloads/validation_images --val_labels ~/Downloads/validation_labels
+```
+
+Split your data into 80% training data and 20% validation data and use early stopping if there is no improvement within 10 epochs.
+```
+# Ubuntu
+python3 ~/git/biomedisa/demo/biomedisa_deeplearning.py ~/Downloads/training_heart ~/Downloads/training_heart_labels --train --validation_split 0.8 --early_stopping
 ```
 
 # Update Biomedisa

@@ -172,7 +172,7 @@ def load_data_(path_to_data, process):
             print(e)
             data, header = None, None
 
-    elif extension in ['.hdr', '.mhd', '.mha', '.nrrd', '.nii', '.nii.gz']:
+    elif extension in ['.hdr', '.mhd', '.mha', '.nrrd', '.nii', '.nii.gz', '.mrc']:
         try:
             data, header = load(path_to_data)
             data = np.swapaxes(data, 0, 2)
@@ -353,7 +353,7 @@ def save_data(path_to_final, final, header=None, final_image_type=None, compress
             final_image_type = '.nii.gz'
     if final_image_type == '.am':
         np_to_amira(path_to_final, [final], header)
-    elif final_image_type in ['.hdr', '.mhd', '.mha', '.nrrd', '.nii', '.nii.gz']:
+    elif final_image_type in ['.hdr', '.mhd', '.mha', '.nrrd', '.nii', '.nii.gz', '.mrc']:
         final = np.swapaxes(final, 0, 2)
         save(final, path_to_final, header)
     elif final_image_type == '.zip':

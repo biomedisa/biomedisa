@@ -33,7 +33,7 @@ from tensorflow.keras.layers import (
     Input, Conv3D, MaxPooling3D, UpSampling3D, Activation, Reshape,
     BatchNormalization, Concatenate)
 from tensorflow.keras.utils import to_categorical
-from tensorflow.keras.callbacks import Callback, ModelCheckpoint
+from tensorflow.keras.callbacks import Callback, ModelCheckpoint, EarlyStopping
 from DataGenerator import DataGenerator
 from PredictDataGenerator import PredictDataGenerator
 import matplotlib.pyplot as plt
@@ -557,7 +557,7 @@ def train_semantic_segmentation(normalize, path_to_img, path_to_labels, x_scale,
         validation_generator = None
 
     # optimizer
-    sgd = SGD(lr=learning_rate, decay=1e-6, momentum=0.9, nesterov=True)
+    sgd = SGD(learning_rate=learning_rate, decay=1e-6, momentum=0.9, nesterov=True)
 
     # create a MirroredStrategy
     if os.name == 'nt':
@@ -589,6 +589,8 @@ def train_semantic_segmentation(normalize, path_to_img, path_to_labels, x_scale,
                 mode='max',
                 save_best_only=True)
             callbacks = [model_checkpoint_callback, meta_data]
+            if early_stopping:
+                callbacks.insert(0,EarlyStopping(monitor='val_accuracy', mode='max', patience=10))
     else:
         callbacks = [ModelCheckpoint(filepath=str(path_to_model)), meta_data]
 
@@ -1114,3 +1116,4 @@ def refine_semantic_segmentation(path_to_img, path_to_final, path_to_model, patc
         if img_header is not None:
             header = get_physical_size(header, img_header)
     save_data(path_to_final, out, header=header, compress=compress)
+
