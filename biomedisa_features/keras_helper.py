@@ -416,7 +416,7 @@ class MetaData(Callback):
         hf.close()
 
 class Metrics(Callback):
-    def __init__(self, img, label, list_IDs, dim_patch, dim_img, batch_size, path_to_model, early_stopping):
+    def __init__(self, img, label, list_IDs, dim_patch, dim_img, batch_size, path_to_model, early_stopping, validation_freq, n_classes):
         self.dim_patch = dim_patch
         self.dim_img = dim_img
         self.list_IDs = list_IDs
@@ -425,6 +425,8 @@ class Metrics(Callback):
         self.img = img
         self.path_to_model = path_to_model
         self.early_stopping = early_stopping
+        self.validation_freq = validation_freq
+        self.n_classes = n_classes
 
     def on_train_begin(self, logs={}):
         self.history = {}
@@ -433,71 +435,81 @@ class Metrics(Callback):
         self.history['loss'] = []
 
     def on_epoch_end(self, epoch, logs={}):
-        len_IDs = len(self.list_IDs)
-        n_batches = int(np.floor(len_IDs / self.batch_size))
-        intersection, union = 0, 0
+        if epoch % self.validation_freq == 0:
 
-        for batch in range(n_batches):
-            # Generate indexes of the batch
-            list_IDs_batch = self.list_IDs[batch*self.batch_size:(batch+1)*self.batch_size]
+            result = np.zeros((*self.dim_img, self.n_classes), dtype=np.float32)
 
-            # Initialization
-            X_val = np.empty((self.batch_size, *self.dim_patch, 1), dtype=np.float32)
-            y_val = np.empty((self.batch_size, *self.dim_patch), dtype=np.int32)
+            len_IDs = len(self.list_IDs)
+            n_batches = int(np.floor(len_IDs / self.batch_size))
 
-            # Generate data
-            for i, ID in enumerate(list_IDs_batch):
+            for batch in range(n_batches):
+                # Generate indexes of the batch
+                list_IDs_batch = self.list_IDs[batch*self.batch_size:(batch+1)*self.batch_size]
 
-                # get patch indices
-                k = ID // (self.dim_img[1]*self.dim_img[2])
-                rest = ID % (self.dim_img[1]*self.dim_img[2])
-                l = rest // self.dim_img[2]
-                m = rest % self.dim_img[2]
+                # Initialization
+                X_val = np.empty((self.batch_size, *self.dim_patch, 1), dtype=np.float32)
+                y_val = np.empty((self.batch_size, *self.dim_patch), dtype=np.int32)
 
-                X_val[i,:,:,:,0] = self.img[k:k+self.dim_patch[0],l:l+self.dim_patch[1],m:m+self.dim_patch[2]]
-                y_val[i,:,:,:] = self.label[k:k+self.dim_patch[0],l:l+self.dim_patch[1],m:m+self.dim_patch[2]]
+                # Generate data
+                for i, ID in enumerate(list_IDs_batch):
 
-            # Prediction segmentation
-            y_predict = np.asarray(self.model.predict(X_val, verbose=0, steps=None))
-            y_predict = np.argmax(y_predict, axis=-1)
+                    # get patch indices
+                    k = ID // (self.dim_img[1]*self.dim_img[2])
+                    rest = ID % (self.dim_img[1]*self.dim_img[2])
+                    l = rest // self.dim_img[2]
+                    m = rest % self.dim_img[2]
+
+                    X_val[i,:,:,:,0] = self.img[k:k+self.dim_patch[0],l:l+self.dim_patch[1],m:m+self.dim_patch[2]]
+                    y_val[i,:,:,:] = self.label[k:k+self.dim_patch[0],l:l+self.dim_patch[1],m:m+self.dim_patch[2]]
+
+                # Prediction segmentation
+                y_predict = np.asarray(self.model.predict(X_val, verbose=0, steps=None))
+
+                for i, ID in enumerate(list_IDs_batch):
+
+                    # get patch indices
+                    k = ID // (self.dim_img[1]*self.dim_img[2])
+                    rest = ID % (self.dim_img[1]*self.dim_img[2])
+                    l = rest // self.dim_img[2]
+                    m = rest % self.dim_img[2]
+
+                    result[k:k+self.dim_patch[0],l:l+self.dim_patch[1],m:m+self.dim_patch[2]] += y_predict[i]
 
             # Compute dice score
-            intersection += 2 * np.logical_and(y_val==y_predict, (y_val+y_predict)>0).sum()
-            union += (y_val>0).sum() + (y_predict>0).sum()
+            result = np.argmax(result, axis=-1)
+            result = result.astype(np.uint8)
+            dice = 2 * np.logical_and(self.label==result, (self.label+result)>0).sum() / \
+                   float((self.label>0).sum() + (result>0).sum())
 
-        # accuracy
-        dice = 0 if union==0 else intersection / union
+            # save best model only
+            if epoch == 0:
+                self.model.save(str(self.path_to_model))
+            elif round(dice,5) > max(self.history['val_accuracy']):
+                self.model.save(str(self.path_to_model))
 
-        # save best model only
-        if epoch == 0:
-            self.model.save(str(self.path_to_model))
+            # add accuracy to history
+            self.history['val_accuracy'].append(round(dice,5))
+            self.history['accuracy'].append(round(logs["accuracy"],5))
+            self.history['loss'].append(round(logs["loss"],5))
+            logs["val_accuracy"] = max(self.history['val_accuracy'])
 
-        elif round(dice,5) > max(self.history['val_accuracy']):
-            self.model.save(str(self.path_to_model))
+            # print accuracies
+            print()
+            print('val_acc (Dice):', self.history['val_accuracy'])
+            print('train_acc:', self.history['accuracy'])
+            print()
 
-        # add accuracy to history
-        self.history['val_accuracy'].append(round(dice,5))
-        self.history['accuracy'].append(round(logs["accuracy"],5))
-        self.history['loss'].append(round(logs["loss"],5))
-        logs["val_accuracy"] = max(self.history['val_accuracy'])
-        #save_history(self.history, self.path_to_model)
-
-        # print accuracies
-        print()
-        print('val_acc (Dice):', self.history['val_accuracy'])
-        print('train_acc:', self.history['accuracy'])
-        print()
-
-        # early stopping
-        if self.early_stopping and max(self.history['val_accuracy']) not in self.history['val_accuracy'][-10:]:
-            self.model.stop_training = True
+            # early stopping
+            if self.early_stopping and max(self.history['val_accuracy']) not in self.history['val_accuracy'][-10:]:
+                self.model.stop_training = True
 
 def train_semantic_segmentation(normalize, img_list, label_list, x_scale, y_scale,
-                        z_scale, crop_data, path_to_model, z_patch, y_patch, x_patch, epochs,
-                        batch_size, channels, validation_split, stride_size, balance,
-                        flip_x, flip_y, flip_z, rotate, image, early_stopping, val_dice):
+            z_scale, crop_data, path_to_model, z_patch, y_patch, x_patch, epochs,
+            batch_size, channels, validation_split, stride_size, balance,
+            flip_x, flip_y, flip_z, rotate, image, early_stopping, val_dice,
+            validation_freq):
 
-    # load training data
+    # training data
     img, label, position, allLabels, configuration_data, header, extension, region_of_interest, number_of_images = load_training_data(normalize,
                     img_list, label_list, channels, x_scale, y_scale, z_scale, crop_data)
 
@@ -509,6 +521,31 @@ def train_semantic_segmentation(normalize, img_list, label_list, x_scale, y_scal
 
     # img shape
     zsh, ysh, xsh = img.shape
+
+    # validation data
+    if validation_split:
+        number_of_images = zsh // z_scale
+        split = round(number_of_images * validation_split)
+        img_val = np.copy(img[split*z_scale:])
+        label_val = np.copy(label[split*z_scale:])
+        img = np.copy(img[:split*z_scale])
+        label = np.copy(label[:split*z_scale])
+        zsh, ysh, xsh = img.shape
+        if channels == 2:
+            position_val = np.copy(position[split*z_scale:])
+            position = np.copy(position[:split*z_scale])
+
+        # img_val shape
+        zsh_val, ysh_val, xsh_val = img_val.shape
+
+        # list of validation IDs
+        list_IDs_val = []
+
+        # get validation IDs of patches
+        for k in range(0, zsh_val-z_patch+1, stride_size):
+            for l in range(0, ysh_val-y_patch+1, stride_size):
+                for m in range(0, xsh_val-x_patch+1, stride_size):
+                    list_IDs_val.append(k*ysh_val*xsh_val+l*xsh_val+m)
 
     # list of IDs
     list_IDs = []
@@ -534,19 +571,16 @@ def train_semantic_segmentation(normalize, img_list, label_list, x_scale, y_scal
               'augment': (flip_x, flip_y, flip_z, rotate)}
 
     # data generator
+    validation_generator = None
+    training_generator = DataGenerator(img, label, position, list_IDs, True, **params)
     if validation_split:
-        split = int(len(list_IDs) * validation_split)
-        training_generator = DataGenerator(img, label, position, list_IDs[:split], True, **params)
         if val_dice:
-            metrics = Metrics(img, label, list_IDs[split:], (z_patch,y_patch,x_patch), (zsh,ysh,xsh), batch_size,
-                              path_to_model, early_stopping)
-            validation_generator = None
+            metrics = Metrics(img_val, label_val, list_IDs_val, (z_patch, y_patch, x_patch), (zsh_val, ysh_val, xsh_val), batch_size,
+                              path_to_model, early_stopping, validation_freq, nb_labels)
         else:
-            validation_generator = DataGenerator(img, label, position, list_IDs[split:], False, **params)
-            metrics = None
-    else:
-        training_generator = DataGenerator(img, label, position, list_IDs, True, **params)
-        validation_generator = None
+            params['dim_img'] = (zsh_val, ysh_val, xsh_val)
+            params['augment'] = (False, False, False, 0)
+            validation_generator = DataGenerator(img_val, label_val, position_val, list_IDs_val, False, **params)
 
     # optimizer
     sgd = SGD(learning_rate=0.01, decay=1e-6, momentum=0.9, nesterov=True)
@@ -582,7 +616,7 @@ def train_semantic_segmentation(normalize, img_list, label_list, x_scale, y_scal
                 save_best_only=True)
             callbacks = [model_checkpoint_callback, CustomCallback(image.id,epochs), meta_data]
             if early_stopping:
-                callbacks.insert(0,EarlyStopping(monitor='val_accuracy', mode='max', patience=10))
+                callbacks.insert(0, EarlyStopping(monitor='val_accuracy', mode='max', patience=10))
     else:
         callbacks = [ModelCheckpoint(filepath=str(path_to_model)),
                 CustomCallback(image.id,epochs), meta_data]

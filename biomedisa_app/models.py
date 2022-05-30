@@ -209,6 +209,7 @@ class Upload(models.Model):
     validation_split = models.FloatField('Validation split (AI)', default=0.0)
     early_stopping = models.BooleanField("Early stopping (AI)", default=False)
     val_dice = models.BooleanField("Validate Dice score (AI)", default=False)
+    validation_freq = models.IntegerField("Validation frequency (AI)", default=1)
 
 class UploadForm(forms.ModelForm):
     class Meta:
@@ -227,7 +228,7 @@ class SettingsForm(forms.ModelForm):
                   'early_stopping', 'val_dice', 'position', 'flip_x',
                   'flip_y', 'flip_z', 'rotate', 'epochs', 'batch_size',
                   'x_scale', 'y_scale', 'z_scale', 'stride_size', 'validation_split',
-                  'smooth', 'delete_outliers', 'fill_holes', 'ignore', 'only')
+                  'validation_freq', 'smooth', 'delete_outliers', 'fill_holes', 'ignore', 'only')
 
 class SettingsPredictionForm(forms.ModelForm):
     class Meta:
