@@ -76,14 +76,12 @@ def conv_network(train, predict, refine, img_list, label_list, path_to_model,
     if train:
 
         try:
-            # load training data
-            img, labelData, position, allLabels, mu, sig, header, extension, region_of_interest = load_training_data(normalize,
-                            img_list, label_list, channels, x_scale, y_scale, z_scale, crop_data)
-
             # train network
-            train_semantic_segmentation(img, labelData, path_to_model, z_patch, y_patch, x_patch, allLabels, epochs,
-                            batch_size, channels, label.validation_split, stride_size, balance, position,
-                            label.flip_x, label.flip_y, label.flip_z, label.rotate, image)
+            train_semantic_segmentation(normalize, img_list, label_list, x_scale, y_scale,
+                    z_scale, crop_data, path_to_model, z_patch, y_patch, x_patch, epochs,
+                    batch_size, channels, label.validation_split, stride_size, balance,
+                    label.flip_x, label.flip_y, label.flip_z, label.rotate, image,
+                    label.early_stopping, label.val_dice)
 
         except InputError:
             return success, InputError.message, None, None
@@ -96,18 +94,6 @@ def conv_network(train, predict, refine, img_list, label_list, path_to_model,
         except Exception as e:
             print('Error:', e)
             return success, e, None, None
-
-        # save meta data
-        hf = h5py.File(path_to_model, 'r+')
-        group = hf.create_group('meta')
-        group.create_dataset('configuration', data=np.array([channels, x_scale, y_scale, z_scale, normalize, mu, sig]))
-        group.create_dataset('labels', data=allLabels)
-        if extension == '.am':
-            group.create_dataset('extension', data=extension)
-            group.create_dataset('header', data=header)
-        if region_of_interest is not None:
-            group.create_dataset('region_of_interest', data=region_of_interest)
-        hf.close()
 
     if refine and not predict:
 

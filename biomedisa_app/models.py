@@ -207,6 +207,8 @@ class Upload(models.Model):
     automatic_cropping = models.BooleanField("Automatic cropping (AI)", default=False)
     path_to_model = models.TextField(null=True)
     validation_split = models.FloatField('Validation split (AI)', default=0.0)
+    early_stopping = models.BooleanField("Early stopping (AI)", default=False)
+    val_dice = models.BooleanField("Validate Dice score (AI)", default=False)
 
 class UploadForm(forms.ModelForm):
     class Meta:
@@ -222,7 +224,7 @@ class SettingsForm(forms.ModelForm):
     class Meta:
         model = Upload
         fields = ('allaxis', 'uncertainty', 'compression', 'normalize',
-                  'automatic_cropping', 'position', 'balance', 'flip_x',
+                  'early_stopping', 'val_dice', 'position', 'flip_x',
                   'flip_y', 'flip_z', 'rotate', 'epochs', 'batch_size',
                   'x_scale', 'y_scale', 'z_scale', 'stride_size', 'validation_split',
                   'smooth', 'delete_outliers', 'fill_holes', 'ignore', 'only')
