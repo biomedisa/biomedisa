@@ -141,10 +141,10 @@ Specify directories containing validation images and validation labels.
 python3 ~/git/biomedisa/demo/biomedisa_deeplearning.py ~/Downloads/training_heart ~/Downloads/training_heart_labels --train --val_images ~/Downloads/validation_images --val_labels ~/Downloads/validation_labels
 ```
 
-Split your data into 80% training data and 20% validation data and use early stopping if there is no improvement within 10 epochs.
+Split your data into 80% training data and 20% validation data, use early stopping if there is no improvement within 10 epochs, and use Dice score to measure accuracy.
 ```
 # Ubuntu
-python3 ~/git/biomedisa/demo/biomedisa_deeplearning.py ~/Downloads/training_heart ~/Downloads/training_heart_labels --train --validation_split 0.8 --early_stopping
+python3 ~/git/biomedisa/demo/biomedisa_deeplearning.py ~/Downloads/training_heart ~/Downloads/training_heart_labels --train --validation_split 0.8 --early_stopping 10 --val_dice
 ```
 
 # Update Biomedisa

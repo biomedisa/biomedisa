@@ -38,13 +38,10 @@ import numpy as np
 import h5py
 import time
 
-def conv_network(train, predict, path_to_model,
-            compress, epochs, batch_size, path_to_labels,
-            stride_size, channels, normalize, path_to_img,
-            x_scale, y_scale, z_scale, class_weights, crop_data,
-            flip_x, flip_y, flip_z, rotate, validation_split,
-            early_stopping, val_dice, learning_rate,
-            path_val_img, path_val_labels):
+def conv_network(train, predict, path_to_model, compress, epochs, batch_size, path_to_labels,
+            stride_size, channels, normalize, path_to_img, x_scale, y_scale, z_scale, class_weights, crop_data,
+            flip_x, flip_y, flip_z, rotate, validation_split, early_stopping, val_dice, learning_rate,
+            path_val_img, path_val_labels, validation_stride_size, validation_freq, validation_batch_size):
 
     # get number of GPUs
     strategy = tf.distribute.MirroredStrategy()
@@ -52,13 +49,15 @@ def conv_network(train, predict, path_to_model,
 
     success = False
     path_to_final = None
-    batch_size -= batch_size % ngpus                # batch size must be divisible by number of GPUs
-    z_patch, y_patch, x_patch = 64, 64, 64          # dimensions of patches for regular training
-    patch_size = 64                                 # x,y,z-patch size for the refinement network
+    batch_size -= batch_size % ngpus                            # batch size must be divisible by number of GPUs
+    validation_batch_size -= validation_batch_size % ngpus      # batch size must be divisible by number of GPUs
+    z_patch, y_patch, x_patch = 64, 64, 64                      # dimensions of patches for regular training
+    patch_size = 64                                             # x,y,z-patch size for the refinement network
 
     # adapt scaling and stridesize to patchsize
     stride_size = max(1, min(stride_size, 64))
     stride_size_refining = max(1, min(stride_size, 64))
+    validation_stride_size = max(1, min(validation_stride_size, 64))
     x_scale = x_scale - (x_scale - 64) % stride_size
     y_scale = y_scale - (y_scale - 64) % stride_size
     z_scale = z_scale - (z_scale - 64) % stride_size
@@ -71,7 +70,8 @@ def conv_network(train, predict, path_to_model,
                             z_scale, crop_data, path_to_model, z_patch, y_patch, x_patch, epochs,
                             batch_size, channels, validation_split, stride_size, class_weights,
                             flip_x, flip_y, flip_z, rotate, early_stopping, val_dice, learning_rate,
-                            path_val_img, path_val_labels)
+                            path_val_img, path_val_labels, validation_stride_size, validation_freq,
+                            validation_batch_size)
         except InputError:
             print('Error:', InputError.message)
             return success, InputError.message, None, None
@@ -165,23 +165,26 @@ if __name__ == '__main__':
     flip_x = True if any(x in parameters for x in ['--flip_x']) else False                          # flip x-axis during training
     flip_y = True if any(x in parameters for x in ['--flip_y']) else False                          # flip y-axis during training
     flip_z = True if any(x in parameters for x in ['--flip_z']) else False                          # flip z-axis during training
-    early_stopping = True if any(x in parameters for x in ['--early_stopping','-es']) else False    # early_stopping
     val_dice = True if any(x in parameters for x in ['--val_dice','-vd']) else False                # use dice score on validation data
 
-    compress = 6            # wheter final result should be compressed or not
-    epochs = 200            # epochs the network is trained
-    channels = 1            # use voxel coordinates
-    normalize = 1           # normalize images before training
-    x_scale = 256           # images are scaled at x-axis to this size before training
-    y_scale = 256           # images are scaled at y-axis to this size before training
-    z_scale = 256           # images are scaled at z-axis to this size before training
-    rotate = 0              # randomly rotate during training
-    validation_split = 0.0  # percentage used for validation
-    stride_size = 32        # stride size for patches
-    batch_size = 24         # batch size
-    learning_rate = 0.01    # learning rate
-    path_val_img = None     # validation images
-    path_val_labels = None  # validation labels
+    compress = 6                    # wheter final result should be compressed or not
+    epochs = 200                    # epochs the network is trained
+    channels = 1                    # use voxel coordinates
+    normalize = 1                   # normalize images before training
+    x_scale = 256                   # images are scaled at x-axis to this size before training
+    y_scale = 256                   # images are scaled at y-axis to this size before training
+    z_scale = 256                   # images are scaled at z-axis to this size before training
+    rotate = 0                      # randomly rotate during training
+    validation_split = 0.0          # percentage used for validation
+    stride_size = 32                # stride size for patches
+    validation_stride_size = 32     # stride size for validation patches
+    validation_freq = 1             # epochs to be performed prior to validation
+    batch_size = 24                 # batch size
+    validation_batch_size = 24      # validation batch size
+    learning_rate = 0.01            # learning rate
+    path_val_img = None             # validation images
+    path_val_labels = None          # validation labels
+    early_stopping = 0              # early_stopping
 
     for k in range(len(parameters)):
         if parameters[k] in ['--compress','-c']:
@@ -204,14 +207,22 @@ if __name__ == '__main__':
             validation_split = float(parameters[k+1])
         if parameters[k] in ['--stride_size','-ss']:
             stride_size = int(parameters[k+1])
+        if parameters[k] in ['--validation_stride_size','-vss']:
+            validation_stride_size = int(parameters[k+1])
+        if parameters[k] in ['--validation_freq','-vf']:
+            validation_freq = int(parameters[k+1])
         if parameters[k] in ['--batch_size','-bs']:
             batch_size = int(parameters[k+1])
+        if parameters[k] in ['--validation_batch_size','-vbs']:
+            validation_batch_size = int(parameters[k+1])
         if parameters[k] in ['--learning_rate','-lr']:
             learning_rate = float(parameters[k+1])
         if parameters[k] in ['--val_images','-vi']:
             path_val_img = str(parameters[k+1])
         if parameters[k] in ['--val_labels','-vl']:
             path_val_labels = str(parameters[k+1])
+        if parameters[k] in ['--early_stopping','-es']:
+            early_stopping = int(parameters[k+1])
 
     # train network or predict segmentation
     conv_network(
@@ -220,7 +231,8 @@ if __name__ == '__main__':
         normalize, path_to_img, x_scale, y_scale, z_scale,
         balance, crop_data, flip_x, flip_y, flip_z, rotate,
         validation_split, early_stopping, val_dice, learning_rate,
-        path_val_img, path_val_labels
+        path_val_img, path_val_labels, validation_stride_size,
+        validation_freq, validation_batch_size
         )
 
     # calculation time
