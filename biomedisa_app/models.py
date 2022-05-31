@@ -208,7 +208,7 @@ class Upload(models.Model):
     path_to_model = models.TextField(null=True)
     validation_split = models.FloatField('Validation split (AI)', default=0.0)
     early_stopping = models.BooleanField("Early stopping (AI)", default=False)
-    val_dice = models.BooleanField("Validate Dice score (AI)", default=False)
+    val_tf = models.BooleanField("Validate TF accuracy (AI)", default=False)
     validation_freq = models.IntegerField("Validation frequency (AI)", default=1)
 
 class UploadForm(forms.ModelForm):
@@ -225,7 +225,7 @@ class SettingsForm(forms.ModelForm):
     class Meta:
         model = Upload
         fields = ('allaxis', 'uncertainty', 'compression', 'normalize',
-                  'early_stopping', 'val_dice', 'position', 'flip_x',
+                  'early_stopping', 'position', 'flip_x',
                   'flip_y', 'flip_z', 'rotate', 'epochs', 'batch_size',
                   'x_scale', 'y_scale', 'z_scale', 'stride_size', 'validation_split',
                   'validation_freq', 'smooth', 'delete_outliers', 'fill_holes', 'ignore', 'only')

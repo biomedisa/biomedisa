@@ -40,7 +40,7 @@ import time
 
 def conv_network(train, predict, path_to_model, compress, epochs, batch_size, path_to_labels,
             stride_size, channels, normalize, path_to_img, x_scale, y_scale, z_scale, class_weights, crop_data,
-            flip_x, flip_y, flip_z, rotate, validation_split, early_stopping, val_dice, learning_rate,
+            flip_x, flip_y, flip_z, rotate, validation_split, early_stopping, val_tf, learning_rate,
             path_val_img, path_val_labels, validation_stride_size, validation_freq, validation_batch_size):
 
     # get number of GPUs
@@ -69,7 +69,7 @@ def conv_network(train, predict, path_to_model, compress, epochs, batch_size, pa
             train_semantic_segmentation(normalize, path_to_img, path_to_labels, x_scale, y_scale,
                             z_scale, crop_data, path_to_model, z_patch, y_patch, x_patch, epochs,
                             batch_size, channels, validation_split, stride_size, class_weights,
-                            flip_x, flip_y, flip_z, rotate, early_stopping, val_dice, learning_rate,
+                            flip_x, flip_y, flip_z, rotate, early_stopping, val_tf, learning_rate,
                             path_val_img, path_val_labels, validation_stride_size, validation_freq,
                             validation_batch_size)
         except InputError:
@@ -165,7 +165,7 @@ if __name__ == '__main__':
     flip_x = True if any(x in parameters for x in ['--flip_x']) else False                          # flip x-axis during training
     flip_y = True if any(x in parameters for x in ['--flip_y']) else False                          # flip y-axis during training
     flip_z = True if any(x in parameters for x in ['--flip_z']) else False                          # flip z-axis during training
-    val_dice = True if any(x in parameters for x in ['--val_dice','-vd']) else False                # use dice score on validation data
+    val_tf = True if any(x in parameters for x in ['--val_tf','-vt']) else False                    # use tensorflow standard accuracy on validation data
 
     compress = 6                    # wheter final result should be compressed or not
     epochs = 200                    # epochs the network is trained
@@ -230,7 +230,7 @@ if __name__ == '__main__':
         epochs, batch_size, path_to_labels, stride_size, channels,
         normalize, path_to_img, x_scale, y_scale, z_scale,
         balance, crop_data, flip_x, flip_y, flip_z, rotate,
-        validation_split, early_stopping, val_dice, learning_rate,
+        validation_split, early_stopping, val_tf, learning_rate,
         path_val_img, path_val_labels, validation_stride_size,
         validation_freq, validation_batch_size
         )
