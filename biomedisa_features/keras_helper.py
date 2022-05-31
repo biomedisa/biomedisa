@@ -506,7 +506,7 @@ class Metrics(Callback):
 def train_semantic_segmentation(normalize, img_list, label_list, x_scale, y_scale,
             z_scale, crop_data, path_to_model, z_patch, y_patch, x_patch, epochs,
             batch_size, channels, validation_split, stride_size, balance,
-            flip_x, flip_y, flip_z, rotate, image, early_stopping, val_dice,
+            flip_x, flip_y, flip_z, rotate, image, early_stopping, val_tf,
             validation_freq):
 
     # training data
@@ -517,7 +517,6 @@ def train_semantic_segmentation(normalize, img_list, label_list, x_scale, y_scal
     if number_of_images > 20:
         validation_split = 0.8 if validation_split < 0.8 else validation_split
         early_stopping = True
-        val_dice = True
 
     # img shape
     zsh, ysh, xsh = img.shape
@@ -574,13 +573,13 @@ def train_semantic_segmentation(normalize, img_list, label_list, x_scale, y_scal
     validation_generator = None
     training_generator = DataGenerator(img, label, position, list_IDs, True, **params)
     if validation_split:
-        if val_dice:
-            metrics = Metrics(img_val, label_val, list_IDs_val, (z_patch, y_patch, x_patch), (zsh_val, ysh_val, xsh_val), batch_size,
-                              path_to_model, early_stopping, validation_freq, nb_labels)
-        else:
+        if val_tf:
             params['dim_img'] = (zsh_val, ysh_val, xsh_val)
             params['augment'] = (False, False, False, 0)
             validation_generator = DataGenerator(img_val, label_val, position_val, list_IDs_val, False, **params)
+        else:
+            metrics = Metrics(img_val, label_val, list_IDs_val, (z_patch, y_patch, x_patch), (zsh_val, ysh_val, xsh_val), batch_size,
+                              path_to_model, early_stopping, validation_freq, nb_labels)
 
     # optimizer
     sgd = SGD(learning_rate=0.01, decay=1e-6, momentum=0.9, nesterov=True)
@@ -605,9 +604,7 @@ def train_semantic_segmentation(normalize, img_list, label_list, x_scale, y_scal
 
     # model checkpoint
     if validation_split:
-        if val_dice:
-            callbacks = [metrics, CustomCallback(image.id,epochs), meta_data]
-        else:
+        if val_tf:
             model_checkpoint_callback = ModelCheckpoint(
                 filepath=str(path_to_model),
                 save_weights_only=False,
@@ -617,6 +614,8 @@ def train_semantic_segmentation(normalize, img_list, label_list, x_scale, y_scal
             callbacks = [model_checkpoint_callback, CustomCallback(image.id,epochs), meta_data]
             if early_stopping:
                 callbacks.insert(0, EarlyStopping(monitor='val_accuracy', mode='max', patience=10))
+        else:
+            callbacks = [metrics, CustomCallback(image.id,epochs), meta_data]
     else:
         callbacks = [ModelCheckpoint(filepath=str(path_to_model)),
                 CustomCallback(image.id,epochs), meta_data]

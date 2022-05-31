@@ -81,7 +81,7 @@ def conv_network(train, predict, refine, img_list, label_list, path_to_model,
                     z_scale, crop_data, path_to_model, z_patch, y_patch, x_patch, epochs,
                     batch_size, channels, label.validation_split, stride_size, balance,
                     label.flip_x, label.flip_y, label.flip_z, label.rotate, image,
-                    label.early_stopping, label.val_dice, int(label.validation_freq))
+                    label.early_stopping, label.val_tf, int(label.validation_freq))
 
         except InputError:
             return success, InputError.message, None, None

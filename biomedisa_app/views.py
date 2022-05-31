@@ -748,7 +748,7 @@ def settings(request, id):
     if image.user == request.user:
         initial={'allaxis':image.allaxis,'smooth':image.smooth,'delete_outliers':image.delete_outliers,
                 'fill_holes':image.fill_holes,'ignore':image.ignore,'epochs':image.epochs,'uncertainty':image.uncertainty,
-                'normalize':image.normalize,'val_dice':image.val_dice,'validation_freq':image.validation_freq,'early_stopping':image.early_stopping,
+                'normalize':image.normalize,'validation_freq':image.validation_freq,'early_stopping':image.early_stopping,
                 'compression':image.compression,'only':image.only,'stride_size':image.stride_size,'batch_size':image.batch_size,
                 'x_scale':image.x_scale,'y_scale':image.y_scale,'z_scale':image.z_scale,'position':image.position,
                 'flip_x':image.flip_x,'flip_y':image.flip_y,'flip_z':image.flip_z,'rotate':image.rotate,
@@ -764,7 +764,7 @@ def settings(request, id):
                     image.epochs = min(200, int(cd['epochs']))
                     image.rotate = min(180, max(0, int(cd['rotate'])))
                     image.validation_split = min(1.0, max(0.0, float(cd['validation_split'])))
-                    if (cd['val_dice'] or cd['early_stopping']) and image.validation_split == 0.0:
+                    if cd['early_stopping'] and image.validation_split == 0.0:
                         image.validation_split = 0.8
                     image.save()
                     messages.error(request, 'Your settings were changed.')
