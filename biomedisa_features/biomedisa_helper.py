@@ -172,7 +172,7 @@ def load_data_(path_to_data, process):
             print(e)
             data, header = None, None
 
-    elif extension in ['.hdr', '.mhd', '.mha', '.nrrd', '.nii', '.nii.gz', '.mrc']:
+    elif extension in ['.hdr', '.mhd', '.mha', '.nrrd', '.nii', '.nii.gz']:
         try:
             data, header = load(path_to_data)
             data = np.swapaxes(data, 0, 2)
@@ -209,6 +209,17 @@ def load_data_(path_to_data, process):
             header = [header, files, data.dtype]
             data = np.swapaxes(data, 1, 2)
             data = np.copy(data, order='C')
+        except Exception as e:
+            print(e)
+            data, header = None, None
+
+    elif extension == '.mrc':
+        try:
+            import mrcfile
+            with mrcfile.open(path_to_data, permissive=True) as mrc:
+                data = mrc.data
+            data = np.flip(data,1)
+            extension, header = '.tif', None
         except Exception as e:
             print(e)
             data, header = None, None
@@ -353,7 +364,7 @@ def save_data(path_to_final, final, header=None, final_image_type=None, compress
             final_image_type = '.nii.gz'
     if final_image_type == '.am':
         np_to_amira(path_to_final, [final], header)
-    elif final_image_type in ['.hdr', '.mhd', '.mha', '.nrrd', '.nii', '.nii.gz', '.mrc']:
+    elif final_image_type in ['.hdr', '.mhd', '.mha', '.nrrd', '.nii', '.nii.gz']:
         final = np.swapaxes(final, 0, 2)
         save(final, path_to_final, header)
     elif final_image_type == '.zip':

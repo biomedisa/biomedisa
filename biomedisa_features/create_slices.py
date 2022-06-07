@@ -237,5 +237,6 @@ def create_slices(path_to_data, path_to_label):
                         # save slice
                         im = Image.fromarray(out)
                         im.save(path_to_label_slices + '/%s.png' %(k))
-    except:
-        pass
+    except Exception as e:
+        print(e)
+

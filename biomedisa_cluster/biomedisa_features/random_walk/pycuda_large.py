@@ -251,40 +251,47 @@ def walk(comm, raw, slices, indices, nbrw, sorw, blockmin, blockmax, name, allLa
     slices = slices.astype(np.int32)
     slices = reduceBlocksize(slices)
 
-    # allocate hits arrays
+    # allocate host memory
     hits = np.empty(raw.shape, dtype=np.float32)
     final = np.zeros((blockmax-blockmin, ysh, xsh), dtype=np.uint8)
 
+    # allocate GPU memory or use subdomains
     memory_error = False
     subdomains = False
-
-    try:
-        if np.any(indices):
-            slshape = slices.shape[0]
-            indices = np.array(indices, dtype=np.int32)
-            indices_gpu = gpuarray.to_gpu(indices)
-            slices_gpu = gpuarray.to_gpu(slices)
-            grid = (int(x_grid), int(y_grid), int(slshape))
-        raw_gpu = gpuarray.to_gpu(raw)
-        hits_gpu = cuda.mem_alloc(hits.nbytes)
-
-        sendbuf = np.zeros(1, dtype=np.int32)
-        recvbuf = np.zeros(1, dtype=np.int32)
-        comm.Barrier()
-        comm.Allreduce([sendbuf, MPI.INT], [recvbuf, MPI.INT], op=MPI.MAX)
-
-    except Exception as e:
-        print('Warning: GPU ran out of memory. Volume is splitted into subdomains.')
+    if zsh * ysh * xsh > 42e8:
+        print('Warning: Volume indexes exceed unsigned long int range. The volume is splitted into subdomains.')
         subdomains = True
         sendbuf = np.zeros(1, dtype=np.int32) + 1
         recvbuf = np.zeros(1, dtype=np.int32)
         comm.Barrier()
         comm.Allreduce([sendbuf, MPI.INT], [recvbuf, MPI.INT], op=MPI.MAX)
+    else:
         try:
-            hits_gpu.free()
-        except:
-            pass
+            if np.any(indices):
+                slshape = slices.shape[0]
+                indices = np.array(indices, dtype=np.int32)
+                indices_gpu = gpuarray.to_gpu(indices)
+                slices_gpu = gpuarray.to_gpu(slices)
+                grid = (int(x_grid), int(y_grid), int(slshape))
+            raw_gpu = gpuarray.to_gpu(raw)
+            hits_gpu = cuda.mem_alloc(hits.nbytes)
+            sendbuf = np.zeros(1, dtype=np.int32)
+            recvbuf = np.zeros(1, dtype=np.int32)
+            comm.Barrier()
+            comm.Allreduce([sendbuf, MPI.INT], [recvbuf, MPI.INT], op=MPI.MAX)
+        except Exception as e:
+            print('Warning: GPU ran out of memory. The volume is splitted into subdomains.')
+            subdomains = True
+            sendbuf = np.zeros(1, dtype=np.int32) + 1
+            recvbuf = np.zeros(1, dtype=np.int32)
+            comm.Barrier()
+            comm.Allreduce([sendbuf, MPI.INT], [recvbuf, MPI.INT], op=MPI.MAX)
+            try:
+                hits_gpu.free()
+            except:
+                pass
 
+    # disable smoothing and uncertainty for subdomains
     if recvbuf > 0:
         smooth, uncertainty = 0, 0
 
