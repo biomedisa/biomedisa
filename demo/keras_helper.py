@@ -79,7 +79,7 @@ def save_history(history, path_to_model):
     plt.savefig(path_to_model.replace(".h5","_loss.png"), dpi=300, bbox_inches='tight')
     plt.clf()
 
-def predict_blocksize(labelData):
+def predict_blocksize(labelData, x_puffer, y_puffer, z_puffer):
     zsh, ysh, xsh = labelData.shape
     argmin_z, argmax_z, argmin_y, argmax_y, argmin_x, argmax_x = zsh, 0, ysh, 0, xsh, 0
     for k in range(zsh):
@@ -92,12 +92,12 @@ def predict_blocksize(labelData):
             argmin_z = min(argmin_z, k)
             argmax_z = max(argmax_z, k)
     zmin, zmax = argmin_z, argmax_z
-    argmin_x = argmin_x - 64 if argmin_x - 64 > 0 else 0
-    argmax_x = argmax_x + 64 if argmax_x + 64 < xsh else xsh
-    argmin_y = argmin_y - 64 if argmin_y - 64 > 0 else 0
-    argmax_y = argmax_y + 64 if argmax_y + 64 < ysh else ysh
-    argmin_z = argmin_z - 64 if argmin_z - 64 > 0 else 0
-    argmax_z = argmax_z + 64 if argmax_z + 64 < zsh else zsh
+    argmin_x = argmin_x - x_puffer if argmin_x - x_puffer > 0 else 0
+    argmax_x = argmax_x + x_puffer if argmax_x + x_puffer < xsh else xsh
+    argmin_y = argmin_y - y_puffer if argmin_y - y_puffer > 0 else 0
+    argmax_y = argmax_y + y_puffer if argmax_y + y_puffer < ysh else ysh
+    argmin_z = argmin_z - z_puffer if argmin_z - z_puffer > 0 else 0
+    argmax_z = argmax_z + z_puffer if argmax_z + z_puffer < zsh else zsh
     return argmin_z,argmax_z,argmin_y,argmax_y,argmin_x,argmax_x
 
 def get_image_dimensions(header, data):
@@ -251,8 +251,8 @@ def get_labels(arr, allLabels):
 # regular
 #=====================
 
-def load_training_data(normalize, img_dir, label_dir, channels,
-                      x_scale, y_scale, z_scale, crop_data, configuration_data=None, allLabels=None):
+def load_training_data(normalize, img_dir, label_dir, channels, x_scale, y_scale, z_scale,
+        crop_data, configuration_data=None, allLabels=None, x_puffer=25, y_puffer=25, z_puffer=25):
 
     # get filenames
     img_names, label_names = [], []
@@ -265,16 +265,13 @@ def load_training_data(normalize, img_dir, label_dir, channels,
         label_names.extend(tmp_label_names)
 
     # load first label
-    region_of_interest = None
     a, header, extension = load_data(label_names[0], 'first_queue', True)
     if a is None:
         InputError.message = "Invalid label data %s." %(os.path.basename(label_names[0]))
         raise InputError()
     if crop_data:
-        region_of_interest = np.zeros(6)
-        argmin_z,argmax_z,argmin_y,argmax_y,argmin_x,argmax_x=predict_blocksize(a)
+        argmin_z,argmax_z,argmin_y,argmax_y,argmin_x,argmax_x = predict_blocksize(a, x_puffer, y_puffer, z_puffer)
         a = np.copy(a[argmin_z:argmax_z,argmin_y:argmax_y,argmin_x:argmax_x], order='C')
-        region_of_interest += [argmin_z,argmax_z,argmin_y,argmax_y,argmin_x,argmax_x]
     a = a.astype(np.uint8)
     np_unique = np.unique(a)
     label = np.zeros((z_scale, y_scale, x_scale), dtype=a.dtype)
@@ -302,6 +299,7 @@ def load_training_data(normalize, img_dir, label_dir, channels,
         img = img * sig + mu
     else:
         mu, sig = np.mean(img), np.std(img)
+
     for img_name, label_name in zip(img_names[1:], label_names[1:]):
 
         # append label
@@ -310,9 +308,8 @@ def load_training_data(normalize, img_dir, label_dir, channels,
             InputError.message = "Invalid label data %s." %(os.path.basename(name))
             raise InputError()
         if crop_data:
-            argmin_z,argmax_z,argmin_y,argmax_y,argmin_x,argmax_x=predict_blocksize(a)
+            argmin_z,argmax_z,argmin_y,argmax_y,argmin_x,argmax_x = predict_blocksize(a, x_puffer, y_puffer, z_puffer)
             a = np.copy(a[argmin_z:argmax_z,argmin_y:argmax_y,argmin_x:argmax_x], order='C')
-            region_of_interest += [argmin_z,argmax_z,argmin_y,argmax_y,argmin_x,argmax_x]
         a = a.astype(np.uint8)
         np_unique = np.unique(a)
         next_label = np.zeros((z_scale, y_scale, x_scale), dtype=a.dtype)
@@ -339,13 +336,6 @@ def load_training_data(normalize, img_dir, label_dir, channels,
             a = (a - mu_tmp) / sig_tmp
             a = a * sig + mu
         img = np.append(img, a, axis=0)
-
-    # automatic cropping
-    if crop_data:
-        region_of_interest /= float(len(img_names))
-        region_of_interest = np.round(region_of_interest)
-        region_of_interest[region_of_interest<0] = 0
-        region_of_interest = region_of_interest.astype(int)
 
     # scale image data to [0,1]
     img[img<0] = 0
@@ -375,16 +365,15 @@ def load_training_data(normalize, img_dir, label_dir, channels,
     # configuration data
     configuration_data = np.array([channels, x_scale, y_scale, z_scale, normalize, mu, sig])
 
-    return img, label, position, allLabels, configuration_data, header, extension, region_of_interest, counts
+    return img, label, position, allLabels, configuration_data, header, extension, counts
 
 class MetaData(Callback):
-    def __init__(self, path_to_model, configuration_data, allLabels, extension, header, region_of_interest):
+    def __init__(self, path_to_model, configuration_data, allLabels, extension, header):
         self.path_to_model = path_to_model
         self.configuration_data = configuration_data
         self.allLabels = allLabels
         self.extension = extension
         self.header = header
-        self.region_of_interest = region_of_interest
 
     def on_epoch_end(self, epoch, logs={}):
         hf = h5py.File(self.path_to_model, 'r')
@@ -397,8 +386,6 @@ class MetaData(Callback):
             if self.extension == '.am':
                 group.create_dataset('extension', data=self.extension)
                 group.create_dataset('header', data=self.header)
-            if self.region_of_interest is not None:
-                group.create_dataset('region_of_interest', data=self.region_of_interest)
         hf.close()
 
 class Metrics(Callback):
@@ -477,6 +464,7 @@ class Metrics(Callback):
             self.history['val_accuracy'].append(round(dice,5))
             self.history['accuracy'].append(round(logs["accuracy"],5))
             self.history['loss'].append(round(logs["loss"],5))
+            logs["val_accuracy"] = max(self.history['val_accuracy'])
             save_history(self.history, self.path_to_model)
 
             # print accuracies
@@ -497,7 +485,7 @@ def train_semantic_segmentation(normalize, path_to_img, path_to_labels, x_scale,
             validation_batch_size):
 
     # training data
-    img, label, position, allLabels, configuration_data, header, extension, region_of_interest, counts = load_training_data(normalize,
+    img, label, position, allLabels, configuration_data, header, extension, counts = load_training_data(normalize,
                     path_to_img, path_to_labels, channels, x_scale, y_scale, z_scale, crop_data, None, None)
 
     # img shape
@@ -505,7 +493,7 @@ def train_semantic_segmentation(normalize, path_to_img, path_to_labels, x_scale,
 
     # validation data
     if path_val_img:
-        img_val, label_val, position_val, _, _, _, _, _, _ = load_training_data(normalize,
+        img_val, label_val, position_val, _, _, _, _, _ = load_training_data(normalize,
                         path_val_img, path_val_labels, channels, x_scale, y_scale, z_scale, crop_data, configuration_data, allLabels)
 
     elif validation_split:
@@ -591,7 +579,7 @@ def train_semantic_segmentation(normalize, path_to_img, path_to_labels, x_scale,
                       metrics=['accuracy'])
 
     # save meta data
-    meta_data = MetaData(path_to_model, configuration_data, allLabels, extension, header, region_of_interest)
+    meta_data = MetaData(path_to_model, configuration_data, allLabels, extension, header)
 
     # model checkpoint
     if path_val_img or validation_split:
@@ -636,18 +624,6 @@ def load_prediction_data(path_to_img, channels, x_scale, y_scale, z_scale,
     # automatic cropping of image to region of interest
     if np.any(region_of_interest):
         min_z, max_z, min_y, max_y, min_x, max_x = region_of_interest[:]
-        min_z = min(min_z, z_shape)
-        min_y = min(min_y, y_shape)
-        min_x = min(min_x, x_shape)
-        max_z = min(max_z, z_shape)
-        max_y = min(max_y, y_shape)
-        max_x = min(max_x, x_shape)
-        if max_z-min_z < z_shape:
-            min_z, max_z = 0, z_shape
-        if max_y-min_y < y_shape:
-            min_y, max_y = 0, y_shape
-        if max_x-min_x < x_shape:
-            min_x, max_x = 0, x_shape
         img = np.copy(img[min_z:max_z,min_y:max_y,min_x:max_x], order='C')
         region_of_interest = np.array([min_z,max_z,min_y,max_y,min_x,max_x,z_shape,y_shape,x_shape])
         z_shape, y_shape, x_shape = max_z-min_z, max_y-min_y, max_x-min_x
