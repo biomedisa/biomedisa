@@ -29,6 +29,7 @@
 
 import sys, os
 from keras_helper import *
+import crop_helper as ch
 from multiprocessing import Process
 import subprocess
 
@@ -41,18 +42,29 @@ import time
 def conv_network(train, predict, path_to_model, compress, epochs, batch_size, path_to_labels,
             stride_size, channels, normalize, path_to_img, x_scale, y_scale, z_scale, class_weights, crop_data,
             flip_x, flip_y, flip_z, rotate, validation_split, early_stopping, val_tf, learning_rate,
-            path_val_img, path_val_labels, validation_stride_size, validation_freq, validation_batch_size):
+            path_val_img, path_val_labels, validation_stride_size, validation_freq, validation_batch_size,
+            debug_cropping):
 
     # get number of GPUs
     strategy = tf.distribute.MirroredStrategy()
     ngpus = int(strategy.num_replicas_in_sync)
 
-    success = False
-    path_to_final = None
-    batch_size -= batch_size % ngpus                            # batch size must be divisible by number of GPUs
-    validation_batch_size -= validation_batch_size % ngpus      # batch size must be divisible by number of GPUs
-    z_patch, y_patch, x_patch = 64, 64, 64                      # dimensions of patches for regular training
-    patch_size = 64                                             # x,y,z-patch size for the refinement network
+    # batch size must be divisible by the number of GPUs and two
+    rest = batch_size % (2*ngpus)
+    if 2*ngpus - rest < rest:
+        batch_size = batch_size + 2*ngpus - rest
+    else:
+        batch_size = batch_size - rest
+
+    # validation batch size must be divisible by the number of GPUs and two
+    rest = validation_batch_size % (2*ngpus)
+    if 2*ngpus - rest < rest:
+        validation_batch_size = validation_batch_size + 2*ngpus - rest
+    else:
+        validation_batch_size = validation_batch_size - rest
+
+    # dimensions of patches for regular training
+    z_patch, y_patch, x_patch = 64, 64, 64
 
     # adapt scaling and stridesize to patchsize
     stride_size = max(1, min(stride_size, 64))
@@ -65,6 +77,12 @@ def conv_network(train, predict, path_to_model, compress, epochs, batch_size, pa
     if train:
 
         try:
+        # train automatic cropping
+            if crop_data:
+                ch.load_and_train(normalize, path_to_img, path_to_labels, path_to_model.replace('.h5','_cropping.h5'),
+                    epochs, batch_size, validation_split, x_scale, y_scale, z_scale,
+                    flip_x, flip_y, flip_z, rotate, path_val_img, path_val_labels)
+
             # train network
             train_semantic_segmentation(normalize, path_to_img, path_to_labels, x_scale, y_scale,
                             z_scale, crop_data, path_to_model, z_patch, y_patch, x_patch, epochs,
@@ -74,16 +92,12 @@ def conv_network(train, predict, path_to_model, compress, epochs, batch_size, pa
                             validation_batch_size)
         except InputError:
             print('Error:', InputError.message)
-            return success, InputError.message, None, None
         except MemoryError:
             print('MemoryError')
-            return success, 'MemoryError', None, None
         except ResourceExhaustedError:
             print('Error: GPU out of memory')
-            return success, 'GPU out of memory', None, None
         except Exception as e:
             print('Error:', e)
-            return success, e, None, None
 
     if predict:
 
@@ -98,11 +112,10 @@ def conv_network(train, predict, path_to_model, compress, epochs, batch_size, pa
             allLabels = np.array(meta.get('labels'))
             header = np.array(meta.get('header'))
             extension = str(np.array(meta.get('extension')))
-            region_of_interest = np.array(meta.get('region_of_interest'))
             hf.close()
         except Exception as e:
             print('Error:', e)
-            return success, 'Invalid Biomedisa Network', None
+            return
 
         # if header is not Amira falling back to Multi-TIFF
         if extension != '.am':
@@ -118,6 +131,10 @@ def conv_network(train, predict, path_to_model, compress, epochs, batch_size, pa
         path_to_final = path_to_img.replace(os.path.basename(path_to_img), filename + extension)
 
         try:
+            # crop data
+            region_of_interest = None
+            if crop_data:
+                region_of_interest = ch.crop_data(path_to_img, path_to_model.replace('.h5','_cropping.h5'), batch_size, debug_cropping)
 
             # load prediction data
             img, img_header, position, z_shape, y_shape, x_shape, region_of_interest = load_prediction_data(path_to_img,
@@ -129,16 +146,13 @@ def conv_network(train, predict, path_to_model, compress, epochs, batch_size, pa
                 img_header, channels, stride_size, allLabels, batch_size, region_of_interest)
 
         except InputError:
-            return success, InputError.message, None, None
+            print('Error:', InputError.message)
         except MemoryError:
             print('MemoryError')
-            return success, 'MemoryError', None, None
         except ResourceExhaustedError:
             print('GPU out of memory')
-            return success, 'GPU out of memory', None, None
         except Exception as e:
             print('Error:', e)
-            return success, e, None, None
 
 if __name__ == '__main__':
 
@@ -161,13 +175,14 @@ if __name__ == '__main__':
     # parameters
     parameters = sys.argv
     balance = 1 if any(x in parameters for x in ['--balance','-b']) else 0                          # balance class members of training patches
-    crop_data = 1 if any(x in parameters for x in ['--crop']) else 0                                # rop data automatically to region of interest
+    crop_data = 1 if any(x in parameters for x in ['--crop_data','-cd']) else 0                     # crop data automatically to region of interest
     flip_x = True if any(x in parameters for x in ['--flip_x']) else False                          # flip x-axis during training
     flip_y = True if any(x in parameters for x in ['--flip_y']) else False                          # flip y-axis during training
     flip_z = True if any(x in parameters for x in ['--flip_z']) else False                          # flip z-axis during training
     val_tf = True if any(x in parameters for x in ['--val_tf','-vt']) else False                    # use tensorflow standard accuracy on validation data
+    debug_cropping = True if any(x in parameters for x in ['--debug_cropping','-dc']) else False    # debug cropping
 
-    compress = 6                    # wheter final result should be compressed or not
+    compress = True                 # compress segmentation result
     epochs = 200                    # epochs the network is trained
     channels = 1                    # use voxel coordinates
     normalize = 1                   # normalize images before training
@@ -187,14 +202,10 @@ if __name__ == '__main__':
     early_stopping = 0              # early_stopping
 
     for k in range(len(parameters)):
-        if parameters[k] in ['--compress','-c']:
-            compress = int(parameters[k+1])
         if parameters[k] in ['--epochs','-e']:
             epochs = int(parameters[k+1])
         if parameters[k] in ['--channels']:
             channels = int(parameters[k+1])
-        if parameters[k] in ['--normalize']:
-            normalize = int(parameters[k+1])
         if parameters[k] in ['--xsize','-xs']:
             x_scale = int(parameters[k+1])
         if parameters[k] in ['--ysize','-ys']:
@@ -232,7 +243,7 @@ if __name__ == '__main__':
         balance, crop_data, flip_x, flip_y, flip_z, rotate,
         validation_split, early_stopping, val_tf, learning_rate,
         path_val_img, path_val_labels, validation_stride_size,
-        validation_freq, validation_batch_size
+        validation_freq, validation_batch_size, debug_cropping
         )
 
     # calculation time
