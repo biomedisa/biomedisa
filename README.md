@@ -147,6 +147,13 @@ Split your data into 80% training data and 20% validation data and use early sto
 python3 ~/git/biomedisa/demo/biomedisa_deeplearning.py ~/Downloads/training_heart ~/Downloads/training_heart_labels --train --validation_split 0.8 --early_stopping 10
 ```
 
+#### Automatic cropping
+Both the training and inference data should be cropped to the region of interest for best performance. As an alternative to manual cropping, you can use Biomedisa's AI-based automatic cropping. After training, auto cropping is automatically applied to your inference data.
+```
+# Train a neural network with automatic cropping
+python3 ~/git/biomedisa/demo/biomedisa_deeplearning.py 'path_to_images' 'path_to_labels' --train --crop_data
+```
+
 # Update Biomedisa
 If you have used `git clone`, change to the Biomedisa directory and make a pull request.
 ```

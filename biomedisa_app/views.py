@@ -752,7 +752,7 @@ def settings(request, id):
                 'compression':image.compression,'only':image.only,'stride_size':image.stride_size,'batch_size':image.batch_size,
                 'x_scale':image.x_scale,'y_scale':image.y_scale,'z_scale':image.z_scale,'position':image.position,
                 'flip_x':image.flip_x,'flip_y':image.flip_y,'flip_z':image.flip_z,'rotate':image.rotate,
-                'validation_split':image.validation_split}
+                'validation_split':image.validation_split,'automatic_cropping':image.automatic_cropping}
         if request.method == 'POST':
             img = SettingsForm(request.POST)
             if img.is_valid():
@@ -764,6 +764,7 @@ def settings(request, id):
                     image.epochs = min(200, int(cd['epochs']))
                     image.rotate = min(180, max(0, int(cd['rotate'])))
                     image.validation_split = min(1.0, max(0.0, float(cd['validation_split'])))
+                    image.stride_size = max(32, int(cd['stride_size']))
                     if cd['early_stopping'] and image.validation_split == 0.0:
                         image.validation_split = 0.8
                     image.save()
@@ -798,22 +799,41 @@ def settings_prediction(request, id):
 # 21. update_profile
 @login_required
 def update_profile(request):
-    profile = Profile.objects.get(user=request.user)
+
+    user = request.user
+    users = None
+
+    # allow superuser to change user
+    if request.user.is_superuser:
+        users = User.objects.filter()
+        query = request.GET.get('search')
+        if query:
+            user = User.objects.get(username=query)
+
+    # get profile
+    profile = Profile.objects.get(user=user)
+
+    # change entries or initialize form
     if request.method == 'POST':
-        user_form = UserForm(request.POST, instance=request.user)
+        user_form = UserForm(request.POST, instance=user)
         if user_form.is_valid():
             cd = user_form.cleaned_data
             profile.notification = cd['notification']
+            if request.user.is_superuser:
+                profile.storage_size = cd['storage_size']
             user_form.save()
             profile.save()
-            messages.error(request, 'Your profile was successfully updated!')
+            messages.error(request, 'Profile successfully updated!')
             return redirect(update_profile)
         else:
             messages.error(request, 'Please correct the error below.')
     else:
-        repositories = Repository.objects.filter(users=request.user)
-        user_form = UserForm(instance=request.user, initial={'notification':profile.notification})
-    return render(request, 'profile.html', {'user_form':user_form, 'repositories':repositories})
+        repositories = Repository.objects.filter(users=user)
+        user_form = UserForm(instance=user, initial={'notification':profile.notification, 'storage_size':profile.storage_size})
+        if not request.user.is_superuser:
+            del user_form.fields['storage_size']
+
+    return render(request, 'profile.html', {'user_form':user_form, 'repositories':repositories, 'user_list':users})
 
 # 22. change_password
 @login_required
@@ -1052,6 +1072,8 @@ def init_keras_3D(image, label, model, refine, predict, img_list, label_list, qu
             image.status = 2
             if predict:
                 image.message = 'Processing'
+            elif label.automatic_cropping:
+                image.message = 'Train automatic cropping'
             else:
                 image.message = 'Progress 0%'
             image.save()
@@ -1243,7 +1265,10 @@ def features(request, action):
                 raw_out.job_id = job.id
                 if lenq == 0:
                     raw_out.status = 2
-                    raw_out.message = 'Progress 0%'
+                    if label_out.automatic_cropping:
+                        raw_out.message = 'Train automatic cropping'
+                    else:
+                        raw_out.message = 'Progress 0%'
                 else:
                     raw_out.status = 1
                     raw_out.message = 'Queue %s position %s of %s' %(queue_name, lenq, lenq)
@@ -1254,7 +1279,10 @@ def features(request, action):
                 queue_name = 'A'
                 Process(target=init_keras_3D, args=(raw_out.id, label_out.id, model, 0, 0, raw_list, label_list, queue_name)).start()
                 raw_out.status = 2
-                raw_out.message = 'Progress 0%'
+                if label_out.automatic_cropping:
+                    raw_out.message = 'Train automatic cropping'
+                else:
+                    raw_out.message = 'Progress 0%'
                 raw_out.save()
 
     # duplicate file
@@ -2203,11 +2231,6 @@ def remove_from_queue(request):
                         results = {'success':True}
                         return JsonResponse(results)
 
-                # remove trained network
-                if image_to_stop.status == 3:
-                    if os.path.isfile(image_to_stop.path_to_model):
-                        os.remove(image_to_stop.path_to_model)
-
                 # remove from queue
                 if config['OS'] == 'linux':
                     q1 = Queue('first_queue', connection=Redis())
@@ -2240,6 +2263,11 @@ def remove_from_queue(request):
                     elif config['OS'] == 'windows':
                         stop_running_job(image_to_stop.pid, image_to_stop.queue)
                     image_to_stop.pid = 0
+
+                # remove trained networks
+                if image_to_stop.path_to_model:
+                    if os.path.isfile(image_to_stop.path_to_model):
+                        os.remove(image_to_stop.path_to_model)
 
                 # reset image
                 image_to_stop.status = 0

@@ -1,6 +1,8 @@
 {% extends 'base.html' %}
 
 {% block scripts %}
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.js"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.8.16/jquery-ui.js"></script>
 <script type="text/javascript">
 function deleteFunction(id, status, message) {
     var r = confirm("Are you sure you want to delete your account and all files? This cannot be reversed!");
@@ -63,7 +65,7 @@ $(document).ready(addClickHandlers);
     <div class="mainbar">
       <div class="article">
 
-      <h2> <span>Profile</span> </h2>
+         <h2> <span>Profile</span> </h2>
 
           <div class="messagebox">
           {% if messages %}
@@ -74,6 +76,28 @@ $(document).ready(addClickHandlers);
             </ul>
           {% endif %}
           </div>
+
+          <!-- search for users -->
+          {% if user.is_superuser %}
+          <form class="searchfield" method="GET" action="" >
+            Select other user:
+            <input class="searchfield" type="search" name="search" id="tags">
+              <script>
+                $( function() {
+                var availableTags = [
+                  {% for user_ in user_list %}
+                    "{{user_.username}}",
+                  {% endfor %}
+                  ];
+                $( "#tags" ).autocomplete({
+                  source: availableTags
+                  });
+                });
+            </script>
+            <button class="searchfield" type="submit"> Search </button>
+          </form>
+          </br>
+          {% endif %}
 
           <form method="post" class="form1">
             {% csrf_token %}

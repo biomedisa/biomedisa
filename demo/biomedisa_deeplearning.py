@@ -77,11 +77,12 @@ def conv_network(train, predict, path_to_model, compress, epochs, batch_size, pa
     if train:
 
         try:
-        # train automatic cropping
+            # train automatic cropping
+            cropping_weights, cropping_config = None, None
             if crop_data:
-                ch.load_and_train(normalize, path_to_img, path_to_labels, path_to_model.replace('.h5','_cropping.h5'),
-                    epochs, batch_size, validation_split, x_scale, y_scale, z_scale,
-                    flip_x, flip_y, flip_z, rotate, path_val_img, path_val_labels)
+                cropping_weights, cropping_config = ch.load_and_train(normalize, path_to_img, path_to_labels, path_to_model,
+                            epochs, batch_size, validation_split, x_scale, y_scale, z_scale,
+                            flip_x, flip_y, flip_z, rotate, path_val_img, path_val_labels)
 
             # train network
             train_semantic_segmentation(normalize, path_to_img, path_to_labels, x_scale, y_scale,
@@ -89,7 +90,7 @@ def conv_network(train, predict, path_to_model, compress, epochs, batch_size, pa
                             batch_size, channels, validation_split, stride_size, class_weights,
                             flip_x, flip_y, flip_z, rotate, early_stopping, val_tf, learning_rate,
                             path_val_img, path_val_labels, validation_stride_size, validation_freq,
-                            validation_batch_size)
+                            validation_batch_size, cropping_weights, cropping_config)
         except InputError:
             print('Error:', InputError.message)
         except MemoryError:
@@ -111,7 +112,8 @@ def conv_network(train, predict, path_to_model, compress, epochs, batch_size, pa
                                     int(y_scale), int(z_scale), int(normalize), float(mu), float(sig)
             allLabels = np.array(meta.get('labels'))
             header = np.array(meta.get('header'))
-            extension = str(np.array(meta.get('extension')))
+            extension = str(np.array(meta.get('extension'), dtype=np.unicode_))
+            crop_data = True if 'cropping_weights' in hf else False
             hf.close()
         except Exception as e:
             print('Error:', e)
@@ -134,7 +136,7 @@ def conv_network(train, predict, path_to_model, compress, epochs, batch_size, pa
             # crop data
             region_of_interest = None
             if crop_data:
-                region_of_interest = ch.crop_data(path_to_img, path_to_model.replace('.h5','_cropping.h5'), batch_size, debug_cropping)
+                region_of_interest = ch.crop_data(path_to_img, path_to_model, batch_size, debug_cropping)
 
             # load prediction data
             img, img_header, position, z_shape, y_shape, x_shape, region_of_interest = load_prediction_data(path_to_img,

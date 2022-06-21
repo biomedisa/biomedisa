@@ -31,7 +31,7 @@ from tensorflow.keras.optimizers import SGD
 from tensorflow.keras.models import Model, load_model
 from tensorflow.keras.layers import (
     Input, Conv3D, MaxPooling3D, UpSampling3D, Activation, Reshape,
-    BatchNormalization, Concatenate)
+    BatchNormalization, Concatenate, ReLU, Add)
 from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.callbacks import Callback, ModelCheckpoint, EarlyStopping
 from DataGenerator import DataGenerator
@@ -192,6 +192,29 @@ def make_conv_block(nb_filters, input_tensor, block):
     x = make_stage(input_tensor, 1)
     x = make_stage(x, 2)
     return x
+
+def make_conv_block_resnet(nb_filters, input_tensor, block):
+
+    # Residual/Skip connection
+    res = Conv3D(nb_filters, (1, 1, 1), padding='same', use_bias=False, name="Identity{}_1".format(block))(input_tensor)
+
+    stage = 1
+    name = 'conv_{}_{}'.format(block, stage)
+    fx = Conv3D(nb_filters, (3, 3, 3), activation='relu', padding='same', name=name, data_format="channels_last")(input_tensor)
+    name = 'batch_norm_{}_{}'.format(block, stage)
+    fx = BatchNormalization(name=name)(fx)
+    fx = Activation('relu')(fx)
+
+    stage = 2
+    name = 'conv_{}_{}'.format(block, stage)
+    fx = Conv3D(nb_filters, (3, 3, 3), padding='same', name=name, data_format="channels_last")(fx)
+    name = 'batch_norm_{}_{}'.format(block, stage)
+    fx = BatchNormalization(name=name)(fx)
+
+    out = Add()([res,fx])
+    out = ReLU()(out)
+
+    return out
 
 def make_unet(input_shape, nb_labels):
 
@@ -368,12 +391,15 @@ def load_training_data(normalize, img_dir, label_dir, channels, x_scale, y_scale
     return img, label, position, allLabels, configuration_data, header, extension, counts
 
 class MetaData(Callback):
-    def __init__(self, path_to_model, configuration_data, allLabels, extension, header):
+    def __init__(self, path_to_model, configuration_data, allLabels, extension, header, crop_data, cropping_weights, cropping_config):
         self.path_to_model = path_to_model
         self.configuration_data = configuration_data
         self.allLabels = allLabels
         self.extension = extension
         self.header = header
+        self.crop_data = crop_data
+        self.cropping_weights = cropping_weights
+        self.cropping_config = cropping_config
 
     def on_epoch_end(self, epoch, logs={}):
         hf = h5py.File(self.path_to_model, 'r')
@@ -386,6 +412,12 @@ class MetaData(Callback):
             if self.extension == '.am':
                 group.create_dataset('extension', data=self.extension)
                 group.create_dataset('header', data=self.header)
+            if self.crop_data:
+                cm_group = hf.create_group('cropping_meta')
+                cm_group.create_dataset('configuration', data=self.cropping_config)
+                cw_group = hf.create_group('cropping_weights')
+                for iterator, arr in enumerate(self.cropping_weights):
+                    cw_group.create_dataset(str(iterator), data=arr)
         hf.close()
 
 class Metrics(Callback):
@@ -482,7 +514,7 @@ def train_semantic_segmentation(normalize, path_to_img, path_to_labels, x_scale,
             batch_size, channels, validation_split, stride_size, class_weights,
             flip_x, flip_y, flip_z, rotate, early_stopping, val_tf, learning_rate,
             path_val_img, path_val_labels, validation_stride_size, validation_freq,
-            validation_batch_size):
+            validation_batch_size, cropping_weights, cropping_config):
 
     # training data
     img, label, position, allLabels, configuration_data, header, extension, counts = load_training_data(normalize,
@@ -579,7 +611,7 @@ def train_semantic_segmentation(normalize, path_to_img, path_to_labels, x_scale,
                       metrics=['accuracy'])
 
     # save meta data
-    meta_data = MetaData(path_to_model, configuration_data, allLabels, extension, header)
+    meta_data = MetaData(path_to_model, configuration_data, allLabels, extension, header, crop_data, cropping_weights, cropping_config)
 
     # model checkpoint
     if path_val_img or validation_split:

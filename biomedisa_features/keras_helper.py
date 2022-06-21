@@ -55,7 +55,7 @@ class InputError(Exception):
     def __init__(self, message=None):
         self.message = message
 
-def predict_blocksize(labelData):
+def predict_blocksize(labelData, x_puffer, y_puffer, z_puffer):
     zsh, ysh, xsh = labelData.shape
     argmin_z, argmax_z, argmin_y, argmax_y, argmin_x, argmax_x = zsh, 0, ysh, 0, xsh, 0
     for k in range(zsh):
@@ -68,12 +68,12 @@ def predict_blocksize(labelData):
             argmin_z = min(argmin_z, k)
             argmax_z = max(argmax_z, k)
     zmin, zmax = argmin_z, argmax_z
-    argmin_x = argmin_x - 64 if argmin_x - 64 > 0 else 0
-    argmax_x = argmax_x + 64 if argmax_x + 64 < xsh else xsh
-    argmin_y = argmin_y - 64 if argmin_y - 64 > 0 else 0
-    argmax_y = argmax_y + 64 if argmax_y + 64 < ysh else ysh
-    argmin_z = argmin_z - 64 if argmin_z - 64 > 0 else 0
-    argmax_z = argmax_z + 64 if argmax_z + 64 < zsh else zsh
+    argmin_x = argmin_x - x_puffer if argmin_x - x_puffer > 0 else 0
+    argmax_x = argmax_x + x_puffer if argmax_x + x_puffer < xsh else xsh
+    argmin_y = argmin_y - y_puffer if argmin_y - y_puffer > 0 else 0
+    argmax_y = argmax_y + y_puffer if argmax_y + y_puffer < ysh else ysh
+    argmin_z = argmin_z - z_puffer if argmin_z - z_puffer > 0 else 0
+    argmax_z = argmax_z + z_puffer if argmax_z + z_puffer < zsh else zsh
     return argmin_z,argmax_z,argmin_y,argmax_y,argmin_x,argmax_x
 
 def get_image_dimensions(header, data):
@@ -227,8 +227,8 @@ def get_labels(arr, allLabels):
 # regular
 #=====================
 
-def load_training_data(normalize, img_list, label_list, channels,
-                      x_scale, y_scale, z_scale, crop_data):
+def load_training_data(normalize, img_list, label_list, channels, x_scale, y_scale, z_scale,
+        crop_data, x_puffer=25, y_puffer=25, z_puffer=25):
 
     # get filenames
     img_names, label_names = [], []
@@ -261,16 +261,13 @@ def load_training_data(normalize, img_list, label_list, channels,
             label_names.append(label_name)
 
     # load first label
-    region_of_interest = None
     a, header, extension = load_data(label_names[0], 'first_queue', True)
     if a is None:
         InputError.message = "Invalid label data %s." %(os.path.basename(label_names[0]))
         raise InputError()
     if crop_data:
-        region_of_interest = np.zeros(6)
-        argmin_z,argmax_z,argmin_y,argmax_y,argmin_x,argmax_x=predict_blocksize(a)
+        argmin_z,argmax_z,argmin_y,argmax_y,argmin_x,argmax_x = predict_blocksize(a, x_puffer, y_puffer, z_puffer)
         a = np.copy(a[argmin_z:argmax_z,argmin_y:argmax_y,argmin_x:argmax_x], order='C')
-        region_of_interest += [argmin_z,argmax_z,argmin_y,argmax_y,argmin_x,argmax_x]
     a = a.astype(np.uint8)
     np_unique = np.unique(a)
     label = np.zeros((z_scale, y_scale, x_scale), dtype=a.dtype)
@@ -301,9 +298,8 @@ def load_training_data(normalize, img_list, label_list, channels,
             InputError.message = "Invalid label data %s." %(os.path.basename(name))
             raise InputError()
         if crop_data:
-            argmin_z,argmax_z,argmin_y,argmax_y,argmin_x,argmax_x=predict_blocksize(a)
+            argmin_z,argmax_z,argmin_y,argmax_y,argmin_x,argmax_x = predict_blocksize(a, x_puffer, y_puffer, z_puffer)
             a = np.copy(a[argmin_z:argmax_z,argmin_y:argmax_y,argmin_x:argmax_x], order='C')
-            region_of_interest += [argmin_z,argmax_z,argmin_y,argmax_y,argmin_x,argmax_x]
         a = a.astype(np.uint8)
         np_unique = np.unique(a)
         next_label = np.zeros((z_scale, y_scale, x_scale), dtype=a.dtype)
@@ -331,13 +327,6 @@ def load_training_data(normalize, img_list, label_list, channels,
             a = a * sig + mu
         img = np.append(img, a, axis=0)
 
-    # automatic cropping
-    if crop_data:
-        region_of_interest /= float(len(img_names))
-        region_of_interest = np.round(region_of_interest)
-        region_of_interest[region_of_interest<0] = 0
-        region_of_interest = region_of_interest.astype(int)
-
     # scale image data to [0,1]
     img[img<0] = 0
     img[img>1] = 1
@@ -361,7 +350,7 @@ def load_training_data(normalize, img_list, label_list, channels,
     # configuration data
     configuration_data = np.array([channels, x_scale, y_scale, z_scale, normalize, mu, sig])
 
-    return img, label, position, allLabels, configuration_data, header, extension, region_of_interest, len(img_names)
+    return img, label, position, allLabels, configuration_data, header, extension, len(img_names)
 
 class CustomCallback(Callback):
     def __init__(self, id, epochs):
@@ -392,13 +381,15 @@ class CustomCallback(Callback):
             print("Start epoch {} of training; got log keys: {}".format(epoch, keys))
 
 class MetaData(Callback):
-    def __init__(self, path_to_model, configuration_data, allLabels, extension, header, region_of_interest):
+    def __init__(self, path_to_model, configuration_data, allLabels, extension, header, crop_data, cropping_weights, cropping_config):
         self.path_to_model = path_to_model
         self.configuration_data = configuration_data
         self.allLabels = allLabels
         self.extension = extension
         self.header = header
-        self.region_of_interest = region_of_interest
+        self.crop_data = crop_data
+        self.cropping_weights = cropping_weights
+        self.cropping_config = cropping_config
 
     def on_epoch_end(self, epoch, logs={}):
         hf = h5py.File(self.path_to_model, 'r')
@@ -411,8 +402,12 @@ class MetaData(Callback):
             if self.extension == '.am':
                 group.create_dataset('extension', data=self.extension)
                 group.create_dataset('header', data=self.header)
-            if self.region_of_interest is not None:
-                group.create_dataset('region_of_interest', data=self.region_of_interest)
+            if self.crop_data:
+                cm_group = hf.create_group('cropping_meta')
+                cm_group.create_dataset('configuration', data=self.cropping_config)
+                cw_group = hf.create_group('cropping_weights')
+                for iterator, arr in enumerate(self.cropping_weights):
+                    cw_group.create_dataset(str(iterator), data=arr)
         hf.close()
 
 class Metrics(Callback):
@@ -507,15 +502,16 @@ def train_semantic_segmentation(normalize, img_list, label_list, x_scale, y_scal
             z_scale, crop_data, path_to_model, z_patch, y_patch, x_patch, epochs,
             batch_size, channels, validation_split, stride_size, balance,
             flip_x, flip_y, flip_z, rotate, image, early_stopping, val_tf,
-            validation_freq):
+            validation_freq, cropping_weights, cropping_config):
 
     # training data
-    img, label, position, allLabels, configuration_data, header, extension, region_of_interest, number_of_images = load_training_data(normalize,
+    img, label, position, allLabels, configuration_data, header, extension, number_of_images = load_training_data(normalize,
                     img_list, label_list, channels, x_scale, y_scale, z_scale, crop_data)
 
     # force validation_split for large number of training images
     if number_of_images > 20:
-        validation_split = 0.8 if validation_split < 0.8 else validation_split
+        if validation_split == 0:
+            validation_split = 0.8
         early_stopping = True
 
     # img shape
@@ -600,7 +596,7 @@ def train_semantic_segmentation(normalize, img_list, label_list, x_scale, y_scal
                       metrics=['accuracy'])
 
     # save meta data
-    meta_data = MetaData(path_to_model, configuration_data, allLabels, extension, header, region_of_interest)
+    meta_data = MetaData(path_to_model, configuration_data, allLabels, extension, header, crop_data, cropping_weights, cropping_config)
 
     # model checkpoint
     if validation_split:
@@ -641,18 +637,6 @@ def load_prediction_data(path_to_img, channels, x_scale, y_scale, z_scale,
     # automatic cropping of image to region of interest
     if np.any(region_of_interest):
         min_z, max_z, min_y, max_y, min_x, max_x = region_of_interest[:]
-        min_z = min(min_z, z_shape)
-        min_y = min(min_y, y_shape)
-        min_x = min(min_x, x_shape)
-        max_z = min(max_z, z_shape)
-        max_y = min(max_y, y_shape)
-        max_x = min(max_x, x_shape)
-        if max_z-min_z < z_shape:
-            min_z, max_z = 0, z_shape
-        if max_y-min_y < y_shape:
-            min_y, max_y = 0, y_shape
-        if max_x-min_x < x_shape:
-            min_x, max_x = 0, x_shape
         img = np.copy(img[min_z:max_z,min_y:max_y,min_x:max_x], order='C')
         region_of_interest = np.array([min_z,max_z,min_y,max_y,min_x,max_x,z_shape,y_shape,x_shape])
         z_shape, y_shape, x_shape = max_z-min_z, max_y-min_y, max_x-min_x
