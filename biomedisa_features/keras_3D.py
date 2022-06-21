@@ -37,6 +37,7 @@ from biomedisa_features.create_slices import create_slices
 from biomedisa_features.biomedisa_helper import unique_file_path
 from biomedisa_app.config import config
 from biomedisa_features.keras_helper import *
+import biomedisa_features.crop_helper as ch
 from multiprocessing import Process
 import subprocess
 
@@ -59,9 +60,15 @@ def conv_network(train, predict, refine, img_list, label_list, path_to_model,
     strategy = tf.distribute.MirroredStrategy()
     ngpus = int(strategy.num_replicas_in_sync)
 
+    # batch size must be divisible by the number of GPUs and two
+    rest = batch_size % (2*ngpus)
+    if 2*ngpus - rest < rest:
+        batch_size = batch_size + 2*ngpus - rest
+    else:
+        batch_size = batch_size - rest
+
     success = False
     path_to_final = None
-    batch_size -= batch_size % ngpus                # batch size must be divisible by number of GPUs
     batch_size_refine -= batch_size_refine % ngpus  # batch size must be divisible by number of GPUs
     z_patch, y_patch, x_patch = 64, 64, 64          # dimensions of patches for regular training
     patch_size = 64                                 # x,y,z-patch size for the refinement network
@@ -76,12 +83,20 @@ def conv_network(train, predict, refine, img_list, label_list, path_to_model,
     if train:
 
         try:
+            # train automatic cropping
+            cropping_weights, cropping_config = None, None
+            if crop_data:
+                cropping_weights, cropping_config = ch.load_and_train(normalize, img_list, label_list, path_to_model,
+                    epochs, batch_size, label.validation_split, x_scale, y_scale, z_scale,
+                    label.flip_x, label.flip_y, label.flip_z, label.rotate)
+
             # train network
             train_semantic_segmentation(normalize, img_list, label_list, x_scale, y_scale,
                     z_scale, crop_data, path_to_model, z_patch, y_patch, x_patch, epochs,
                     batch_size, channels, label.validation_split, stride_size, balance,
                     label.flip_x, label.flip_y, label.flip_z, label.rotate, image,
-                    label.early_stopping, label.val_tf, int(label.validation_freq))
+                    label.early_stopping, label.val_tf, int(label.validation_freq),
+                    cropping_weights, cropping_config)
 
         except InputError:
             return success, InputError.message, None, None
@@ -157,8 +172,8 @@ def conv_network(train, predict, refine, img_list, label_list, path_to_model,
                                     int(y_scale), int(z_scale), int(normalize), float(mu), float(sig)
             allLabels = np.array(meta.get('labels'))
             header = np.array(meta.get('header'))
-            extension = str(np.array(meta.get('extension')))
-            region_of_interest = np.array(meta.get('region_of_interest'))
+            extension = str(np.array(meta.get('extension'), dtype=np.unicode_))
+            crop_data = True if 'cropping_weights' in hf else False
             hf.close()
         except Exception as e:
             print('Error:', e)
@@ -179,6 +194,10 @@ def conv_network(train, predict, refine, img_list, label_list, path_to_model,
         path_to_final = unique_file_path(path_to_final, image.user.username)
 
         try:
+            # crop data
+            region_of_interest = None
+            if crop_data:
+                region_of_interest = ch.crop_data(path_to_img, path_to_model, batch_size, False)
 
             # load prediction data
             img, img_header, position, z_shape, y_shape, x_shape, region_of_interest = load_prediction_data(path_to_img,
@@ -296,7 +315,7 @@ if __name__ == '__main__':
         image.save()
 
         # parameters
-        compress = 6 if label.compression else 0            # wheter final result should be compressed or not
+        compress = 1 if label.compression else 0            # wheter final result should be compressed or not
         epochs =  int(label.epochs)                         # epochs the network is trained
         channels = 2 if label.position else 1               # use voxel coordinates
         normalize = 1 if label.normalize else 0             # normalize images before training

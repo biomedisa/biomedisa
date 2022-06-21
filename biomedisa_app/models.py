@@ -43,16 +43,17 @@ import os
 
 class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-    storage_size = models.IntegerField(default=50)
+    storage_size = models.IntegerField(default=100)
     notification = models.BooleanField(default=True)
     activation_key = models.TextField(null=True)
     key_expires = models.DateTimeField(null=True)
 
 class UserForm(forms.ModelForm):
     notification = forms.BooleanField(required=False)
+    storage_size = forms.IntegerField(required=False)
     class Meta:
         model = User
-        fields = ('first_name', 'last_name', 'email', 'notification')
+        fields = ('first_name', 'last_name', 'email', 'storage_size', 'notification')
 
 def user_directory_path(instance, filename):
     filename = filename.encode('ascii', 'ignore').decode()
@@ -186,7 +187,7 @@ class Upload(models.Model):
     predict = models.BooleanField("Predict", default=False)
     pid = models.IntegerField(default=0)
     normalize = models.BooleanField("Normalize training data (AI)", default=True)
-    compression = models.BooleanField(default=True)
+    compression = models.BooleanField('Compress results', default=True)
     epochs = models.IntegerField("Number of epochs (AI)", default=200)
     inverse = models.BooleanField(default=False)
     only = models.CharField("compute only label", default='all', max_length=20)
@@ -219,13 +220,13 @@ class UploadForm(forms.ModelForm):
 class StorageForm(forms.ModelForm):
     class Meta:
         model = Upload
-        fields = ('pic',)#,'imageType',)
+        fields = ('pic',)
 
 class SettingsForm(forms.ModelForm):
     class Meta:
         model = Upload
         fields = ('allaxis', 'uncertainty', 'compression', 'normalize',
-                  'early_stopping', 'position', 'flip_x',
+                  'automatic_cropping', 'early_stopping', 'position', 'flip_x',
                   'flip_y', 'flip_z', 'rotate', 'epochs', 'batch_size',
                   'x_scale', 'y_scale', 'z_scale', 'stride_size', 'validation_split',
                   'validation_freq', 'smooth', 'delete_outliers', 'fill_holes', 'ignore', 'only')
@@ -322,18 +323,21 @@ def auto_delete_file_on_delete(sender, instance, **kwargs):
     """
     if instance.pic:
 
+        # remove preview slices
         path_to_slices = instance.pic.path.replace('images', 'sliceviewer', 1)
         if os.path.isdir(path_to_slices):
             shutil.rmtree(path_to_slices)
 
+        # remove extracted files
         filename, extension = os.path.splitext(instance.pic.path)
         if extension == '.gz':
             filename, extension = os.path.splitext(filename)
-
         if extension in ['.tar','.zip'] and os.path.isdir(filename):
             shutil.rmtree(filename)
 
+        # remove individual files
         if os.path.isfile(instance.pic.path):
             os.remove(instance.pic.path)
         elif os.path.isdir(instance.pic.path):
             shutil.rmtree(instance.pic.path)
+

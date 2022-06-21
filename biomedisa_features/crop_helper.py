@@ -65,17 +65,37 @@ def make_densenet(inputshape):
     model = Model(inputs, outputs)
     return model
 
-def load_cropping_training_data(normalize, img_dir, label_dir, x_scale, y_scale, z_scale, mu=None, sig=None):
+def load_cropping_training_data(normalize, img_list, label_list, x_scale, y_scale, z_scale, mu=None, sig=None):
 
     # get filenames
     img_names, label_names = [], []
-    for data_type in ['.am','.tif','.tiff','.hdr','.mhd','.mha','.nrrd','.nii','.nii.gz']:
-        tmp_img_names = glob(img_dir+'/**/*'+data_type, recursive=True)
-        tmp_label_names = glob(label_dir+'/**/*'+data_type, recursive=True)
-        tmp_img_names = sorted(tmp_img_names)
-        tmp_label_names = sorted(tmp_label_names)
-        img_names.extend(tmp_img_names)
-        label_names.extend(tmp_label_names)
+    for img_name, label_name in zip(img_list, label_list):
+
+        img_dir, img_ext = os.path.splitext(img_name)
+        if img_ext == '.gz':
+            img_dir, img_ext = os.path.splitext(img_dir)
+
+        label_dir, label_ext = os.path.splitext(label_name)
+        if label_ext == '.gz':
+            label_dir, label_ext = os.path.splitext(label_dir)
+
+        if img_ext == '.tar' and label_ext == '.tar':
+            for data_type in ['.am','.tif','.tiff','.hdr','.mhd','.mha','.nrrd','.nii','.nii.gz']:
+                tmp_img_names = glob(img_dir+'/**/*'+data_type, recursive=True)
+                tmp_label_names = glob(label_dir+'/**/*'+data_type, recursive=True)
+                tmp_img_names = sorted(tmp_img_names)
+                tmp_label_names = sorted(tmp_label_names)
+                img_names.extend(tmp_img_names)
+                label_names.extend(tmp_label_names)
+            if len(img_names)==0:
+                InputError.message = "Invalid image TAR file."
+                raise InputError()
+            if len(label_names)==0:
+                InputError.message = "Invalid label TAR file."
+                raise InputError()
+        else:
+            img_names.append(img_name)
+            label_names.append(label_name)
 
     # load first label
     a, header, extension = load_data(label_names[0], 'first_queue', True)
@@ -156,11 +176,10 @@ def load_cropping_training_data(normalize, img_dir, label_dir, x_scale, y_scale,
     # compute position data
     position = None
 
-    return img_rgb, label, position, mu, sig, header, extension
+    return img_rgb, label, position, mu, sig, header, extension, len(img_names)
 
 def train_cropping(img, label, path_to_model, epochs, batch_size,
-                    validation_split, position, flip_x, flip_y, flip_z, rotate,
-                    img_val, label_val, position_val):
+                    validation_split, position, flip_x, flip_y, flip_z, rotate):
 
     # img shape
     zsh, ysh, xsh, channels = img.shape
@@ -181,28 +200,8 @@ def train_cropping(img, label, path_to_model, epochs, batch_size,
               'shuffle': True,
               'augment': (flip_x, flip_y, flip_z, rotate)}
 
-    # validation data
-    if np.any(img_val):
-        # img shape
-        zsh_val = img_val.shape[0]
-
-        # list of IDs
-        list_IDs_val_fg = list(np.where(label_val)[0])
-        list_IDs_val_bg = list(np.where(label_val==False)[0])
-
-        # parameters
-        params_val = {'dim': (ysh, xsh),
-                      'dim_img': (zsh_val, ysh, xsh),
-                      'batch_size': batch_size,
-                      'n_classes': 2,
-                      'n_channels': channels,
-                      'shuffle': True}
-
     # data generator
-    if np.any(img_val):
-        training_generator = DataGeneratorCrop(img, label, position, list_IDs_fg, list_IDs_bg, **params)
-        validation_generator = DataGeneratorCrop(img_val, label_val, position_val, list_IDs_val_fg, list_IDs_val_bg, **params_val)
-    elif validation_split:
+    if validation_split:
         split_IDs = int(zsh * validation_split)
         list_IDs_fg = list(np.where(label[:split_IDs])[0])
         list_IDs_bg = list(np.where(label[:split_IDs]==False)[0])
@@ -422,23 +421,22 @@ def crop_volume(img, path_to_volume, path_to_model, z_shape, y_shape, x_shape, b
 
 def load_and_train(normalize,path_to_img,path_to_labels,path_to_model,
                 epochs,batch_size,validation_split,x_scale,y_scale,z_scale,
-                flip_x,flip_y,flip_z,rotate,path_val_img,path_val_labels):
+                flip_x,flip_y,flip_z,rotate):
 
     # load training data
-    img_val, labelData_val, position_val = None, None, None
-    img, labelData, position, mu, sig, header, extension = load_cropping_training_data(normalize,
+    img, labelData, position, mu, sig, header, extension, number_of_images = load_cropping_training_data(normalize,
                         path_to_img, path_to_labels, x_scale, y_scale, z_scale)
 
-    # load validation data
-    if path_val_img and path_val_labels:
-        img_val, labelData_val, position_val, _, _, _, _ = load_cropping_training_data(normalize,
-                            path_val_img, path_val_labels, x_scale, y_scale, z_scale, mu, sig)
+    # force validation_split for large number of training images
+    if number_of_images > 20:
+        if validation_split == 0:
+            validation_split = 0.8
+        #early_stopping = True
 
     # train cropping
     train_cropping(img, labelData, path_to_model, epochs,
                     batch_size, validation_split, position,
-                    flip_x, flip_y, flip_z, rotate,
-                    img_val, labelData_val, position_val)
+                    flip_x, flip_y, flip_z, rotate)
 
     # load weights
     model = load_model(str(path_to_model))
@@ -481,7 +479,7 @@ def evaluate_network(normalize,path_to_img,path_to_labels,path_to_model,
                 batch_size,x_scale,y_scale,z_scale,
                 flip_x,flip_y,flip_z,rotate):
 
-    img, labelData, position, mu, sig, header, extension = load_cropping_training_data(normalize,
+    img, labelData, position, mu, sig, header, extension, number_of_images = load_cropping_training_data(normalize,
                 path_to_img, path_to_labels, x_scale, y_scale, z_scale)
 
     evaluate_crop(img,labelData,position,batch_size,flip_x,flip_y,flip_z,rotate,path_to_model)
