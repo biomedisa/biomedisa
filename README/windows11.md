@@ -4,6 +4,7 @@ With this you set up an already configured version of Biomedisa in a virtual mac
 - [Install NVIDIA driver](#install-nvidia-driver)
 - [Enable "Virtualization" in the BIOS](#enable-virtualization-in-the-bios)
 - [Install WSL 2 with administrative privileges](#install-wsl-2-with-administrative-privileges)
+- [Reboot Windows](#reboot-windows)
 - [Download Biomedisa installer](#download-biomedisa-installer)
 - [Run installation script](#run-installation-script)
 - [Start Biomedisa](#start-biomedisa)
@@ -16,13 +17,14 @@ Download and install [NVIDIA](https://www.nvidia.com/Download/Find.aspx?lang=en-
 #### Enable "Virtualization" in the BIOS
 At Intel it is typically called "Intel Virtualization Technology" and can be found under "CPU configuration". You may arrive at this menu by clicking on “Advanced” or “Advanced Mode”. Depending upon your PC, look for any of these or similar names such as Hyber-V, Vanderpool, SVM, AMD-V, Intel Virtualization Technology or VT-X.
 
-#### Install WSL 2 with administrative privileges and reboot
+#### Install WSL 2 with administrative privileges
 ```
 wsl --install
 ```
+#### Reboot Windows
 
 #### Download Biomedisa installer
-[Biomedisa + Windows](https://biomedisa.org/media/biomedisa_windows.zip)
+[Biomedisa](https://biomedisa.org/media/biomedisa_windows.zip)
 
 #### Run installation script
 For NVIDIA Pascal and Volta GPUs
@@ -33,7 +35,6 @@ For NVIDIA Ampere GPUs
 ```
 install_biomedisa+cuda11.4.cmd
 ```
-
 #### Start Biomedisa
 Login as superuser "biomedisa" with password "biomedisa".
 

@@ -563,6 +563,10 @@ def train_semantic_segmentation(normalize, path_to_img, path_to_labels, x_scale,
                 for m in range(0, xsh_val-x_patch+1, validation_stride_size):
                     list_IDs_val.append(k*ysh_val*xsh_val+l*xsh_val+m)
 
+        # make length of list divisible by validation batch size
+        rest = validation_batch_size - (len(list_IDs_val) % validation_batch_size)
+        list_IDs_val = list_IDs_val + list_IDs_val[:rest]
+
     # number of labels
     nb_labels = len(allLabels)
 

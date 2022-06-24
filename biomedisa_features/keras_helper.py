@@ -542,6 +542,10 @@ def train_semantic_segmentation(normalize, img_list, label_list, x_scale, y_scal
                 for m in range(0, xsh_val-x_patch+1, stride_size):
                     list_IDs_val.append(k*ysh_val*xsh_val+l*xsh_val+m)
 
+        # make length of list divisible by batch size
+        rest = batch_size - (len(list_IDs_val) % batch_size)
+        list_IDs_val = list_IDs_val + list_IDs_val[:rest]
+
     # list of IDs
     list_IDs = []
 
