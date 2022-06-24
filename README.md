@@ -53,9 +53,8 @@ Run Biomedisa (~3 seconds). The result will be saved in `Downloads` as `final.tu
 # Ubuntu
 python3 ~/git/biomedisa/demo/biomedisa_interpolation.py ~/Downloads/tumor.tif ~/Downloads/labels.tumor.tif
 
-# Windows (replace "Biomedisa-2x.xx.x" with your Biomedisa version, use "wsl -l -v" to get the version)
-cd AppData\Biomedisa-2x.xx.x
-biomedisa_interpolation.cmd Downloads/tumor.tif Downloads/labels.tumor.tif
+# Windows
+python git\biomedisa\demo\biomedisa_interpolation.py Downloads\tumor.tif Downloads\labels.tumor.tif
 ```
 
 #### Further examples
@@ -75,9 +74,8 @@ Run the segmentation using e.g. 4 GPUs.
 # Ubuntu
 mpiexec -n 4 python3 ~/git/biomedisa/demo/biomedisa_interpolation.py ~/Downloads/NMB_F2875.tif ~/Downloads/labels.NMB_F2875.tif
 
-# Windows (replace "Biomedisa-2x.xx.x" with your Biomedisa version, use "wsl -l -v" to get the version)
-cd AppData\Biomedisa-2x.xx.x
-biomedisa_interpolation.cmd -n 4 Downloads/NMB_F2875.tif Downloads/labels.NMB_F2875.tif
+# Windows
+mpiexec -n 4 python git\biomedisa\demo\biomedisa_interpolation.py Downloads\NMB_F2875.tif Downloads\labels.NMB_F2875.tif
 ```
 
 Obtain uncertainty and smoothing as optional results.
@@ -111,8 +109,8 @@ Use the trained neural network to predict the result of the test image. The resu
 # Ubuntu
 python3 ~/git/biomedisa/demo/biomedisa_deeplearning.py ~/Downloads/testing_axial_crop_pat13.nii.gz ~/Downloads/heart.h5 --predict -bs 6
 
-# Windows (replace "Biomedisa-2x.xx.x" with your Biomedisa version, use "wsl -l -v" to get the version)
-wsl -d Biomedisa-2x.xx.x -u biomedisa python3 ~/git/biomedisa/demo/biomedisa_deeplearning.py Downloads/testing_axial_crop_pat13.nii.gz Downloads/heart.h5 -p -bs 6
+# Windows
+python git\biomedisa\demo\biomedisa_deeplearning.py Downloads\testing_axial_crop_pat13.nii.gz Downloads\heart.h5 -p -bs 6
 ```
 
 #### Train a neural network for automatic segmentation
@@ -130,27 +128,24 @@ Train a neural network with 200 epochs and batch size (-bs) of 24. The result wi
 # Ubuntu
 python3 ~/git/biomedisa/demo/biomedisa_deeplearning.py ~/Downloads/training_heart ~/Downloads/training_heart_labels --train --epochs 200 -bs 24
 
-# Windows (replace "Biomedisa-2x.xx.x" with your Biomedisa version, use "wsl -l -v" to get the version)
-wsl -d Biomedisa-2x.xx.x -u biomedisa python3 ~/git/biomedisa/demo/biomedisa_deeplearning.py Downloads/training_heart Downloads/training_heart_labels --train --epochs 200 -bs 24
+# Windows
+python git\biomedisa\demo\biomedisa_deeplearning.py Downloads\training_heart Downloads\training_heart_labels --train --epochs 200 -bs 24
 ```
 
 #### Validate the network during training
 Specify directories containing validation images and validation labels.
 ```
-# Ubuntu
 python3 ~/git/biomedisa/demo/biomedisa_deeplearning.py ~/Downloads/training_heart ~/Downloads/training_heart_labels --train --val_images ~/Downloads/validation_images --val_labels ~/Downloads/validation_labels
 ```
 
 Split your data into 80% training data and 20% validation data and use early stopping if there is no improvement within 10 epochs.
 ```
-# Ubuntu
 python3 ~/git/biomedisa/demo/biomedisa_deeplearning.py ~/Downloads/training_heart ~/Downloads/training_heart_labels --train --validation_split 0.8 --early_stopping 10
 ```
 
 #### Automatic cropping
 Both the training and inference data should be cropped to the region of interest for best performance. As an alternative to manual cropping, you can use Biomedisa's AI-based automatic cropping. After training, auto cropping is automatically applied to your inference data.
 ```
-# Train a neural network with automatic cropping
 python3 ~/git/biomedisa/demo/biomedisa_deeplearning.py 'path_to_images' 'path_to_labels' --train --crop_data
 ```
 
