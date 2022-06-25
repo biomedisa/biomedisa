@@ -30,8 +30,6 @@ copy biomedisa.ico "%USERPROFILE%\AppData\%VERSION%\biomedisa.ico"
 copy biomedisa_start.cmd "%USERPROFILE%\AppData\%VERSION%\biomedisa_start.cmd"
 copy biomedisa_start.sh "%USERPROFILE%\AppData\%VERSION%\biomedisa_start.sh"
 copy last_update.txt "%USERPROFILE%\AppData\%VERSION%\last_update.txt"
-copy biomedisa_interpolation.cmd "%USERPROFILE%\AppData\%VERSION%\biomedisa_interpolation.cmd"
-copy biomedisa_interpolation.sh "%USERPROFILE%\AppData\%VERSION%\biomedisa_interpolation.sh"
 copy upgrade_biomedisa.cmd "%USERPROFILE%\AppData\%VERSION%\upgrade_biomedisa.cmd"
 copy latest_version.txt "%USERPROFILE%\AppData\%VERSION%\version.txt"
 
