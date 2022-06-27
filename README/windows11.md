@@ -24,7 +24,7 @@ wsl --install
 #### Reboot Windows
 
 #### Download Biomedisa installer
-[Biomedisa](https://biomedisa.org/media/biomedisa_windows.zip)
+Download and extract [Biomedisa](https://biomedisa.org/media/biomedisa_windows.zip).
 
 #### Run installation script
 For NVIDIA Pascal and Volta GPUs
@@ -35,6 +35,8 @@ For NVIDIA Ampere GPUs
 ```
 install_biomedisa+cuda11.4.cmd
 ```
+If the installation is interrupted, please run the script again.
+
 #### Start Biomedisa
 Login as superuser "biomedisa" with password "biomedisa".
 
