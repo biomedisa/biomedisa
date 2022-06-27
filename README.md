@@ -5,8 +5,8 @@
 - [Software requirements](#software-requirements)
 - [Installation (command-line-only)](#installation-command-line-only)
 - [Full installation (GUI)](#full-installation-gui)
-- [Run interpolation examples](#run-interpolation-examples)
-- [Run AI example](#run-ai-example)
+- [Interpolation examples](#interpolation-examples)
+- [AI example](#ai-example)
 - [Update Biomedisa](#update-biomedisa)
 - [Releases](#releases)
 - [Authors](#authors)
@@ -38,7 +38,7 @@ Biomedisa (https://biomedisa.org) is a free and easy-to-use open-source online p
 + [Windows 10 (21H2 or higher)](https://github.com/biomedisa/biomedisa/blob/master/README/windows11.md)
 + [Windows 11](https://github.com/biomedisa/biomedisa/blob/master/README/windows11.md)
 
-# Run interpolation examples
+# Interpolation examples
 
 #### Small example
 Download the tumor test example from the [gallery](https://biomedisa.org/gallery/) or directly as follows:
@@ -48,7 +48,7 @@ wget --no-check-certificate https://biomedisa.org/download/demo/?id=tumor.tif -O
 wget --no-check-certificate https://biomedisa.org/download/demo/?id=labels.tumor.tif -O ~/Downloads/labels.tumor.tif
 ```
 
-Run Biomedisa (~3 seconds). The result will be saved in `Downloads` as `final.tumor.tif`.
+Run the Biomedisa interpolation. The result will be saved in `Downloads` as `final.tumor.tif`.
 ```
 # Ubuntu
 python3 ~/git/biomedisa/demo/biomedisa_interpolation.py ~/Downloads/tumor.tif ~/Downloads/labels.tumor.tif
@@ -72,30 +72,30 @@ wget --no-check-certificate https://biomedisa.org/download/demo/?id=labels.NMB_F
 Run the segmentation using e.g. 4 GPUs.
 ```
 # Ubuntu
-mpiexec -n 4 python3 ~/git/biomedisa/demo/biomedisa_interpolation.py ~/Downloads/NMB_F2875.tif ~/Downloads/labels.NMB_F2875.tif
+mpiexec -np 4 python3 ~/git/biomedisa/demo/biomedisa_interpolation.py ~/Downloads/NMB_F2875.tif ~/Downloads/labels.NMB_F2875.tif
 
 # Windows
-mpiexec -n 4 python git\biomedisa\demo\biomedisa_interpolation.py Downloads\NMB_F2875.tif Downloads\labels.NMB_F2875.tif
+mpiexec -np 4 python -u git\biomedisa\demo\biomedisa_interpolation.py Downloads\NMB_F2875.tif Downloads\labels.NMB_F2875.tif
 ```
 
 Obtain uncertainty and smoothing as optional results.
 ```
-mpiexec -n 4 python3 ~/git/biomedisa/demo/biomedisa_interpolation.py ~/Downloads/NMB_F2875.tif ~/Downloads/labels.NMB_F2875.tif -uq -s 100
+python3 ~/git/biomedisa/demo/biomedisa_interpolation.py ~/Downloads/tumor.tif ~/Downloads/labels.tumor.tif -uq -s 100
 ```
 
 Use pre-segmentation with different orientations (not exclusively xy-plane).
 ```
-mpiexec -n 4 python3 ~/git/biomedisa/demo/biomedisa_interpolation.py 'path_to_image' 'path_to_labels' -allx
+python3 ~/git/biomedisa/demo/biomedisa_interpolation.py 'path_to_image' 'path_to_labels' -allx
 ```
 
 #### Memory Error
 If memory errors (either GPU or host memory) occur, you can start the segmentation as follows:
 ```
-python3 ~/git/biomedisa/demo/split_volume.py 'path_to_image' 'path_to_labels' -n 4 -sz 2 -sy 2 -sx 2
+python3 ~/git/biomedisa/demo/split_volume.py 'path_to_image' 'path_to_labels' -np 4 -sz 2 -sy 2 -sx 2
 ```
 Where `-n` determines the number of GPUs and each axis (`x`,`y` and `z`) is divided into two overlapping parts. The volume is thus divided into `2*2*2=8` subvolumes. These are segmented separately and then reassembled.
 
-# Run AI example
+# AI example
 
 #### Automatic segmentation based on a trained network
 Download a trained neural network and a test image from the [gallery](https://biomedisa.org/gallery/) or directly as follows:
@@ -104,7 +104,7 @@ wget --no-check-certificate https://biomedisa.org/download/demo/?id=heart.h5 -O 
 wget --no-check-certificate https://biomedisa.org/download/demo/?id=testing_axial_crop_pat13.nii.gz -O ~/Downloads/testing_axial_crop_pat13.nii.gz
 ```
 
-Use the trained neural network to predict the result of the test image. The result will be saved in `Downloads` as `final.testing_axial_crop_pat13.tif`.
+Use the trained neural network to predict the result of the test image with a batch size of 6 batches. The result will be saved in `Downloads` as `final.testing_axial_crop_pat13.tif`.
 ```
 # Ubuntu
 python3 ~/git/biomedisa/demo/biomedisa_deeplearning.py ~/Downloads/testing_axial_crop_pat13.nii.gz ~/Downloads/heart.h5 --predict -bs 6
