@@ -22,12 +22,13 @@ Open Anaconda Prompt (e.g. Windows Search `Anaconda Prompt`).
 ```
 conda create -n biomedisa python=3.9
 conda activate biomedisa
-conda install -c conda-forge numpy scipy h5py colorama numba
+conda install -c conda-forge numpy scipy colorama numba
 conda install -c conda-forge imagecodecs-lite tifffile scikit-image opencv Pillow
 conda install -c conda-forge nibabel medpy SimpleITK itk vtk numpy-stl matplotlib
 conda install -c conda-forge cudatoolkit=11.3.1
 conda install -c conda-forge cudnn
 conda install -c conda-forge tensorflow-gpu
+conda install -c anaconda h5py
 ```
 
 #### Download or clone Biomedisa

@@ -51,9 +51,10 @@ Open Anaconda Prompt (e.g. Windows Search `Anaconda Prompt`).
 ```
 conda create -n biomedisa python=3.9
 conda activate biomedisa
-conda install -c conda-forge numpy scipy h5py colorama numba
+conda install -c conda-forge numpy scipy colorama numba
 conda install -c conda-forge imagecodecs-lite tifffile scikit-image opencv Pillow
 conda install -c conda-forge nibabel medpy SimpleITK itk vtk numpy-stl matplotlib
+conda install -c anaconda h5py
 pip install -U pycuda mpi4py
 ```
 
