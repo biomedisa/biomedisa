@@ -124,6 +124,7 @@ if __name__ == '__main__':
                 # run segmentation
                 if platform.system() == 'Windows':
                     cmd[3] = 'python'
+                    cmd.insert(4, '-u')
                     p = subprocess.Popen(cmd, cwd=cwd, stdout=subprocess.PIPE)
                     for line in iter(p.stdout.readline, b''):
                         line = str(line,'utf-8')
