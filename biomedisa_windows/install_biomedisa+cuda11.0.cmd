@@ -6,7 +6,6 @@ FOR /F "tokens=* delims=" %%v in (latest_version.txt) DO (set VERSION=%%v)
 
 REM test Biomedisa installation
 wsl -u biomedisa -d %VERSION% touch test_installation.txt
-timeout /t 5 /nobreak >nul
 if not exist test_installation.txt (
 
 echo Installing %VERSION%
@@ -21,10 +20,10 @@ mkdir "%USERPROFILE%\AppData\%VERSION%"
 REM install biomedisa
 echo Biomedisa is being installed. This may take a few minutes. Please wait!
 wsl --import %VERSION% "%USERPROFILE%\AppData\%VERSION%" ./%VERSION%.tar
+timeout /t 5 /nobreak >nul
 
 REM verify installation
 wsl -u biomedisa -d %VERSION% touch installation_successful.txt
-timeout /t 5 /nobreak >nul
 if exist installation_successful.txt (
 
 REM copy biomedisa files
