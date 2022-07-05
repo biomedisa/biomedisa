@@ -112,7 +112,10 @@ def conv_network(train, predict, path_to_model, compress, epochs, batch_size, pa
                                     int(y_scale), int(z_scale), int(normalize), float(mu), float(sig)
             allLabels = np.array(meta.get('labels'))
             header = np.array(meta.get('header'))
-            extension = str(np.array(meta.get('extension'), dtype=np.unicode_))
+            try:
+                extension = meta.get('extension').asstr()[()]
+            except:
+                extension = str(np.array(meta.get('extension')))
             crop_data = True if 'cropping_weights' in hf else False
             hf.close()
         except Exception as e:
