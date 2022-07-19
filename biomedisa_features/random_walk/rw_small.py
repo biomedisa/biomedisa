@@ -38,10 +38,10 @@ from biomedisa_features.active_contour import active_contour
 from biomedisa_features.remove_outlier import remove_outlier
 from biomedisa_features.create_slices import create_slices
 from biomedisa_app.config import config
-from multiprocessing import Process
-from gpu_kernels import (_build_kernel_uncertainty, _build_kernel_max,
-                         _build_update_gpu, _build_curvature_gpu)
+from biomedisa_features.random_walk.gpu_kernels import (_build_kernel_uncertainty,
+        _build_kernel_max, _build_update_gpu, _build_curvature_gpu)
 
+from multiprocessing import Process
 from mpi4py import MPI
 import os, sys
 import numpy as np
@@ -118,6 +118,7 @@ def _diffusion_child(comm, bm=None):
         cuda.init()
         dev = cuda.Device(rank)
         ctx = dev.make_context()
+        queue = None
 
         # select the desired script
         if bm.label.allaxis:
@@ -127,7 +128,7 @@ def _diffusion_child(comm, bm=None):
 
         # run random walks
         tic = time.time()
-        walkmap = walk(bm.data, bm.labels, bm.indices, indices_split[0], bm.label.nbrw, bm.label.sorw, name)
+        walkmap = walk(bm.data, bm.labels, bm.indices, indices_split[0], bm.label.nbrw, bm.label.sorw, name, ctx, queue)
         tac = time.time()
         print('Walktime_%s: ' %(name) + str(int(tac - tic)) + ' ' + 'seconds')
 
@@ -313,6 +314,7 @@ def _diffusion_child(comm, bm=None):
         cuda.init()
         dev = cuda.Device(rank)
         ctx = dev.make_context()
+        queue = None
 
         # select the desired script
         if allx:
@@ -322,7 +324,7 @@ def _diffusion_child(comm, bm=None):
 
         # run random walks
         tic = time.time()
-        walkmap = walk(data, labels, indices, indices_child, nbrw, sorw, name)
+        walkmap = walk(data, labels, indices, indices_child, nbrw, sorw, name, ctx, queue)
         tac = time.time()
         print('Walktime_%s: ' %(name) + str(int(tac - tic)) + ' ' + 'seconds')
 
@@ -335,3 +337,4 @@ def _diffusion_child(comm, bm=None):
             datatemporaer = np.copy(walkmap[k])
             comm.Barrier()
             comm.Reduce([datatemporaer, MPI.FLOAT], None, root=0, op=MPI.SUM)
+

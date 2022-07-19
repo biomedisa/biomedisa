@@ -35,12 +35,13 @@ from tensorflow.keras.models import Model, load_model
 from tensorflow.keras.layers import Input, GlobalAveragePooling2D, Dropout, Dense
 from tensorflow.keras.callbacks import Callback, ModelCheckpoint
 from tensorflow.keras.applications import DenseNet121, densenet
-from DataGeneratorCrop import DataGeneratorCrop
-from PredictDataGeneratorCrop import PredictDataGeneratorCrop
+from biomedisa_features.DataGeneratorCrop import DataGeneratorCrop
+from biomedisa_features.PredictDataGeneratorCrop import PredictDataGeneratorCrop
 import tensorflow as tf
 import numpy as np
 from glob import glob
 import h5py
+import tarfile
 
 class InputError(Exception):
     def __init__(self, message=None):
@@ -71,6 +72,7 @@ def load_cropping_training_data(normalize, img_list, label_list, x_scale, y_scal
     img_names, label_names = [], []
     for img_name, label_name in zip(img_list, label_list):
 
+        # check for tarball
         img_dir, img_ext = os.path.splitext(img_name)
         if img_ext == '.gz':
             img_dir, img_ext = os.path.splitext(img_dir)
@@ -79,7 +81,18 @@ def load_cropping_training_data(normalize, img_list, label_list, x_scale, y_scal
         if label_ext == '.gz':
             label_dir, label_ext = os.path.splitext(label_dir)
 
-        if img_ext == '.tar' and label_ext == '.tar':
+        if (img_ext == '.tar' and label_ext == '.tar') or (os.path.isdir(img_name) and os.path.isdir(label_name)):
+
+            # extract files if necessary
+            if img_ext == '.tar' and not os.path.exists(img_dir):
+                tar = tarfile.open(img_name)
+                tar.extractall(path=img_dir)
+                tar.close()
+            if label_ext == '.tar' and not os.path.exists(label_dir):
+                tar = tarfile.open(label_name)
+                tar.extractall(path=label_dir)
+                tar.close()
+
             for data_type in ['.am','.tif','.tiff','.hdr','.mhd','.mha','.nrrd','.nii','.nii.gz']:
                 tmp_img_names = glob(img_dir+'/**/*'+data_type, recursive=True)
                 tmp_label_names = glob(label_dir+'/**/*'+data_type, recursive=True)
@@ -179,7 +192,8 @@ def load_cropping_training_data(normalize, img_list, label_list, x_scale, y_scal
     return img_rgb, label, position, mu, sig, header, extension, len(img_names)
 
 def train_cropping(img, label, path_to_model, epochs, batch_size,
-                    validation_split, position, flip_x, flip_y, flip_z, rotate):
+                    validation_split, position, flip_x, flip_y, flip_z, rotate,
+                    img_val, label_val, position_val):
 
     # img shape
     zsh, ysh, xsh, channels = img.shape
@@ -200,8 +214,28 @@ def train_cropping(img, label, path_to_model, epochs, batch_size,
               'shuffle': True,
               'augment': (flip_x, flip_y, flip_z, rotate)}
 
+    # validation data
+    if np.any(img_val):
+        # img shape
+        zsh_val = img_val.shape[0]
+
+        # list of IDs
+        list_IDs_val_fg = list(np.where(label_val)[0])
+        list_IDs_val_bg = list(np.where(label_val==False)[0])
+
+        # parameters
+        params_val = {'dim': (ysh, xsh),
+                      'dim_img': (zsh_val, ysh, xsh),
+                      'batch_size': batch_size,
+                      'n_classes': 2,
+                      'n_channels': channels,
+                      'shuffle': True}
+
     # data generator
-    if validation_split:
+    if np.any(img_val):
+        training_generator = DataGeneratorCrop(img, label, position, list_IDs_fg, list_IDs_bg, **params)
+        validation_generator = DataGeneratorCrop(img_val, label_val, position_val, list_IDs_val_fg, list_IDs_val_bg, **params_val)
+    elif validation_split:
         split_IDs = int(zsh * validation_split)
         list_IDs_fg = list(np.where(label[:split_IDs])[0])
         list_IDs_bg = list(np.where(label[:split_IDs]==False)[0])
@@ -222,7 +256,11 @@ def train_cropping(img, label, path_to_model, epochs, batch_size,
     print('Number of devices: {}'.format(strategy.num_replicas_in_sync))
 
     # create callback
-    checkpoint_cb = tf.keras.callbacks.ModelCheckpoint(str(path_to_model), save_best_only=True)
+    if np.any(img_val) or validation_split:
+        save_best_only = True
+    else:
+        save_best_only = False
+    checkpoint_cb = tf.keras.callbacks.ModelCheckpoint(str(path_to_model), save_best_only=save_best_only)
 
     # compile model
     with strategy.scope():
@@ -233,7 +271,7 @@ def train_cropping(img, label, path_to_model, epochs, batch_size,
     # train model
     model.fit(training_generator,
               validation_data=validation_generator,
-              epochs=epochs//4,
+              epochs=max(1,epochs//4),
               callbacks=checkpoint_cb)
 
     # compile model for finetunning
@@ -247,29 +285,8 @@ def train_cropping(img, label, path_to_model, epochs, batch_size,
     # finetune model
     model.fit(training_generator,
               validation_data=validation_generator,
-              epochs=epochs//4,
+              epochs=max(1,epochs//4),
               callbacks=checkpoint_cb)
-
-def evaluate_crop(img,labelData,position,batch_size,flip_x,flip_y,flip_z,rotate,path_to_model):
-    # img shape
-    zsh, ysh, xsh, channels = img.shape
-    # list of IDs
-    list_IDs = [x for x in range(zsh)]
-
-    # parameters
-    params = {'dim': (ysh, xsh),
-              'dim_img': (zsh, ysh, xsh),
-              'batch_size': batch_size,
-              'n_classes': 2,
-              'n_channels': channels,
-              'shuffle': True,
-              'augment': (flip_x, flip_y, flip_z, rotate)}
-    # generate data
-    training_generator = DataGeneratorCrop(img, labelData, position, list_IDs, [], **params)
-    # load and evaluate model
-    model = tf.keras.models.load_model(path_to_model)
-    score = model.evaluate(training_generator,batch_size=batch_size,verbose=1)
-    print(score)
 
 def load_data_to_crop(path_to_img, x_scale, y_scale, z_scale,
                         normalize, mu, sig):
@@ -421,22 +438,29 @@ def crop_volume(img, path_to_volume, path_to_model, z_shape, y_shape, x_shape, b
 
 def load_and_train(normalize,path_to_img,path_to_labels,path_to_model,
                 epochs,batch_size,validation_split,x_scale,y_scale,z_scale,
-                flip_x,flip_y,flip_z,rotate):
+                flip_x,flip_y,flip_z,rotate,path_val_img=None,
+                path_val_labels=None,demo=False):
 
     # load training data
+    img_val, labelData_val, position_val = None, None, None
     img, labelData, position, mu, sig, header, extension, number_of_images = load_cropping_training_data(normalize,
                         path_to_img, path_to_labels, x_scale, y_scale, z_scale)
 
+    # load validation data
+    if path_val_img and path_val_labels:
+        img_val, labelData_val, position_val, _, _, _, _ = load_cropping_training_data(normalize,
+                            path_val_img, path_val_labels, x_scale, y_scale, z_scale, mu, sig)
+
     # force validation_split for large number of training images
-    if number_of_images > 20:
+    if number_of_images > 20 and not demo:
         if validation_split == 0:
             validation_split = 0.8
-        #early_stopping = True
 
     # train cropping
     train_cropping(img, labelData, path_to_model, epochs,
                     batch_size, validation_split, position,
-                    flip_x, flip_y, flip_z, rotate)
+                    flip_x, flip_y, flip_z, rotate,
+                    img_val, labelData_val, position_val)
 
     # load weights
     model = load_model(str(path_to_model))
@@ -474,13 +498,4 @@ def crop_data(path_to_data, path_to_model, batch_size, debug_cropping):
     region_of_interest = np.array([z_upper, z_lower, y_upper, y_lower, x_upper, x_lower])
 
     return region_of_interest
-
-def evaluate_network(normalize,path_to_img,path_to_labels,path_to_model,
-                batch_size,x_scale,y_scale,z_scale,
-                flip_x,flip_y,flip_z,rotate):
-
-    img, labelData, position, mu, sig, header, extension, number_of_images = load_cropping_training_data(normalize,
-                path_to_img, path_to_labels, x_scale, y_scale, z_scale)
-
-    evaluate_crop(img,labelData,position,batch_size,flip_x,flip_y,flip_z,rotate,path_to_model)
 

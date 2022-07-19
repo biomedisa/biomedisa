@@ -33,19 +33,15 @@ import os, sys
 import numpy as np
 import time
 import socket
-import pycuda.driver as cuda
-import pycuda.gpuarray as gpuarray
-from gpu_kernels import (_build_kernel_uncertainty, _build_kernel_max,
-                         _build_update_gpu, _build_curvature_gpu)
 
-def sendToChild(comm, indices, indices_child, dest, data, Labels, nbrw, sorw, allx):
+def sendToChild(comm, indices, indices_child, dest, data, Labels, nbrw, sorw, allx, platform):
     data = data.copy(order='C')
     comm.send([data.shape[0], data.shape[1], data.shape[2], data.dtype], dest=dest, tag=0)
     if data.dtype == 'uint8':
         comm.Send([data, MPI.BYTE], dest=dest, tag=1)
     else:
         comm.Send([data, MPI.FLOAT], dest=dest, tag=1)
-    comm.send([allx, nbrw, sorw], dest=dest, tag=2)
+    comm.send([allx, nbrw, sorw, platform], dest=dest, tag=2)
     if allx:
         for k in range(3):
             labels = Labels[k].copy(order='C')
@@ -79,6 +75,19 @@ def get_labels(pre_final, labels):
         final[pre_final == k] = labels[k]
     return final
 
+def _get_device(dev_id, dev):
+    import pyopencl as cl
+    all_platforms = cl.get_platforms()
+    if dev == 'CPU':
+        device_type = cl.device_type.CPU
+    else:
+        device_type = cl.device_type.GPU
+    platform = next((p for p in all_platforms if p.get_devices(device_type=device_type) != []), None)
+    my_devices = platform.get_devices(device_type=device_type)
+    context = cl.Context(devices=my_devices)
+    queue = cl.CommandQueue(context, my_devices[dev_id])
+    return context, queue
+
 def _diffusion_child(comm, bm=None):
 
     rank = comm.Get_rank()
@@ -94,24 +103,34 @@ def _diffusion_child(comm, bm=None):
         indices_split = _split_indices(bm.indices, ngpus)
         print('Indices:', indices_split)
 
-        # send data to GPUs
+        # send data to devices
         for k in range(1, ngpus):
-            sendToChild(comm, bm.indices, indices_split[k], k, bm.data, bm.labels, bm.label.nbrw, bm.label.sorw, bm.label.allaxis)
+            sendToChild(comm, bm.indices, indices_split[k], k, bm.data, bm.labels, bm.label.nbrw,
+                        bm.label.sorw, bm.label.allaxis, bm.platform)
 
-        # init cuda device
-        cuda.init()
-        dev = cuda.Device(rank)
-        ctx = dev.make_context()
-
-        # select the desired script
-        if bm.label.allaxis:
-            from pycuda_small_allx import walk
-        else:
-            from pycuda_small import walk
+        # select platform
+        if bm.platform == 'cuda':
+            import pycuda.driver as cuda
+            import pycuda.gpuarray as gpuarray
+            from biomedisa_features.random_walk.gpu_kernels import (_build_kernel_uncertainty, 
+                        _build_kernel_max, _build_update_gpu, _build_curvature_gpu)
+            cuda.init()
+            dev = cuda.Device(rank)
+            ctx, queue = dev.make_context(), None
+            if bm.label.allaxis:
+                from biomedisa_features.random_walk.pycuda_small_allx import walk
+            else:
+                from biomedisa_features.random_walk.pycuda_small import walk
+        elif bm.platform == 'opencl_GPU':
+            ctx, queue = _get_device(rank, 'GPU')
+            from biomedisa_features.random_walk.pyopencl_small import walk
+        elif bm.platform == 'opencl_CPU':
+            ctx, queue = _get_device(rank, 'CPU')
+            from biomedisa_features.random_walk.pyopencl_small import walk
 
         # run random walks
         tic = time.time()
-        walkmap = walk(bm.data, bm.labels, bm.indices, indices_split[0], bm.label.nbrw, bm.label.sorw, name)
+        walkmap = walk(bm.data, bm.labels, bm.indices, indices_split[0], bm.label.nbrw, bm.label.sorw, name, ctx, queue)
         tac = time.time()
         print('Walktime_%s: ' %(name) + str(int(tac - tic)) + ' ' + 'seconds')
 
@@ -146,7 +165,7 @@ def _diffusion_child(comm, bm=None):
                 a_gpu = gpuarray.empty((zsh_tmp, ysh_tmp, xsh_tmp), dtype=np.float32)
                 b_gpu = gpuarray.zeros((zsh_tmp, ysh_tmp, xsh_tmp), dtype=np.float32)
             except Exception as e:
-                print('Warning: GPU out of memory to allocate smooth array. Process starts without smoothing.')
+                print('Warning: GPU out of memory to allocate smooth array. Skips smoothing.')
                 bm.label.smooth = 0
 
         if bm.label.smooth:
@@ -183,12 +202,13 @@ def _diffusion_child(comm, bm=None):
                 final = final[1:-1, 1:-1, 1:-1]
                 save_data(bm.path_to_uq, final, compress=bm.label.compression)
             except Exception as e:
-                print('Warning: GPU out of memory to allocate uncertainty array. Process starts without uncertainty.')
+                print('Warning: GPU out of memory to allocate uncertainty array. Skips uncertainty.')
                 bm.label.uncertainty = False
 
         # free device
-        ctx.pop()
-        del ctx
+        if bm.platform == 'cuda':
+            ctx.pop()
+            del ctx
 
         # argmax
         final_zero = np.argmax(final_zero, axis=0).astype(np.uint8)
@@ -218,7 +238,7 @@ def _diffusion_child(comm, bm=None):
             comm.Recv([data, MPI.BYTE], source=0, tag=1)
         else:
             comm.Recv([data, MPI.FLOAT], source=0, tag=1)
-        allx, nbrw, sorw = comm.recv(source=0, tag=2)
+        allx, nbrw, sorw, platform = comm.recv(source=0, tag=2)
         if allx:
             labels = []
             for k in range(3):
@@ -233,29 +253,37 @@ def _diffusion_child(comm, bm=None):
         indices = comm.recv(source=0, tag=9)
         indices_child = comm.recv(source=0, tag=10)
 
-        # init cuda device
-        cuda.init()
-        dev = cuda.Device(rank % cuda.Device.count())
-        ctx = dev.make_context()
-
-        # select the desired script
-        if allx:
-            from pycuda_small_allx import walk
-        else:
-            from pycuda_small import walk
+        # select platform
+        if platform == 'cuda':
+            import pycuda.driver as cuda
+            cuda.init()
+            dev = cuda.Device(rank)
+            ctx, queue = dev.make_context(), None
+            if allx:
+                from biomedisa_features.random_walk.pycuda_small_allx import walk
+            else:
+                from biomedisa_features.random_walk.pycuda_small import walk
+        elif platform == 'opencl_GPU':
+            ctx, queue = _get_device(rank, 'GPU')
+            from biomedisa_features.random_walk.pyopencl_small import walk
+        elif platform == 'opencl_CPU':
+            ctx, queue = _get_device(rank, 'CPU')
+            from biomedisa_features.random_walk.pyopencl_small import walk
 
         # run random walks
         tic = time.time()
-        walkmap = walk(data, labels, indices, indices_child, nbrw, sorw, name)
+        walkmap = walk(data, labels, indices, indices_child, nbrw, sorw, name, ctx, queue)
         tac = time.time()
         print('Walktime_%s: ' %(name) + str(int(tac - tic)) + ' ' + 'seconds')
 
         # free device
-        ctx.pop()
-        del ctx
+        if platform == 'cuda':
+            ctx.pop()
+            del ctx
 
         # send data
         for k in range(walkmap.shape[0]):
             datatemporaer = np.copy(walkmap[k])
             comm.Barrier()
             comm.Reduce([datatemporaer, MPI.FLOAT], None, root=0, op=MPI.SUM)
+

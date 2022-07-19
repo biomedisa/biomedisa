@@ -34,12 +34,13 @@ from tensorflow.keras.layers import (
     BatchNormalization, Concatenate, ReLU, Add)
 from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.callbacks import Callback, ModelCheckpoint, EarlyStopping
-from DataGenerator import DataGenerator
-from PredictDataGenerator import PredictDataGenerator
+from biomedisa_features.DataGenerator import DataGenerator
+from biomedisa_features.PredictDataGenerator import PredictDataGenerator
 import matplotlib.pyplot as plt
 import tensorflow as tf
 import numpy as np
 import cv2
+import tarfile
 from random import shuffle
 from glob import glob
 import random
@@ -274,18 +275,50 @@ def get_labels(arr, allLabels):
 # regular
 #=====================
 
-def load_training_data(normalize, img_dir, label_dir, channels, x_scale, y_scale, z_scale,
+def load_training_data(normalize, img_list, label_list, channels, x_scale, y_scale, z_scale,
         crop_data, configuration_data=None, allLabels=None, x_puffer=25, y_puffer=25, z_puffer=25):
 
     # get filenames
     img_names, label_names = [], []
-    for data_type in ['.am','.tif','.tiff','.hdr','.mhd','.mha','.nrrd','.nii','.nii.gz']:
-        tmp_img_names = glob(img_dir+'/**/*'+data_type, recursive=True)
-        tmp_label_names = glob(label_dir+'/**/*'+data_type, recursive=True)
-        tmp_img_names = sorted(tmp_img_names)
-        tmp_label_names = sorted(tmp_label_names)
-        img_names.extend(tmp_img_names)
-        label_names.extend(tmp_label_names)
+    for img_name, label_name in zip(img_list, label_list):
+
+        # check for tarball
+        img_dir, img_ext = os.path.splitext(img_name)
+        if img_ext == '.gz':
+            img_dir, img_ext = os.path.splitext(img_dir)
+
+        label_dir, label_ext = os.path.splitext(label_name)
+        if label_ext == '.gz':
+            label_dir, label_ext = os.path.splitext(label_dir)
+
+        if (img_ext == '.tar' and label_ext == '.tar') or (os.path.isdir(img_name) and os.path.isdir(label_name)):
+
+            # extract files if necessary
+            if img_ext == '.tar' and not os.path.exists(img_dir):
+                tar = tarfile.open(img_name)
+                tar.extractall(path=img_dir)
+                tar.close()
+            if label_ext == '.tar' and not os.path.exists(label_dir):
+                tar = tarfile.open(label_name)
+                tar.extractall(path=label_dir)
+                tar.close()
+
+            for data_type in ['.am','.tif','.tiff','.hdr','.mhd','.mha','.nrrd','.nii','.nii.gz']:
+                tmp_img_names = glob(img_dir+'/**/*'+data_type, recursive=True)
+                tmp_label_names = glob(label_dir+'/**/*'+data_type, recursive=True)
+                tmp_img_names = sorted(tmp_img_names)
+                tmp_label_names = sorted(tmp_label_names)
+                img_names.extend(tmp_img_names)
+                label_names.extend(tmp_label_names)
+            if len(img_names)==0:
+                InputError.message = "Invalid image TAR file."
+                raise InputError()
+            if len(label_names)==0:
+                InputError.message = "Invalid label TAR file."
+                raise InputError()
+        else:
+            img_names.append(img_name)
+            label_names.append(label_name)
 
     # load first label
     a, header, extension = load_data(label_names[0], 'first_queue', True)
