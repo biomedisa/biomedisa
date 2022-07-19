@@ -37,11 +37,12 @@ from tensorflow.keras.layers import (
     BatchNormalization, Concatenate)
 from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.callbacks import Callback, ModelCheckpoint, EarlyStopping
-from DataGenerator import DataGenerator
-from PredictDataGenerator import PredictDataGenerator
+from biomedisa_features.DataGenerator import DataGenerator
+from biomedisa_features.PredictDataGenerator import PredictDataGenerator
 import tensorflow as tf
 import numpy as np
 import cv2
+import tarfile
 from random import shuffle
 from glob import glob
 import random
@@ -234,6 +235,7 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
     img_names, label_names = [], []
     for img_name, label_name in zip(img_list, label_list):
 
+        # check for tarball
         img_dir, img_ext = os.path.splitext(img_name)
         if img_ext == '.gz':
             img_dir, img_ext = os.path.splitext(img_dir)
@@ -242,7 +244,18 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
         if label_ext == '.gz':
             label_dir, label_ext = os.path.splitext(label_dir)
 
-        if img_ext == '.tar' and label_ext == '.tar':
+        if (img_ext == '.tar' and label_ext == '.tar') or (os.path.isdir(img_name) and os.path.isdir(label_name)):
+
+            # extract files if necessary
+            if img_ext == '.tar' and not os.path.exists(img_dir):
+                tar = tarfile.open(img_name)
+                tar.extractall(path=img_dir)
+                tar.close()
+            if label_ext == '.tar' and not os.path.exists(label_dir):
+                tar = tarfile.open(label_name)
+                tar.extractall(path=label_dir)
+                tar.close()
+
             for data_type in ['.am','.tif','.tiff','.hdr','.mhd','.mha','.nrrd','.nii','.nii.gz']:
                 tmp_img_names = glob(img_dir+'/**/*'+data_type, recursive=True)
                 tmp_label_names = glob(label_dir+'/**/*'+data_type, recursive=True)
@@ -343,14 +356,14 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
             position = np.append(position, a, axis=0)
 
     # labels must be in ascending order
-    allLabels = np.unique(label)
+    allLabels, counts = np.unique(label, return_counts=True)
     for k, l in enumerate(allLabels):
         label[label==l] = k
 
     # configuration data
     configuration_data = np.array([channels, x_scale, y_scale, z_scale, normalize, mu, sig])
 
-    return img, label, position, allLabels, configuration_data, header, extension, len(img_names)
+    return img, label, position, allLabels, configuration_data, header, extension, len(img_names), counts
 
 class CustomCallback(Callback):
     def __init__(self, id, epochs):
@@ -505,7 +518,7 @@ def train_semantic_segmentation(normalize, img_list, label_list, x_scale, y_scal
             validation_freq, cropping_weights, cropping_config):
 
     # training data
-    img, label, position, allLabels, configuration_data, header, extension, number_of_images = load_training_data(normalize,
+    img, label, position, allLabels, configuration_data, header, extension, number_of_images, counts = load_training_data(normalize,
                     img_list, label_list, channels, x_scale, y_scale, z_scale, crop_data)
 
     # force validation_split for large number of training images
@@ -567,16 +580,17 @@ def train_semantic_segmentation(normalize, img_list, label_list, x_scale, y_scal
               'dim_img': (zsh, ysh, xsh),
               'n_classes': nb_labels,
               'n_channels': channels,
+              'class_weights': False,
               'augment': (flip_x, flip_y, flip_z, rotate)}
 
     # data generator
     validation_generator = None
-    training_generator = DataGenerator(img, label, position, list_IDs, True, **params)
+    training_generator = DataGenerator(img, label, position, list_IDs, counts, True, **params)
     if validation_split:
         if val_tf:
             params['dim_img'] = (zsh_val, ysh_val, xsh_val)
             params['augment'] = (False, False, False, 0)
-            validation_generator = DataGenerator(img_val, label_val, position_val, list_IDs_val, False, **params)
+            validation_generator = DataGenerator(img_val, label_val, position_val, list_IDs_val, counts, False, **params)
         else:
             metrics = Metrics(img_val, label_val, list_IDs_val, (z_patch, y_patch, x_patch), (zsh_val, ysh_val, xsh_val), batch_size,
                               path_to_model, early_stopping, validation_freq, nb_labels)

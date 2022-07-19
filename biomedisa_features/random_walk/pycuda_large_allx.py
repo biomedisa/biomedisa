@@ -32,8 +32,8 @@ import numpy as np
 import pycuda.driver as cuda
 import pycuda.gpuarray as gpuarray
 from pycuda.compiler import SourceModule
-from gpu_kernels import (_build_kernel_uncertainty, _build_kernel_max, _build_kernel_fill,
-                         _build_update_gpu, _build_curvature_gpu)
+from biomedisa_features.random_walk.gpu_kernels import (_build_kernel_uncertainty,
+        _build_kernel_max, _build_kernel_fill, _build_update_gpu, _build_curvature_gpu)
 
 def reduceBlocksize(slices):
     testSlices = np.copy(slices)
@@ -245,7 +245,7 @@ def _calc_label_walking_area(sliceData, labelValue):
     walkingArea[sliceData == labelValue] = 1
     return walkingArea
 
-def walk(comm, raw, slices, indices, nbrw, sorw, blockmin, blockmax, name, allLabels, smooth, uncertainty):
+def walk(comm, raw, slices, indices, nbrw, sorw, blockmin, blockmax, name, allLabels, smooth, uncertainty, ctx, queue):
 
     rank = comm.Get_rank()
     size = comm.Get_size()
@@ -802,3 +802,4 @@ def _build_kernel_float32():
     mod = SourceModule(code)
     kernel = mod.get_function("Funktion")
     return kernel
+

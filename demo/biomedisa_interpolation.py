@@ -28,7 +28,9 @@
 ##########################################################################
 
 import sys, os
-from biomedisa_helper import pre_processing, _error_
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(BASE_DIR)
+from biomedisa_helper import pre_processing, _error_, smooth_img_3x3
 from multiprocessing import freeze_support
 import numpy as np
 import time
@@ -116,6 +118,48 @@ def read_indices(volData):
             i.append(k)
     return i
 
+def _get_platform(bm):
+
+    if bm.platform in ['cuda', None]:
+        try:
+            import pycuda.driver as cuda
+            cuda.init()
+            bm.available_devices = cuda.Device.count()
+            bm.platform = 'cuda'
+            return bm
+        except:
+            pass
+
+    if bm.platform in ['opencl_GPU', None]:
+        try:
+            import pyopencl as cl
+            all_platforms = cl.get_platforms()
+            platform = next((p for p in all_platforms if p.get_devices(device_type=cl.device_type.GPU) != []), None)
+            my_devices = platform.get_devices(device_type=cl.device_type.GPU)
+            bm.available_devices = len(my_devices)
+            bm.platform = 'opencl_GPU'
+            return bm
+        except:
+            pass
+
+    if bm.platform in ['opencl_CPU', None]:
+        try:
+            import pyopencl as cl
+            all_platforms = cl.get_platforms()
+            platform = next((p for p in all_platforms if p.get_devices(device_type=cl.device_type.CPU) != []), None)
+            my_devices = platform.get_devices(device_type=cl.device_type.CPU)
+            bm.available_devices = len(my_devices)
+            bm.platform = 'opencl_CPU'
+            return bm
+        except:
+            pass
+
+    if bm.platform is None:
+        bm.platform = 'OpenCL or CUDA'
+    print(f'Error: No {bm.platform} device found.')
+    bm.success = False
+    return bm
+
 class Biomedisa(object):
      pass
 
@@ -152,11 +196,36 @@ if __name__ == '__main__':
         bm.label.uncertainty = True if any(x in sys.argv for x in ['--uncertainty','-uq']) else False
         bm.label.allaxis = 1 if '-allx' in sys.argv else 0
         bm.label.smooth = 0
+        bm.denoise = True if any(x in sys.argv for x in ['--denoise','-d']) else False
+        bm.platform = None
+        bm.process = 'biomedisa_interpolation'
         for i, val in enumerate(sys.argv):
             if val in ['--smooth','-s']:
                 bm.label.smooth = int(sys.argv[i+1])
-        bm.process = 'biomedisa_interpolation'
+            elif val in ['--nbrw']:
+                bm.label.nbrw = int(sys.argv[i+1])
+            elif val in ['--sorw']:
+                bm.label.sorw = int(sys.argv[i+1])
+            elif val in ['--platform','-p']:
+                bm.platform = str(sys.argv[i+1])
+
+        # load and preprocess data
         bm = pre_processing(bm)
+
+        # get platform
+        bm = _get_platform(bm)
+
+        # smooth, uncertainty and allx are not supported for opencl
+        if bm.platform in ['opencl_CPU','opencl_GPU']:
+            if bm.label.smooth:
+                bm.label.smooth = 0
+                print('Warning: Smoothing is not yet supported for opencl. Process starts without smoothing.')
+            if bm.label.uncertainty:
+                bm.label.uncertainty = False
+                print('Warning: Uncertainty is not yet supported for opencl. Process starts without uncertainty.')
+            if bm.label.allaxis:
+                bm.label.allaxis = 0
+                print('Warning: Allx is not yet supported for opencl. Process starts without allx.')
 
         if not bm.success:
 
@@ -193,6 +262,10 @@ if __name__ == '__main__':
                 bm.data /= np.amax(bm.data)
                 bm.data *= 255.0
                 bm.data = bm.data.astype(np.float32)
+
+            # denoise image data
+            if bm.denoise:
+                bm.data = smooth_img_3x3(bm.data)
 
             # image size
             bm.imageSize = int(bm.data.nbytes * 10e-7)
@@ -273,7 +346,7 @@ if __name__ == '__main__':
                         bm.indices, bm.labels = read_labeled_slices(bm.labelData)
 
                     # number of ngpus
-                    ngpus = size if size < len(bm.indices) else len(bm.indices)
+                    ngpus = min(bm.available_devices, len(bm.indices), size)
 
                     # send number of GPUs to childs
                     for dest in range(1, size):
@@ -292,7 +365,7 @@ if __name__ == '__main__':
                         comm.send(0, dest=dest, tag=1)
 
                     # number of ngpus
-                    ngpus = min((bm.argmax_z - bm.argmin_z) // 100, size)
+                    ngpus = min(bm.available_devices, (bm.argmax_z - bm.argmin_z) // 100, size)
                     ngpus = max(ngpus, 1)
 
                     # send number of GPUs to childs
@@ -330,3 +403,4 @@ if __name__ == '__main__':
                 else:
                     from biomedisa_large import _diffusion_child
                     _diffusion_child(sub_comm)
+

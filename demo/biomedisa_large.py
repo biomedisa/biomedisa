@@ -28,7 +28,6 @@
 
 from biomedisa_helper import save_data
 from multiprocessing import Process
-import pycuda.driver as cuda
 from mpi4py import MPI
 import os, sys
 import numpy as np
@@ -36,7 +35,8 @@ import time
 import socket
 import math
 
-def sendToChild(comm, indices, dest, dataListe, Labels, nbrw, sorw, blocks, allx, allLabels, smooth, uncertainty):
+def sendToChild(comm, indices, dest, dataListe, Labels, nbrw, sorw, blocks,
+                allx, allLabels, smooth, uncertainty, platform):
     comm.send(len(dataListe), dest=dest, tag=0)
     for k, tmp in enumerate(dataListe):
         tmp = tmp.copy(order='C')
@@ -46,7 +46,7 @@ def sendToChild(comm, indices, dest, dataListe, Labels, nbrw, sorw, blocks, allx
         else:
             comm.Send([tmp, MPI.FLOAT], dest=dest, tag=10+(2*k+1))
 
-    comm.send([nbrw, sorw, allx, smooth, uncertainty], dest=dest, tag=1)
+    comm.send([nbrw, sorw, allx, smooth, uncertainty, platform], dest=dest, tag=1)
 
     if allx:
         for k in range(3):
@@ -118,6 +118,19 @@ def read_labeled_slices_allx(volData):
             data = np.append(data, [volData[k]], axis=0)
             indices.append(k)
     return indices, data
+
+def _get_device(dev_id, dev):
+    import pyopencl as cl
+    all_platforms = cl.get_platforms()
+    if dev == 'CPU':
+        device_type = cl.device_type.CPU
+    else:
+        device_type = cl.device_type.GPU
+    platform = next((p for p in all_platforms if p.get_devices(device_type=device_type) != []), None)
+    my_devices = platform.get_devices(device_type=device_type)
+    context = cl.Context(devices=my_devices)
+    queue = cl.CommandQueue(context, my_devices[dev_id])
+    return context, queue
 
 def _diffusion_child(comm, bm=None):
 
@@ -201,35 +214,42 @@ def _diffusion_child(comm, bm=None):
                 blocks_temp[destination] = blockmin - datablockmin
                 blocks_temp[destination+1] = blockmax - datablockmin
                 dataListe = splitlargedata(datablock)
-                sendToChild(comm, indices_child, destination, dataListe, labels_child, \
-                            bm.label.nbrw, bm.label.sorw, blocks_temp, bm.label.allaxis, \
-                            bm.allLabels, bm.label.smooth, bm.label.uncertainty)
+                sendToChild(comm, indices_child, destination, dataListe, labels_child,
+                            bm.label.nbrw, bm.label.sorw, blocks_temp, bm.label.allaxis,
+                            bm.allLabels, bm.label.smooth, bm.label.uncertainty, bm.platform)
 
             else:
 
-                # select the desired script
-                if bm.label.allaxis:
-                    from pycuda_large_allx import walk
-                else:
-                    from pycuda_large import walk
-
-                # init cuda device
-                cuda.init()
-                dev = cuda.Device(0)
-                ctx = dev.make_context()
+                # select platform
+                if bm.platform == 'cuda':
+                    import pycuda.driver as cuda
+                    cuda.init()
+                    dev = cuda.Device(rank)
+                    ctx, queue = dev.make_context(), None
+                    if bm.label.allaxis:
+                        from biomedisa_features.random_walk.pycuda_large_allx import walk
+                    else:
+                        from biomedisa_features.random_walk.pycuda_large import walk
+                elif bm.platform == 'opencl_GPU':
+                    ctx, queue = _get_device(rank, 'GPU')
+                    from biomedisa_features.random_walk.pyopencl_large import walk
+                elif bm.platform == 'opencl_CPU':
+                    ctx, queue = _get_device(rank, 'CPU')
+                    from biomedisa_features.random_walk.pyopencl_large import walk
 
                 # run random walks
                 tic = time.time()
-                memory_error, final, final_uncertainty, final_smooth = walk(comm, datablock, \
-                                    labels_child, indices_child, bm.label.nbrw, bm.label.sorw, \
-                                    blockmin-datablockmin, blockmax-datablockmin, name, \
-                                    bm.allLabels, bm.label.smooth, bm.label.uncertainty)
+                memory_error, final, final_uncertainty, final_smooth = walk(comm, datablock,
+                                    labels_child, indices_child, bm.label.nbrw, bm.label.sorw,
+                                    blockmin-datablockmin, blockmax-datablockmin, name,
+                                    bm.allLabels, bm.label.smooth, bm.label.uncertainty, ctx, queue)
                 tac = time.time()
                 print('Walktime_%s: ' %(name) + str(int(tac - tic)) + ' ' + 'seconds')
 
                 # free device
-                ctx.pop()
-                del ctx
+                if bm.platform == 'cuda':
+                    ctx.pop()
+                    del ctx
 
         if memory_error:
 
@@ -307,7 +327,7 @@ def _diffusion_child(comm, bm=None):
                 comm.Recv([data_temp, MPI.FLOAT], source=0, tag=10+(2*k+1))
             data = np.append(data, data_temp, axis=0)
 
-        nbrw, sorw, allx, smooth, uncertainty = comm.recv(source=0, tag=1)
+        nbrw, sorw, allx, smooth, uncertainty, platform = comm.recv(source=0, tag=1)
 
         if allx:
             labels = []
@@ -336,28 +356,35 @@ def _diffusion_child(comm, bm=None):
         blockmin = blocks[rank]
         blockmax = blocks[rank+1]
 
-        # select the desired script
-        if allx:
-            from pycuda_large_allx import walk
-        else:
-            from pycuda_large import walk
-
-        # init cuda device
-        cuda.init()
-        dev = cuda.Device(rank % cuda.Device.count())
-        ctx = dev.make_context()
+        # select platform
+        if platform == 'cuda':
+            import pycuda.driver as cuda
+            cuda.init()
+            dev = cuda.Device(rank)
+            ctx, queue = dev.make_context(), None
+            if allx:
+                from biomedisa_features.random_walk.pycuda_large_allx import walk
+            else:
+                from biomedisa_features.random_walk.pycuda_large import walk
+        elif platform == 'opencl_GPU':
+            ctx, queue = _get_device(rank, 'GPU')
+            from biomedisa_features.random_walk.pyopencl_large import walk
+        elif platform == 'opencl_CPU':
+            ctx, queue = _get_device(rank, 'CPU')
+            from biomedisa_features.random_walk.pyopencl_large import walk
 
         # run random walks
         tic = time.time()
-        memory_error, final, final_uncertainty, final_smooth = walk(comm, data, \
-                                    labels, indices, nbrw, sorw, blockmin, blockmax, \
-                                    name, allLabels, smooth, uncertainty)
+        memory_error, final, final_uncertainty, final_smooth = walk(comm, data,
+                                    labels, indices, nbrw, sorw, blockmin, blockmax,
+                                    name, allLabels, smooth, uncertainty, ctx, queue)
         tac = time.time()
         print('Walktime_%s: ' %(name) + str(int(tac - tic)) + ' ' + 'seconds')
 
         # free device
-        ctx.pop()
-        del ctx
+        if platform == 'cuda':
+            ctx.pop()
+            del ctx
 
         # send finals
         if not memory_error:

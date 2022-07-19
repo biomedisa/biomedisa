@@ -28,8 +28,10 @@
 ##########################################################################
 
 import sys, os
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(BASE_DIR)
 from keras_helper import *
-import crop_helper as ch
+import biomedisa_features.crop_helper as ch
 from multiprocessing import Process
 import subprocess
 
@@ -80,12 +82,12 @@ def conv_network(train, predict, path_to_model, compress, epochs, batch_size, pa
             # train automatic cropping
             cropping_weights, cropping_config = None, None
             if crop_data:
-                cropping_weights, cropping_config = ch.load_and_train(normalize, path_to_img, path_to_labels, path_to_model,
+                cropping_weights, cropping_config = ch.load_and_train(normalize, [path_to_img], [path_to_labels], path_to_model,
                             epochs, batch_size, validation_split, x_scale, y_scale, z_scale,
-                            flip_x, flip_y, flip_z, rotate, path_val_img, path_val_labels)
+                            flip_x, flip_y, flip_z, rotate, path_val_img, path_val_labels, True)
 
             # train network
-            train_semantic_segmentation(normalize, path_to_img, path_to_labels, x_scale, y_scale,
+            train_semantic_segmentation(normalize, [path_to_img], [path_to_labels], x_scale, y_scale,
                             z_scale, crop_data, path_to_model, z_patch, y_patch, x_patch, epochs,
                             batch_size, channels, validation_split, stride_size, class_weights,
                             flip_x, flip_y, flip_z, rotate, early_stopping, val_tf, learning_rate,
@@ -112,7 +114,10 @@ def conv_network(train, predict, path_to_model, compress, epochs, batch_size, pa
                                     int(y_scale), int(z_scale), int(normalize), float(mu), float(sig)
             allLabels = np.array(meta.get('labels'))
             header = np.array(meta.get('header'))
-            extension = str(np.array(meta.get('extension'), dtype=np.unicode_))
+            try:
+                extension = meta.get('extension').asstr()[()]
+            except:
+                extension = str(np.array(meta.get('extension')))
             crop_data = True if 'cropping_weights' in hf else False
             hf.close()
         except Exception as e:
@@ -206,35 +211,35 @@ if __name__ == '__main__':
     for k in range(len(parameters)):
         if parameters[k] in ['--epochs','-e']:
             epochs = int(parameters[k+1])
-        if parameters[k] in ['--channels']:
+        elif parameters[k] in ['--channels']:
             channels = int(parameters[k+1])
-        if parameters[k] in ['--xsize','-xs']:
+        elif parameters[k] in ['--xsize','-xs']:
             x_scale = int(parameters[k+1])
-        if parameters[k] in ['--ysize','-ys']:
+        elif parameters[k] in ['--ysize','-ys']:
             y_scale = int(parameters[k+1])
-        if parameters[k] in ['--zsize','-zs']:
+        elif parameters[k] in ['--zsize','-zs']:
             z_scale = int(parameters[k+1])
-        if parameters[k] in ['--rotate','-r']:
+        elif parameters[k] in ['--rotate','-r']:
             rotate = int(parameters[k+1])
-        if parameters[k] in ['--validation_split','-vs']:
+        elif parameters[k] in ['--validation_split','-vs']:
             validation_split = float(parameters[k+1])
-        if parameters[k] in ['--stride_size','-ss']:
+        elif parameters[k] in ['--stride_size','-ss']:
             stride_size = int(parameters[k+1])
-        if parameters[k] in ['--validation_stride_size','-vss']:
+        elif parameters[k] in ['--validation_stride_size','-vss']:
             validation_stride_size = int(parameters[k+1])
-        if parameters[k] in ['--validation_freq','-vf']:
+        elif parameters[k] in ['--validation_freq','-vf']:
             validation_freq = int(parameters[k+1])
-        if parameters[k] in ['--batch_size','-bs']:
+        elif parameters[k] in ['--batch_size','-bs']:
             batch_size = int(parameters[k+1])
-        if parameters[k] in ['--validation_batch_size','-vbs']:
+        elif parameters[k] in ['--validation_batch_size','-vbs']:
             validation_batch_size = int(parameters[k+1])
-        if parameters[k] in ['--learning_rate','-lr']:
+        elif parameters[k] in ['--learning_rate','-lr']:
             learning_rate = float(parameters[k+1])
-        if parameters[k] in ['--val_images','-vi']:
+        elif parameters[k] in ['--val_images','-vi']:
             path_val_img = str(parameters[k+1])
-        if parameters[k] in ['--val_labels','-vl']:
+        elif parameters[k] in ['--val_labels','-vl']:
             path_val_labels = str(parameters[k+1])
-        if parameters[k] in ['--early_stopping','-es']:
+        elif parameters[k] in ['--early_stopping','-es']:
             early_stopping = int(parameters[k+1])
 
     # train network or predict segmentation

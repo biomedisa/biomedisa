@@ -884,8 +884,6 @@ def storage(request):
                     path_to_dir, extension = os.path.splitext(path_to_dir)
                 if extension == '.zip':
                     zip_ref = zipfile.ZipFile(newimg.pic.path, 'r')
-
-
                     zip_ref.extractall(path=path_to_dir)
                     zip_ref.close()
                 elif extension == '.tar':

@@ -26,7 +26,7 @@
 ##                                                                      ##
 ##########################################################################
 
-from amira_to_np.amira_helper import amira_to_np, np_to_amira
+from biomedisa_features.amira_to_np.amira_helper import amira_to_np, np_to_amira
 from tifffile import imread, imwrite
 from medpy.io import load, save
 from PIL import Image
@@ -37,6 +37,7 @@ import random
 import cv2
 import time
 import zipfile
+import numba
 
 def img_resize(a, z_shape, y_shape, x_shape, interpolation=None):
     zsh, ysh, xsh = a.shape
@@ -56,6 +57,23 @@ def img_resize(a, z_shape, y_shape, x_shape, interpolation=None):
     c = np.swapaxes(c, 1, 0)
     c = np.copy(c, order='C')
     return c
+
+@numba.jit(nopython=True)
+def smooth_img_3x3(img):
+    zsh, ysh, xsh = img.shape
+    out = np.copy(img)
+    for z in range(zsh):
+        for y in range(ysh):
+            for x in range(xsh):
+                tmp,i = 0,0
+                for k in range(-1,2):
+                    for l in range(-1,2):
+                        for m in range(-1,2):
+                            if 0<=z+k<zsh and 0<=y+l<ysh and 0<=x+m<xsh:
+                                tmp += img[z+k,y+l,x+m]
+                                i += 1
+                out[z,y,x] = tmp / i
+    return out
 
 def img_to_uint8(img):
     if img.dtype != 'uint8':

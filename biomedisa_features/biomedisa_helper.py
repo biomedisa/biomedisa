@@ -74,7 +74,7 @@ def img_resize(a, z_shape, y_shape, x_shape, interpolation=None):
     return c
 
 @numba.jit(nopython=True)
-def smooth_img_3x3(img, out):
+def smooth_img_3x3(img):
     zsh, ysh, xsh = img.shape
     out = np.copy(img)
     for z in range(zsh):
@@ -501,8 +501,7 @@ def smooth_image(id):
     else:
 
         # smooth image data
-        out = np.copy(data)
-        out = smooth_img_3x3(data, out)
+        out = smooth_img_3x3(data)
 
         # create pic path
         filename, extension = os.path.splitext(img.pic.path)

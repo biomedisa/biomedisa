@@ -216,7 +216,7 @@ def _diffusion_child(comm, bm=None):
                 blocks_temp[destination] = blockmin - datablockmin
                 blocks_temp[destination+1] = blockmax - datablockmin
                 dataListe = splitlargedata(datablock)
-                sendToChild(comm, indices_child, destination, dataListe, labels_child, bm.label.nbrw, \
+                sendToChild(comm, indices_child, destination, dataListe, labels_child, bm.label.nbrw,
                         bm.label.sorw, blocks_temp, bm.label.allaxis, bm.allLabels, bm.label.smooth, bm.label.uncertainty)
 
             else:
@@ -231,12 +231,13 @@ def _diffusion_child(comm, bm=None):
                 cuda.init()
                 dev = cuda.Device(rank)
                 ctx = dev.make_context()
+                queue = None
 
                 # run random walks
                 tic = time.time()
-                memory_error, final, final_uncertainty, final_smooth = walk(comm, datablock, labels_child, indices_child, \
-                            bm.label.nbrw, bm.label.sorw, blockmin-datablockmin, blockmax-datablockmin, \
-                            name, bm.allLabels, bm.label.smooth, bm.label.uncertainty)
+                memory_error, final, final_uncertainty, final_smooth = walk(comm, datablock, labels_child, indices_child,
+                            bm.label.nbrw, bm.label.sorw, blockmin-datablockmin, blockmax-datablockmin,
+                            name, bm.allLabels, bm.label.smooth, bm.label.uncertainty, ctx, queue)
                 tac = time.time()
                 print('Walktime_%s: ' %(name) + str(int(tac - tic)) + ' ' + 'seconds')
 
@@ -418,10 +419,12 @@ def _diffusion_child(comm, bm=None):
         cuda.init()
         dev = cuda.Device(rank)
         ctx = dev.make_context()
+        queue = None
 
         # run random walks
         tic = time.time()
-        memory_error, final, final_uncertainty, final_smooth = walk(comm, data, labels, indices, nbrw, sorw, blockmin, blockmax, name, allLabels, smooth, uncertainty)
+        memory_error, final, final_uncertainty, final_smooth = walk(comm, data, labels, indices, nbrw, sorw,
+                blockmin, blockmax, name, allLabels, smooth, uncertainty, ctx, queue)
         tac = time.time()
         print('Walktime_%s: ' %(name) + str(int(tac - tic)) + ' ' + 'seconds')
 
@@ -455,3 +458,4 @@ def _diffusion_child(comm, bm=None):
                     dataTemp = dataTemp.copy(order='C')
                     comm.send([dataTemp.shape[0], dataTemp.shape[1], dataTemp.shape[2]], dest=0, tag=10+(2*k))
                     comm.Send([dataTemp, MPI.BYTE], dest=0, tag=10+(2*k+1))
+

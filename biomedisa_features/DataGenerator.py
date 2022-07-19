@@ -61,8 +61,8 @@ def rotate_patch(src,trg,k,l,m,cos_a,sin_a,z_patch,y_patch,x_patch,imageHeight,i
 
 class DataGenerator(tf.keras.utils.Sequence):
     'Generates data for Keras'
-    def __init__(self, img, label, position, list_IDs, shuffle, batch_size=32, dim=(32,32,32),
-                 dim_img=(32,32,32), n_classes=10, n_channels=1, augment=(False,False,False,0)):
+    def __init__(self, img, label, position, list_IDs, counts, shuffle, batch_size=32, dim=(32,32,32),
+                 dim_img=(32,32,32), n_classes=10, n_channels=1, class_weights=False, augment=(False,False,False,0)):
         'Initialization'
         self.dim = dim
         self.dim_img = dim_img
@@ -75,6 +75,8 @@ class DataGenerator(tf.keras.utils.Sequence):
         self.n_classes = n_classes
         self.shuffle = shuffle
         self.augment = augment
+        self.counts = counts
+        self.class_weights = class_weights
         self.on_epoch_end()
 
     def __len__(self):
@@ -91,9 +93,9 @@ class DataGenerator(tf.keras.utils.Sequence):
         list_IDs_temp = [self.list_IDs[k] for k in indexes]
 
         # Generate data
-        X, y = self.__data_generation(list_IDs_temp)
+        X, y, sample_weights = self.__data_generation(list_IDs_temp)
 
-        return X, y
+        return X, y, sample_weights
 
     def on_epoch_end(self):
         'Updates indexes after each epoch'
@@ -157,5 +159,12 @@ class DataGenerator(tf.keras.utils.Sequence):
             if self.n_channels == 2:
                 X[i,:,:,:,1] = self.position[k:k+self.dim[0],l:l+self.dim[1],m:m+self.dim[2]]
 
-        return X, tf.keras.utils.to_categorical(y, num_classes=self.n_classes)
+        # sample weights
+        sample_weights = np.ones(y.shape, dtype=np.float32)
+        if self.class_weights:
+            counts_max = np.amax(self.counts)
+            for i in range(self.n_classes):
+                sample_weights[y==i] = counts_max / self.counts[i]
+
+        return X, tf.keras.utils.to_categorical(y, num_classes=self.n_classes), sample_weights
 

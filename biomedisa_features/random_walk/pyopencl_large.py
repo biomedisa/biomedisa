@@ -29,11 +29,8 @@
 from mpi4py import MPI
 import numba
 import numpy as np
-import pycuda.driver as cuda
-import pycuda.gpuarray as gpuarray
-from pycuda.compiler import SourceModule
-from gpu_kernels import (_build_kernel_uncertainty, _build_kernel_max, _build_kernel_fill,
-                         _build_update_gpu, _build_curvature_gpu)
+import pyopencl as cl
+import pyopencl.array
 
 def reduceBlocksize(slices):
     zsh, ysh, xsh = slices.shape
@@ -70,7 +67,7 @@ def sendrecv(a, blockmin, blockmax, comm, rank, size):
             comm.Send([sendbuf, MPI.INT], dest=dest, tag=0)
             send = tmp.copy(order='C')
             comm.send([send.shape[0], send.shape[1], send.shape[2]], dest=dest, tag=1)
-            comm.Send([send, MPI.FLOAT], dest=dest, tag=2)
+            comm.Send([send, MPI.INT], dest=dest, tag=2)
         else:
             sendbuf.fill(0)
             comm.Send([sendbuf, MPI.INT], dest=dest, tag=0)
@@ -80,8 +77,8 @@ def sendrecv(a, blockmin, blockmax, comm, rank, size):
         comm.Recv([recvbuf, MPI.INT], source=source, tag=3)
         if recvbuf:
             data_z, data_y, data_x = comm.recv(source=source, tag=4)
-            recv = np.empty((data_z, data_y, data_x), dtype=np.float32)
-            comm.Recv([recv, MPI.FLOAT], source=source, tag=5)
+            recv = np.empty((data_z, data_y, data_x), dtype=np.int32)
+            comm.Recv([recv, MPI.INT], source=source, tag=5)
             a[blockmax-data_z:blockmax] += recv
 
     elif rank == size-1:
@@ -94,8 +91,8 @@ def sendrecv(a, blockmin, blockmax, comm, rank, size):
         comm.Recv([recvbuf, MPI.INT], source=source, tag=0+add)
         if recvbuf:
             data_z, data_y, data_x = comm.recv(source=source, tag=1+add)
-            recv = np.empty((data_z, data_y, data_x), dtype=np.float32)
-            comm.Recv([recv, MPI.FLOAT], source=source, tag=2+add)
+            recv = np.empty((data_z, data_y, data_x), dtype=np.int32)
+            comm.Recv([recv, MPI.INT], source=source, tag=2+add)
             a[blockmin:blockmin+data_z] += recv
 
         # send block
@@ -106,7 +103,7 @@ def sendrecv(a, blockmin, blockmax, comm, rank, size):
             comm.Send([sendbuf, MPI.INT], dest=dest, tag=3+add)
             send = tmp.copy(order='C')
             comm.send([send.shape[0], send.shape[1], send.shape[2]], dest=dest, tag=4+add)
-            comm.Send([send, MPI.FLOAT], dest=dest, tag=5+add)
+            comm.Send([send, MPI.INT], dest=dest, tag=5+add)
         else:
             sendbuf.fill(0)
             comm.Send([sendbuf, MPI.INT], dest=dest, tag=3+add)
@@ -118,8 +115,8 @@ def sendrecv(a, blockmin, blockmax, comm, rank, size):
         comm.Recv([recvbuf, MPI.INT], source=source, tag=0)
         if recvbuf:
             data_z, data_y, data_x = comm.recv(source=source, tag=1)
-            recv = np.empty((data_z, data_y, data_x), dtype=np.float32)
-            comm.Recv([recv, MPI.FLOAT], source=source, tag=2)
+            recv = np.empty((data_z, data_y, data_x), dtype=np.int32)
+            comm.Recv([recv, MPI.INT], source=source, tag=2)
             a[blockmin:blockmin+data_z] += recv
 
         # send block
@@ -130,7 +127,7 @@ def sendrecv(a, blockmin, blockmax, comm, rank, size):
             comm.Send([sendbuf, MPI.INT], dest=dest, tag=3)
             send = tmp.copy(order='C')
             comm.send([send.shape[0], send.shape[1], send.shape[2]], dest=dest, tag=4)
-            comm.Send([send, MPI.FLOAT], dest=dest, tag=5)
+            comm.Send([send, MPI.INT], dest=dest, tag=5)
         else:
             sendbuf.fill(0)
             comm.Send([sendbuf, MPI.INT], dest=dest, tag=3)
@@ -143,7 +140,7 @@ def sendrecv(a, blockmin, blockmax, comm, rank, size):
             comm.Send([sendbuf, MPI.INT], dest=dest, tag=6)
             send = tmp.copy(order='C')
             comm.send([send.shape[0], send.shape[1], send.shape[2]], dest=dest, tag=7)
-            comm.Send([send, MPI.FLOAT], dest=dest, tag=8)
+            comm.Send([send, MPI.INT], dest=dest, tag=8)
         else:
             sendbuf.fill(0)
             comm.Send([sendbuf, MPI.INT], dest=dest, tag=6)
@@ -153,8 +150,8 @@ def sendrecv(a, blockmin, blockmax, comm, rank, size):
         comm.Recv([recvbuf, MPI.INT], source=source, tag=9)
         if recvbuf:
             data_z, data_y, data_x = comm.recv(source=source, tag=10)
-            recv = np.empty((data_z, data_y, data_x), dtype=np.float32)
-            comm.Recv([recv, MPI.FLOAT], source=source, tag=11)
+            recv = np.empty((data_z, data_y, data_x), dtype=np.int32)
+            comm.Recv([recv, MPI.INT], source=source, tag=11)
             a[blockmax-data_z:blockmax] += recv
 
     elif rank % 2 == 0:
@@ -167,7 +164,7 @@ def sendrecv(a, blockmin, blockmax, comm, rank, size):
             comm.Send([sendbuf, MPI.INT], dest=dest, tag=0)
             send = tmp.copy(order='C')
             comm.send([send.shape[0], send.shape[1], send.shape[2]], dest=dest, tag=1)
-            comm.Send([send, MPI.FLOAT], dest=dest, tag=2)
+            comm.Send([send, MPI.INT], dest=dest, tag=2)
         else:
             sendbuf.fill(0)
             comm.Send([sendbuf, MPI.INT], dest=dest, tag=0)
@@ -177,8 +174,8 @@ def sendrecv(a, blockmin, blockmax, comm, rank, size):
         comm.Recv([recvbuf, MPI.INT], source=source, tag=3)
         if recvbuf:
             data_z, data_y, data_x = comm.recv(source=source, tag=4)
-            recv = np.empty((data_z, data_y, data_x), dtype=np.float32)
-            comm.Recv([recv, MPI.FLOAT], source=source, tag=5)
+            recv = np.empty((data_z, data_y, data_x), dtype=np.int32)
+            comm.Recv([recv, MPI.INT], source=source, tag=5)
             a[blockmax-data_z:blockmax] += recv
 
         # recv block
@@ -186,8 +183,8 @@ def sendrecv(a, blockmin, blockmax, comm, rank, size):
         comm.Recv([recvbuf, MPI.INT], source=source, tag=6)
         if recvbuf:
             data_z, data_y, data_x = comm.recv(source=source, tag=7)
-            recv = np.empty((data_z, data_y, data_x), dtype=np.float32)
-            comm.Recv([recv, MPI.FLOAT], source=source, tag=8)
+            recv = np.empty((data_z, data_y, data_x), dtype=np.int32)
+            comm.Recv([recv, MPI.INT], source=source, tag=8)
             a[blockmin:blockmin+data_z] += recv
 
         # send block
@@ -198,7 +195,7 @@ def sendrecv(a, blockmin, blockmax, comm, rank, size):
             comm.Send([sendbuf, MPI.INT], dest=dest, tag=9)
             send = tmp.copy(order='C')
             comm.send([send.shape[0], send.shape[1], send.shape[2]], dest=dest, tag=10)
-            comm.Send([send, MPI.FLOAT], dest=dest, tag=11)
+            comm.Send([send, MPI.INT], dest=dest, tag=11)
         else:
             sendbuf.fill(0)
             comm.Send([sendbuf, MPI.INT], dest=dest, tag=9)
@@ -216,7 +213,10 @@ def max_to_label(a, walkmap, final, blockmin, blockmax, segment):
                     final[k-blockmin,l,m] = segment
     return walkmap, final
 
-def walk(comm, raw, slices, indices, nbrw, sorw, blockmin, blockmax, name, allLabels, smooth, uncertainty):
+def walk(comm, raw, slices, indices, nbrw, sorw, blockmin, blockmax, name, allLabels, smooth, uncertainty, ctx, queue):
+
+    # disable smoothing and uncertainty
+    smooth, uncertainty = 0, 0
 
     # get rank and size of mpi process
     rank = comm.Get_rank()
@@ -224,38 +224,38 @@ def walk(comm, raw, slices, indices, nbrw, sorw, blockmin, blockmax, name, allLa
 
     # build kernels
     if raw.dtype == 'uint8':
-        kernel = _build_kernel_int8()
+        src = _build_kernel_int8()
         raw = (raw-128).astype('int8')
     else:   
-        kernel = _build_kernel_float32()
+        src = _build_kernel_float32()
         raw = raw.astype(np.float32)
-    fill_gpu = _build_kernel_fill()
 
     # image size
     zsh, ysh, xsh = raw.shape
-    xsh_gpu = np.int32(xsh)
-    ysh_gpu = np.int32(ysh)
-    zsh_gpu = np.int32(zsh)
-
-    # block and gird size
-    block = (32, 32, 1)
-    x_grid = (xsh // 32) + 1
-    y_grid = (ysh // 32) + 1
-    grid2 = (int(x_grid), int(y_grid), int(zsh))
-
-    # hyper-parameter
-    sorw = np.int32(sorw)
-    nbrw = np.int32(nbrw)
 
     # crop to region of interest
     slices = slices.astype(np.int32)
     slices = reduceBlocksize(slices)
 
     # allocate host memory
-    hits = np.empty(raw.shape, dtype=np.float32)
+    hits = np.empty(raw.shape, dtype=np.int32)
     final = np.zeros((blockmax-blockmin, ysh, xsh), dtype=np.uint8)
 
-    # allocate GPU memory or use subdomains
+    # kernel function instantiation
+    mf = cl.mem_flags
+    prg = cl.Program(ctx, src).build()
+
+    # allocate memory for variables on the device
+    xsh_cl = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=np.int32(xsh))
+    ysh_cl = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=np.int32(ysh))
+    zsh_cl = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=np.int32(zsh))
+    sorw_cl = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=np.int32(sorw))
+    nbrw_cl = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=np.int32(nbrw))
+    segment_cl = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=np.int32(0))
+    #gpu_mat = cl.array.to_device(queue, mat)
+    #gpu_grad = cl.array.empty(queue, mat.shape, dtype=np.float32, order="C")
+
+    # allocate device memory or use subdomains
     memory_error = False
     subdomains = False
     if zsh * ysh * xsh > 42e8:
@@ -270,85 +270,30 @@ def walk(comm, raw, slices, indices, nbrw, sorw, blockmin, blockmax, name, allLa
             if np.any(indices):
                 slshape = slices.shape[0]
                 indices = np.array(indices, dtype=np.int32)
-                indices_gpu = gpuarray.to_gpu(indices)
-                slices_gpu = gpuarray.to_gpu(slices)
-                grid = (int(x_grid), int(y_grid), int(slshape))
-            raw_gpu = gpuarray.to_gpu(raw)
-            hits_gpu = cuda.mem_alloc(hits.nbytes)
+                indices_cl =  cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=indices)
+                slices_cl =  cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=slices)
+            raw_cl =  cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=raw)
+            hits_cl =  cl.Buffer(ctx, mf.WRITE_ONLY | mf.COPY_HOST_PTR, hostbuf=hits)
             sendbuf = np.zeros(1, dtype=np.int32)
             recvbuf = np.zeros(1, dtype=np.int32)
             comm.Barrier()
             comm.Allreduce([sendbuf, MPI.INT], [recvbuf, MPI.INT], op=MPI.MAX)
         except Exception as e:
-            print('Warning: GPU ran out of memory. The volume is splitted into subdomains.')
+            print('Warning: Device ran out of memory. The volume is splitted into subdomains.')
             subdomains = True
             sendbuf = np.zeros(1, dtype=np.int32) + 1
             recvbuf = np.zeros(1, dtype=np.int32)
             comm.Barrier()
             comm.Allreduce([sendbuf, MPI.INT], [recvbuf, MPI.INT], op=MPI.MAX)
             try:
-                hits_gpu.free()
-            except:
-                pass
-
-    # disable smoothing and uncertainty for subdomains
-    if recvbuf > 0:
-        smooth, uncertainty = 0, 0
-
-    if smooth:
-        try:
-            update_gpu = _build_update_gpu()
-            curvature_gpu = _build_curvature_gpu()
-            b_npy = np.zeros(raw.shape, dtype=np.float32)
-            b_gpu = cuda.mem_alloc(b_npy.nbytes)
-            cuda.memcpy_htod(b_gpu, b_npy)
-            final_smooth = np.zeros((blockmax-blockmin, ysh, xsh), dtype=np.uint8)
-            sendbuf_smooth = np.zeros(1, dtype=np.int32)
-            recvbuf_smooth = np.zeros(1, dtype=np.int32)
-            comm.Barrier()
-            comm.Allreduce([sendbuf_smooth, MPI.INT], [recvbuf_smooth, MPI.INT], op=MPI.MAX)
-        except Exception as e:
-            print('Warning: GPU out of memory to allocate smooth array. Process starts without smoothing.')
-            sendbuf_smooth = np.zeros(1, dtype=np.int32) + 1
-            recvbuf_smooth = np.zeros(1, dtype=np.int32)
-            comm.Barrier()
-            comm.Allreduce([sendbuf_smooth, MPI.INT], [recvbuf_smooth, MPI.INT], op=MPI.MAX)
-        if recvbuf_smooth > 0:
-            smooth = 0
-            try:
-                b_gpu.free()
-            except:
-                pass
-
-    if uncertainty:
-        try:
-            max_npy = np.zeros((3,)+raw.shape, dtype=np.float32)
-            max_gpu = cuda.mem_alloc(max_npy.nbytes)
-            cuda.memcpy_htod(max_gpu, max_npy)
-            kernel_uncertainty = _build_kernel_uncertainty()
-            kernel_max = _build_kernel_max()
-            sendbuf_uq = np.zeros(1, dtype=np.int32)
-            recvbuf_uq = np.zeros(1, dtype=np.int32)
-            comm.Barrier()
-            comm.Allreduce([sendbuf_uq, MPI.INT], [recvbuf_uq, MPI.INT], op=MPI.MAX)
-        except Exception as e:
-            print('Warning: GPU out of memory to allocate uncertainty array. Process starts without uncertainty.')
-            sendbuf_uq = np.zeros(1, dtype=np.int32) + 1
-            recvbuf_uq = np.zeros(1, dtype=np.int32)
-            comm.Barrier()
-            comm.Allreduce([sendbuf_uq, MPI.INT], [recvbuf_uq, MPI.INT], op=MPI.MAX)
-        if recvbuf_uq > 0:
-            uncertainty = False
-            try:
-                max_gpu.free()
+                raw_cl.release()
+                hits_cl.release()
+                slices_cl.release()
             except:
                 pass
 
     for label_counter, segment in enumerate(allLabels):
         print('%s:' %(name) + ' ' + str(label_counter+1) + '/' + str(len(allLabels)))
-
-        # current segment
-        segment_gpu = np.int32(segment)
 
         # split volume into subdomains
         if subdomains:
@@ -373,39 +318,41 @@ def walk(comm, raw, slices, indices, nbrw, sorw, blockmin, blockmax, name, allLa
                     if np.any(sub_indices):
                         sub_slshape = sub_slices.shape[0]
                         sub_indices = np.array(sub_indices, dtype=np.int32) - data_block_min
-                        sub_indices_gpu = gpuarray.to_gpu(sub_indices)
-                        sub_slices_gpu = gpuarray.to_gpu(sub_slices)
-
+                        sub_indices_cl =  cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=sub_indices)
+                        sub_slices_cl =  cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=sub_slices)
                         sub_zsh = data_block_max - data_block_min
-                        sub_zsh_gpu = np.int32(sub_zsh)
+                        sub_zsh_cl = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=np.int32(sub_zsh))
                         sub_raw = np.copy(raw[data_block_min:data_block_max])
-                        sub_raw_gpu = gpuarray.to_gpu(sub_raw)
-                        sub_hits = np.empty(sub_raw.shape, dtype=np.float32)
-                        sub_hits_gpu = cuda.mem_alloc(sub_hits.nbytes)
-                        fill_gpu(sub_hits_gpu, xsh_gpu, ysh_gpu, block=block, grid=(int(x_grid), int(y_grid), int(sub_zsh)))
-                        kernel(segment_gpu, sub_raw_gpu, sub_slices_gpu, sub_hits_gpu, xsh_gpu, ysh_gpu, sub_zsh_gpu, sub_indices_gpu, sorw, nbrw, block=block, grid=(int(x_grid), int(y_grid), int(sub_slshape)))
-                        cuda.memcpy_dtoh(sub_hits, sub_hits_gpu)
+                        sub_raw_cl =  cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=sub_raw)
+                        sub_hits = np.empty(sub_raw.shape, dtype=np.int32)
+                        sub_hits_cl =  cl.Buffer(ctx, mf.WRITE_ONLY | mf.COPY_HOST_PTR, hostbuf=sub_hits)
+                        cl.enqueue_fill_buffer(queue, sub_hits_cl, np.int32(0), offset=0, size=hits.nbytes)
+                        cl.enqueue_fill_buffer(queue, segment_cl, np.int32(segment), offset=0, size=4, wait_for=None)
+                        block = None
+                        grid = (sub_slshape, ysh, xsh)
+                        prg.randomWalk(queue, grid, block, segment_cl, sub_raw_cl, sub_slices_cl, sub_hits_cl, xsh_cl, ysh_cl, sub_zsh_cl, sub_indices_cl, sorw_cl, nbrw_cl)
+                        cl.enqueue_copy(queue, sub_hits, sub_hits_cl)
                         hits[data_block_min:data_block_max] += sub_hits
-                        sub_hits_gpu.free()
+                        sub_hits_cl.release()
             except Exception as e:
-                print('Error: GPU out of memory. Data too large.')
+                print('Error: Device out of memory. Data too large.')
                 memory_error = True
                 try:
-                    sub_hits_gpu.free()
+                    sub_hits_cl.release()
+                    sub_raw_cl.release()
                 except:
                     pass
 
         # computation of random walks on the entire volume
         else:
-            # reset array of hits
-            fill_gpu(hits_gpu, xsh_gpu, ysh_gpu, block=block, grid=grid2)
-
             # compute random walks
+            block = None
+            grid = (slshape, ysh, xsh)
+            cl.enqueue_fill_buffer(queue, hits_cl, np.int32(0), offset=0, size=hits.nbytes)
+            cl.enqueue_fill_buffer(queue, segment_cl, np.int32(segment), offset=0, size=4, wait_for=None)
             if np.any(indices):
-                kernel(segment_gpu, raw_gpu, slices_gpu, hits_gpu, xsh_gpu, ysh_gpu, zsh_gpu, indices_gpu, sorw, nbrw, block=block, grid=grid)
-
-            # get hits
-            cuda.memcpy_dtoh(hits, hits_gpu)
+                prg.randomWalk(queue, grid, block, segment_cl, raw_cl, slices_cl, hits_cl, xsh_cl, ysh_cl, zsh_cl, indices_cl, sorw_cl, nbrw_cl)
+            cl.enqueue_copy(queue, hits, hits_cl)
 
         # memory error
         if memory_error:
@@ -420,34 +367,11 @@ def walk(comm, raw, slices, indices, nbrw, sorw, blockmin, blockmax, name, allLa
             comm.Allreduce([sendbuf, MPI.INT], [recvbuf, MPI.INT], op=MPI.MAX)
         if recvbuf > 0:
             memory_error = True
-            try:
-                hits_gpu.free()
-            except:
-                pass
             return memory_error, None, None, None
 
         # communicate hits
         if size > 1:
             hits = sendrecv(hits, blockmin, blockmax, comm, rank, size)
-            if uncertainty or smooth:
-                cuda.memcpy_htod(hits_gpu, hits)
-
-        # save the three most occuring hits
-        if uncertainty:
-            kernel_max(max_gpu, hits_gpu, xsh_gpu, ysh_gpu, block=block, grid=grid2)
-
-        # smooth manifold
-        if smooth:
-            for k in range(smooth):
-                curvature_gpu(hits_gpu, b_gpu, xsh_gpu, ysh_gpu, block=block, grid=grid2)
-                update_gpu(hits_gpu, b_gpu, xsh_gpu, ysh_gpu, block=block, grid=grid2)
-            hits_smooth = np.empty_like(hits)
-            cuda.memcpy_dtoh(hits_smooth, hits_gpu)
-            if label_counter == 0:
-                hits_smooth[hits_smooth<0] = 0
-                walkmap_smooth = np.copy(hits_smooth)
-            else:
-                walkmap_smooth, final_smooth = max_to_label(hits_smooth, walkmap_smooth, final_smooth, blockmin, blockmax, segment)
 
         # get the label with the most hits
         if label_counter == 0:
@@ -458,35 +382,22 @@ def walk(comm, raw, slices, indices, nbrw, sorw, blockmin, blockmax, name, allLa
             #walkmap[blockmin:blockmax][update] = hits[blockmin:blockmax][update]
             #final[update] = segment
 
-    # compute uncertainty
-    if uncertainty:
-        kernel_uncertainty(max_gpu, hits_gpu, xsh_gpu, ysh_gpu, block=block, grid=grid2)
-        final_uncertainty = np.empty_like(hits)
-        cuda.memcpy_dtoh(final_uncertainty, hits_gpu)
-        final_uncertainty = final_uncertainty[blockmin:blockmax]
-    else:
-        final_uncertainty = None
-
-    if not smooth:
-        final_smooth = None
-
-    try:
-        hits_gpu.free()
-    except:
-        pass
+    # uncertainty and smooth are disabled
+    final_uncertainty = None
+    final_smooth = None
 
     return memory_error, final, final_uncertainty, final_smooth
 
 def _build_kernel_int8():
-    code = """
+    src = '''
 
-    __device__ float _calc_var(unsigned int position, unsigned int index, float B, float *raw, int segment, int *labels, int xsh) {
+    float _calc_var(unsigned int position, unsigned int index, int B, __global char *raw, int segment, __global int *labels, int xsh) {
         float dev = 0;
         float summe = 0;
         for (int n = -1; n < 2; n++) {
             for (int o = -1; o < 2; o++) {
                 if (labels[index + n*xsh + o] == segment) {
-                    float tmp = B - (float)(*((char*)(raw) + position + n*xsh + o));
+                    float tmp = B - raw[position + n*xsh + o];
                     dev += tmp * tmp;
                     summe += 1;
                     }
@@ -499,22 +410,34 @@ def _build_kernel_int8():
         return var;
         }
 
-    __device__ float weight(float B, float *raw, float div1, unsigned int position) {
-        float tmp = B - (float)(*((char*)(raw) + position));
+    float weight(int B, int A, float div1) {
+        int tmp = B - A;
         return exp( - tmp * tmp * div1 );
         }
 
-    __global__ void Funktion(int segment, float *raw, int *slices, float *hits, int xsh, int ysh, int zsh, int *indices, int sorw, int nbrw) {
+    __kernel void randomWalk(__global int *Segment, __global char *raw, __global int *slices, __global int *hits, __global int *Xsh, __global int *Ysh, __global int *Zsh, __global int *indices, __global int *Sorw, __global int *Nbrw) {
+
+        int sorw = *Sorw;
+        int nbrw = *Nbrw;
+        int xsh = *Xsh;
+        int ysh = *Ysh;
+        int zsh = *Zsh;
+        int segment = *Segment;
+
+        // get_global_id(0)         // blockIdx.z * blockDim.z + threadIdx.z
+        // get_local_id(0)          // threadIdx.z
+        // get_global_size(0)       // gridDim.z * blockDim.z
+        // get_local_size(0)        // blockDim.z
 
         int flat   = xsh * ysh;
-        int column = blockIdx.x * blockDim.x + threadIdx.x;
-        int row    = blockIdx.y * blockDim.y + threadIdx.y;
-        int slice  = blockIdx.z;
+        int column = get_global_id(2);
+        int row    = get_global_id(1);
+        int slice  = get_global_id(0);
         int plane  = indices[slice];
-        unsigned int index = slice * flat + row * xsh + column;
-        unsigned int position = plane * flat + row * xsh + column;
+        unsigned int index  = slice * flat + row * xsh + column;
+        unsigned int position = plane*flat + row*xsh + column;
 
-        if (index < gridDim.z*flat && plane>0 && row>0 && column>0 && plane<zsh-1 && row<ysh-1 && column<xsh-1) {
+        if (index < get_global_size(0)*flat && plane>0 && row>0 && column>0 && plane<zsh-1 && row<ysh-1 && column<xsh-1) {
 
             if (slices[index]==segment) {
 
@@ -555,7 +478,7 @@ def _build_kernel_int8():
                     float s10 = index, s11 = index, s12 = index, s20 = index, s21 = index, s22 = index;
 
                     /* Compute standard deviation */
-                    float B = (float)(*((char*)(raw) + position));
+                    int B = raw[position];
                     float var = _calc_var(position, index, B, raw, segment, slices, xsh);
                     float div1 = 1 / (2 * var);
 
@@ -570,12 +493,12 @@ def _build_kernel_int8():
                     while (n_rw < nbrw) {
 
                         /* Compute weights */
-                        W0 = weight(B, raw, div1, position + flat);
-                        W1 = weight(B, raw, div1, position - flat);
-                        W2 = weight(B, raw, div1, position + xsh);
-                        W3 = weight(B, raw, div1, position - xsh);
-                        W4 = weight(B, raw, div1, position + 1);
-                        W5 = weight(B, raw, div1, position - 1);
+                        W0 = weight(B, raw[position + flat], div1);
+                        W1 = weight(B, raw[position - flat], div1);
+                        W2 = weight(B, raw[position + xsh], div1);
+                        W3 = weight(B, raw[position - xsh], div1);
+                        W4 = weight(B, raw[position + 1], div1);
+                        W5 = weight(B, raw[position - 1], div1);
 
                         W1 += W0;
                         W2 += W1;
@@ -627,7 +550,7 @@ def _build_kernel_int8():
                             l += o;
                             m += p;
                             position = k*flat + l*xsh + m;
-                            atomicAdd(&hits[position], 1);
+                            atomic_add(&hits[position], 1);
                             }
 
                         step += 1;
@@ -645,15 +568,13 @@ def _build_kernel_int8():
                 }
             }
         }
-    """
-    mod = SourceModule(code)
-    kernel = mod.get_function("Funktion")
-    return kernel
+    '''
+    return src
 
 def _build_kernel_float32():
-    code = """
+    src = '''
 
-    __device__ float _calc_var(unsigned int position, unsigned int index, float B, float *raw, int segment, int *labels, int xsh) {
+    float _calc_var(unsigned int position, unsigned int index, float B, __global float *raw, int segment, __global int *labels, int xsh) {
         float dev = 0;
         float summe = 0;
         for (int n = -1; n < 2; n++) {
@@ -672,22 +593,34 @@ def _build_kernel_float32():
         return var;
         }
 
-    __device__ float weight(float B, float A, float div1) {
+    float weight(float B, float A, float div1) {
         float tmp = B - A;
         return exp( - tmp * tmp * div1 );
         }
 
-    __global__ void Funktion(int segment, float *raw, int *slices, float *hits, int xsh, int ysh, int zsh, int *indices, int sorw, int nbrw) {
+    __kernel void randomWalk(__global int *Segment, __global float *raw, __global int *slices, __global int *hits, __global int *Xsh, __global int *Ysh, __global int *Zsh, __global int *indices, __global int *Sorw, __global int *Nbrw) {
+
+        int sorw = *Sorw;
+        int nbrw = *Nbrw;
+        int xsh = *Xsh;
+        int ysh = *Ysh;
+        int zsh = *Zsh;
+        int segment = *Segment;
+
+        // get_global_id(0)         // blockIdx.z * blockDim.z + threadIdx.z
+        // get_local_id(0)          // threadIdx.z
+        // get_global_size(0)       // gridDim.z * blockDim.z
+        // get_local_size(0)        // blockDim.z
 
         int flat   = xsh * ysh;
-        int column = blockIdx.x * blockDim.x + threadIdx.x;
-        int row    = blockIdx.y * blockDim.y + threadIdx.y;
-        int slice  = blockIdx.z;
+        int column = get_global_id(2);
+        int row    = get_global_id(1);
+        int slice  = get_global_id(0);
         int plane  = indices[slice];
-        unsigned int index = slice * flat + row * xsh + column;
-        unsigned int position = plane * flat + row * xsh + column;
+        unsigned int index  = slice * flat + row * xsh + column;
+        unsigned int position = plane*flat + row*xsh + column;
 
-        if (index < gridDim.z*flat && plane>0 && row>0 && column>0 && plane<zsh-1 && row<ysh-1 && column<xsh-1) {
+        if (index < get_global_size(0)*flat && plane>0 && row>0 && column>0 && plane<zsh-1 && row<ysh-1 && column<xsh-1) {
 
             if (slices[index]==segment) {
 
@@ -800,7 +733,7 @@ def _build_kernel_float32():
                             l += o;
                             m += p;
                             position = k*flat + l*xsh + m;
-                            atomicAdd(&hits[position], 1);
+                            atomic_add(&hits[position], 1);
                             }
 
                         step += 1;
@@ -818,7 +751,6 @@ def _build_kernel_float32():
                 }
             }
         }
-    """
-    mod = SourceModule(code)
-    kernel = mod.get_function("Funktion")
-    return kernel
+    '''
+    return src
+

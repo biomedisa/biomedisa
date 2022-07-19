@@ -30,9 +30,9 @@ import numpy as np
 import pycuda.driver as cuda
 import pycuda.gpuarray as gpuarray
 from pycuda.compiler import SourceModule
-from gpu_kernels import _build_kernel_fill
+from biomedisa_features.random_walk.gpu_kernels import _build_kernel_fill
 
-def walk(data, slices, indices, indices_child, nbrw, sorw, name):
+def walk(data, slices, indices, indices_child, nbrw, sorw, name, ctx, queue):
 
     labels = np.unique(slices)
     slicesChunk = _extract_slices(slices, indices, indices_child)
@@ -405,3 +405,4 @@ def _build_kernel_float32():
     mod = SourceModule(code)
     kernel = mod.get_function("Funktion")
     return kernel
+
