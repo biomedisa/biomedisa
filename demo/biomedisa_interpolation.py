@@ -120,6 +120,7 @@ def read_indices(volData):
 
 def _get_platform(bm):
 
+    # import PyCUDA
     if bm.platform in ['cuda', None]:
         try:
             import pycuda.driver as cuda
@@ -130,30 +131,45 @@ def _get_platform(bm):
         except:
             pass
 
-    if bm.platform in ['opencl_GPU', None]:
-        try:
-            import pyopencl as cl
-            all_platforms = cl.get_platforms()
-            platform = next((p for p in all_platforms if p.get_devices(device_type=cl.device_type.GPU) != []), None)
-            my_devices = platform.get_devices(device_type=cl.device_type.GPU)
-            bm.available_devices = len(my_devices)
-            bm.platform = 'opencl_GPU'
-            return bm
-        except:
-            pass
+    # import PyOpenCL
+    try:
+        import pyopencl as cl
+    except ImportError:
+        cl = None
 
-    if bm.platform in ['opencl_CPU', None]:
-        try:
-            import pyopencl as cl
-            all_platforms = cl.get_platforms()
-            platform = next((p for p in all_platforms if p.get_devices(device_type=cl.device_type.CPU) != []), None)
-            my_devices = platform.get_devices(device_type=cl.device_type.CPU)
-            bm.available_devices = len(my_devices)
-            bm.platform = 'opencl_CPU'
-            return bm
-        except:
-            pass
+    # select the first detected device
+    if bm.platform is None and cl:
+        for vendor in ['NVIDIA', 'AMD', 'Intel', 'Apple']:
+            for dev, device_type in [('GPU',cl.device_type.GPU), ('CPU',cl.device_type.CPU)]:
+                all_platforms = cl.get_platforms()
+                my_devices = []
+                for p in all_platforms:
+                    if p.get_devices(device_type=device_type) and vendor in p.name:
+                        my_devices = p.get_devices(device_type=device_type)
+                if my_devices:
+                    bm.available_devices = len(my_devices)
+                    bm.platform = 'opencl_'+vendor+'_'+dev
+                    print('Detected platform:', bm.platform)
+                    print('Detected devices:', my_devices)
+                    return bm
 
+    # explicitly select the OpenCL device
+    if bm.platform not in ['cuda', None] and cl:
+        plat, vendor, dev = bm.platform.split('_')
+        device_type=cl.device_type.GPU if dev=='GPU' else cl.device_type.CPU
+        all_platforms = cl.get_platforms()
+        my_devices = []
+        for p in all_platforms:
+            if p.get_devices(device_type=device_type) and vendor in p.name:
+                my_devices = p.get_devices(device_type=device_type)
+        if my_devices:
+            bm.available_devices = len(my_devices)
+            bm.platform = 'opencl_'+vendor+'_'+dev
+            print('Detected platform:', bm.platform)
+            print('Detected devices:', my_devices)
+            return bm
+
+    # stop the process if no device is detected
     if bm.platform is None:
         bm.platform = 'OpenCL or CUDA'
     print(f'Error: No {bm.platform} device found.')

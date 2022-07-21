@@ -11,6 +11,10 @@ if %OLD_VERSION:~-1% == p (
 )
 FOR /F "tokens=* delims=" %%v in (latest_version.txt) DO (set VERSION=%%v)
 
+REM get current date
+for /f "tokens=1,2 delims==" %%i in ('wmic os get LocalDateTime /VALUE') do (if %%i EQU LocalDateTime set ldt=%%j)
+set CURRENT_DATE=%ldt:~0,4%%ldt:~4,2%%ldt:~6,2%
+
 REM verify old installation
 wsl -u biomedisa -d %VERSION% touch installation_exists.txt
 
@@ -52,6 +56,18 @@ wsl -d %OLD_VERSION% service mysql start
 wsl -d %OLD_VERSION% -u biomedisa python3 /home/biomedisa/git/biomedisa/manage.py migrate
 wsl -d %OLD_VERSION% service mysql stop
 
+REM update new engine
+wsl --terminate %VERSION%
+wsl -d %VERSION% apt-get -y update
+wsl -d %VERSION% apt-get -y dist-upgrade
+wsl -d %VERSION% apt-get -y autoremove
+wsl --terminate %VERSION%
+wsl -d %VERSION% -u biomedisa git -C /home/biomedisa/git/biomedisa/ pull
+wsl -d %VERSION% service mysql start
+wsl -d %VERSION% -u biomedisa python3 /home/biomedisa/git/biomedisa/manage.py migrate
+echo %CURRENT_DATE% > last_update.txt
+wsl --terminate %VERSION%
+
 REM synchronize data
 wsl -u biomedisa -d %OLD_VERSION% mkdir /mnt/wsl/share
 wsl -u biomedisa -d %OLD_VERSION% rsync -avP /home/biomedisa/git/biomedisa/log /mnt/wsl/share
@@ -60,6 +76,7 @@ wsl -u biomedisa -d %OLD_VERSION% rsync -avP /home/biomedisa/git/biomedisa/priva
 wsl -u biomedisa -d %VERSION% rsync -avP /mnt/wsl/share/log/ /home/biomedisa/git/biomedisa/log/
 wsl -u biomedisa -d %VERSION% rsync -avP /mnt/wsl/share/private_storage/ /home/biomedisa/git/biomedisa/private_storage/
 
+REM synchronize database
 wsl -d %OLD_VERSION% service mysql start
 wsl -u biomedisa -d %OLD_VERSION% mysqldump -u root -pbiomedisa --opt biomedisa_database > biomedisa_database.sql
 wsl -d %OLD_VERSION% service mysql stop
