@@ -231,7 +231,7 @@ def _diffusion_child(comm, bm=None):
                         from biomedisa_features.random_walk.pycuda_large import walk
                 else:
                     ctx, queue = _get_device(bm.platform, rank)
-                    from biomedisa_features.random_walk.pyopencl_small import walk
+                    from biomedisa_features.random_walk.pyopencl_large import walk
 
                 # run random walks
                 tic = time.time()
@@ -364,7 +364,7 @@ def _diffusion_child(comm, bm=None):
                 from biomedisa_features.random_walk.pycuda_large import walk
         else:
             ctx, queue = _get_device(platform, rank)
-            from biomedisa_features.random_walk.pyopencl_small import walk
+            from biomedisa_features.random_walk.pyopencl_large import walk
 
         # run random walks
         tic = time.time()
