@@ -75,15 +75,14 @@ def get_labels(pre_final, labels):
         final[pre_final == k] = labels[k]
     return final
 
-def _get_device(dev_id, dev):
+def _get_device(platform, dev_id):
     import pyopencl as cl
+    plat, vendor, dev = platform.split('_')
+    device_type=cl.device_type.GPU if dev=='GPU' else cl.device_type.CPU
     all_platforms = cl.get_platforms()
-    if dev == 'CPU':
-        device_type = cl.device_type.CPU
-    else:
-        device_type = cl.device_type.GPU
-    platform = next((p for p in all_platforms if p.get_devices(device_type=device_type) != []), None)
-    my_devices = platform.get_devices(device_type=device_type)
+    for p in all_platforms:
+        if p.get_devices(device_type=device_type) and vendor in p.name:
+            my_devices = p.get_devices(device_type=device_type)
     context = cl.Context(devices=my_devices)
     queue = cl.CommandQueue(context, my_devices[dev_id])
     return context, queue
@@ -121,11 +120,8 @@ def _diffusion_child(comm, bm=None):
                 from biomedisa_features.random_walk.pycuda_small_allx import walk
             else:
                 from biomedisa_features.random_walk.pycuda_small import walk
-        elif bm.platform == 'opencl_GPU':
-            ctx, queue = _get_device(rank, 'GPU')
-            from biomedisa_features.random_walk.pyopencl_small import walk
-        elif bm.platform == 'opencl_CPU':
-            ctx, queue = _get_device(rank, 'CPU')
+        else:
+            ctx, queue = _get_device(bm.platform, rank)
             from biomedisa_features.random_walk.pyopencl_small import walk
 
         # run random walks
@@ -263,11 +259,8 @@ def _diffusion_child(comm, bm=None):
                 from biomedisa_features.random_walk.pycuda_small_allx import walk
             else:
                 from biomedisa_features.random_walk.pycuda_small import walk
-        elif platform == 'opencl_GPU':
-            ctx, queue = _get_device(rank, 'GPU')
-            from biomedisa_features.random_walk.pyopencl_small import walk
-        elif platform == 'opencl_CPU':
-            ctx, queue = _get_device(rank, 'CPU')
+        else:
+            ctx, queue = _get_device(platform, rank)
             from biomedisa_features.random_walk.pyopencl_small import walk
 
         # run random walks
