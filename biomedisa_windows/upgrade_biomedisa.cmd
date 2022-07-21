@@ -39,10 +39,18 @@ mkdir "%USERPROFILE%\AppData\%VERSION%"
 REM install biomedisa
 echo Biomedisa is being installed. This may take a few minutes. Please wait!
 wsl --import %VERSION% "%USERPROFILE%\AppData\%VERSION%" ./%VERSION%.tar
+timeout /t 5 /nobreak >nul
 
 REM verify new installation
 wsl -u biomedisa -d %VERSION% touch upgrade_successful.txt
 if exist upgrade_successful.txt (
+
+REM update old engine
+wsl -d %OLD_VERSION% -u biomedisa git -C /home/biomedisa/git/biomedisa/ pull
+wsl -d %OLD_VERSION% rsync -avP --exclude 'last_update.txt' /home/biomedisa/git/biomedisa/biomedisa_windows/ $PWD/
+wsl -d %OLD_VERSION% service mysql start
+wsl -d %OLD_VERSION% -u biomedisa python3 /home/biomedisa/git/biomedisa/manage.py migrate
+wsl -d %OLD_VERSION% service mysql stop
 
 REM synchronize data
 wsl -u biomedisa -d %OLD_VERSION% mkdir /mnt/wsl/share

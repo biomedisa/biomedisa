@@ -24,7 +24,7 @@ if not %LATEST_VERSION% == %VERSION% (
     if errorlevel 7 (
         wsl -d %VERSION% bash biomedisa_start.sh %VERSION%
     ) else if errorlevel 6 (
-	upgrade_biomedisa.cmd
+        upgrade_biomedisa.cmd
     )
 ) else if %CURRENT_DATE% GTR %OLD_DATE% (
     call :MsgBox "Update Biomedisa Engine?" "VBYesNo" "Last Update: %OLD_DATE:~0,4%-%OLD_DATE:~4,2%-%OLD_DATE:~6,2%"
@@ -54,3 +54,4 @@ exit
     >"%tempFile%" echo(WScript.Quit msgBox("%~1",%~2,"%~3") & cscript //nologo //e:vbscript "%tempFile%"
     set "exitCode=%errorlevel%" & del "%tempFile%" >nul 2>nul
     endlocal & exit /b %exitCode%
+
