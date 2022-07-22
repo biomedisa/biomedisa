@@ -21,8 +21,12 @@ At Intel it is typically called "Intel Virtualization Technology" and can be fou
 ```
 wsl --install
 ```
-#### Reboot Windows
+#### Reboot Windows to complete the installation
 
+#### Remove the initial Ubuntu installation to save space (optional)
+```
+wsl --unregister Ubuntu
+```
 #### Download Biomedisa installer
 Download and extract [Biomedisa](https://biomedisa.org/media/biomedisa_windows.zip).
 
@@ -49,7 +53,7 @@ Find your Biomedisa version.
 ```
 wsl -l -v
 ```
-Remove specific Biomedisa version.
+Remove a specific Biomedisa version.
 ```
 wsl --unregister Biomedisa-2x.xx.x
 ```

@@ -270,10 +270,10 @@ def walk(comm, raw, slices, indices, nbrw, sorw, blockmin, blockmax, name, allLa
             if np.any(indices):
                 slshape = slices.shape[0]
                 indices = np.array(indices, dtype=np.int32)
-                indices_cl =  cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=indices)
-                slices_cl =  cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=slices)
-            raw_cl =  cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=raw)
-            hits_cl =  cl.Buffer(ctx, mf.WRITE_ONLY | mf.COPY_HOST_PTR, hostbuf=hits)
+                indices_cl = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=indices)
+                slices_cl = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=slices)
+            raw_cl = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=raw)
+            hits_cl = cl.Buffer(ctx, mf.WRITE_ONLY | mf.COPY_HOST_PTR, hostbuf=hits)
             sendbuf = np.zeros(1, dtype=np.int32)
             recvbuf = np.zeros(1, dtype=np.int32)
             comm.Barrier()
@@ -318,15 +318,15 @@ def walk(comm, raw, slices, indices, nbrw, sorw, blockmin, blockmax, name, allLa
                     if np.any(sub_indices):
                         sub_slshape = sub_slices.shape[0]
                         sub_indices = np.array(sub_indices, dtype=np.int32) - data_block_min
-                        sub_indices_cl =  cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=sub_indices)
-                        sub_slices_cl =  cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=sub_slices)
+                        sub_indices_cl = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=sub_indices)
+                        sub_slices_cl = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=sub_slices)
                         sub_zsh = data_block_max - data_block_min
                         sub_zsh_cl = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=np.int32(sub_zsh))
                         sub_raw = np.copy(raw[data_block_min:data_block_max])
-                        sub_raw_cl =  cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=sub_raw)
+                        sub_raw_cl = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=sub_raw)
                         sub_hits = np.empty(sub_raw.shape, dtype=np.int32)
-                        sub_hits_cl =  cl.Buffer(ctx, mf.WRITE_ONLY | mf.COPY_HOST_PTR, hostbuf=sub_hits)
-                        cl.enqueue_fill_buffer(queue, sub_hits_cl, np.int32(0), offset=0, size=hits.nbytes)
+                        sub_hits_cl = cl.Buffer(ctx, mf.WRITE_ONLY | mf.COPY_HOST_PTR, hostbuf=sub_hits)
+                        cl.enqueue_fill_buffer(queue, sub_hits_cl, np.int32(0), offset=0, size=sub_hits.nbytes)
                         cl.enqueue_fill_buffer(queue, segment_cl, np.int32(segment), offset=0, size=4, wait_for=None)
                         block = None
                         grid = (sub_slshape, ysh, xsh)
