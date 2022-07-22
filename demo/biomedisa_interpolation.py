@@ -240,8 +240,8 @@ if __name__ == '__main__':
                 bm.label.uncertainty = False
                 print('Warning: Uncertainty is not yet supported for opencl. Process starts without uncertainty.')
             if bm.label.allaxis:
-                bm.label.allaxis = 0
-                print('Warning: Allx is not yet supported for opencl. Process starts without allx.')
+                bm.success = False
+                print('Error: Allx is not yet supported for opencl.')
 
         if not bm.success:
 
