@@ -22,8 +22,8 @@ Open Anaconda Prompt (e.g. Windows Search `Anaconda Prompt`).
 ```
 conda create -n biomedisa python=3.9
 conda activate biomedisa
-conda install -c conda-forge numpy scipy colorama numba
-conda install -c conda-forge imagecodecs-lite tifffile scikit-image opencv Pillow
+conda install -c conda-forge numpy=1.21.6 scipy colorama numba=0.55.1
+conda install -c conda-forge imagecodecs-lite tifffile scikit-image opencv=4.5.1 Pillow
 conda install -c conda-forge nibabel medpy SimpleITK itk vtk numpy-stl matplotlib
 conda install -c conda-forge cudatoolkit=11.3.1
 conda install -c conda-forge cudnn
