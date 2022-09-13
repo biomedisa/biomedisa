@@ -50,7 +50,7 @@ if exist upgrade_successful.txt (
 
 REM update old engine
 wsl -d %OLD_VERSION% -u biomedisa git -C /home/biomedisa/git/biomedisa/ pull
-wsl -d %OLD_VERSION% rsync -avP --exclude 'last_update.txt' /home/biomedisa/git/biomedisa/biomedisa_windows/ $PWD/
+wsl -d %OLD_VERSION% rsync -avP --exclude 'last_update.txt' /home/biomedisa/git/biomedisa/biomedisa_windows/ "$PWD/"
 wsl -d %OLD_VERSION% service mysql start
 wsl -d %OLD_VERSION% -u biomedisa python3 /home/biomedisa/git/biomedisa/manage.py migrate
 wsl -d %OLD_VERSION% service mysql stop
