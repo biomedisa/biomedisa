@@ -33,7 +33,7 @@ if not %LATEST_VERSION% == %VERSION% (
         wsl -d %VERSION% apt-get -y autoremove
         wsl --terminate %VERSION%
         wsl -d %VERSION% -u biomedisa git -C /home/biomedisa/git/biomedisa/ pull
-        wsl -d %VERSION% rsync -avP --exclude 'last_update.txt' /home/biomedisa/git/biomedisa/biomedisa_windows/ $PWD/
+        wsl -d %VERSION% rsync -avP --exclude 'last_update.txt' /home/biomedisa/git/biomedisa/biomedisa_windows/ "$PWD/"
         wsl -d %VERSION% service mysql start
         wsl -d %VERSION% -u biomedisa python3 /home/biomedisa/git/biomedisa/manage.py migrate
         echo %CURRENT_DATE% > last_update.txt

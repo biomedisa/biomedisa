@@ -31,13 +31,8 @@ wsl --unregister Ubuntu
 Download and extract [Biomedisa](https://biomedisa.org/media/biomedisa_windows.zip).
 
 #### Run installation script
-For NVIDIA Pascal and Volta GPUs
 ```
-install_biomedisa+cuda11.0.cmd
-```
-For NVIDIA Ampere GPUs
-```
-install_biomedisa+cuda11.4.cmd
+install_biomedisa.cmd
 ```
 If the installation is interrupted, please run the script again.
 
@@ -57,3 +52,4 @@ Remove a specific Biomedisa version.
 ```
 wsl --unregister Biomedisa-2x.xx.x
 ```
+
