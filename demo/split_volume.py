@@ -26,11 +26,14 @@
 ##                                                                      ##
 ##########################################################################
 
-import os, sys, glob
-from biomedisa_helper import load_data, save_data
+import sys, os
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(BASE_DIR)
+from biomedisa_features.biomedisa_helper import load_data, save_data
 import numpy as np
 import subprocess
 import platform
+import glob
 
 if __name__ == '__main__':
 

@@ -33,14 +33,14 @@ from django.shortcuts import get_object_or_404
 
 from biomedisa_app.models import Upload, Profile
 from biomedisa_app.views import send_notification, send_error_message
-from biomedisa_features.biomedisa_helper import save_data, _error_, unique_file_path
+from biomedisa_features.biomedisa_helper import (_get_device, save_data, _error_, unique_file_path,
+    splitlargedata, read_labeled_slices_allx_large, read_labeled_slices_large, sendToChildLarge)
 from biomedisa_features.active_contour import active_contour
 from biomedisa_features.remove_outlier import remove_outlier
 from biomedisa_features.create_slices import create_slices
 from biomedisa_app.config import config
 from multiprocessing import Process
 
-import pycuda.driver as cuda
 from mpi4py import MPI
 import os, sys
 import numpy as np
@@ -51,89 +51,6 @@ import math
 if config['OS'] == 'linux':
     from redis import Redis
     from rq import Queue
-
-def sendToChild(comm, indices, dest, dataListe, Labels, nbrw, sorw, blocks, allx, allLabels, smooth, uncertainty):
-    comm.send(len(dataListe), dest=dest, tag=0)
-    for k, tmp in enumerate(dataListe):
-        tmp = tmp.copy(order='C')
-        comm.send([tmp.shape[0], tmp.shape[1], tmp.shape[2], tmp.dtype], dest=dest, tag=10+(2*k))
-        if tmp.dtype == 'uint8':
-            comm.Send([tmp, MPI.BYTE], dest=dest, tag=10+(2*k+1))
-        else:
-            comm.Send([tmp, MPI.FLOAT], dest=dest, tag=10+(2*k+1))
-
-    comm.send([nbrw, sorw, allx, smooth, uncertainty], dest=dest, tag=1)
-
-    if allx:
-        for k in range(3):
-            labelsListe = splitlargedata(Labels[k])
-            comm.send(len(labelsListe), dest=dest, tag=2+k)
-            for l, tmp in enumerate(labelsListe):
-                tmp = tmp.copy(order='C')
-                comm.send([tmp.shape[0], tmp.shape[1], tmp.shape[2]], dest=dest, tag=100+(2*k))
-                comm.Send([tmp, MPI.INT], dest=dest, tag=100+(2*k+1))
-    else:
-        labelsListe = splitlargedata(Labels)
-        comm.send(len(labelsListe), dest=dest, tag=2)
-        for k, tmp in enumerate(labelsListe):
-            tmp = tmp.copy(order='C')
-            comm.send([tmp.shape[0], tmp.shape[1], tmp.shape[2]], dest=dest, tag=100+(2*k))
-            comm.Send([tmp, MPI.INT], dest=dest, tag=100+(2*k+1))
-
-    comm.send(allLabels, dest=dest, tag=99)
-    comm.send(indices, dest=dest, tag=8)
-    comm.send(blocks, dest=dest, tag=9)
-
-def splitlargedata(data):
-    dataMemory = data.nbytes
-    dataListe = []
-    if dataMemory > 1500000000:
-        mod = dataMemory / float(1500000000)
-        mod2 = int(math.ceil(mod))
-        mod3 = divmod(data.shape[0], mod2)[0]
-        for k in range(mod2):
-            dataListe.append(data[mod3*k:mod3*(k+1)])
-        dataListe.append(data[mod3*mod2:])
-    else:
-        dataListe.append(data)
-    return dataListe
-
-def read_labeled_slices(volData):
-    data = np.zeros((0, volData.shape[1], volData.shape[2]), dtype=np.int32)
-    indices = []
-    i = 0
-    while i < volData.shape[0]:
-        slc = volData[i]
-        if np.any(slc):
-            data = np.append(data, [volData[i]], axis=0)
-            indices.append(i)
-            i += 5
-        else:
-            i += 1
-    return indices, data
-
-def read_labeled_slices_allx(volData):
-    gradient = np.zeros(volData.shape, dtype=np.int32)
-    ones = np.zeros_like(gradient)
-    ones[volData > 0] = 1
-    tmp = ones[:,:-1] - ones[:,1:]
-    tmp *= tmp
-    gradient[:,:-1] += tmp
-    gradient[:,1:] += tmp
-    ones[gradient == 2] = 0
-    gradient.fill(0)
-    tmp = ones[:,:,:-1] - ones[:,:,1:]
-    tmp *= tmp
-    gradient[:,:,:-1] += tmp
-    gradient[:,:,1:] += tmp
-    ones[gradient == 2] = 0
-    indices = []
-    data = np.zeros((0, volData.shape[1], volData.shape[2]), dtype=np.int32)
-    for k, slc in enumerate(ones[:]):
-        if np.any(slc):
-            data = np.append(data, [volData[k]], axis=0)
-            indices.append(k)
-    return indices, data
 
 def _diffusion_child(comm, bm=None):
 
@@ -163,10 +80,10 @@ def _diffusion_child(comm, bm=None):
         if bm.label.allaxis:
             tmp = np.swapaxes(bm.labelData, 0, 1)
             tmp = np.ascontiguousarray(tmp)
-            indices_01, _ = read_labeled_slices_allx(tmp)
+            indices_01, _ = read_labeled_slices_allx_large(tmp)
             tmp = np.swapaxes(tmp, 0, 2)
             tmp = np.ascontiguousarray(tmp)
-            indices_02, _ = read_labeled_slices_allx(tmp)
+            indices_02, _ = read_labeled_slices_allx_large(tmp)
 
         # send data to childs
         for destination in range(ngpus-1,-1,-1):
@@ -186,7 +103,7 @@ def _diffusion_child(comm, bm=None):
                 labelblock[:blockmin - datablockmin] = -1
                 labelblock[blockmax - datablockmin:] = -1
                 indices_child, labels_child = [], []
-                indices_00, labels_00 = read_labeled_slices_allx(labelblock)
+                indices_00, labels_00 = read_labeled_slices_allx_large(labelblock)
                 indices_child.append(indices_00)
                 labels_child.append(labels_00)
                 tmp = np.swapaxes(labelblock, 0, 1)
@@ -206,7 +123,7 @@ def _diffusion_child(comm, bm=None):
             else:
                 labelblock[:blockmin - datablockmin] = 0
                 labelblock[blockmax - datablockmin:] = 0
-                indices_child, labels_child = read_labeled_slices(labelblock)
+                indices_child, labels_child = read_labeled_slices_large(labelblock)
 
             # print indices of labels
             print('indices child %s:' %(destination), indices_child)
@@ -216,34 +133,38 @@ def _diffusion_child(comm, bm=None):
                 blocks_temp[destination] = blockmin - datablockmin
                 blocks_temp[destination+1] = blockmax - datablockmin
                 dataListe = splitlargedata(datablock)
-                sendToChild(comm, indices_child, destination, dataListe, labels_child, bm.label.nbrw,
-                        bm.label.sorw, blocks_temp, bm.label.allaxis, bm.allLabels, bm.label.smooth, bm.label.uncertainty)
+                sendToChildLarge(comm, indices_child, destination, dataListe, labels_child,
+                        bm.label.nbrw, bm.label.sorw, blocks_temp, bm.label.allaxis,
+                        bm.allLabels, bm.label.smooth, bm.label.uncertainty, bm.platform)
 
             else:
 
-                # select the desired script
-                if bm.label.allaxis:
-                    from pycuda_large_allx import walk
+                # select platform
+                if bm.platform == 'cuda':
+                    import pycuda.driver as cuda
+                    cuda.init()
+                    dev = cuda.Device(rank)
+                    ctx, queue = dev.make_context(), None
+                    if bm.label.allaxis:
+                        from biomedisa_features.random_walk.pycuda_large_allx import walk
+                    else:
+                        from biomedisa_features.random_walk.pycuda_large import walk
                 else:
-                    from pycuda_large import walk
-
-                # init cuda device
-                cuda.init()
-                dev = cuda.Device(rank)
-                ctx = dev.make_context()
-                queue = None
+                    ctx, queue = _get_device(bm.platform, rank)
+                    from biomedisa_features.random_walk.pyopencl_large import walk
 
                 # run random walks
                 tic = time.time()
                 memory_error, final, final_uncertainty, final_smooth = walk(comm, datablock, labels_child, indices_child,
                             bm.label.nbrw, bm.label.sorw, blockmin-datablockmin, blockmax-datablockmin,
-                            name, bm.allLabels, bm.label.smooth, bm.label.uncertainty, ctx, queue)
+                            name, bm.allLabels, bm.label.smooth, bm.label.uncertainty, ctx, queue, bm.platform)
                 tac = time.time()
                 print('Walktime_%s: ' %(name) + str(int(tac - tic)) + ' ' + 'seconds')
 
                 # free device
-                ctx.pop()
-                del ctx
+                if bm.platform == 'cuda':
+                    ctx.pop()
+                    del ctx
 
         if memory_error:
             bm = _error_(bm, 'GPU out of memory. Image too large.')
@@ -380,7 +301,7 @@ def _diffusion_child(comm, bm=None):
                 comm.Recv([data_temp, MPI.FLOAT], source=0, tag=10+(2*k+1))
             data = np.append(data, data_temp, axis=0)
 
-        nbrw, sorw, allx, smooth, uncertainty = comm.recv(source=0, tag=1)
+        nbrw, sorw, allx, smooth, uncertainty, platform = comm.recv(source=0, tag=1)
 
         if allx:
             labels = []
@@ -409,28 +330,31 @@ def _diffusion_child(comm, bm=None):
         blockmin = blocks[rank]
         blockmax = blocks[rank+1]
 
-        # select the desired script
-        if allx:
-            from pycuda_large_allx import walk
+        # select platform
+        if platform == 'cuda':
+            import pycuda.driver as cuda
+            cuda.init()
+            dev = cuda.Device(rank)
+            ctx, queue = dev.make_context(), None
+            if allx:
+                from biomedisa_features.random_walk.pycuda_large_allx import walk
+            else:
+                from biomedisa_features.random_walk.pycuda_large import walk
         else:
-            from pycuda_large import walk
-
-        # init cuda device
-        cuda.init()
-        dev = cuda.Device(rank)
-        ctx = dev.make_context()
-        queue = None
+            ctx, queue = _get_device(platform, rank)
+            from biomedisa_features.random_walk.pyopencl_large import walk
 
         # run random walks
         tic = time.time()
         memory_error, final, final_uncertainty, final_smooth = walk(comm, data, labels, indices, nbrw, sorw,
-                blockmin, blockmax, name, allLabels, smooth, uncertainty, ctx, queue)
+                blockmin, blockmax, name, allLabels, smooth, uncertainty, ctx, queue, platform)
         tac = time.time()
         print('Walktime_%s: ' %(name) + str(int(tac - tic)) + ' ' + 'seconds')
 
         # free device
-        ctx.pop()
-        del ctx
+        if platform == 'cuda':
+            ctx.pop()
+            del ctx
 
         # send finals
         if not memory_error:

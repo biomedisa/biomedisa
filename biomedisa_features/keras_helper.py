@@ -247,18 +247,22 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
         if (img_ext == '.tar' and label_ext == '.tar') or (os.path.isdir(img_name) and os.path.isdir(label_name)):
 
             # extract files if necessary
-            if img_ext == '.tar' and not os.path.exists(img_dir):
-                tar = tarfile.open(img_name)
-                tar.extractall(path=img_dir)
-                tar.close()
-            if label_ext == '.tar' and not os.path.exists(label_dir):
-                tar = tarfile.open(label_name)
-                tar.extractall(path=label_dir)
-                tar.close()
+            if img_ext == '.tar':
+                if not os.path.exists(img_dir):
+                    tar = tarfile.open(img_name)
+                    tar.extractall(path=img_dir)
+                    tar.close()
+                img_name = img_dir
+            if label_ext == '.tar':
+                if not os.path.exists(label_dir):
+                    tar = tarfile.open(label_name)
+                    tar.extractall(path=label_dir)
+                    tar.close()
+                label_name = label_dir
 
             for data_type in ['.am','.tif','.tiff','.hdr','.mhd','.mha','.nrrd','.nii','.nii.gz']:
-                tmp_img_names = glob(img_dir+'/**/*'+data_type, recursive=True)
-                tmp_label_names = glob(label_dir+'/**/*'+data_type, recursive=True)
+                tmp_img_names = glob(img_name+'/**/*'+data_type, recursive=True)
+                tmp_label_names = glob(label_name+'/**/*'+data_type, recursive=True)
                 tmp_img_names = sorted(tmp_img_names)
                 tmp_label_names = sorted(tmp_label_names)
                 img_names.extend(tmp_img_names)

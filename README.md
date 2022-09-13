@@ -23,18 +23,19 @@ Biomedisa (https://biomedisa.org) is a free and easy-to-use open-source online p
 
 # Software requirements
 + [NVIDIA GPU drivers](https://www.nvidia.com/drivers)
-+ [CUDA Toolkit](https://developer.nvidia.com/cuda-toolkit-archive)
++ [CUDA Toolkit](https://developer.nvidia.com/cuda-toolkit-archive) or [OpenCL Runtime](https://www.intel.com/content/www/us/en/developer/articles/tool/opencl-drivers.html)
 
 # Installation (command-line-only)
-+ [Ubuntu 18.04.5 + CUDA 11.0 (Pascal, Volta)](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu1804+cuda11.0_cli.md)
-+ [Ubuntu 20.04.3 + CUDA 11.0 (Pascal, Volta)](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu2004+cuda11.0_cli.md)
-+ [Ubuntu 20.04.3 + CUDA 11.4 (Ampere)](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu2004+cuda11.4_cli.md)
-+ [Windows 10 + Smart Interpolation](https://github.com/biomedisa/biomedisa/blob/master/README/windows10+cuda11.6+interpolation_cli.md)
-+ [Windows 10 + Deep Learning](https://github.com/biomedisa/biomedisa/blob/master/README/windows10+cuda11.3+deeplearning_cli.md)
++ [Ubuntu 20.04 + Smart Interpolation + CUDA + GPU](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu2004_interpolation_cuda11.3_gpu_cli.md)
++ [Ubuntu 20.04 + Smart Interpolation + OpenCL + CPU](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu2004_interpolation_opencl_cpu_cli.md)
++ [Ubuntu 20.04 + Deep Learning](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu2004_deeplearning_cuda11.3_cli.md)
++ [Windows 10 + Smart Interpolation + CUDA + GPU](https://github.com/biomedisa/biomedisa/blob/master/README/windows10_interpolation_cuda11.7_gpu_cli.md)
++ [Windows 10 + Smart Interpolation + OpenCL + GPU](https://github.com/biomedisa/biomedisa/blob/master/README/windows10_interpolation_opencl_gpu_cli.md)
++ [Windows 10 + Smart Interpolation + OpenCL + CPU](https://github.com/biomedisa/biomedisa/blob/master/README/windows10_interpolation_opencl_cpu_cli.md)
++ [Windows 10 + Deep Learning](https://github.com/biomedisa/biomedisa/blob/master/README/windows10_deeplearning_cuda11.3_cli.md)
 
 # Full installation (GUI)
-+ [Ubuntu 18.04.5 + CUDA 11.0 (Pascal, Volta)](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu1804+cuda11.0.md)
-+ [Ubuntu 20.04.3 + CUDA 11.4 (Ampere)](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu2004+cuda11.4.md)
++ [Ubuntu 20.04](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu2004_cuda11.3.md)
 + [Windows 10 (21H2 or higher)](https://github.com/biomedisa/biomedisa/blob/master/README/windows11.md)
 + [Windows 11](https://github.com/biomedisa/biomedisa/blob/master/README/windows11.md)
 

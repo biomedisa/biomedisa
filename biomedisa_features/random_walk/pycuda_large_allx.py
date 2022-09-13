@@ -245,7 +245,8 @@ def _calc_label_walking_area(sliceData, labelValue):
     walkingArea[sliceData == labelValue] = 1
     return walkingArea
 
-def walk(comm, raw, slices, indices, nbrw, sorw, blockmin, blockmax, name, allLabels, smooth, uncertainty, ctx, queue):
+def walk(comm, raw, slices, indices, nbrw, sorw, blockmin, blockmax, name,
+         allLabels, smooth, uncertainty, ctx, queue, platform):
 
     rank = comm.Get_rank()
     size = comm.Get_size()

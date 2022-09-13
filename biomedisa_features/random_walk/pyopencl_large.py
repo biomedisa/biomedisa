@@ -213,7 +213,8 @@ def max_to_label(a, walkmap, final, blockmin, blockmax, segment):
                     final[k-blockmin,l,m] = segment
     return walkmap, final
 
-def walk(comm, raw, slices, indices, nbrw, sorw, blockmin, blockmax, name, allLabels, smooth, uncertainty, ctx, queue):
+def walk(comm, raw, slices, indices, nbrw, sorw, blockmin, blockmax,
+         name, allLabels, smooth, uncertainty, ctx, queue, platform):
 
     # disable smoothing and uncertainty
     smooth, uncertainty = 0, 0
@@ -258,8 +259,11 @@ def walk(comm, raw, slices, indices, nbrw, sorw, blockmin, blockmax, name, allLa
     # allocate device memory or use subdomains
     memory_error = False
     subdomains = False
-    if zsh * ysh * xsh > 42e8:
-        print('Warning: Volume indexes exceed unsigned long int range. The volume is splitted into subdomains.')
+    if zsh * ysh * xsh > 42e8 or platform.split('_')[-1] == 'GPU':
+        if zsh * ysh * xsh > 42e8:
+            print('Warning: Volume indexes exceed unsigned long int range. The volume is splitted into subdomains.')
+        else:
+            print('The volume is splitted into subdomains for better performance.')
         subdomains = True
         sendbuf = np.zeros(1, dtype=np.int32) + 1
         recvbuf = np.zeros(1, dtype=np.int32)

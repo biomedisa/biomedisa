@@ -32,87 +32,12 @@ django.setup()
 from biomedisa_app.config import config
 from biomedisa_app.models import Upload, Profile
 from biomedisa_app.views import send_start_notification
-from biomedisa_features.biomedisa_helper import pre_processing, _error_
+from biomedisa_features.biomedisa_helper import (_get_platform, pre_processing, _error_,
+    read_labeled_slices, read_labeled_slices_allx, read_indices_allx, predict_blocksize)
 from django.contrib.auth.models import User
 from multiprocessing import freeze_support
 import numpy as np
 import time
-
-def read_labeled_slices(arr):
-    data = np.zeros((0, arr.shape[1], arr.shape[2]), dtype=arr.dtype)
-    indices = []
-    i = 0
-    for k, slc in enumerate(arr[:]):
-        if np.any(slc):
-            data = np.append(data, [arr[k]], axis=0)
-            indices.append(i)
-        i += 1
-    return indices, data
-
-def read_labeled_slices_allx(arr, ax):
-    gradient = np.zeros(arr.shape, dtype=np.int8)
-    ones = np.zeros_like(gradient)
-    ones[arr != 0] = 1
-    tmp = ones[:,:-1] - ones[:,1:]
-    tmp = np.abs(tmp)
-    gradient[:,:-1] += tmp
-    gradient[:,1:] += tmp
-    ones[gradient == 2] = 0
-    gradient.fill(0)
-    tmp = ones[:,:,:-1] - ones[:,:,1:]
-    tmp = np.abs(tmp)
-    gradient[:,:,:-1] += tmp
-    gradient[:,:,1:] += tmp
-    ones[gradient == 2] = 0
-    indices = []
-    data = np.zeros((0, arr.shape[1], arr.shape[2]), dtype=arr.dtype)
-    for k, slc in enumerate(ones[:]):
-        if np.any(slc):
-            data = np.append(data, [arr[k]], axis=0)
-            indices.append((k, ax))
-    return indices, data
-
-def read_indices_allx(arr, ax):
-    gradient = np.zeros(arr.shape, dtype=np.int8)
-    ones = np.zeros_like(gradient)
-    ones[arr != 0] = 1
-    tmp = ones[:,:-1] - ones[:,1:]
-    tmp = np.abs(tmp)
-    gradient[:,:-1] += tmp
-    gradient[:,1:] += tmp
-    ones[gradient == 2] = 0
-    gradient.fill(0)
-    tmp = ones[:,:,:-1] - ones[:,:,1:]
-    tmp = np.abs(tmp)
-    gradient[:,:,:-1] += tmp
-    gradient[:,:,1:] += tmp
-    ones[gradient == 2] = 0
-    indices = []
-    for k, slc in enumerate(ones[:]):
-        if np.any(slc):
-            indices.append((k, ax))
-    return indices
-
-def predict_blocksize(bm):
-    zsh, ysh, xsh = bm.labelData.shape
-    argmin_z, argmax_z, argmin_y, argmax_y, argmin_x, argmax_x = zsh, 0, ysh, 0, xsh, 0
-    for k in range(zsh):
-        y, x = np.nonzero(bm.labelData[k])
-        if x.any():
-            argmin_x = min(argmin_x, np.amin(x))
-            argmax_x = max(argmax_x, np.amax(x))
-            argmin_y = min(argmin_y, np.amin(y))
-            argmax_y = max(argmax_y, np.amax(y))
-            argmin_z = min(argmin_z, k)
-            argmax_z = max(argmax_z, k)
-    zmin, zmax = argmin_z, argmax_z
-    bm.argmin_x = argmin_x - 100 if argmin_x - 100 > 0 else 0
-    bm.argmax_x = argmax_x + 100 if argmax_x + 100 < xsh else xsh
-    bm.argmin_y = argmin_y - 100 if argmin_y - 100 > 0 else 0
-    bm.argmax_y = argmax_y + 100 if argmax_y + 100 < ysh else ysh
-    bm.argmin_z = argmin_z - 100 if argmin_z - 100 > 0 else 0
-    bm.argmax_z = argmax_z + 100 if argmax_z + 100 < zsh else zsh
-    return bm
 
 class Biomedisa(object):
      pass
@@ -129,6 +54,8 @@ if __name__ == '__main__':
 
         # create biomedisa
         bm = Biomedisa()
+        bm.django_env = True
+        bm.process = 'first_queue'
 
         # time
         bm.TIC = time.time()
@@ -170,8 +97,28 @@ if __name__ == '__main__':
                 print('%s %s %s %s' %(time.ctime(), bm.image.user.username, bm.image.shortfilename, 'Process was started.'), file=logfile)
 
             # pre-processing
-            bm.process = 'first_queue'
             bm = pre_processing(bm)
+
+            # get platform
+            if bm.success:
+                bm.platform = None
+                for i, val in enumerate(sys.argv):
+                    if val in ['--platform','-p']:
+                        bm.platform = str(sys.argv[i+1])
+                bm = _get_platform(bm)
+                if bm.success == False:
+                    bm = _error_(bm, f'No {bm.platform} device found.')
+
+            # smooth, uncertainty and allx are not supported for opencl
+            if bm.success and bm.platform.split('_')[0] == 'opencl':
+                if bm.label.smooth:
+                    bm.label.smooth = 0
+                    print('Warning: Smoothing is not yet supported for opencl. Process starts without smoothing.')
+                if bm.label.uncertainty:
+                    bm.label.uncertainty = False
+                    print('Warning: Uncertainty is not yet supported for opencl. Process starts without uncertainty.')
+                if bm.label.allaxis:
+                    bm = _error_(bm, 'Allx is not yet supported for opencl.')
 
             if not bm.success:
 
@@ -216,7 +163,7 @@ if __name__ == '__main__':
 
                 # add boundaries
                 zsh, ysh, xsh = bm.data.shape
-                tmp = np.zeros((1+zsh+1, 1+ysh+1, 1+xsh+1), dtype=np.int32)
+                tmp = np.zeros((1+zsh+1, 1+ysh+1, 1+xsh+1), dtype=bm.labelData.dtype)
                 tmp[1:-1, 1:-1, 1:-1] = bm.labelData
                 bm.labelData = tmp.copy(order='C')
                 tmp = np.zeros((1+zsh+1, 1+ysh+1, 1+xsh+1), dtype=bm.data.dtype)
@@ -347,3 +294,4 @@ if __name__ == '__main__':
                 else:
                     from rw_large import _diffusion_child
                     _diffusion_child(sub_comm)
+

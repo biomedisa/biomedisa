@@ -37,7 +37,6 @@ from biomedisa_features.create_slices import create_slices
 from biomedisa_features.biomedisa_helper import (unique_file_path,
     load_data, save_data, pre_processing, img_to_uint8)
 from multiprocessing import Process
-
 import numpy as np
 import time
 
@@ -118,6 +117,7 @@ def active_contour(image_id, friend_id, label_id):
 
     # create biomedisa
     bm = Biomedisa()
+    bm.django_env = True
 
     # path to logfiles
     bm.path_to_time = config['PATH_TO_BIOMEDISA'] + '/log/time.txt'
@@ -182,3 +182,4 @@ def active_contour(image_id, friend_id, label_id):
 
         except Upload.DoesNotExist:
             pass
+

@@ -30,151 +30,12 @@
 import sys, os
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(BASE_DIR)
-from biomedisa_helper import pre_processing, _error_, smooth_img_3x3
+from biomedisa_features.biomedisa_helper import (_get_platform, smooth_img_3x3,
+    pre_processing, _error_, read_labeled_slices, read_labeled_slices_allx,
+    read_indices_allx, predict_blocksize)
 from multiprocessing import freeze_support
 import numpy as np
 import time
-
-def read_labeled_slices(arr):
-    data = np.zeros((0, arr.shape[1], arr.shape[2]), dtype=np.int32)
-    indices = []
-    i = 0
-    for k, slc in enumerate(arr[:]):
-        if np.any(slc):
-            data = np.append(data, [arr[k]], axis=0)
-            indices.append(i)
-        i += 1
-    return indices, data
-
-def read_labeled_slices_allx(arr, ax):
-    gradient = np.zeros(arr.shape, dtype=np.int8)
-    ones = np.zeros_like(gradient)
-    ones[arr != 0] = 1
-    tmp = ones[:,:-1] - ones[:,1:]
-    tmp = np.abs(tmp)
-    gradient[:,:-1] += tmp
-    gradient[:,1:] += tmp
-    ones[gradient == 2] = 0
-    gradient.fill(0)
-    tmp = ones[:,:,:-1] - ones[:,:,1:]
-    tmp = np.abs(tmp)
-    gradient[:,:,:-1] += tmp
-    gradient[:,:,1:] += tmp
-    ones[gradient == 2] = 0
-    indices = []
-    data = np.zeros((0, arr.shape[1], arr.shape[2]), dtype=np.int32)
-    for k, slc in enumerate(ones[:]):
-        if np.any(slc):
-            data = np.append(data, [arr[k]], axis=0)
-            indices.append((k, ax))
-    return indices, data
-
-def read_indices_allx(arr, ax):
-    gradient = np.zeros(arr.shape, dtype=np.int8)
-    ones = np.zeros_like(gradient)
-    ones[arr != 0] = 1
-    tmp = ones[:,:-1] - ones[:,1:]
-    tmp = np.abs(tmp)
-    gradient[:,:-1] += tmp
-    gradient[:,1:] += tmp
-    ones[gradient == 2] = 0
-    gradient.fill(0)
-    tmp = ones[:,:,:-1] - ones[:,:,1:]
-    tmp = np.abs(tmp)
-    gradient[:,:,:-1] += tmp
-    gradient[:,:,1:] += tmp
-    ones[gradient == 2] = 0
-    indices = []
-    for k, slc in enumerate(ones[:]):
-        if np.any(slc):
-            indices.append((k, ax))
-    return indices
-
-def predict_blocksize(bm):
-    zsh, ysh, xsh = bm.labelData.shape
-    argmin_z, argmax_z, argmin_y, argmax_y, argmin_x, argmax_x = zsh, 0, ysh, 0, xsh, 0
-    for k in range(zsh):
-        y, x = np.nonzero(bm.labelData[k])
-        if x.any():
-            argmin_x = min(argmin_x, np.amin(x))
-            argmax_x = max(argmax_x, np.amax(x))
-            argmin_y = min(argmin_y, np.amin(y))
-            argmax_y = max(argmax_y, np.amax(y))
-            argmin_z = min(argmin_z, k)
-            argmax_z = max(argmax_z, k)
-    zmin, zmax = argmin_z, argmax_z
-    bm.argmin_x = argmin_x - 100 if argmin_x - 100 > 0 else 0
-    bm.argmax_x = argmax_x + 100 if argmax_x + 100 < xsh else xsh
-    bm.argmin_y = argmin_y - 100 if argmin_y - 100 > 0 else 0
-    bm.argmax_y = argmax_y + 100 if argmax_y + 100 < ysh else ysh
-    bm.argmin_z = argmin_z - 100 if argmin_z - 100 > 0 else 0
-    bm.argmax_z = argmax_z + 100 if argmax_z + 100 < zsh else zsh
-    return bm
-
-def read_indices(volData):
-    i = []
-    for k, slc in enumerate(volData[:]):
-        if np.amax(slc) != 0:
-            i.append(k)
-    return i
-
-def _get_platform(bm):
-
-    # import PyCUDA
-    if bm.platform in ['cuda', None]:
-        try:
-            import pycuda.driver as cuda
-            cuda.init()
-            bm.available_devices = cuda.Device.count()
-            bm.platform = 'cuda'
-            return bm
-        except:
-            pass
-
-    # import PyOpenCL
-    try:
-        import pyopencl as cl
-    except ImportError:
-        cl = None
-
-    # select the first detected device
-    if bm.platform is None and cl:
-        for vendor in ['NVIDIA', 'AMD', 'Intel', 'Apple']:
-            for dev, device_type in [('GPU',cl.device_type.GPU), ('CPU',cl.device_type.CPU)]:
-                all_platforms = cl.get_platforms()
-                my_devices = []
-                for p in all_platforms:
-                    if p.get_devices(device_type=device_type) and vendor in p.name:
-                        my_devices = p.get_devices(device_type=device_type)
-                if my_devices:
-                    bm.available_devices = len(my_devices)
-                    bm.platform = 'opencl_'+vendor+'_'+dev
-                    print('Detected platform:', bm.platform)
-                    print('Detected devices:', my_devices)
-                    return bm
-
-    # explicitly select the OpenCL device
-    if bm.platform not in ['cuda', None] and cl:
-        plat, vendor, dev = bm.platform.split('_')
-        device_type=cl.device_type.GPU if dev=='GPU' else cl.device_type.CPU
-        all_platforms = cl.get_platforms()
-        my_devices = []
-        for p in all_platforms:
-            if p.get_devices(device_type=device_type) and vendor in p.name:
-                my_devices = p.get_devices(device_type=device_type)
-        if my_devices:
-            bm.available_devices = len(my_devices)
-            bm.platform = 'opencl_'+vendor+'_'+dev
-            print('Detected platform:', bm.platform)
-            print('Detected devices:', my_devices)
-            return bm
-
-    # stop the process if no device is detected
-    if bm.platform is None:
-        bm.platform = 'OpenCL or CUDA'
-    print(f'Error: No {bm.platform} device found.')
-    bm.success = False
-    return bm
 
 class Biomedisa(object):
      pass
@@ -215,6 +76,7 @@ if __name__ == '__main__':
         bm.denoise = True if any(x in sys.argv for x in ['--denoise','-d']) else False
         bm.platform = None
         bm.process = 'biomedisa_interpolation'
+        bm.django_env = False
         for i, val in enumerate(sys.argv):
             if val in ['--smooth','-s']:
                 bm.label.smooth = int(sys.argv[i+1])
@@ -232,7 +94,7 @@ if __name__ == '__main__':
         bm = _get_platform(bm)
 
         # smooth, uncertainty and allx are not supported for opencl
-        if bm.platform in ['opencl_CPU','opencl_GPU']:
+        if bm.success and bm.platform.split('_')[0] == 'opencl':
             if bm.label.smooth:
                 bm.label.smooth = 0
                 print('Warning: Smoothing is not yet supported for opencl. Process starts without smoothing.')
