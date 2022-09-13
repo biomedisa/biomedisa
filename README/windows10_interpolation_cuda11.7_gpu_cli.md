@@ -1,9 +1,9 @@
-# Smart Interpolation + Windows 10 + CUDA 11.6 (command-line-only)
+# Windows 10 + Smart Interpolation + CUDA 11.7 + GPU (command-line-only)
 
 - [Install Microsoft Visual Studio 2022](#install-microsoft-visual-studio-2022)
 - [Set Path Variables](#set-path-variables)
 - [Install NVIDIA driver](#install-nvidia-driver)
-- [Install CUDA Toolkit 11.6](#install-cuda-toolkit-11.0)
+- [Install CUDA Toolkit 11.7](#install-cuda-toolkit-11.7)
 - [Install Microsoft MPI](#install-microsoft-mpi)
 - [Install Anaconda3](#install-anaconda3)
 - [Install conda and pip packages](#install-conda-and-pip-packages)
@@ -33,8 +33,8 @@ Download and install [NVIDIA](https://www.nvidia.com/Download/Find.aspx?lang=en-
 Choose *Windows Driver Type:* Standard  
 Choose *Recommended/Beta:* Studio Driver
 
-#### Install CUDA Toolkit 11.6
-Download and install [CUDA Toolkit 11.6](https://developer.nvidia.com/cuda-downloads).
+#### Install CUDA Toolkit 11.7
+Download and install [CUDA Toolkit 11.7](https://developer.nvidia.com/cuda-downloads).
 
 #### Install Microsoft MPI
 Download and install [Microsoft MPI](https://www.microsoft.com/en-us/download/details.aspx?id=57467).
@@ -54,7 +54,6 @@ conda activate biomedisa
 conda install -c conda-forge numpy scipy colorama numba
 conda install -c conda-forge imagecodecs-lite tifffile scikit-image opencv Pillow
 conda install -c conda-forge nibabel medpy SimpleITK itk vtk numpy-stl matplotlib
-conda install -c anaconda h5py
 pip install -U pycuda mpi4py
 ```
 
@@ -76,3 +75,4 @@ Download test files from [Gallery](https://biomedisa.de/gallery/).
 ```
 python git\biomedisa\demo\biomedisa_interpolation.py Downloads\tumor.tif Downloads\labels.tumor.tif
 ```
+

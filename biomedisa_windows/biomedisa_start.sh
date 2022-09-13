@@ -33,11 +33,7 @@ then
     echo "Biomedisa is running."
     xdg-open http://localhost
 else
-    if [[ ${1: -1} = p ]]; then 
-        export CUDA_HOME=/usr/local/cuda-11.0
-    else
-        export CUDA_HOME=/usr/local/cuda-11.4
-    fi
+    export CUDA_HOME=/usr/local/cuda-11.3
     export LD_LIBRARY_PATH=${CUDA_HOME}/lib64
     export PATH=${CUDA_HOME}/bin:${PATH}
     export SCREENDIR=/home/biomedisa/.screen
@@ -60,3 +56,4 @@ else
 fi
 
 exit 0
+

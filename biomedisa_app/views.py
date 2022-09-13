@@ -101,7 +101,7 @@ from biomedisa_app.models import (UploadForm, Upload, StorageForm, Profile,
     ProcessedData)
 from biomedisa_features.create_slices import create_slices
 from biomedisa_features.biomedisa_helper import (load_data, save_data, img_to_uint8, id_generator,
-    convert_image, smooth_image, create_mesh, unique_file_path)
+    convert_image, smooth_image, create_mesh, unique_file_path, _get_platform)
 from django.utils.crypto import get_random_string
 from biomedisa_app.config import config
 from multiprocessing import Process
@@ -137,6 +137,9 @@ pk_list = [3856, 3857, 14244, \
 if config['OS'] == 'linux':
     from redis import Redis
     from rq import Queue, Worker
+
+class Biomedisa(object):
+     pass
 
 # 01. paraview
 def paraview(request):
@@ -818,6 +821,7 @@ def update_profile(request):
         user_form = UserForm(request.POST, instance=user)
         if user_form.is_valid():
             cd = user_form.cleaned_data
+            profile.platform = cd['platform']
             profile.notification = cd['notification']
             if request.user.is_superuser:
                 profile.storage_size = cd['storage_size']
@@ -829,7 +833,7 @@ def update_profile(request):
             messages.error(request, 'Please correct the error below.')
     else:
         repositories = Repository.objects.filter(users=user)
-        user_form = UserForm(instance=user, initial={'notification':profile.notification, 'storage_size':profile.storage_size})
+        user_form = UserForm(instance=user, initial={'notification':profile.notification, 'storage_size':profile.storage_size, 'platform':profile.platform})
         if not request.user.is_superuser:
             del user_form.fields['storage_size']
 
@@ -2037,6 +2041,10 @@ def init_random_walk(image, label, second_queue):
     # check if aborted
     if image.status > 0:
 
+        # create biomedisa
+        bm = Biomedisa()
+        bm.success = True
+
         # search for failed jobs in queue
         if config['OS'] == 'linux':
             q = Queue('check_queue', connection=Redis())
@@ -2052,52 +2060,69 @@ def init_random_walk(image, label, second_queue):
         cwd = config['PATH_TO_BIOMEDISA'] + '/biomedisa_features/random_walk/'
         workers_host = config['PATH_TO_BIOMEDISA'] + '/log/workers_host'
 
+        # get platform
+        if image.user.profile.platform:
+            bm.platform = image.user.profile.platform
+        else:
+            bm.platform = None
+
         # get configuration
         if second_queue:
             ngpus = str(config['SECOND_QUEUE_NGPUS'])
             host = config['SECOND_QUEUE_HOST']
             cluster = config['SECOND_QUEUE_CLUSTER']
         else:
+            bm = _get_platform(bm)
+
+            # stop process
+            if bm.success == False:
+                return_error(image, f'No {bm.platform} device found.')
+                raise Exception(f'No {bm.platform} device found.')
+
             ngpus = str(config['FIRST_QUEUE_NGPUS'])
             if ngpus == 'all':
-
-                # import pycuda
-                try:
-                    import pycuda.driver as drv
-                except ImportError:
-                    return_error(image, 'No NVIDIA GPUs detected.')
-                    raise ImportError('PyCUDA is not installed or no NVIDIA CUDA-Enabled GPUs detected.')
-                drv.init()
-
-                # get number of available gpus
-                ngpus = str(drv.Device.count())
-                if int(ngpus) == 0:
-                    return_error(image, 'No NVIDIA GPUs detected.')
-                    raise Exception('No NVIDIA CUDA-Enabled GPUs detected.')
-
+                ngpus = str(bm.available_devices)
             host = config['FIRST_QUEUE_HOST']
             cluster = config['FIRST_QUEUE_CLUSTER']
 
-        # run random walks
-        if config['OS'] == 'linux':
+        # command
+        cmd = ['mpiexec', '-np', ngpus, 'python3', 'rw_main.py', str(image.id), str(label.id)]
 
-            if host and cluster:
-                p = subprocess.Popen(['ssh', host, 'mpiexec', '-np', ngpus, '--hostfile', workers_host, 'python3', cwd+'rw_main.py', str(image.id), str(label.id)])
-            elif host:
-                p = subprocess.Popen(['ssh', host, 'mpiexec', '-np', ngpus, 'python3', cwd+'rw_main.py', str(image.id), str(label.id)])
-            elif cluster:
-                p = subprocess.Popen(['mpiexec', '-np', ngpus, '--hostfile', workers_host, 'python3', 'rw_main.py', str(image.id), str(label.id)], cwd=cwd)
-            else:
-                p = subprocess.Popen(['mpiexec', '-np', ngpus, 'python3', 'rw_main.py', str(image.id), str(label.id)], cwd=cwd)
+        # specifiy platform
+        if bm.platform:
+            cmd.append('-p')
+            cmd.append(bm.platform)
+            if bm.platform.split('_')[-1] == 'CPU':
+                cmd = cmd[3:]
 
-        elif config['OS'] == 'windows':
-            p = subprocess.Popen(['mpiexec', '-np', ngpus, 'python', '-u', 'rw_main.py', str(image.id), str(label.id)], cwd=cwd, stdout=subprocess.PIPE)
+        # run on windows
+        if config['OS'] == 'windows':
+
+            # edit command
+            cmd[cmd.index('python3')] = 'python'
+            cmd.insert(cmd.index('python')+1, '-u')
+
+            # start process
+            p = subprocess.Popen(cmd, cwd=cwd, stdout=subprocess.PIPE)
 
             # print output
             for line in iter(p.stdout.readline, b''):
                 line = str(line,'utf-8')
                 print(line.rstrip())
             p.stdout.close()
+
+        # run on linux
+        elif config['OS'] == 'linux':
+            if cluster and 'mpiexec' in cmd:
+                cmd.insert(3, '--hostfile')
+                cmd.insert(4, workers_host)
+            if host:
+                cmd.insert(0, 'ssh')
+                cmd.insert(1, host)
+                cmd[cmd.index('rw_main.py')] = cwd+'rw_main.py'
+                p = subprocess.Popen(cmd)
+            else:
+                p = subprocess.Popen(cmd, cwd=cwd)
 
         # wait for process to finish
         p.wait()

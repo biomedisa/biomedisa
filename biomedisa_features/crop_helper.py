@@ -27,14 +27,13 @@
 ##########################################################################
 
 import os
-from biomedisa_helper import img_resize, load_data, save_data
+from biomedisa_features.biomedisa_helper import img_resize, load_data, save_data
 from tensorflow.python.framework.errors_impl import ResourceExhaustedError
 from tensorflow.keras.applications import DenseNet121, densenet
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.models import Model, load_model
 from tensorflow.keras.layers import Input, GlobalAveragePooling2D, Dropout, Dense
 from tensorflow.keras.callbacks import Callback, ModelCheckpoint
-from tensorflow.keras.applications import DenseNet121, densenet
 from biomedisa_features.DataGeneratorCrop import DataGeneratorCrop
 from biomedisa_features.PredictDataGeneratorCrop import PredictDataGeneratorCrop
 import tensorflow as tf
@@ -42,10 +41,37 @@ import numpy as np
 from glob import glob
 import h5py
 import tarfile
+import matplotlib.pyplot as plt
 
 class InputError(Exception):
     def __init__(self, message=None):
         self.message = message
+
+def save_history(history, path_to_model):
+    # summarize history for accuracy
+    plt.plot(history['accuracy'])
+    plt.plot(history['val_accuracy'])
+    if 'val_loss' in history:
+        plt.legend(['train', 'test'], loc='upper left')
+    else:
+        plt.legend(['train', 'test (Dice)'], loc='upper left')
+    plt.title('model accuracy')
+    plt.ylabel('accuracy')
+    plt.xlabel('epoch')
+    plt.tight_layout()  # To prevent overlapping of subplots
+    plt.savefig(path_to_model.replace(".h5","_acc.png"), dpi=300, bbox_inches='tight')
+    plt.clf()
+    # summarize history for loss
+    plt.plot(history['loss'])
+    if 'val_loss' in history:
+        plt.plot(history['val_loss'])
+    plt.title('model loss')
+    plt.ylabel('loss')
+    plt.xlabel('epoch')
+    plt.legend(['train', 'test'], loc='upper left')
+    plt.tight_layout()  # To prevent overlapping of subplots
+    plt.savefig(path_to_model.replace(".h5","_loss.png"), dpi=300, bbox_inches='tight')
+    plt.clf()
 
 def make_densenet(inputshape):
     base_model = DenseNet121(
@@ -84,18 +110,22 @@ def load_cropping_training_data(normalize, img_list, label_list, x_scale, y_scal
         if (img_ext == '.tar' and label_ext == '.tar') or (os.path.isdir(img_name) and os.path.isdir(label_name)):
 
             # extract files if necessary
-            if img_ext == '.tar' and not os.path.exists(img_dir):
-                tar = tarfile.open(img_name)
-                tar.extractall(path=img_dir)
-                tar.close()
-            if label_ext == '.tar' and not os.path.exists(label_dir):
-                tar = tarfile.open(label_name)
-                tar.extractall(path=label_dir)
-                tar.close()
+            if img_ext == '.tar':
+                if not os.path.exists(img_dir):
+                    tar = tarfile.open(img_name)
+                    tar.extractall(path=img_dir)
+                    tar.close()
+                img_name = img_dir
+            if label_ext == '.tar':
+                if not os.path.exists(label_dir):
+                    tar = tarfile.open(label_name)
+                    tar.extractall(path=label_dir)
+                    tar.close()
+                label_name = label_dir
 
             for data_type in ['.am','.tif','.tiff','.hdr','.mhd','.mha','.nrrd','.nii','.nii.gz']:
-                tmp_img_names = glob(img_dir+'/**/*'+data_type, recursive=True)
-                tmp_label_names = glob(label_dir+'/**/*'+data_type, recursive=True)
+                tmp_img_names = glob(img_name+'/**/*'+data_type, recursive=True)
+                tmp_label_names = glob(label_name+'/**/*'+data_type, recursive=True)
                 tmp_img_names = sorted(tmp_img_names)
                 tmp_label_names = sorted(tmp_label_names)
                 img_names.extend(tmp_img_names)
@@ -211,25 +241,23 @@ def train_cropping(img, label, path_to_model, epochs, batch_size,
               'batch_size': batch_size,
               'n_classes': 2,
               'n_channels': channels,
-              'shuffle': True,
-              'augment': (flip_x, flip_y, flip_z, rotate)}
+              'shuffle': True}
 
     # validation data
     if np.any(img_val):
-        # img shape
         zsh_val = img_val.shape[0]
-
-        # list of IDs
         list_IDs_val_fg = list(np.where(label_val)[0])
         list_IDs_val_bg = list(np.where(label_val==False)[0])
+    else:
+        zsh_val = zsh
 
-        # parameters
-        params_val = {'dim': (ysh, xsh),
-                      'dim_img': (zsh_val, ysh, xsh),
-                      'batch_size': batch_size,
-                      'n_classes': 2,
-                      'n_channels': channels,
-                      'shuffle': True}
+    # validation parameters
+    params_val = {'dim': (ysh, xsh),
+                  'dim_img': (zsh_val, ysh, xsh),
+                  'batch_size': batch_size,
+                  'n_classes': 2,
+                  'n_channels': channels,
+                  'shuffle': False}
 
     # data generator
     if np.any(img_val):
@@ -242,7 +270,7 @@ def train_cropping(img, label, path_to_model, epochs, batch_size,
         list_IDs_val_fg = list(np.where(label[split_IDs:])[0] + split_IDs)
         list_IDs_val_bg = list(np.where(label[split_IDs:]==False)[0] + split_IDs)
         training_generator = DataGeneratorCrop(img, label, position, list_IDs_fg, list_IDs_bg, **params)
-        validation_generator = DataGeneratorCrop(img, label, position, list_IDs_val_fg, list_IDs_val_bg, **params)
+        validation_generator = DataGeneratorCrop(img, label, position, list_IDs_val_fg, list_IDs_val_bg, **params_val)
     else:
         training_generator = DataGeneratorCrop(img, label, position, list_IDs_fg, list_IDs_bg, **params)
         validation_generator = None
@@ -269,10 +297,14 @@ def train_cropping(img, label, path_to_model, epochs, batch_size,
                       optimizer= Adam(learning_rate=0.001),
                       metrics=['accuracy'])
     # train model
-    model.fit(training_generator,
+    history = model.fit(training_generator,
               validation_data=validation_generator,
               epochs=max(1,epochs//4),
               callbacks=checkpoint_cb)
+
+    # save results in figure on train end
+    if np.any(img_val) or validation_split:
+        save_history(history.history, path_to_model.replace(".h5","_cropping.h5"))
 
     # compile model for finetunning
     with strategy.scope():
@@ -283,10 +315,14 @@ def train_cropping(img, label, path_to_model, epochs, batch_size,
                       metrics=['accuracy'])
 
     # finetune model
-    model.fit(training_generator,
+    history = model.fit(training_generator,
               validation_data=validation_generator,
               epochs=max(1,epochs//4),
               callbacks=checkpoint_cb)
+
+    # save results in figure on train end
+    if np.any(img_val) or validation_split:
+        save_history(history.history, path_to_model.replace(".h5","_cropfine.h5"))
 
 def load_data_to_crop(path_to_img, x_scale, y_scale, z_scale,
                         normalize, mu, sig):
@@ -438,8 +474,8 @@ def crop_volume(img, path_to_volume, path_to_model, z_shape, y_shape, x_shape, b
 
 def load_and_train(normalize,path_to_img,path_to_labels,path_to_model,
                 epochs,batch_size,validation_split,x_scale,y_scale,z_scale,
-                flip_x,flip_y,flip_z,rotate,path_val_img=None,
-                path_val_labels=None,demo=False):
+                flip_x,flip_y,flip_z,rotate,path_val_img=[None],
+                path_val_labels=[None],demo=False):
 
     # load training data
     img_val, labelData_val, position_val = None, None, None
@@ -447,8 +483,8 @@ def load_and_train(normalize,path_to_img,path_to_labels,path_to_model,
                         path_to_img, path_to_labels, x_scale, y_scale, z_scale)
 
     # load validation data
-    if path_val_img and path_val_labels:
-        img_val, labelData_val, position_val, _, _, _, _ = load_cropping_training_data(normalize,
+    if any(path_val_img) and any(path_val_labels):
+        img_val, labelData_val, position_val, _, _, _, _, _ = load_cropping_training_data(normalize,
                             path_val_img, path_val_labels, x_scale, y_scale, z_scale, mu, sig)
 
     # force validation_split for large number of training images

@@ -26,11 +26,18 @@
 ##                                                                      ##
 ##########################################################################
 
-import django
-django.setup()
-from django.shortcuts import get_object_or_404
-from biomedisa_app.models import Upload
-from biomedisa_app.config import config
+try:
+    import django
+    django.setup()
+    from django.shortcuts import get_object_or_404
+    from biomedisa_app.models import Upload
+    from biomedisa_app.config import config
+    if config['OS'] == 'linux':
+        from redis import Redis
+        from rq import Queue
+except:
+    from biomedisa_app.config_example import config
+
 from biomedisa_features.amira_to_np.amira_helper import amira_to_np, np_to_amira
 from tifffile import imread, imwrite
 from medpy.io import load, save
@@ -49,10 +56,7 @@ import itk,vtk
 from vtk.util.numpy_support import vtk_to_numpy, numpy_to_vtk
 from stl import mesh
 import re
-
-if config['OS'] == 'linux':
-    from redis import Redis
-    from rq import Queue
+import math
 
 def img_resize(a, z_shape, y_shape, x_shape, interpolation=None):
     zsh, ysh, xsh = a.shape
@@ -157,6 +161,9 @@ def rgb2gray(img):
 
 def load_data_(path_to_data, process):
 
+    if os.path.isdir(path_to_data):
+        path_to_data = path_to_data + '.zip'
+
     extension = os.path.splitext(path_to_data)[1]
     if extension == '.gz':
         extension = '.nii.gz'
@@ -183,6 +190,12 @@ def load_data_(path_to_data, process):
 
     elif extension == '.zip':
         try:
+            # extract data if necessary
+            if not os.path.isdir(path_to_data[:-4]):
+                zip_ref = zipfile.ZipFile(path_to_data, 'r')
+                zip_ref.extractall(path=path_to_data[:-4])
+                zip_ref.close()
+
             files = glob.glob(path_to_data[:-4]+'/**/*', recursive=True)
             for name in files:
                 if os.path.isfile(name):
@@ -281,12 +294,15 @@ def load_data(path_to_data, process='None', return_extension=False):
         return data, header
 
 def _error_(bm, message):
-    Upload.objects.create(user=bm.image.user, project=bm.image.project, log=1, imageType=None, shortfilename=message)
-    bm.path_to_logfile = config['PATH_TO_BIOMEDISA'] + '/log/logfile.txt'
-    with open(bm.path_to_logfile, 'a') as logfile:
-        print('%s %s %s %s' %(time.ctime(), bm.image.user.username, bm.image.shortfilename, message), file=logfile)
-    from biomedisa_app.views import send_error_message
-    send_error_message(bm.image.user.username, bm.image.shortfilename, message)
+    if bm.django_env:
+        Upload.objects.create(user=bm.image.user, project=bm.image.project, log=1, imageType=None, shortfilename=message)
+        bm.path_to_logfile = config['PATH_TO_BIOMEDISA'] + '/log/logfile.txt'
+        with open(bm.path_to_logfile, 'a') as logfile:
+            print('%s %s %s %s' %(time.ctime(), bm.image.user.username, bm.image.shortfilename, message), file=logfile)
+        from biomedisa_app.views import send_error_message
+        send_error_message(bm.image.user.username, bm.image.shortfilename, message)
+    else:
+        print(message)
     bm.success = False
     return bm
 
@@ -312,10 +328,26 @@ def pre_processing(bm):
     if bm.data.shape != bm.labelData.shape:
         return _error_(bm, 'Image and label must have the same x,y,z-dimensions.')
 
-    # pre-process label data
-    bm.labelData = color_to_gray(bm.labelData)
-    bm.labelData = bm.labelData.astype(np.int32)
+    # get labels
     bm.allLabels = np.unique(bm.labelData)
+
+    if bm.django_env and np.any(bm.allLabels > 255):
+        return _error_(bm, 'No labels higher than 255 allowed.')
+
+    if bm.django_env and np.any(bm.allLabels < 0):
+        return _error_(bm, 'No negative labels allowed.')
+
+    if np.any(bm.allLabels > 255):
+        bm.labelData[bm.labelData > 255] = 0
+        index = np.argwhere(bm.allLabels > 255)
+        bm.allLabels = np.delete(bm.allLabels, index)
+        print('Warning: Only labels 0-255 are allowed. Labels higher than 255 will be removed.')
+    if np.any(bm.allLabels < 0):
+        bm.labelData[bm.labelData < 0] = 0
+        index = np.argwhere(bm.allLabels < 0)
+        bm.allLabels = np.delete(bm.allLabels, index)
+        print('Warning: Only labels 0-255 are allowed. Labels smaller than 0 will be removed.')
+    bm.labelData = bm.labelData.astype(np.uint8)
 
     # add background label if not existing
     if not np.any(bm.allLabels==0):
@@ -347,12 +379,6 @@ def pre_processing(bm):
 
     if bm.nol < 2:
         return _error_(bm, 'No labeled slices found.')
-
-    if np.any(bm.allLabels > 255):
-        return _error_(bm, 'No labels higher than 255 allowed.')
-
-    if np.any(bm.allLabels < 0):
-        return _error_(bm, 'No negative labels allowed.')
 
     bm.success = True
     return bm
@@ -711,3 +737,286 @@ def create_mesh(id):
             img.status = 0
             img.pid = 0
             img.save()
+
+def _get_platform(bm):
+
+    # import PyCUDA
+    if bm.platform in ['cuda', None]:
+        try:
+            import pycuda.driver as cuda
+            cuda.init()
+            bm.available_devices = cuda.Device.count()
+            bm.platform = 'cuda'
+            return bm
+        except:
+            pass
+
+    # import PyOpenCL
+    try:
+        import pyopencl as cl
+    except ImportError:
+        cl = None
+
+    # select the first detected device
+    if bm.platform is None and cl:
+        for vendor in ['NVIDIA', 'Intel', 'AMD', 'Apple']:
+            for dev, device_type in [('CPU',cl.device_type.CPU), ('GPU',cl.device_type.GPU)]:
+                all_platforms = cl.get_platforms()
+                my_devices = []
+                for p in all_platforms:
+                    if p.get_devices(device_type=device_type) and vendor in p.name:
+                        my_devices = p.get_devices(device_type=device_type)
+                if my_devices:
+                    bm.platform = 'opencl_'+vendor+'_'+dev
+                    if 'OMPI_COMMAND' in os.environ and dev == 'CPU':
+                        print("Error: OpenCL CPU does not support MPI. Start Biomedisa without 'mpirun' or 'mpiexec'.")
+                        bm.success = False
+                        return bm
+                    else:
+                        bm.available_devices = len(my_devices)
+                        print('Detected platform:', bm.platform)
+                        print('Detected devices:', my_devices)
+                        return bm
+
+    # explicitly select the OpenCL device
+    elif len(bm.platform.split('_')) == 3 and cl:
+        plat, vendor, dev = bm.platform.split('_')
+        device_type=cl.device_type.GPU if dev=='GPU' else cl.device_type.CPU
+        all_platforms = cl.get_platforms()
+        my_devices = []
+        for p in all_platforms:
+            if p.get_devices(device_type=device_type) and vendor in p.name:
+                my_devices = p.get_devices(device_type=device_type)
+        if my_devices:
+            if 'OMPI_COMMAND' in os.environ and dev == 'CPU':
+                print("Error: OpenCL CPU does not support MPI. Start Biomedisa without 'mpirun' or 'mpiexec'.")
+                bm.success = False
+                return bm
+            else:
+                bm.available_devices = len(my_devices)
+                print('Detected platform:', bm.platform)
+                print('Detected devices:', my_devices)
+                return bm
+
+    # stop the process if no device is detected
+    if bm.platform is None:
+        bm.platform = 'OpenCL or CUDA'
+    print(f'Error: No {bm.platform} device found.')
+    bm.success = False
+    return bm
+
+def _get_device(platform, dev_id):
+    import pyopencl as cl
+    plat, vendor, dev = platform.split('_')
+    device_type=cl.device_type.GPU if dev=='GPU' else cl.device_type.CPU
+    all_platforms = cl.get_platforms()
+    for p in all_platforms:
+        if p.get_devices(device_type=device_type) and vendor in p.name:
+            my_devices = p.get_devices(device_type=device_type)
+    context = cl.Context(devices=my_devices)
+    queue = cl.CommandQueue(context, my_devices[dev_id])
+    return context, queue
+
+def read_labeled_slices(arr):
+    data = np.zeros((0, arr.shape[1], arr.shape[2]), dtype=np.int32)
+    indices = []
+    i = 0
+    for k, slc in enumerate(arr[:]):
+        if np.any(slc):
+            data = np.append(data, [arr[k]], axis=0)
+            indices.append(i)
+        i += 1
+    return indices, data
+
+def read_labeled_slices_allx(arr, ax):
+    gradient = np.zeros(arr.shape, dtype=np.int8)
+    ones = np.zeros_like(gradient)
+    ones[arr != 0] = 1
+    tmp = ones[:,:-1] - ones[:,1:]
+    tmp = np.abs(tmp)
+    gradient[:,:-1] += tmp
+    gradient[:,1:] += tmp
+    ones[gradient == 2] = 0
+    gradient.fill(0)
+    tmp = ones[:,:,:-1] - ones[:,:,1:]
+    tmp = np.abs(tmp)
+    gradient[:,:,:-1] += tmp
+    gradient[:,:,1:] += tmp
+    ones[gradient == 2] = 0
+    indices = []
+    data = np.zeros((0, arr.shape[1], arr.shape[2]), dtype=np.int32)
+    for k, slc in enumerate(ones[:]):
+        if np.any(slc):
+            data = np.append(data, [arr[k]], axis=0)
+            indices.append((k, ax))
+    return indices, data
+
+def read_indices_allx(arr, ax):
+    gradient = np.zeros(arr.shape, dtype=np.int8)
+    ones = np.zeros_like(gradient)
+    ones[arr != 0] = 1
+    tmp = ones[:,:-1] - ones[:,1:]
+    tmp = np.abs(tmp)
+    gradient[:,:-1] += tmp
+    gradient[:,1:] += tmp
+    ones[gradient == 2] = 0
+    gradient.fill(0)
+    tmp = ones[:,:,:-1] - ones[:,:,1:]
+    tmp = np.abs(tmp)
+    gradient[:,:,:-1] += tmp
+    gradient[:,:,1:] += tmp
+    ones[gradient == 2] = 0
+    indices = []
+    for k, slc in enumerate(ones[:]):
+        if np.any(slc):
+            indices.append((k, ax))
+    return indices
+
+def read_labeled_slices_large(arr):
+    data = np.zeros((0, arr.shape[1], arr.shape[2]), dtype=np.int32)
+    indices = []
+    i = 0
+    while i < arr.shape[0]:
+        slc = arr[i]
+        if np.any(slc):
+            data = np.append(data, [arr[i]], axis=0)
+            indices.append(i)
+            i += 5
+        else:
+            i += 1
+    return indices, data
+
+def read_labeled_slices_allx_large(arr):
+    gradient = np.zeros(arr.shape, dtype=np.int8)
+    ones = np.zeros_like(gradient)
+    ones[arr > 0] = 1
+    tmp = ones[:,:-1] - ones[:,1:]
+    tmp = np.abs(tmp)
+    gradient[:,:-1] += tmp
+    gradient[:,1:] += tmp
+    ones[gradient == 2] = 0
+    gradient.fill(0)
+    tmp = ones[:,:,:-1] - ones[:,:,1:]
+    tmp = np.abs(tmp)
+    gradient[:,:,:-1] += tmp
+    gradient[:,:,1:] += tmp
+    ones[gradient == 2] = 0
+    indices = []
+    data = np.zeros((0, arr.shape[1], arr.shape[2]), dtype=np.int32)
+    for k, slc in enumerate(ones[:]):
+        if np.any(slc):
+            data = np.append(data, [arr[k]], axis=0)
+            indices.append(k)
+    return indices, data
+
+def predict_blocksize(bm):
+    zsh, ysh, xsh = bm.labelData.shape
+    argmin_z, argmax_z, argmin_y, argmax_y, argmin_x, argmax_x = zsh, 0, ysh, 0, xsh, 0
+    for k in range(zsh):
+        y, x = np.nonzero(bm.labelData[k])
+        if x.any():
+            argmin_x = min(argmin_x, np.amin(x))
+            argmax_x = max(argmax_x, np.amax(x))
+            argmin_y = min(argmin_y, np.amin(y))
+            argmax_y = max(argmax_y, np.amax(y))
+            argmin_z = min(argmin_z, k)
+            argmax_z = max(argmax_z, k)
+    zmin, zmax = argmin_z, argmax_z
+    bm.argmin_x = argmin_x - 100 if argmin_x - 100 > 0 else 0
+    bm.argmax_x = argmax_x + 100 if argmax_x + 100 < xsh else xsh
+    bm.argmin_y = argmin_y - 100 if argmin_y - 100 > 0 else 0
+    bm.argmax_y = argmax_y + 100 if argmax_y + 100 < ysh else ysh
+    bm.argmin_z = argmin_z - 100 if argmin_z - 100 > 0 else 0
+    bm.argmax_z = argmax_z + 100 if argmax_z + 100 < zsh else zsh
+    return bm
+
+def splitlargedata(data):
+    dataMemory = data.nbytes
+    dataListe = []
+    if dataMemory > 1500000000:
+        mod = dataMemory / float(1500000000)
+        mod2 = int(math.ceil(mod))
+        mod3 = divmod(data.shape[0], mod2)[0]
+        for k in range(mod2):
+            dataListe.append(data[mod3*k:mod3*(k+1)])
+        dataListe.append(data[mod3*mod2:])
+    else:
+        dataListe.append(data)
+    return dataListe
+
+def sendToChildLarge(comm, indices, dest, dataListe, Labels, nbrw, sorw, blocks,
+                allx, allLabels, smooth, uncertainty, platform):
+    from mpi4py import MPI
+    comm.send(len(dataListe), dest=dest, tag=0)
+    for k, tmp in enumerate(dataListe):
+        tmp = tmp.copy(order='C')
+        comm.send([tmp.shape[0], tmp.shape[1], tmp.shape[2], tmp.dtype], dest=dest, tag=10+(2*k))
+        if tmp.dtype == 'uint8':
+            comm.Send([tmp, MPI.BYTE], dest=dest, tag=10+(2*k+1))
+        else:
+            comm.Send([tmp, MPI.FLOAT], dest=dest, tag=10+(2*k+1))
+
+    comm.send([nbrw, sorw, allx, smooth, uncertainty, platform], dest=dest, tag=1)
+
+    if allx:
+        for k in range(3):
+            labelsListe = splitlargedata(Labels[k])
+            comm.send(len(labelsListe), dest=dest, tag=2+k)
+            for l, tmp in enumerate(labelsListe):
+                tmp = tmp.copy(order='C')
+                comm.send([tmp.shape[0], tmp.shape[1], tmp.shape[2]], dest=dest, tag=100+(2*k))
+                comm.Send([tmp, MPI.INT], dest=dest, tag=100+(2*k+1))
+    else:
+        labelsListe = splitlargedata(Labels)
+        comm.send(len(labelsListe), dest=dest, tag=2)
+        for k, tmp in enumerate(labelsListe):
+            tmp = tmp.copy(order='C')
+            comm.send([tmp.shape[0], tmp.shape[1], tmp.shape[2]], dest=dest, tag=100+(2*k))
+            comm.Send([tmp, MPI.INT], dest=dest, tag=100+(2*k+1))
+
+    comm.send(allLabels, dest=dest, tag=99)
+    comm.send(indices, dest=dest, tag=8)
+    comm.send(blocks, dest=dest, tag=9)
+
+def sendToChild(comm, indices, indices_child, dest, data, Labels, nbrw, sorw, allx, platform):
+    from mpi4py import MPI
+    data = data.copy(order='C')
+    comm.send([data.shape[0], data.shape[1], data.shape[2], data.dtype], dest=dest, tag=0)
+    if data.dtype == 'uint8':
+        comm.Send([data, MPI.BYTE], dest=dest, tag=1)
+    else:
+        comm.Send([data, MPI.FLOAT], dest=dest, tag=1)
+    comm.send([allx, nbrw, sorw, platform], dest=dest, tag=2)
+    if allx:
+        for k in range(3):
+            labels = Labels[k].copy(order='C')
+            comm.send([labels.shape[0], labels.shape[1], labels.shape[2]], dest=dest, tag=k+3)
+            comm.Send([labels, MPI.INT], dest=dest, tag=k+6)
+    else:
+        labels = Labels.copy(order='C')
+        comm.send([labels.shape[0], labels.shape[1], labels.shape[2]], dest=dest, tag=3)
+        comm.Send([labels, MPI.INT], dest=dest, tag=6)
+    comm.send(indices, dest=dest, tag=9)
+    comm.send(indices_child, dest=dest, tag=10)
+
+def _split_indices(indices, ngpus):
+    ngpus = ngpus if ngpus < len(indices) else len(indices)
+    nindices = len(indices)
+    parts = []
+    for i in range(0, ngpus):
+        slice_idx = indices[i]
+        parts.append([slice_idx])
+    if ngpus < nindices:
+        for i in range(ngpus, nindices):
+            gid = i % ngpus
+            slice_idx = indices[i]
+            parts[gid].append(slice_idx)
+    return parts
+
+def get_labels(pre_final, labels):
+    numos = np.unique(pre_final)
+    final = np.zeros_like(pre_final)
+    for k in numos[1:]:
+        final[pre_final == k] = labels[k]
+    return final
+

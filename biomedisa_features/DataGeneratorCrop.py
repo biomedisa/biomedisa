@@ -28,41 +28,22 @@
 
 import numpy as np
 import tensorflow as tf
-import numba
+from scipy.ndimage import gaussian_filter, map_coordinates
 
-@numba.jit(nopython=True)#parallel=True
-def rotate_patch(src,trg,k,l,m,cos_a,sin_a,z_patch,y_patch,x_patch,imageHeight,imageWidth):
-    for y in range(l,l+y_patch):
-        yA = y - imageHeight/2
-        for x in range(m,m+x_patch):
-            xA = x - imageWidth/2
-            xR = xA * cos_a - yA * sin_a
-            yR = xA * sin_a + yA * cos_a
-            src_x = xR + imageWidth/2
-            src_y = yR + imageHeight/2
-            # bilinear interpolation
-            src_x0 = float(int(src_x))
-            src_x1 = src_x0 + 1
-            src_y0 = float(int(src_y))
-            src_y1 = src_y0 + 1
-            sx = src_x - src_x0
-            sy = src_y - src_y0
-            idx_src_x0 = int(min(max(0,src_x0),imageWidth-1))
-            idx_src_x1 = int(min(max(0,src_x1),imageWidth-1))
-            idx_src_y0 = int(min(max(0,src_y0),imageHeight-1))
-            idx_src_y1 = int(min(max(0,src_y1),imageHeight-1))
-            for z in range(k,k+z_patch):
-                val  = (1-sy) * (1-sx) * float(src[z,idx_src_y0,idx_src_x0])
-                val += (sy) * (1-sx) * float(src[z,idx_src_y1,idx_src_x0])
-                val += (1-sy) * (sx) * float(src[z,idx_src_y0,idx_src_x1])
-                val += (sy) * (sx) * float(src[z,idx_src_y1,idx_src_x1])
-                trg[z-k,y-l,x-m] = val
-    return trg
+def elastic_transform(image, alpha=100, sigma=20):
+    zsh, ysh, xsh = image.shape
+    dx = gaussian_filter((np.random.rand(ysh, xsh) * 2 - 1) * alpha, sigma)
+    dy = gaussian_filter((np.random.rand(ysh, xsh) * 2 - 1) * alpha, sigma)
+    y, x = np.meshgrid(np.arange(ysh), np.arange(xsh), indexing='ij')
+    indices = np.reshape(y+dy, (-1, 1)), np.reshape(x+dx, (-1, 1))
+    for k in range(zsh):
+        image[k] = map_coordinates(image[k], indices, order=1, mode='reflect').reshape(ysh, xsh)
+    return image
 
 class DataGeneratorCrop(tf.keras.utils.Sequence):
     'Generates data for Keras'
     def __init__(self, img, label, position, list_IDs_fg, list_IDs_bg, batch_size=32, dim=(32,32,32),
-                 dim_img=(32,32,32), n_channels=3, n_classes=2, shuffle=True, augment=(False,False,False,0)):
+                 dim_img=(32,32,32), n_channels=3, n_classes=2, shuffle=True):
         'Initialization'
         self.dim = dim
         self.dim_img = dim_img
@@ -75,7 +56,6 @@ class DataGeneratorCrop(tf.keras.utils.Sequence):
         self.n_channels = n_channels
         self.n_classes = n_classes
         self.shuffle = shuffle
-        self.augment = augment
         self.on_epoch_end()
 
     def __len__(self):
@@ -133,51 +113,11 @@ class DataGeneratorCrop(tf.keras.utils.Sequence):
         # Initialization
         X = np.empty((self.batch_size, *self.dim, self.n_channels), dtype=np.uint8)
         y = np.empty((self.batch_size,), dtype=np.int32)
-        tmp_X = np.empty((*self.dim, self.n_channels), dtype=np.uint8)
-        tmp_y = np.empty(1, dtype=np.int32)
-
-        # get augmentation parameter
-        flip_x, flip_y, flip_z, rotate = self.augment
-        n_aug = np.sum([flip_z, flip_y, flip_x])
-        flips =  np.where([flip_z, flip_y, flip_x])[0]
-
-        # create random angles
-        if rotate:
-            angle = np.random.uniform(-1,1,self.batch_size) * 3.1416/180*rotate
-            cos_angle = np.cos(angle)
-            sin_angle = np.sin(angle)
 
         # Generate data
         for i, ID in enumerate(list_IDs_temp):
-
-            # get patch indices
-            k = ID
-            l = self.dim_img[1]
-            m = self.dim_img[2]
-
-            # rotate patch
-            if rotate:
-                cos_a = cos_angle[i]
-                sin_a = sin_angle[i]
-                tmp_X = rotate_patch(self.img,tmp_X,k,l,m,cos_a,sin_a,
-                    self.dim[0],self.dim[1],
-                    self.dim_img[1],self.dim_img[2])
-                tmp_y = rotate_patch(self.label,tmp_y,k,l,m,cos_a,sin_a,
-                    self.dim[0],self.dim[1],
-                    self.dim_img[1],self.dim_img[2])
-            else:
-                tmp_X = self.img[ID,...]
-                tmp_y = self.label[ID]
-
-            # flip patch
-            v = np.random.randint(n_aug+1)
-            if np.any([flip_x, flip_y, flip_z]) and v>0:
-                flip = flips[v-1]
-                X[i,...] = np.flip(tmp_X,flip)
-                y[i] = np.flip(tmp_y,flip)
-            else:
-                X[i,...] = tmp_X
-                y[i] = tmp_y
+            X[i,...] = self.img[ID,...]
+            y[i] = self.label[ID]
 
         return X, y
 

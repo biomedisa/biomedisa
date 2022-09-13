@@ -11,11 +11,7 @@ REM get last update
 FOR /F "tokens=* delims=" %%x in (last_update.txt) DO (set OLD_DATE=%%x)
 
 REM get latest Biomedisa version
-if %VERSION:~-1% == p (
-    curl https://biomedisa.org/media/latest_version_p.txt --output latest_version.txt
-) else (
-    curl https://biomedisa.org/media/latest_version.txt --output latest_version.txt
-)
+curl https://biomedisa.org/media/latest_version.txt --output latest_version.txt
 FOR /F "tokens=* delims=" %%v in (latest_version.txt) DO (set LATEST_VERSION=%%v)
 
 REM update and run biomedisa engine

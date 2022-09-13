@@ -216,7 +216,8 @@ def max_to_label(a, walkmap, final, blockmin, blockmax, segment):
                     final[k-blockmin,l,m] = segment
     return walkmap, final
 
-def walk(comm, raw, slices, indices, nbrw, sorw, blockmin, blockmax, name, allLabels, smooth, uncertainty, ctx, queue):
+def walk(comm, raw, slices, indices, nbrw, sorw, blockmin, blockmax, name,
+         allLabels, smooth, uncertainty, ctx, queue, platform):
 
     # get rank and size of mpi process
     rank = comm.Get_rank()

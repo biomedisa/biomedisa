@@ -26,66 +26,14 @@
 ##                                                                      ##
 ##########################################################################
 
-from biomedisa_helper import save_data
+from biomedisa_features.biomedisa_helper import (_get_device, save_data, sendToChild,
+    _split_indices, get_labels)
 from multiprocessing import Process
 from mpi4py import MPI
 import os, sys
 import numpy as np
 import time
 import socket
-
-def sendToChild(comm, indices, indices_child, dest, data, Labels, nbrw, sorw, allx, platform):
-    data = data.copy(order='C')
-    comm.send([data.shape[0], data.shape[1], data.shape[2], data.dtype], dest=dest, tag=0)
-    if data.dtype == 'uint8':
-        comm.Send([data, MPI.BYTE], dest=dest, tag=1)
-    else:
-        comm.Send([data, MPI.FLOAT], dest=dest, tag=1)
-    comm.send([allx, nbrw, sorw, platform], dest=dest, tag=2)
-    if allx:
-        for k in range(3):
-            labels = Labels[k].copy(order='C')
-            comm.send([labels.shape[0], labels.shape[1], labels.shape[2]], dest=dest, tag=k+3)
-            comm.Send([labels, MPI.INT], dest=dest, tag=k+6)
-    else:
-        labels = Labels.copy(order='C')
-        comm.send([labels.shape[0], labels.shape[1], labels.shape[2]], dest=dest, tag=3)
-        comm.Send([labels, MPI.INT], dest=dest, tag=6)
-    comm.send(indices, dest=dest, tag=9)
-    comm.send(indices_child, dest=dest, tag=10)
-
-def _split_indices(indices, ngpus):
-    ngpus = ngpus if ngpus < len(indices) else len(indices)
-    nindices = len(indices)
-    parts = []
-    for i in range(0, ngpus):
-        slice_idx = indices[i]
-        parts.append([slice_idx])
-    if ngpus < nindices:
-        for i in range(ngpus, nindices):
-            gid = i % ngpus
-            slice_idx = indices[i]
-            parts[gid].append(slice_idx)
-    return parts
-
-def get_labels(pre_final, labels):
-    numos = np.unique(pre_final)
-    final = np.zeros_like(pre_final)
-    for k in numos[1:]:
-        final[pre_final == k] = labels[k]
-    return final
-
-def _get_device(platform, dev_id):
-    import pyopencl as cl
-    plat, vendor, dev = platform.split('_')
-    device_type=cl.device_type.GPU if dev=='GPU' else cl.device_type.CPU
-    all_platforms = cl.get_platforms()
-    for p in all_platforms:
-        if p.get_devices(device_type=device_type) and vendor in p.name:
-            my_devices = p.get_devices(device_type=device_type)
-    context = cl.Context(devices=my_devices)
-    queue = cl.CommandQueue(context, my_devices[dev_id])
-    return context, queue
 
 def _diffusion_child(comm, bm=None):
 

@@ -26,7 +26,7 @@
 ##                                                                      ##
 ##########################################################################
 
-from biomedisa_helper import img_resize, load_data, save_data
+from biomedisa_features.biomedisa_helper import img_resize, load_data, save_data
 from tensorflow.keras.optimizers import SGD
 from tensorflow.keras.models import Model, load_model
 from tensorflow.keras.layers import (
@@ -294,18 +294,22 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
         if (img_ext == '.tar' and label_ext == '.tar') or (os.path.isdir(img_name) and os.path.isdir(label_name)):
 
             # extract files if necessary
-            if img_ext == '.tar' and not os.path.exists(img_dir):
-                tar = tarfile.open(img_name)
-                tar.extractall(path=img_dir)
-                tar.close()
-            if label_ext == '.tar' and not os.path.exists(label_dir):
-                tar = tarfile.open(label_name)
-                tar.extractall(path=label_dir)
-                tar.close()
+            if img_ext == '.tar':
+                if not os.path.exists(img_dir):
+                    tar = tarfile.open(img_name)
+                    tar.extractall(path=img_dir)
+                    tar.close()
+                img_name = img_dir
+            if label_ext == '.tar':
+                if not os.path.exists(label_dir):
+                    tar = tarfile.open(label_name)
+                    tar.extractall(path=label_dir)
+                    tar.close()
+                label_name = label_dir
 
             for data_type in ['.am','.tif','.tiff','.hdr','.mhd','.mha','.nrrd','.nii','.nii.gz']:
-                tmp_img_names = glob(img_dir+'/**/*'+data_type, recursive=True)
-                tmp_label_names = glob(label_dir+'/**/*'+data_type, recursive=True)
+                tmp_img_names = glob(img_name+'/**/*'+data_type, recursive=True)
+                tmp_label_names = glob(label_name+'/**/*'+data_type, recursive=True)
                 tmp_img_names = sorted(tmp_img_names)
                 tmp_label_names = sorted(tmp_label_names)
                 img_names.extend(tmp_img_names)
@@ -557,7 +561,7 @@ def train_semantic_segmentation(normalize, path_to_img, path_to_labels, x_scale,
     zsh, ysh, xsh = img.shape
 
     # validation data
-    if path_val_img:
+    if any(path_val_img):
         img_val, label_val, position_val, _, _, _, _, _ = load_training_data(normalize,
                         path_val_img, path_val_labels, channels, x_scale, y_scale, z_scale, crop_data, configuration_data, allLabels)
 
@@ -582,7 +586,7 @@ def train_semantic_segmentation(normalize, path_to_img, path_to_labels, x_scale,
             for m in range(0, xsh-x_patch+1, stride_size):
                 list_IDs.append(k*ysh*xsh+l*xsh+m)
 
-    if path_val_img or validation_split:
+    if any(path_val_img) or validation_split:
 
         # img_val shape
         zsh_val, ysh_val, xsh_val = img_val.shape
@@ -618,7 +622,7 @@ def train_semantic_segmentation(normalize, path_to_img, path_to_labels, x_scale,
     # data generator
     validation_generator = None
     training_generator = DataGenerator(img, label, position, list_IDs, counts, True, **params)
-    if path_val_img or validation_split:
+    if any(path_val_img) or validation_split:
         if val_tf:
             params['batch_size'] = validation_batch_size
             params['dim_img'] = (zsh_val, ysh_val, xsh_val)
@@ -651,7 +655,7 @@ def train_semantic_segmentation(normalize, path_to_img, path_to_labels, x_scale,
     meta_data = MetaData(path_to_model, configuration_data, allLabels, extension, header, crop_data, cropping_weights, cropping_config)
 
     # model checkpoint
-    if path_val_img or validation_split:
+    if any(path_val_img) or validation_split:
         if val_tf:
             model_checkpoint_callback = ModelCheckpoint(
                 filepath=str(path_to_model),
@@ -674,7 +678,7 @@ def train_semantic_segmentation(normalize, path_to_img, path_to_labels, x_scale,
               callbacks=callbacks)
 
     # save results in figure on train end
-    if path_val_img or validation_split:
+    if any(path_val_img) or validation_split:
         if val_tf:
             save_history(history.history, path_to_model)
 

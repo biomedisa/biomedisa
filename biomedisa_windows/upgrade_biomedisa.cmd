@@ -4,11 +4,7 @@ REM get current Biomedisa version
 FOR /F "tokens=* delims=" %%v in (version.txt) DO (set OLD_VERSION=%%v)
 
 REM get latest Biomedisa version
-if %OLD_VERSION:~-1% == p (
-    curl https://biomedisa.org/media/latest_version_p.txt --output latest_version.txt
-) else (
-    curl https://biomedisa.org/media/latest_version.txt --output latest_version.txt
-)
+curl https://biomedisa.org/media/latest_version.txt --output latest_version.txt
 FOR /F "tokens=* delims=" %%v in (latest_version.txt) DO (set VERSION=%%v)
 
 REM get current date
@@ -21,6 +17,9 @@ wsl -u biomedisa -d %VERSION% touch installation_exists.txt
 REM check if new version is available
 if %VERSION% == %OLD_VERSION% (
 echo Biomedisa is already the latest version.
+if exist installation_exists.txt (
+    del installation_exists.txt
+    )
 PAUSE
 
 ) else if exist installation_exists.txt (

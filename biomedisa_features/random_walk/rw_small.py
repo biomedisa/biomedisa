@@ -33,13 +33,12 @@ from django.shortcuts import get_object_or_404
 
 from biomedisa_app.models import Upload, Profile
 from biomedisa_app.views import send_notification
-from biomedisa_features.biomedisa_helper import save_data, unique_file_path
+from biomedisa_features.biomedisa_helper import (_get_device, save_data, unique_file_path,
+    sendToChild, _split_indices, get_labels)
 from biomedisa_features.active_contour import active_contour
 from biomedisa_features.remove_outlier import remove_outlier
 from biomedisa_features.create_slices import create_slices
 from biomedisa_app.config import config
-from biomedisa_features.random_walk.gpu_kernels import (_build_kernel_uncertainty,
-        _build_kernel_max, _build_update_gpu, _build_curvature_gpu)
 
 from multiprocessing import Process
 from mpi4py import MPI
@@ -47,53 +46,10 @@ import os, sys
 import numpy as np
 import time
 import socket
-import pycuda.driver as cuda
-import pycuda.gpuarray as gpuarray
 
 if config['OS'] == 'linux':
     from redis import Redis
     from rq import Queue
-
-def sendToChild(comm, indices, indices_child, dest, data, Labels, nbrw, sorw, allx):
-    data = data.copy(order='C')
-    comm.send([data.shape[0], data.shape[1], data.shape[2], data.dtype], dest=dest, tag=0)
-    if data.dtype == 'uint8':
-        comm.Send([data, MPI.BYTE], dest=dest, tag=1)
-    else:
-        comm.Send([data, MPI.FLOAT], dest=dest, tag=1)
-    comm.send([allx, nbrw, sorw], dest=dest, tag=2)
-    if allx:
-        for k in range(3):
-            labels = Labels[k].copy(order='C')
-            comm.send([labels.shape[0], labels.shape[1], labels.shape[2]], dest=dest, tag=k+3)
-            comm.Send([labels, MPI.INT], dest=dest, tag=k+6)
-    else:
-        labels = Labels.copy(order='C')
-        comm.send([labels.shape[0], labels.shape[1], labels.shape[2]], dest=dest, tag=3)
-        comm.Send([labels, MPI.INT], dest=dest, tag=6)
-    comm.send(indices, dest=dest, tag=9)
-    comm.send(indices_child, dest=dest, tag=10)
-
-def _split_indices(indices, ngpus):
-    ngpus = ngpus if ngpus < len(indices) else len(indices)
-    nindices = len(indices)
-    parts = []
-    for i in range(0, ngpus):
-        slice_idx = indices[i]
-        parts.append([slice_idx])
-    if ngpus < nindices:
-        for i in range(ngpus, nindices):
-            gid = i % ngpus
-            slice_idx = indices[i]
-            parts[gid].append(slice_idx)
-    return parts
-
-def get_labels(pre_final, labels):
-    numos = np.unique(pre_final)
-    final = np.zeros_like(pre_final)
-    for k in numos[1:]:
-        final[pre_final == k] = labels[k]
-    return final
 
 def _diffusion_child(comm, bm=None):
 
@@ -112,19 +68,25 @@ def _diffusion_child(comm, bm=None):
 
         # send data to GPUs
         for k in range(1, ngpus):
-            sendToChild(comm, bm.indices, indices_split[k], k, bm.data, bm.labels, bm.label.nbrw, bm.label.sorw, bm.label.allaxis)
+            sendToChild(comm, bm.indices, indices_split[k], k, bm.data, bm.labels, bm.label.nbrw,
+                        bm.label.sorw, bm.label.allaxis, bm.platform)
 
-        # init cuda device
-        cuda.init()
-        dev = cuda.Device(rank)
-        ctx = dev.make_context()
-        queue = None
-
-        # select the desired script
-        if bm.label.allaxis:
-            from pycuda_small_allx import walk
+        # select platform
+        if bm.platform == 'cuda':
+            import pycuda.driver as cuda
+            import pycuda.gpuarray as gpuarray
+            from biomedisa_features.random_walk.gpu_kernels import (_build_kernel_uncertainty, 
+                        _build_kernel_max, _build_update_gpu, _build_curvature_gpu)
+            cuda.init()
+            dev = cuda.Device(rank)
+            ctx, queue = dev.make_context(), None
+            if bm.label.allaxis:
+                from biomedisa_features.random_walk.pycuda_small_allx import walk
+            else:
+                from biomedisa_features.random_walk.pycuda_small import walk
         else:
-            from pycuda_small import walk
+            ctx, queue = _get_device(bm.platform, rank)
+            from biomedisa_features.random_walk.pyopencl_small import walk
 
         # run random walks
         tic = time.time()
@@ -206,8 +168,9 @@ def _diffusion_child(comm, bm=None):
                 bm.label.uncertainty = False
 
         # free device
-        ctx.pop()
-        del ctx
+        if bm.platform == 'cuda':
+            ctx.pop()
+            del ctx
 
         # argmax
         final_zero = np.argmax(final_zero, axis=0).astype(np.uint8)
@@ -295,7 +258,7 @@ def _diffusion_child(comm, bm=None):
             comm.Recv([data, MPI.BYTE], source=0, tag=1)
         else:
             comm.Recv([data, MPI.FLOAT], source=0, tag=1)
-        allx, nbrw, sorw = comm.recv(source=0, tag=2)
+        allx, nbrw, sorw, platform = comm.recv(source=0, tag=2)
         if allx:
             labels = []
             for k in range(3):
@@ -310,17 +273,19 @@ def _diffusion_child(comm, bm=None):
         indices = comm.recv(source=0, tag=9)
         indices_child = comm.recv(source=0, tag=10)
 
-        # init cuda device
-        cuda.init()
-        dev = cuda.Device(rank)
-        ctx = dev.make_context()
-        queue = None
-
-        # select the desired script
-        if allx:
-            from pycuda_small_allx import walk
+        # select platform
+        if platform == 'cuda':
+            import pycuda.driver as cuda
+            cuda.init()
+            dev = cuda.Device(rank)
+            ctx, queue = dev.make_context(), None
+            if allx:
+                from biomedisa_features.random_walk.pycuda_small_allx import walk
+            else:
+                from biomedisa_features.random_walk.pycuda_small import walk
         else:
-            from pycuda_small import walk
+            ctx, queue = _get_device(platform, rank)
+            from biomedisa_features.random_walk.pyopencl_small import walk
 
         # run random walks
         tic = time.time()
@@ -329,8 +294,9 @@ def _diffusion_child(comm, bm=None):
         print('Walktime_%s: ' %(name) + str(int(tac - tic)) + ' ' + 'seconds')
 
         # free device
-        ctx.pop()
-        del ctx
+        if platform == 'cuda':
+            ctx.pop()
+            del ctx
 
         # send data
         for k in range(walkmap.shape[0]):

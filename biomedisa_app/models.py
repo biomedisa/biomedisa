@@ -47,13 +47,15 @@ class Profile(models.Model):
     notification = models.BooleanField(default=True)
     activation_key = models.TextField(null=True)
     key_expires = models.DateTimeField(null=True)
+    platform = models.CharField(default='', max_length=20)
 
 class UserForm(forms.ModelForm):
     notification = forms.BooleanField(required=False)
     storage_size = forms.IntegerField(required=False)
+    platform = forms.CharField(required=False)
     class Meta:
         model = User
-        fields = ('first_name', 'last_name', 'email', 'storage_size', 'notification')
+        fields = ('first_name', 'last_name', 'email', 'platform', 'storage_size', 'notification')
 
 def user_directory_path(instance, filename):
     filename = filename.encode('ascii', 'ignore').decode()
