@@ -81,12 +81,17 @@ mpiexec -np 4 python -u git\biomedisa\demo\biomedisa_interpolation.py Downloads\
 
 Obtain uncertainty and smoothing as optional results.
 ```
-python3 ~/git/biomedisa/demo/biomedisa_interpolation.py ~/Downloads/tumor.tif ~/Downloads/labels.tumor.tif -uq -s 100
+python3 ~/git/biomedisa/demo/biomedisa_interpolation.py ~/Downloads/tumor.tif ~/Downloads/labels.tumor.tif --uncertainty --smooth 100
 ```
 
 Use pre-segmentation with different orientations (not exclusively xy-plane).
 ```
-python3 ~/git/biomedisa/demo/biomedisa_interpolation.py 'path_to_image' 'path_to_labels' -allx
+python3 ~/git/biomedisa/demo/biomedisa_interpolation.py 'path_to_image' 'path_to_labels' --allaxis
+```
+
+For more information, type
+```
+python3 ~/git/biomedisa/demo/biomedisa_interpolation.py --help
 ```
 
 #### Memory Error
@@ -98,7 +103,7 @@ Where `-n` is the number of GPUs and each axis (`x`,`y` and `z`) is divided into
 
 # AI example
 
-#### Automatic segmentation based on a trained network
+#### Automatic segmentation using a trained network
 Download a trained neural network and a test image from the [gallery](https://biomedisa.org/gallery/) or directly as follows:
 ```
 wget --no-check-certificate https://biomedisa.org/download/demo/?id=heart.h5 -O ~/Downloads/heart.h5
@@ -148,6 +153,12 @@ python3 ~/git/biomedisa/demo/biomedisa_deeplearning.py ~/Downloads/training_hear
 Both the training and inference data should be cropped to the region of interest for best performance. As an alternative to manual cropping, you can use Biomedisa's AI-based automatic cropping. After training, auto cropping is automatically applied to your inference data.
 ```
 python3 ~/git/biomedisa/demo/biomedisa_deeplearning.py 'path_to_images' 'path_to_labels' --train --crop_data
+```
+
+#### Get help
+For more information, type
+```
+python3 ~/git/biomedisa/demo/biomedisa_deeplearning.py --help
 ```
 
 # Update Biomedisa
