@@ -3,7 +3,7 @@
 - [Install Python and pip](#install-python-and-pip)
 - [Install software dependencies](#install-software-dependencies)
 - [Install pip packages](#install-pip-packages)
-- [Download or clone Biomedisa](#download-or-clone-biomedisa)
+- [Clone Biomedisa](#clone-biomedisa)
 - [Install CUDA 11.3](#install-cuda-11.3)
 - [Biomedisa example](#biomedisa-example)
 
@@ -16,7 +16,7 @@ sudo apt-get install python3 python3-dev python3-pip
 ```
 sudo apt-get install libsm6 libxrender-dev \
     libboost-python-dev build-essential libssl-dev cmake \
-    openmpi-bin openmpi-doc libopenmpi-dev
+    openmpi-bin openmpi-doc libopenmpi-dev git
 ```
 
 #### Install pip packages
@@ -27,9 +27,8 @@ sudo -H pip3 install --upgrade numpy scipy h5py colorama numpy-stl \
     Pillow nibabel medpy SimpleITK mpi4py itk vtk matplotlib
 ```
 
-#### Download or clone Biomedisa
+#### Clone Biomedisa
 ```
-sudo apt-get install git
 mkdir ~/git
 cd ~/git
 git clone https://github.com/biomedisa/biomedisa

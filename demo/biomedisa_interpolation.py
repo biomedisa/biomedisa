@@ -35,6 +35,7 @@ from biomedisa_features.biomedisa_helper import (_get_platform, smooth_img_3x3,
     read_indices_allx, predict_blocksize)
 from multiprocessing import freeze_support
 import numpy as np
+import argparse
 import time
 
 class Biomedisa(object):
@@ -55,37 +56,67 @@ if __name__ == '__main__':
 
         # create biomedisa
         bm = Biomedisa()
+        bm.label = build_label()
+        bm.process = 'biomedisa_interpolation'
+        bm.django_env = False
 
         # time
         bm.TIC = time.time()
 
-        # path to data
-        bm.path_to_data = sys.argv[1]
-        bm.path_to_labels = sys.argv[2]
+        # initialize arguments
+        parser = argparse.ArgumentParser(description='Biomedisa interpolation.',
+                 formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-        # arguments
-        bm.label = build_label()
-        bm.label.only = 'all'
-        bm.label.ignore = 'none'
-        bm.label.nbrw = 10
-        bm.label.sorw = 4000
-        bm.label.compression = True
-        bm.label.uncertainty = True if any(x in sys.argv for x in ['--uncertainty','-uq']) else False
-        bm.label.allaxis = 1 if '-allx' in sys.argv else 0
-        bm.label.smooth = 0
-        bm.denoise = True if any(x in sys.argv for x in ['--denoise','-d']) else False
-        bm.platform = None
-        bm.process = 'biomedisa_interpolation'
-        bm.django_env = False
-        for i, val in enumerate(sys.argv):
-            if val in ['--smooth','-s']:
-                bm.label.smooth = int(sys.argv[i+1])
-            elif val in ['--nbrw']:
-                bm.label.nbrw = int(sys.argv[i+1])
-            elif val in ['--sorw']:
-                bm.label.sorw = int(sys.argv[i+1])
-            elif val in ['--platform','-p']:
-                bm.platform = str(sys.argv[i+1])
+        # required arguments
+        parser.add_argument('path_to_data', type=str, metavar='PATH_TO_IMAGE',
+                            help='Location of image data')
+        parser.add_argument('path_to_labels', type=str, metavar='PATH_TO_LABELS',
+                            help='Location of label data')
+
+        # optional arguments
+        parser.add_argument('--nbrw', type=int, default=10,
+                            help='Number of random walks starting at each pre-segmented pixel')
+        parser.add_argument('--sorw', type=int, default=4000,
+                            help='Steps of a random walk')
+        parser.add_argument('--compression', action='store_true', default=True,
+                            help='Enable compression of segmentation results')
+        parser.add_argument('--allaxis', action='store_true', default=False,
+                            help='If pre-segmentation is not exlusively in xy-plane')
+        parser.add_argument('--acwe', action='store_true', default=False,
+                            help='Post-processing with active contour')
+        parser.add_argument('--acwe-alpha', metavar='ALPHA', type=float, default=1.0,
+                            help='Pushing force of active contour')
+        parser.add_argument('--acwe-smooth', metavar='SMOOTH', type=int, default=1,
+                            help='Smoothing of active contour')
+        parser.add_argument('--acwe-steps', metavar='STEPS', type=int, default=3,
+                            help='Iterations of active contour')
+        parser.add_argument('-d','--denoise', action='store_true', default=False,
+                            help='Smooth/denoise image data before processing')
+        parser.add_argument('-u','--uncertainty', action='store_true', default=False,
+                            help='Return uncertainty of segmentation result')
+        parser.add_argument('-cs','--create_slices', action='store_true', default=False,
+                            help='Create slices of segmentation results')
+        parser.add_argument('--ignore', type=str, default='none',
+                            help='Ignore specific label(s), e.g. 2,5,6')
+        parser.add_argument('--only', type=str, default='all',
+                            help='Segment only specific label(s), e.g. 1,3,5')
+        parser.add_argument('-s','--smooth', nargs='?', type=int, const=100, default=0,
+                            help='Number of smoothing iterations for segmentation result')
+        parser.add_argument('-c','--clean', nargs='?', type=float, const=0.1, default=None,
+                            help='Remove outliers, e.g. 0.5 means that objects smaller than 50 percent of the size of the largest object will be removed')
+        parser.add_argument('-f','--fill', nargs='?', type=float, const=0.9, default=None,
+                            help='Fill holes, e.g. 0.5 means that all holes smaller than 50 percent of the entire label will be filled')
+        parser.add_argument('-p','--platform', default=None,
+                            help='One of "cuda", "opencl_NVIDIA_GPU", "opencl_Intel_CPU"')
+        args = parser.parse_args()
+
+        # transfer arguments
+        for arg in ['nbrw','sorw','compression','allaxis','uncertainty','ignore','only','smooth','clean','fill']:
+            bm.label.__dict__[arg] = args.__dict__[arg]
+        for arg in ['acwe_alpha','acwe_smooth','acwe','acwe_steps']:
+            bm.label.__dict__[arg] = args.__dict__[arg]
+        for arg in ['path_to_data','path_to_labels','denoise','platform','create_slices',]:
+            bm.__dict__[arg] = args.__dict__[arg]
 
         # load and preprocess data
         bm = pre_processing(bm)
@@ -120,11 +151,16 @@ if __name__ == '__main__':
             filename = 'final.' + filename
             bm.path_to_final = bm.path_to_data.replace(os.path.basename(bm.path_to_data), filename + bm.final_image_type)
 
-            # path_to_uq and path_to_smooth
+            # path to optional results
             filename, extension = os.path.splitext(bm.path_to_final)
             if extension == '.gz':
                 filename = filename[:-4]
             bm.path_to_smooth = filename + '.smooth' + bm.final_image_type
+            bm.path_to_smooth_cleaned = filename + '.smooth.cleand' + bm.final_image_type
+            bm.path_to_cleaned = filename + '.cleaned' + bm.final_image_type
+            bm.path_to_filled = filename + '.filled' + bm.final_image_type
+            bm.path_to_cleaned_filled = filename + '.cleaned.filled' + bm.final_image_type
+            bm.path_to_acwe = filename + '.acwe' + bm.final_image_type
             bm.path_to_uq = filename + '.uncertainty.tif'
 
             # data type

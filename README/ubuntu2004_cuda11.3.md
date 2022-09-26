@@ -3,7 +3,7 @@
 - [Install Python and pip](#install-python-and-pip)
 - [Install software dependencies](#install-software-dependencies)
 - [Install pip packages](#install-pip-packages)
-- [Download or clone Biomedisa](#download-or-clone-biomedisa)
+- [Clone Biomedisa](#clone-biomedisa)
 - [Install MySQL database](#install-mysql-database)
 - [Install CUDA 11.3](#install-cuda-11.3)
 - [Install TensorFlow](#install-tensorflow)
@@ -19,7 +19,7 @@ sudo apt-get install python3 python3-dev python3-pip
 ```
 sudo apt-get install libsm6 libxrender-dev libmysqlclient-dev \
     libboost-python-dev build-essential screen libssl-dev cmake \
-    openmpi-bin openmpi-doc libopenmpi-dev redis-server
+    openmpi-bin openmpi-doc libopenmpi-dev redis-server git
 ```
 
 #### Install pip packages
@@ -31,9 +31,8 @@ sudo -H pip3 install --upgrade numpy scipy h5py colorama wget numpy-stl \
 sudo -H pip3 install django==3.2.6
 ```
 
-#### Download or clone Biomedisa
+#### Clone Biomedisa
 ```
-sudo apt-get install git
 mkdir ~/git
 cd ~/git
 git clone https://github.com/biomedisa/biomedisa

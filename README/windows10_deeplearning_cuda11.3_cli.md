@@ -3,7 +3,8 @@
 - [Install NVIDIA driver](#install-nvidia-driver)
 - [Install Anaconda3](#install-anaconda3)
 - [Install conda packages](#install-conda-packages)
-- [Download or clone Biomedisa](#download-or-clone-biomedisa)
+- [Install Git](#install-git)
+- [Clone Biomedisa](#clone-biomedisa)
 - [Biomedisa example](#biomedisa-example)
 
 
@@ -31,8 +32,10 @@ conda install -c conda-forge tensorflow-gpu
 conda install -c anaconda h5py
 ```
 
-#### Download or clone Biomedisa
+#### Install Git
 Download and install [Git](https://github.com/git-for-windows/git/releases/download/v2.28.0.windows.1/Git-2.28.0-64-bit.exe).
+
+#### Clone Biomedisa
 ```
 mkdir git
 cd git

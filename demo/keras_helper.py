@@ -26,6 +26,8 @@
 ##                                                                      ##
 ##########################################################################
 
+from biomedisa_features.create_slices import create_slices
+from biomedisa_features.remove_outlier import clean, fill
 from biomedisa_features.biomedisa_helper import img_resize, load_data, save_data
 from tensorflow.keras.optimizers import SGD
 from tensorflow.keras.models import Model, load_model
@@ -315,10 +317,10 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
                 img_names.extend(tmp_img_names)
                 label_names.extend(tmp_label_names)
             if len(img_names)==0:
-                InputError.message = "Invalid image TAR file."
+                InputError.message = "Invalid image data."
                 raise InputError()
             if len(label_names)==0:
-                InputError.message = "Invalid label TAR file."
+                InputError.message = "Invalid label data."
                 raise InputError()
         else:
             img_names.append(img_name)
@@ -723,7 +725,7 @@ def load_prediction_data(path_to_img, channels, x_scale, y_scale, z_scale,
 
     return img, img_header, position, z_shape, y_shape, x_shape, region_of_interest
 
-def predict_semantic_segmentation(img, position, path_to_model, path_to_final,
+def predict_semantic_segmentation(args, img, position, path_to_model, path_to_final,
     z_patch, y_patch, x_patch, z_shape, y_shape, x_shape, compress, header,
     img_header, channels, stride_size, allLabels, batch_size, region_of_interest):
 
@@ -803,6 +805,25 @@ def predict_semantic_segmentation(img, position, path_to_model, path_to_final,
         if img_header is not None:
             header = get_physical_size(header, img_header)
     save_data(path_to_final, label, header=header, compress=compress)
+
+    # post processing
+    if args.create_slices:
+        create_slices(args.path_to_img, path_to_final, True)
+    if args.clean:
+        final_cleaned = clean(label, args.clean)
+        save_data(args.path_to_cleaned, final_cleaned, header, compress)
+        if args.create_slices:
+            create_slices(args.path_to_img, args.path_to_cleaned, True)
+    if args.fill:
+        final_filled = clean(label, args.fill)
+        save_data(args.path_to_filled, final_filled, header, compress)
+        if args.create_slices:
+            create_slices(args.path_to_img, args.path_to_filled, True)
+    if args.clean and args.fill:
+        final_cleaned_filled = final_cleaned + (final_filled - label)
+        save_data(args.path_to_cleaned_filled, final_cleaned_filled, header, compress)
+        if args.create_slices:
+            create_slices(args.path_to_img, args.path_to_cleaned_filled, True)
 
 def predict_pre_final(img, path_to_model, x_scale, y_scale, z_scale, z_patch, y_patch, x_patch, \
                       normalize, mu, sig, channels, stride_size, batch_size):
