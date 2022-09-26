@@ -26,6 +26,9 @@
 ##                                                                      ##
 ##########################################################################
 
+from biomedisa_features.create_slices import create_slices
+from biomedisa_features.remove_outlier import clean, fill
+from biomedisa_features.active_contour import activeContour
 from biomedisa_features.biomedisa_helper import (_get_device, save_data, sendToChild,
     _split_indices, get_labels)
 from multiprocessing import Process
@@ -126,6 +129,13 @@ def _diffusion_child(comm, bm=None):
             final[bm.argmin_z:bm.argmax_z, bm.argmin_y:bm.argmax_y, bm.argmin_x:bm.argmax_x] = final_smooth
             final = final[1:-1, 1:-1, 1:-1]
             save_data(bm.path_to_smooth, final, bm.header, bm.final_image_type, bm.label.compression)
+            if bm.create_slices:
+                create_slices(bm.path_to_data, bm.path_to_smooth, True)
+            if bm.label.clean:
+                final = clean(final, bm.label.clean)
+                save_data(bm.path_to_smooth_cleaned, final, bm.header, bm.final_image_type, bm.label.compression)
+                if bm.create_slices:
+                    create_slices(bm.path_to_data, bm.path_to_smooth_cleaned, True)
 
         # uncertainty
         if bm.label.uncertainty:
@@ -145,6 +155,8 @@ def _diffusion_child(comm, bm=None):
                 final[bm.argmin_z:bm.argmax_z, bm.argmin_y:bm.argmax_y, bm.argmin_x:bm.argmax_x] = uq
                 final = final[1:-1, 1:-1, 1:-1]
                 save_data(bm.path_to_uq, final, compress=bm.label.compression)
+                if bm.create_slices:
+                    create_slices(bm.path_to_uq, None, True)
             except Exception as e:
                 print('Warning: GPU out of memory to allocate uncertainty array. Skips uncertainty.')
                 bm.label.uncertainty = False
@@ -157,12 +169,38 @@ def _diffusion_child(comm, bm=None):
         # argmax
         final_zero = np.argmax(final_zero, axis=0).astype(np.uint8)
 
-        # save finals
+        # regular result
         final_zero = get_labels(final_zero, bm.allLabels)
         final = np.zeros((bm.zsh, bm.ysh, bm.xsh), dtype=np.uint8)
         final[bm.argmin_z:bm.argmax_z, bm.argmin_y:bm.argmax_y, bm.argmin_x:bm.argmax_x] = final_zero
         final = final[1:-1, 1:-1, 1:-1]
         save_data(bm.path_to_final, final, bm.header, bm.final_image_type, bm.label.compression)
+        if bm.create_slices:
+            create_slices(bm.path_to_data, bm.path_to_final, True)
+        if bm.label.clean:
+            final_cleaned = clean(final, bm.label.clean)
+            save_data(bm.path_to_cleaned, final_cleaned, bm.header, bm.final_image_type, bm.label.compression)
+            if bm.create_slices:
+                create_slices(bm.path_to_data, bm.path_to_cleaned, True)
+        if bm.label.fill:
+            final_filled = clean(final, bm.label.fill)
+            save_data(bm.path_to_filled, final_filled, bm.header, bm.final_image_type, bm.label.compression)
+            if bm.create_slices:
+                create_slices(bm.path_to_data, bm.path_to_filled, True)
+        if bm.label.clean and bm.label.fill:
+            final_cleaned_filled = final_cleaned + (final_filled - final)
+            save_data(bm.path_to_cleaned_filled, final_cleaned_filled, bm.header, bm.final_image_type, bm.label.compression)
+            if bm.create_slices:
+                create_slices(bm.path_to_data, bm.path_to_cleaned_filled, True)
+
+        # post processing with active contour
+        if bm.label.acwe:
+            data = np.zeros((bm.zsh, bm.ysh, bm.xsh), dtype=bm.data.dtype)
+            data[bm.argmin_z:bm.argmax_z, bm.argmin_y:bm.argmax_y, bm.argmin_x:bm.argmax_x] = bm.data
+            final_ac = activeContour(data[1:-1, 1:-1, 1:-1], final, bm.label.acwe_alpha, bm.label.acwe_smooth, bm.label.acwe_steps)
+            save_data(bm.path_to_acwe, final_ac, bm.header, bm.final_image_type, bm.label.compression)
+            if bm.create_slices:
+                create_slices(bm.path_to_data, bm.path_to_acwe, True)
 
         # computation time
         t = int(time.time() - bm.TIC)

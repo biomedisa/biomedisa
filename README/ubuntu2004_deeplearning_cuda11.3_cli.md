@@ -5,7 +5,7 @@
 - [Biomedisa example](#biomedisa-example)
 
 #### Install Biomedisa
-Follow Biomedisa [installation](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu2004_interpolation_cuda11.3_cli.md).
+Follow Biomedisa [installation](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu2004_interpolation_cuda11.3_gpu_cli.md).
 
 #### Install TensorFlow
 ```

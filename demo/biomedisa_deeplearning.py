@@ -34,64 +34,57 @@ from keras_helper import *
 import biomedisa_features.crop_helper as ch
 from multiprocessing import Process
 import subprocess
-
+import argparse
 from tensorflow.python.framework.errors_impl import ResourceExhaustedError
 import tensorflow as tf
 import numpy as np
 import h5py
 import time
 
-def conv_network(train, predict, path_to_model, compress, epochs, batch_size, path_to_labels,
-            stride_size, channels, normalize, path_to_img, x_scale, y_scale, z_scale, class_weights, crop_data,
-            flip_x, flip_y, flip_z, rotate, validation_split, early_stopping, val_tf, learning_rate,
-            path_val_img, path_val_labels, validation_stride_size, validation_freq, validation_batch_size,
-            debug_cropping):
+def conv_network(args):
 
     # get number of GPUs
     strategy = tf.distribute.MirroredStrategy()
     ngpus = int(strategy.num_replicas_in_sync)
 
     # batch size must be divisible by the number of GPUs and two
-    rest = batch_size % (2*ngpus)
+    rest = args.batch_size % (2*ngpus)
     if 2*ngpus - rest < rest:
-        batch_size = batch_size + 2*ngpus - rest
+        args.batch_size = args.batch_size + 2*ngpus - rest
     else:
-        batch_size = batch_size - rest
+        args.batch_size = args.batch_size - rest
 
     # validation batch size must be divisible by the number of GPUs and two
-    rest = validation_batch_size % (2*ngpus)
+    rest = args.validation_batch_size % (2*ngpus)
     if 2*ngpus - rest < rest:
-        validation_batch_size = validation_batch_size + 2*ngpus - rest
+        validation_batch_size = args.validation_batch_size + 2*ngpus - rest
     else:
-        validation_batch_size = validation_batch_size - rest
+        validation_batch_size = args.validation_batch_size - rest
 
     # dimensions of patches for regular training
     z_patch, y_patch, x_patch = 64, 64, 64
 
     # adapt scaling and stridesize to patchsize
-    stride_size = max(1, min(stride_size, 64))
-    stride_size_refining = max(1, min(stride_size, 64))
-    validation_stride_size = max(1, min(validation_stride_size, 64))
-    x_scale = x_scale - (x_scale - 64) % stride_size
-    y_scale = y_scale - (y_scale - 64) % stride_size
-    z_scale = z_scale - (z_scale - 64) % stride_size
+    x_scale = args.x_scale - (args.x_scale - 64) % args.stride_size
+    y_scale = args.y_scale - (args.y_scale - 64) % args.stride_size
+    z_scale = args.z_scale - (args.z_scale - 64) % args.stride_size
 
-    if train:
+    if args.train:
 
         try:
             # train automatic cropping
             cropping_weights, cropping_config = None, None
-            if crop_data:
-                cropping_weights, cropping_config = ch.load_and_train(normalize, [path_to_img], [path_to_labels], path_to_model,
-                            epochs, batch_size, validation_split, x_scale, y_scale, z_scale,
-                            flip_x, flip_y, flip_z, rotate, [path_val_img], [path_val_labels], True)
+            if args.crop_data:
+                cropping_weights, cropping_config = ch.load_and_train(args.normalize, [args.path_to_img], [args.path_to_labels], args.path_to_model,
+                            args.epochs, args.batch_size, args.validation_split, x_scale, y_scale, z_scale,
+                            args.flip_x, args.flip_y, args.flip_z, args.rotate, [args.val_images], [args.val_labels], True)
 
-            # train network
-            train_semantic_segmentation(normalize, [path_to_img], [path_to_labels], x_scale, y_scale,
-                            z_scale, crop_data, path_to_model, z_patch, y_patch, x_patch, epochs,
-                            batch_size, channels, validation_split, stride_size, class_weights,
-                            flip_x, flip_y, flip_z, rotate, early_stopping, val_tf, learning_rate,
-                            [path_val_img], [path_val_labels], validation_stride_size, validation_freq,
+            # train automatic segmentation
+            train_semantic_segmentation(args.normalize, [args.path_to_img], [args.path_to_labels], x_scale, y_scale,
+                            z_scale, args.crop_data, args.path_to_model, z_patch, y_patch, x_patch, args.epochs,
+                            args.batch_size, args.channels, args.validation_split, args.stride_size, args.balance,
+                            args.flip_x, args.flip_y, args.flip_z, args.rotate, args.early_stopping, args.val_tf, args.learning_rate,
+                            [args.val_images], [args.val_labels], args.validation_stride_size, args.validation_freq,
                             validation_batch_size, cropping_weights, cropping_config)
         except InputError:
             print('Error:', InputError.message)
@@ -102,11 +95,11 @@ def conv_network(train, predict, path_to_model, compress, epochs, batch_size, pa
         except Exception as e:
             print('Error:', e)
 
-    if predict:
+    if args.predict:
 
         try:
             # get meta data
-            hf = h5py.File(path_to_model, 'r')
+            hf = h5py.File(args.path_to_model, 'r')
             meta = hf.get('meta')
             configuration = meta.get('configuration')
             channels, x_scale, y_scale, z_scale, normalize, mu, sig = np.array(configuration)[:]
@@ -130,27 +123,30 @@ def conv_network(train, predict, path_to_model, compress, epochs, batch_size, pa
             header = None
 
         # create path_to_final
-        filename = os.path.basename(path_to_img)
+        filename = os.path.basename(args.path_to_img)
         filename = os.path.splitext(filename)[0]
         if filename[-4:] in ['.nii','.tar']:
             filename = filename[:-4]
         filename = 'final.' + filename
-        path_to_final = path_to_img.replace(os.path.basename(path_to_img), filename + extension)
+        path_to_final = args.path_to_img.replace(os.path.basename(args.path_to_img), filename + extension)
+        args.path_to_cleaned = args.path_to_img.replace(os.path.basename(args.path_to_img), filename + '.cleaned' + extension)
+        args.path_to_filled = args.path_to_img.replace(os.path.basename(args.path_to_img), filename + '.filled' + extension)
+        args.path_to_cleaned_filled = args.path_to_img.replace(os.path.basename(args.path_to_img), filename + '.cleaned.filled' + extension)
 
         try:
             # crop data
             region_of_interest = None
             if crop_data:
-                region_of_interest = ch.crop_data(path_to_img, path_to_model, batch_size, debug_cropping)
+                region_of_interest = ch.crop_data(args.path_to_img, args.path_to_model, args.batch_size, args.debug_cropping)
 
             # load prediction data
-            img, img_header, position, z_shape, y_shape, x_shape, region_of_interest = load_prediction_data(path_to_img,
+            img, img_header, position, z_shape, y_shape, x_shape, region_of_interest = load_prediction_data(args.path_to_img,
                 channels, x_scale, y_scale, z_scale, normalize, mu, sig, region_of_interest)
 
             # make prediction
-            predict_semantic_segmentation(img, position, path_to_model, path_to_final,
-                z_patch, y_patch, x_patch,  z_shape, y_shape, x_shape, compress, header,
-                img_header, channels, stride_size, allLabels, batch_size, region_of_interest)
+            predict_semantic_segmentation(args, img, position, args.path_to_model, path_to_final,
+                z_patch, y_patch, x_patch, z_shape, y_shape, x_shape, args.compression, header,
+                img_header, channels, args.stride_size, allLabels, args.batch_size, region_of_interest)
 
         except InputError:
             print('Error:', InputError.message)
@@ -166,92 +162,88 @@ if __name__ == '__main__':
     # time
     TIC = time.time()
 
-    # get arguments
-    predict = 1 if any(x in sys.argv for x in ['--predict','-p']) else 0
-    train = 1 if any(x in sys.argv for x in ['--train','-t']) else 0
+    # initialize arguments
+    parser = argparse.ArgumentParser(description='Biomedisa interpolation.',
+             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-    # path to data
-    path_to_img = sys.argv[1]
-    if predict:
-        path_to_labels = None
-        path_to_model = sys.argv[2]
-    if train:
-        path_to_labels = sys.argv[2]
-        path_to_model = path_to_img + '.h5'
+    # required arguments
+    parser.add_argument('path_to_img', type=str, metavar='PATH_TO_IMAGE',
+                        help='Location of image data (tarball or directory)')
+    parser.add_argument('path', type=str, metavar='PATH',
+                        help='Location of label data during training (tarball or directory) or model for prediction (h5)')
 
-    # parameters
-    parameters = sys.argv
-    balance = 1 if any(x in parameters for x in ['--balance','-b']) else 0                          # balance class members of training patches
-    crop_data = 1 if any(x in parameters for x in ['--crop_data','-cd']) else 0                     # crop data automatically to region of interest
-    flip_x = True if any(x in parameters for x in ['--flip_x']) else False                          # flip x-axis during training
-    flip_y = True if any(x in parameters for x in ['--flip_y']) else False                          # flip y-axis during training
-    flip_z = True if any(x in parameters for x in ['--flip_z']) else False                          # flip z-axis during training
-    val_tf = True if any(x in parameters for x in ['--val_tf','-vt']) else False                    # use tensorflow standard accuracy on validation data
-    debug_cropping = True if any(x in parameters for x in ['--debug_cropping','-dc']) else False    # debug cropping
+    # optional arguments
+    parser.add_argument('-p','--predict', action='store_true', default=False,
+                        help='Automatic/predict segmentation')
+    parser.add_argument('-t','--train', action='store_true', default=False,
+                        help='Train neural network')
+    parser.add_argument('-b','--balance', action='store_true', default=False,
+                        help='Balance class members of training patches')
+    parser.add_argument('-cd','--crop_data', action='store_true', default=False,
+                        help='Crop data automatically to region of interest')
+    parser.add_argument('--flip_x', action='store_true', default=False,
+                        help='Randomly flip x-axis during training')
+    parser.add_argument('--flip_y', action='store_true', default=False,
+                        help='Randomly flip y-axis during training')
+    parser.add_argument('--flip_z', action='store_true', default=False,
+                        help='Randomly flip z-axis during training')
+    parser.add_argument('-vt','--val_tf', action='store_true', default=False,
+                        help='Use tensorflow standard accuracy on validation data')
+    parser.add_argument('--compression', action='store_true', default=True,
+                        help='Enable compression of segmentation results')
+    parser.add_argument('-cs','--create_slices', action='store_true', default=False,
+                        help='Create slices of segmentation results')
+    parser.add_argument('--channels', type=int, default=1,
+                        help='Use voxel coordinates')
+    parser.add_argument('-dc','--debug_cropping', action='store_true', default=False,
+                        help='Debug cropping')
+    parser.add_argument('-e','--epochs', type=int, default=200,
+                        help='Epochs the network is trained')
+    parser.add_argument('--normalize', type=int, default=1,
+                        help='Normalize images before training')
+    parser.add_argument('-r','--rotate', type=float, default=0.0,
+                        help='Randomly rotate during training')
+    parser.add_argument('-vs','--validation_split', type=float, default=0.0,
+                        help='Percentage of data used for validation')
+    parser.add_argument('-lr','--learning_rate', type=float, default=0.01,
+                        help='Learning rate')
+    parser.add_argument('-ss','--stride_size', metavar="[1-64]", type=int, choices=range(1,64), default=32,
+                        help='Stride size for patches')
+    parser.add_argument('-vss','--validation_stride_size', metavar="[1-64]", type=int, choices=range(1,64), default=32,
+                        help='Stride size for validation patches')
+    parser.add_argument('-vf','--validation_freq', type=int, default=1,
+                        help='Epochs performed before validation')
+    parser.add_argument('-bs','--batch_size', type=int, default=24,
+                        help='batch size')
+    parser.add_argument('-vbs','--validation_batch_size', type=int, default=24,
+                        help='validation batch size')
+    parser.add_argument('-vi','--val_images', type=str, metavar='PATH', default=None,
+                        help='Location of validation image data (tarball or directory)')
+    parser.add_argument('-vl','--val_labels', type=str, metavar='PATH', default=None,
+                        help='Location of validation label data (tarball or directory)')
+    parser.add_argument('-c','--clean', nargs='?', type=float, const=0.1, default=None,
+                        help='Remove outliers, e.g. 0.5 means that objects smaller than 50 percent of the size of the largest object will be removed')
+    parser.add_argument('-f','--fill', nargs='?', type=float, const=0.9, default=None,
+                        help='Fill holes, e.g. 0.5 means that all holes smaller than 50 percent of the entire label will be filled')
+    parser.add_argument('-xs','--x_scale', type=int, default=256,
+                        help='Images and labels are scaled at x-axis to this size before training')
+    parser.add_argument('-ys','--y_scale', type=int, default=256,
+                        help='Images and labels are scaled at y-axis to this size before training')
+    parser.add_argument('-zs','--z_scale', type=int, default=256,
+                        help='Images and labels are scaled at z-axis to this size before training')
+    parser.add_argument('-es','--early_stopping', type=int, default=0,
+                        help='Training is terminated when the accuracy has not increased in the epochs defined by this')
+    args = parser.parse_args()
 
-    compress = True                 # compress segmentation result
-    epochs = 200                    # epochs the network is trained
-    channels = 1                    # use voxel coordinates
-    normalize = 1                   # normalize images before training
-    x_scale = 256                   # images are scaled at x-axis to this size before training
-    y_scale = 256                   # images are scaled at y-axis to this size before training
-    z_scale = 256                   # images are scaled at z-axis to this size before training
-    rotate = 0                      # randomly rotate during training
-    validation_split = 0.0          # percentage used for validation
-    stride_size = 32                # stride size for patches
-    validation_stride_size = 32     # stride size for validation patches
-    validation_freq = 1             # epochs to be performed prior to validation
-    batch_size = 24                 # batch size
-    validation_batch_size = 24      # validation batch size
-    learning_rate = 0.01            # learning rate
-    path_val_img = None             # validation images
-    path_val_labels = None          # validation labels
-    early_stopping = 0              # early_stopping
-
-    for k in range(len(parameters)):
-        if parameters[k] in ['--epochs','-e']:
-            epochs = int(parameters[k+1])
-        elif parameters[k] in ['--channels']:
-            channels = int(parameters[k+1])
-        elif parameters[k] in ['--xsize','-xs']:
-            x_scale = int(parameters[k+1])
-        elif parameters[k] in ['--ysize','-ys']:
-            y_scale = int(parameters[k+1])
-        elif parameters[k] in ['--zsize','-zs']:
-            z_scale = int(parameters[k+1])
-        elif parameters[k] in ['--rotate','-r']:
-            rotate = int(parameters[k+1])
-        elif parameters[k] in ['--validation_split','-vs']:
-            validation_split = float(parameters[k+1])
-        elif parameters[k] in ['--stride_size','-ss']:
-            stride_size = int(parameters[k+1])
-        elif parameters[k] in ['--validation_stride_size','-vss']:
-            validation_stride_size = int(parameters[k+1])
-        elif parameters[k] in ['--validation_freq','-vf']:
-            validation_freq = int(parameters[k+1])
-        elif parameters[k] in ['--batch_size','-bs']:
-            batch_size = int(parameters[k+1])
-        elif parameters[k] in ['--validation_batch_size','-vbs']:
-            validation_batch_size = int(parameters[k+1])
-        elif parameters[k] in ['--learning_rate','-lr']:
-            learning_rate = float(parameters[k+1])
-        elif parameters[k] in ['--val_images','-vi']:
-            path_val_img = str(parameters[k+1])
-        elif parameters[k] in ['--val_labels','-vl']:
-            path_val_labels = str(parameters[k+1])
-        elif parameters[k] in ['--early_stopping','-es']:
-            early_stopping = int(parameters[k+1])
+    if args.predict:
+        args.path_to_labels = None
+        args.path_to_model = args.path
+    if args.train:
+        args.path_to_labels = args.path
+        args.path_to_model = args.path_to_img + '.h5'
 
     # train network or predict segmentation
-    conv_network(
-        train, predict, path_to_model, compress,
-        epochs, batch_size, path_to_labels, stride_size, channels,
-        normalize, path_to_img, x_scale, y_scale, z_scale,
-        balance, crop_data, flip_x, flip_y, flip_z, rotate,
-        validation_split, early_stopping, val_tf, learning_rate,
-        path_val_img, path_val_labels, validation_stride_size,
-        validation_freq, validation_batch_size, debug_cropping
-        )
+    conv_network(args)
 
     # calculation time
     t = int(time.time() - TIC)

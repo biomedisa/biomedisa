@@ -69,15 +69,20 @@ def contrast(a):
     a = a.astype(np.uint8)
     return a
 
-def create_slices(path_to_data, path_to_label):
+def create_slices(path_to_data, path_to_label, on_site=False):
 
     try:
 
-        if path_to_data:
-            path_to_slices = path_to_data.replace('images', 'sliceviewer', 1)
-
-        if path_to_label:
-            path_to_label_slices = path_to_label.replace('images', 'sliceviewer', 1)
+        if on_site:
+            if path_to_data:
+                path_to_slices = os.path.dirname(path_to_data) + '/' + os.path.splitext(os.path.basename(path_to_data))[0]
+            if path_to_label:
+                path_to_label_slices = os.path.dirname(path_to_label) + '/' + os.path.splitext(os.path.basename(path_to_label))[0]
+        else:
+            if path_to_data:
+                path_to_slices = path_to_data.replace('images', 'sliceviewer', 1)
+            if path_to_label:
+                path_to_label_slices = path_to_label.replace('images', 'sliceviewer', 1)
 
         if path_to_data:
 
@@ -112,30 +117,33 @@ def create_slices(path_to_data, path_to_label):
             raw = contrast(raw)
             zsh, ysh, xsh = raw.shape
 
+            # create slices for slice viewer
             if not path_to_label:
 
-                # create slices for slice viewer
+                # make directory
                 if not os.path.isdir(path_to_slices):
-
-                    # make directory
                     os.makedirs(path_to_slices)
                     os.chmod(path_to_slices, 0o770)
 
-                    # reduce image size
-                    m = min(ysh, xsh)
-                    if m > 400:
-                        scale = float(400) / float(m)
-                        y_shape = int(ysh * scale)
-                        x_shape = int(xsh * scale)
-                        for k in range(zsh):
-                            tmp = cv2.resize(raw[k], (x_shape, y_shape), interpolation=cv2.INTER_AREA)
-                            tmp = tmp.astype(np.uint8)
-                            im = Image.fromarray(tmp)
-                            im.save(path_to_slices + '/%s.png' %(k))
-                    else:
-                        for k in range(zsh):
-                            im = Image.fromarray(raw[k])
-                            im.save(path_to_slices + '/%s.png' %(k))
+                # clean directory
+                if any(glob(path_to_slices + "/*")):
+                    os.system(f"rm {path_to_slices}" + "/*")
+
+                # reduce image size
+                m = min(ysh, xsh)
+                if m > 400:
+                    scale = float(400) / float(m)
+                    y_shape = int(ysh * scale)
+                    x_shape = int(xsh * scale)
+                    for k in range(zsh):
+                        tmp = cv2.resize(raw[k], (x_shape, y_shape), interpolation=cv2.INTER_AREA)
+                        tmp = tmp.astype(np.uint8)
+                        im = Image.fromarray(tmp)
+                        im.save(path_to_slices + '/%s.png' %(k))
+                else:
+                    for k in range(zsh):
+                        im = Image.fromarray(raw[k])
+                        im.save(path_to_slices + '/%s.png' %(k))
 
         if path_to_label:
 
@@ -172,71 +180,75 @@ def create_slices(path_to_data, path_to_label):
             # create slices for slice viewer
             if path_to_data and mask.shape == raw.shape:
 
+                # make directory
                 if not os.path.isdir(path_to_label_slices):
-
-                    # make directory
                     os.makedirs(path_to_label_slices)
                     os.chmod(path_to_label_slices, 0o770)
 
-                    # define colors
-                    Color = [(255,0,0),(255,255,0),(0,0,255),(0,100,0),(0,255,0),(255,165,0),(139,0,0),(255,20,147),(255,105,180),(255,0,0),(139,0,139),(255,0,255),(160,32,240),(184,134,11),(255,185,15),(255,215,0),(0,191,255),(16,78,139),(104,131,139),(255,64,64),(165,42,42),(255,127,36),(139,90,43),(110,139,61),(0,255,127),(255,127,80),(139,10,80),(219,112,147),(178,34,34),(255,48,48),(205,79,57),(160,32,240),(255,100,0)] * 8
-                    labels = np.unique(mask)[1:]
-                    Color = Color[:len(labels)]
-                    labels = labels[:len(labels)]
-                    Color = np.array(Color, dtype=np.uint8)
+                # clean directory
+                if any(glob(path_to_label_slices + "/*")):
+                    os.system(f"rm {path_to_label_slices}" + "/*")
 
-                    # reduce image size
-                    m = min(ysh, xsh)
+                # define colors
+                Color = [(255,0,0),(255,255,0),(0,0,255),(0,100,0),(0,255,0),(255,165,0),(139,0,0),(255,20,147),(255,105,180),(255,0,0),(139,0,139),(255,0,255),(160,32,240),(184,134,11),(255,185,15),(255,215,0),(0,191,255),(16,78,139),(104,131,139),(255,64,64),(165,42,42),(255,127,36),(139,90,43),(110,139,61),(0,255,127),(255,127,80),(139,10,80),(219,112,147),(178,34,34),(255,48,48),(205,79,57),(160,32,240),(255,100,0)] * 8
+                labels = np.unique(mask)[1:]
+                Color = Color[:len(labels)]
+                labels = labels[:len(labels)]
+                Color = np.array(Color, dtype=np.uint8)
+
+                # reduce image size
+                m = min(ysh, xsh)
+                if m > 400:
+                    scale = float(400) / float(m)
+                    ysh = int(ysh * scale)
+                    xsh = int(xsh * scale)
+
+                # allocate memory
+                out = np.empty((ysh, xsh, 3), dtype=np.uint8)
+                gradient = np.empty((ysh, xsh), dtype=np.uint8)
+
+                for k in range(zsh):
+
+                    # resize slice
                     if m > 400:
-                        scale = float(400) / float(m)
-                        ysh = int(ysh * scale)
-                        xsh = int(xsh * scale)
+                        raw_tmp = cv2.resize(raw[k], (xsh, ysh), interpolation=cv2.INTER_AREA)
+                        mask_tmp = np.zeros((ysh, xsh), dtype=mask.dtype)
+                        for l in labels:
+                            tmp = np.zeros_like(mask[k])
+                            tmp[mask[k]==l] = 1
+                            tmp = cv2.resize(tmp, (xsh, ysh), interpolation=cv2.INTER_AREA)
+                            mask_tmp[tmp==1] = l
+                        raw_tmp = raw_tmp.astype(np.uint8)
+                        mask_tmp = mask_tmp.astype(np.uint8)
+                    else:
+                        raw_tmp = raw[k]
+                        mask_tmp = mask[k]
 
-                    # allocate memory
-                    out = np.empty((ysh, xsh, 3), dtype=np.uint8)
-                    gradient = np.empty((ysh, xsh), dtype=np.uint8)
+                    # compute gradient
+                    gradient.fill(0)
+                    tmp = np.abs(mask_tmp[:-1] - mask_tmp[1:])
+                    tmp[tmp>0] = 1
+                    gradient[:-1] += tmp
+                    gradient[1:] += tmp
+                    tmp = np.abs(mask_tmp[:,:-1] - mask_tmp[:,1:])
+                    tmp[tmp>0] = 1
+                    gradient[:,:-1] += tmp
+                    gradient[:,1:] += tmp
 
-                    for k in range(zsh):
+                    # create output slice
+                    for l in range(3):
+                        out[:,:,l] = raw_tmp
 
-                        # resize slice
-                        if m > 400:
-                            raw_tmp = cv2.resize(raw[k], (xsh, ysh), interpolation=cv2.INTER_AREA)
-                            mask_tmp = np.zeros((ysh, xsh), dtype=mask.dtype)
-                            for l in labels:
-                                tmp = np.zeros_like(mask[k])
-                                tmp[mask[k]==l] = 1
-                                tmp = cv2.resize(tmp, (xsh, ysh), interpolation=cv2.INTER_AREA)
-                                mask_tmp[tmp==1] = l
-                            raw_tmp = raw_tmp.astype(np.uint8)
-                            mask_tmp = mask_tmp.astype(np.uint8)
-                        else:
-                            raw_tmp = raw[k]
-                            mask_tmp = mask[k]
+                    # colorize
+                    for j, label in enumerate(labels):
+                        C = Color[j]
+                        tmp = np.logical_and(gradient>0, mask_tmp==label)
+                        out[:,:][tmp] = C
 
-                        # compute gradient
-                        gradient.fill(0)
-                        tmp = np.abs(mask_tmp[:-1] - mask_tmp[1:])
-                        tmp[tmp>0] = 1
-                        gradient[:-1] += tmp
-                        gradient[1:] += tmp
-                        tmp = np.abs(mask_tmp[:,:-1] - mask_tmp[:,1:])
-                        tmp[tmp>0] = 1
-                        gradient[:,:-1] += tmp
-                        gradient[:,1:] += tmp
+                    # save slice
+                    im = Image.fromarray(out)
+                    im.save(path_to_label_slices + '/%s.png' %(k))
 
-                        # create output slice
-                        for l in range(3):
-                            out[:,:,l] = raw_tmp
-
-                        # colorize
-                        for j, label in enumerate(labels):
-                            C = Color[j]
-                            tmp = np.logical_and(gradient>0, mask_tmp==label)
-                            out[:,:][tmp] = C
-
-                        # save slice
-                        im = Image.fromarray(out)
-                        im.save(path_to_label_slices + '/%s.png' %(k))
     except Exception as e:
         print(e)
 

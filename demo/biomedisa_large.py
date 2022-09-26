@@ -26,6 +26,9 @@
 ##                                                                      ##
 ##########################################################################
 
+from biomedisa_features.create_slices import create_slices
+from biomedisa_features.remove_outlier import clean, fill
+from biomedisa_features.active_contour import activeContour
 from biomedisa_features.biomedisa_helper import (_get_device, save_data,
     splitlargedata, read_labeled_slices_allx_large, read_labeled_slices_large,
     sendToChildLarge)
@@ -170,10 +173,27 @@ def _diffusion_child(comm, bm=None):
                     final = np.append(final, receivedata, axis=0)
 
             # save finals
-            final2 = np.zeros((bm.zsh, bm.ysh, bm.xsh), dtype=np.uint8)
-            final2[bm.argmin_z:bm.argmax_z, bm.argmin_y:bm.argmax_y, bm.argmin_x:bm.argmax_x] = final
-            final2 = final2[1:-1, 1:-1, 1:-1]
-            save_data(bm.path_to_final, final2, bm.header, bm.final_image_type, bm.label.compression)
+            final_result = np.zeros((bm.zsh, bm.ysh, bm.xsh), dtype=np.uint8)
+            final_result[bm.argmin_z:bm.argmax_z, bm.argmin_y:bm.argmax_y, bm.argmin_x:bm.argmax_x] = final
+            final_result = final_result[1:-1, 1:-1, 1:-1]
+            save_data(bm.path_to_final, final_result, bm.header, bm.final_image_type, bm.label.compression)
+            if bm.create_slices:
+                create_slices(bm.path_to_data, bm.path_to_final, True)
+            if bm.label.clean:
+                final_cleaned = clean(final_result, bm.label.clean)
+                save_data(bm.path_to_cleaned, final_cleaned, bm.header, bm.final_image_type, bm.label.compression)
+                if bm.create_slices:
+                    create_slices(bm.path_to_data, bm.path_to_cleaned, True)
+            if bm.label.fill:
+                final_filled = clean(final_result, bm.label.fill)
+                save_data(bm.path_to_filled, final_filled, bm.header, bm.final_image_type, bm.label.compression)
+                if bm.create_slices:
+                    create_slices(bm.path_to_data, bm.path_to_filled, True)
+            if bm.label.clean and bm.label.fill:
+                final_cleaned_filled = final_cleaned + (final_filled - final_result)
+                save_data(bm.path_to_cleaned_filled, final_cleaned_filled, bm.header, bm.final_image_type, bm.label.compression)
+                if bm.create_slices:
+                    create_slices(bm.path_to_data, bm.path_to_cleaned_filled, True)
 
             # uncertainty
             if final_uncertainty is not None:
@@ -191,6 +211,8 @@ def _diffusion_child(comm, bm=None):
                 final2[bm.argmin_z:bm.argmax_z, bm.argmin_y:bm.argmax_y, bm.argmin_x:bm.argmax_x] = final_uncertainty
                 final2 = final2[1:-1, 1:-1, 1:-1]
                 save_data(bm.path_to_uq, final2, compress=bm.label.compression)
+                if bm.create_slices:
+                    create_slices(bm.path_to_uq, None, True)
 
             # smooth
             if final_smooth is not None:
@@ -206,6 +228,22 @@ def _diffusion_child(comm, bm=None):
                 final2[bm.argmin_z:bm.argmax_z, bm.argmin_y:bm.argmax_y, bm.argmin_x:bm.argmax_x] = final_smooth
                 final2 = final2[1:-1, 1:-1, 1:-1]
                 save_data(bm.path_to_smooth, final2, bm.header, bm.final_image_type, bm.label.compression)
+                if bm.create_slices:
+                    create_slices(bm.path_to_data, bm.path_to_smooth, True)
+                if bm.label.clean:
+                    final2 = clean(final2, bm.label.clean)
+                    save_data(bm.path_to_smooth_cleaned, final2, bm.header, bm.final_image_type, bm.label.compression)
+                    if bm.create_slices:
+                        create_slices(bm.path_to_data, bm.path_to_smooth_cleaned, True)
+
+            # post processing with active contour
+            if bm.label.acwe:
+                data = np.zeros((bm.zsh, bm.ysh, bm.xsh), dtype=bm.data.dtype)
+                data[bm.argmin_z:bm.argmax_z, bm.argmin_y:bm.argmax_y, bm.argmin_x:bm.argmax_x] = bm.data
+                final_ac = activeContour(data[1:-1, 1:-1, 1:-1], final_result, bm.label.acwe_alpha, bm.label.acwe_smooth, bm.label.acwe_steps)
+                save_data(bm.path_to_acwe, final_ac, bm.header, bm.final_image_type, bm.label.compression)
+                if bm.create_slices:
+                    create_slices(bm.path_to_data, bm.path_to_acwe, True)
 
             # print computation time
             t = int(time.time() - bm.TIC)
