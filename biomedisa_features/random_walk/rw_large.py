@@ -100,6 +100,7 @@ def _diffusion_child(comm, bm=None):
 
             # read labeled slices
             if bm.label.allaxis:
+                labelblock = labelblock.astype(np.int32)
                 labelblock[:blockmin - datablockmin] = -1
                 labelblock[blockmax - datablockmin:] = -1
                 indices_child, labels_child = [], []

@@ -78,10 +78,6 @@ if __name__ == '__main__':
                             help='Number of random walks starting at each pre-segmented pixel')
         parser.add_argument('--sorw', type=int, default=4000,
                             help='Steps of a random walk')
-        parser.add_argument('--compression', action='store_true', default=True,
-                            help='Enable compression of segmentation results')
-        parser.add_argument('--allaxis', action='store_true', default=False,
-                            help='If pre-segmentation is not exlusively in xy-plane')
         parser.add_argument('--acwe', action='store_true', default=False,
                             help='Post-processing with active contour')
         parser.add_argument('--acwe-alpha', metavar='ALPHA', type=float, default=1.0,
@@ -90,6 +86,10 @@ if __name__ == '__main__':
                             help='Smoothing of active contour')
         parser.add_argument('--acwe-steps', metavar='STEPS', type=int, default=3,
                             help='Iterations of active contour')
+        parser.add_argument('--compression', action='store_true', default=True,
+                            help='Enable compression of segmentation results')
+        parser.add_argument('-allx', '--allaxis', action='store_true', default=False,
+                            help='If pre-segmentation is not exlusively in xy-plane')
         parser.add_argument('-d','--denoise', action='store_true', default=False,
                             help='Smooth/denoise image data before processing')
         parser.add_argument('-u','--uncertainty', action='store_true', default=False,

@@ -11,12 +11,12 @@ function alertFunction(state) {
 }
 
 function sliceviewerFunction(id) {
-    window.location.href = "/sliceviewer/repository/?id=" + id + "&object=specimen";
+    window.location.href = "/repository/sliceviewer/?id=" + id + "&object=specimen";
     window.close();
 }
 
 function visualizationFunction(id) {
-    window.location.href = "/visualization/?selected=" + id + "&next=storage";
+    window.location.href = "/repository/visualization/?id=" + id;
     window.close();
 }
 
@@ -242,6 +242,7 @@ $(document).ready(addClickHandlers);
           <!-- feature buttons -->
           <span class="delete_link" id="{{img.id}}"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
           <a href="/repository/specimen/{{img.id}}"><img src="/static/info.png" alt="info" style="width:20px;height:20px;border:0;"></a>
+          <a href=# onclick="visualizationFunction({{img.id}})"><img src="/static/visualization.svg" title="visualization" style="width:20px;height:20px;border:0;"></a>
           </p>
         </div>
       </td>
@@ -277,6 +278,7 @@ $(document).ready(addClickHandlers);
           <!-- feature buttons -->
           <span class="delete_link" id="{{img.id}}"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
           <a href="/repository/specimen/{{img.id}}"><img src="/static/info.png" alt="info" style="width:20px;height:20px;border:0;"></a>
+          <a href=# onclick="visualizationFunction({{img.id}})"><img src="/static/visualization.svg" title="visualization" style="width:20px;height:20px;border:0;"></a>
           </p>
         </div>
       </td>

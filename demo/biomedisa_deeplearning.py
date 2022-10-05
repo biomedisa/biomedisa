@@ -163,7 +163,7 @@ if __name__ == '__main__':
     TIC = time.time()
 
     # initialize arguments
-    parser = argparse.ArgumentParser(description='Biomedisa interpolation.',
+    parser = argparse.ArgumentParser(description='Biomedisa deeplearning.',
              formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     # required arguments

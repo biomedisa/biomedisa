@@ -820,12 +820,10 @@ def _get_device(platform, dev_id):
 def read_labeled_slices(arr):
     data = np.zeros((0, arr.shape[1], arr.shape[2]), dtype=np.int32)
     indices = []
-    i = 0
     for k, slc in enumerate(arr[:]):
         if np.any(slc):
             data = np.append(data, [arr[k]], axis=0)
-            indices.append(i)
-        i += 1
+            indices.append(k)
     return indices, data
 
 def read_labeled_slices_allx(arr, ax):
