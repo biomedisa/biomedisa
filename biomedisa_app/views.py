@@ -315,10 +315,12 @@ def specimen_info(request, id):
     id = int(id)
     specimen = get_object_or_404(Specimen, pk=id)
     if request.user in specimen.repository.users.all():
-        initial={'subfamily':specimen.subfamily,'genus':specimen.genus,'species':specimen.species,'caste':specimen.caste,
-                'status':specimen.status,'location':specimen.location,'date':specimen.date,'collected_by':specimen.collected_by,
-                'collection_date':specimen.collection_date,'determined_by':specimen.determined_by,'collection':specimen.collection,
-                'specimen_id':specimen.specimen_id,'notes':specimen.notes,'internal_id':specimen.internal_id,'sketchfab':specimen.sketchfab}
+        # initialization
+        initial = {}
+        specimen_form = SpecimenForm()
+        for key in specimen_form.fields.keys():
+            initial[key] = specimen.__dict__[key]
+        # get data
         if request.method == 'POST':
             data = SpecimenForm(request.POST)
             if data.is_valid():
@@ -392,6 +394,31 @@ def sliceviewer_repository(request):
             im = Image.open(full_path + '/0.png')
             imshape = np.asarray(im).shape
             return render(request, 'sliceviewer.html', {'path_to_slices':path_to_slices, 'nos':nos, 'imshape_x':imshape[1], 'imshape_y':imshape[0]})
+
+@login_required
+def visualization_repository(request):
+    if request.method == 'GET':
+        id = request.GET.get('id')
+        specimen = get_object_or_404(Specimen, pk=id)
+        if request.user in specimen.repository.users.all():
+
+            prefix = generate_activation_key()
+            path_to_link = '/media/' + prefix
+            dest = config['PATH_TO_BIOMEDISA'] + path_to_link
+            os.symlink(config['PATH_TO_BIOMEDISA'] + '/private_storage/' + specimen.internal_id + '.mask.stl', dest)
+
+            # create symlinks wich are removed when "app" is called or user loggs out
+            try:
+                symlinks = request.session["symlinks"]
+                symlinks.append(dest)
+                request.session["symlinks"] = symlinks
+            except:
+                request.session["symlinks"] = [dest]
+
+            name = specimen.internal_id + '.mask.stl'
+            url = config['SERVER'] + path_to_link
+            URL = config['SERVER'] + "/paraview/?name=["+name+"]&url=["+url+"]"
+            return HttpResponseRedirect(URL)
 
 @login_required
 def download_repository(request, id):
@@ -749,13 +776,12 @@ def settings(request, id):
     id = int(id)
     image = get_object_or_404(Upload, pk=id)
     if image.user == request.user:
-        initial={'allaxis':image.allaxis,'smooth':image.smooth,'delete_outliers':image.delete_outliers,
-                'fill_holes':image.fill_holes,'ignore':image.ignore,'epochs':image.epochs,'uncertainty':image.uncertainty,
-                'normalize':image.normalize,'validation_freq':image.validation_freq,'early_stopping':image.early_stopping,
-                'compression':image.compression,'only':image.only,'stride_size':image.stride_size,'batch_size':image.batch_size,
-                'x_scale':image.x_scale,'y_scale':image.y_scale,'z_scale':image.z_scale,'position':image.position,
-                'flip_x':image.flip_x,'flip_y':image.flip_y,'flip_z':image.flip_z,'rotate':image.rotate,
-                'validation_split':image.validation_split,'automatic_cropping':image.automatic_cropping}
+        # initialization
+        initial = {}
+        settings_form = SettingsForm()
+        for key in settings_form.fields.keys():
+            initial[key] = image.__dict__[key]
+        # get data
         if request.method == 'POST':
             img = SettingsForm(request.POST)
             if img.is_valid():
@@ -783,8 +809,10 @@ def settings_prediction(request, id):
     id = int(id)
     image = get_object_or_404(Upload, pk=id)
     if image.user == request.user and image.imageType == 4 and image.project > 0:
-        initial={'delete_outliers':image.delete_outliers,'fill_holes':image.fill_holes,
-                 'compression':image.compression,'stride_size':image.stride_size,'batch_size':image.batch_size}
+        initial = {}
+        settings_form = SettingsPredictionForm()
+        for key in settings_form.fields.keys():
+            initial[key] = image.__dict__[key]
         if request.method == 'POST':
             img = SettingsPredictionForm(request.POST)
             if img.is_valid():

@@ -280,6 +280,39 @@ class Specimen(models.Model):
     specimen_id = models.CharField(null=True, max_length=255, blank=True)
     notes = models.TextField(null=True, blank=True)
     sketchfab = models.TextField(null=True, blank=True)
+    specimen_code = models.CharField(null=True, max_length=255, blank=True)
+    collection_event_code = models.CharField(null=True, max_length=255, blank=True)
+    taxon_code = models.CharField(null=True, max_length=255, blank=True)
+    lifestagesex = models.CharField(null=True, max_length=255, blank=True)
+    subcaste = models.CharField(null=True, max_length=255, blank=True)
+    scanning_vial_box = models.CharField(null=True, max_length=255, blank=True)
+    subcaste1 = models.CharField(null=True, max_length=255, blank=True)
+    tribe = models.CharField(null=True, max_length=255, blank=True)
+    genus_authority = models.CharField(null=True, max_length=255, blank=True)
+    antwiki_source = models.CharField(null=True, max_length=255, blank=True)
+    located_at = models.CharField(null=True, max_length=255, blank=True)
+    owned_by = models.CharField(null=True, max_length=255, blank=True)
+    insert_user = models.CharField(null=True, max_length=255, blank=True)
+    method = models.CharField(null=True, max_length=255, blank=True)
+    sampling_effort = models.CharField(null=True, max_length=255, blank=True)
+    date_collected_start = models.CharField(null=True, max_length=255, blank=True)
+    date_collected_end = models.CharField(null=True, max_length=255, blank=True)
+    habitat = models.CharField(null=True, max_length=255, blank=True)
+    microhabitat = models.CharField(null=True, max_length=255, blank=True)
+    behavior = models.CharField(null=True, max_length=255, blank=True)
+    disturbance_level = models.CharField(null=True, max_length=255, blank=True)
+    country = models.CharField(null=True, max_length=255, blank=True)
+    adm1 = models.CharField(null=True, max_length=255, blank=True)
+    adm2 = models.CharField(null=True, max_length=255, blank=True)
+    island_group = models.CharField(null=True, max_length=255, blank=True)
+    island = models.CharField(null=True, max_length=255, blank=True)
+    locality_name = models.CharField(null=True, max_length=255, blank=True)
+    latitude = models.CharField(null=True, max_length=255, blank=True)
+    longitude = models.CharField(null=True, max_length=255, blank=True)
+    latlong_error = models.CharField(null=True, max_length=255, blank=True)
+    elevation = models.CharField(null=True, max_length=255, blank=True)
+    elevation_error = models.CharField(null=True, max_length=255, blank=True)
+    biogeographic_region = models.CharField(null=True, max_length=255, blank=True)
 
 class TomographicData(models.Model):
     pic = models.FileField("", upload_to=repository_directory_path)
@@ -310,7 +343,15 @@ class SpecimenForm(forms.ModelForm):
         fields = ('subfamily', 'genus', 'species', 'caste', 'status',
                   'location', 'date', 'collected_by', 'collection_date',
                   'determined_by', 'collection', 'specimen_id', 'internal_id',
-                  'sketchfab', 'notes')
+                  'specimen_code', 'collection_event_code', 'taxon_code', 'lifestagesex',
+                  'subcaste', 'scanning_vial_box', 'subcaste1', 'tribe',
+                  'genus_authority', 'antwiki_source', 'located_at', 'owned_by',
+                  'insert_user', 'method', 'sampling_effort', 'date_collected_start',
+                  'date_collected_end', 'habitat', 'microhabitat', 'behavior',
+                  'disturbance_level', 'country', 'adm1', 'adm2',
+                  'island_group', 'island', 'locality_name', 'latitude',
+                  'longitude', 'latlong_error', 'elevation', 'elevation_error',
+                  'biogeographic_region', 'sketchfab', 'notes')
 
 class TomographicDataForm(forms.ModelForm):
     class Meta:
