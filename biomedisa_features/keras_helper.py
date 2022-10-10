@@ -525,12 +525,6 @@ def train_semantic_segmentation(normalize, img_list, label_list, x_scale, y_scal
     img, label, position, allLabels, configuration_data, header, extension, number_of_images, counts = load_training_data(normalize,
                     img_list, label_list, channels, x_scale, y_scale, z_scale, crop_data)
 
-    # force validation_split for large number of training images
-    if number_of_images > 20:
-        if validation_split == 0:
-            validation_split = 0.8
-        early_stopping = True
-
     # img shape
     zsh, ysh, xsh = img.shape
 
