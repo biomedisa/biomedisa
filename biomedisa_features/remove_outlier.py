@@ -26,21 +26,23 @@
 ##                                                                      ##
 ##########################################################################
 
+try:
+    import django
+    django.setup()
+    from biomedisa_app.models import Upload
+    from biomedisa_app.config import config
+    if config['OS'] == 'linux':
+        from redis import Redis
+        from rq import Queue
+except:
+    from biomedisa_app.config_example import config
+
 import os
-import django
-django.setup()
-from django.shortcuts import get_object_or_404
-from biomedisa_app.config import config
-from biomedisa_app.models import Upload
 from biomedisa_features.create_slices import create_slices
 from biomedisa_features.biomedisa_helper import load_data, save_data, unique_file_path
 from multiprocessing import Process
 import numpy as np
 from scipy import ndimage
-
-if config['OS'] == 'linux':
-    from redis import Redis
-    from rq import Queue
 
 def reduce_blocksize(data):
     zsh, ysh, xsh = data.shape

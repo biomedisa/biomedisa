@@ -58,24 +58,37 @@ from stl import mesh
 import re
 import math
 
-def img_resize(a, z_shape, y_shape, x_shape, interpolation=None):
+def img_resize(a, z_shape, y_shape, x_shape, interpolation=None, labels=False):
     zsh, ysh, xsh = a.shape
     if interpolation == None:
         if z_shape < zsh or y_shape < ysh or x_shape < xsh:
             interpolation = cv2.INTER_AREA
         else:
             interpolation = cv2.INTER_CUBIC
-    b = np.empty((zsh, y_shape, x_shape), dtype=a.dtype)
-    for k in range(zsh):
-        b[k] = cv2.resize(a[k], (x_shape, y_shape), interpolation=interpolation)
-    c = np.empty((y_shape, z_shape, x_shape), dtype=a.dtype)
-    b = np.swapaxes(b, 0, 1)
-    b = np.copy(b, order='C')
-    for k in range(y_shape):
-        c[k] = cv2.resize(b[k], (x_shape, z_shape), interpolation=interpolation)
-    c = np.swapaxes(c, 1, 0)
-    c = np.copy(c, order='C')
-    return c
+
+    def __resize__(arr):
+        b = np.empty((zsh, y_shape, x_shape), dtype=arr.dtype)
+        for k in range(zsh):
+            b[k] = cv2.resize(arr[k], (x_shape, y_shape), interpolation=interpolation)
+        c = np.empty((y_shape, z_shape, x_shape), dtype=arr.dtype)
+        b = np.swapaxes(b, 0, 1)
+        b = np.copy(b, order='C')
+        for k in range(y_shape):
+            c[k] = cv2.resize(b[k], (x_shape, z_shape), interpolation=interpolation)
+        c = np.swapaxes(c, 1, 0)
+        c = np.copy(c, order='C')
+        return c
+
+    if labels:
+        data = np.zeros((z_shape, y_shape, x_shape), dtype=a.dtype)
+        for k in np.unique(a):
+            tmp = np.zeros(a.shape, dtype=np.uint8)
+            tmp[a==k] = 1
+            tmp = __resize__(tmp)
+            data[tmp==1] = k
+    else:
+        data = __resize__(a)
+    return data
 
 @numba.jit(nopython=True)
 def smooth_img_3x3(img):
