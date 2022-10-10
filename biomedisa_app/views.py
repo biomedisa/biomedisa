@@ -215,7 +215,7 @@ def create_repository(request):
             files = glob.glob(basename + repository_name + f'/{res}x/*/*.tif')
             for file in files:
                 if 'slices' in os.path.basename(file):
-                    internal_id = f'{res}x/' + os.path.basename(os.path.dirname(file))[:-3]
+                    internal_id = os.path.basename(os.path.dirname(file))[:-3]
                     step_scans = os.path.basename(os.path.dirname(file))[-1]
                     filename = file[len(basename):]
                     if Specimen.objects.filter(internal_id=internal_id, repository=repository).exists():
@@ -405,7 +405,7 @@ def visualization_repository(request):
             prefix = generate_activation_key()
             path_to_link = '/media/' + prefix
             dest = config['PATH_TO_BIOMEDISA'] + path_to_link
-            os.symlink(config['PATH_TO_BIOMEDISA'] + '/private_storage/' + specimen.internal_id + '.mask.stl', dest)
+            os.symlink(config['PATH_TO_BIOMEDISA'] + '/private_storage/2020_12_antscan/' + specimen.internal_id + '.stl', dest)
 
             # create symlinks wich are removed when "app" is called or user loggs out
             try:
@@ -415,7 +415,7 @@ def visualization_repository(request):
             except:
                 request.session["symlinks"] = [dest]
 
-            name = specimen.internal_id + '.mask.stl'
+            name = specimen.internal_id + '.stl'
             url = config['SERVER'] + path_to_link
             URL = config['SERVER'] + "/paraview/?name=["+name+"]&url=["+url+"]"
             return HttpResponseRedirect(URL)

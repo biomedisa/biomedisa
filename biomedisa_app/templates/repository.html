@@ -263,12 +263,9 @@ $(document).ready(addClickHandlers);
       <td>
         <div id="img{{ img.id }}" >
           <p style="text-align:left;">
-          <!-- sketchfab animation -->
-          {% if img.sketchfab %}
-            <iframe id="view360Iframe" style="width: 425px; height: 238px" scrolling="0" src="https://sketchfab.com/models/{{img.sketchfab}}/embed?ui_infos=0&amp;ui_watermark=0&amp;ui_help=0&amp;ui_settings=0&amp;ui_inspector=0&amp;ui_annotations=0&amp;ui_stop=1&amp;ui_vr=0&amp;preload=1&amp;autostart=0&amp;ui_hint=2&amp;autospin=0.2">
-            </iframe>
+          <!-- screenshot -->
+          <a href="/media/screenshots/{{img.internal_id}}.png"><img src="/media/screenshots/{{img.internal_id}}.png" title="screenshot" style="width:425px;height:238px;border:0"></a>
           </br></br>
-          {% endif %}
           <!-- get name of specimen -->
           {% if img.subfamily or img.genus or img.species or img.caste %}
               <span>{{ img.subfamily }} | {{ img.genus }} | {{ img.species }} | {{ img.caste }}</span>
@@ -296,3 +293,4 @@ $(document).ready(addClickHandlers);
 <script>alertFunction("{{state}}")</script>
 {% endif %}
 {% endblock %}
+
