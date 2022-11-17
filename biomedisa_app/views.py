@@ -26,57 +26,6 @@
 ##                                                                      ##
 ##########################################################################
 
-# 04. hash_a_string(string)
-# 05. get_size(start_path)
-# 06. index(request)
-# 07. faq(request)
-# 08. contact(request)
-# 09. impressum(request)
-# 11. logout_user(request)
-# 12. sendEmail(datas)
-# 13. generate_activation_key()
-# 14. register(request)
-# 15. activation(request, key)
-# 16. change_active_final(request, id, val)
-# 17. sliceviewer(request, id)
-# 18. visualization(request, id)
-# 19. login_user(request)
-# 20. settings(request, id)
-# 21. update_profile(request)
-# 22. change_password(request)
-# 23. storage(request)
-# 24. move(request, id, project)
-# 25. features(request, action)
-# 26. reset(request)
-# 27. app(request)
-# 28. constant_time_compare(val1, val2)
-# 29. share_data(request, id, list_of_users, next)
-# 30. clean_state(request, next)
-# 31. create_download_link(request, id)
-# 32. accept_shared_data(request, id)
-# 33. download_shared_data(request, id, pw)
-# 34. download(request, id)
-# 35. gallery(request)
-# 36. run_demo(request)
-# 37. delete_demo(request)
-# 38. download_demo(request, id)
-# 39. visualization_demo(request, id)
-# 40. sliceviewer_demo(request, id)
-# 41. delete(request, id)
-# 42. init_random_walk(image, label)
-# 43. run(request)
-# 44. stop_running_job(id)
-# 45. remove_from_queue(request, id) or kill process
-# 46. delete account(request)
-# 47. send_notification(username, image_name, time_str, server_name, train=False)
-# 48. send_start_notification(image, remote=False)
-# 49. send_error_message(username, image_name, error_msg)
-# 50. send_share_notify(username, image_name, shared_by)
-# 51. status(request)
-# 52. dummy(request)
-#
-##################################################
-
 from __future__ import unicode_literals
 
 import django
@@ -1140,6 +1089,7 @@ def init_keras_3D(image, label, model, refine, predict, img_list, label_list, qu
     p.wait()
 
     # stop processing
+    image.path_to_model = ''
     image.status = 0
     image.pid = 0
     image.save()
@@ -2319,6 +2269,7 @@ def remove_from_queue(request):
                 if image_to_stop.path_to_model:
                     if os.path.isfile(image_to_stop.path_to_model):
                         os.remove(image_to_stop.path_to_model)
+                    image_to_stop.path_to_model = ''
 
                 # reset image
                 image_to_stop.status = 0
@@ -2355,18 +2306,19 @@ def delete_account(request):
     return render(request, 'contact.html', content)
 
 # 47. send notification
-def send_notification(username, image_name, time_str, server_name, train=False):
+def send_notification(username, image_name, time_str, server_name, train=False, predict=False):
 
     if train:
         info = 'trained a neural network for'
+        recipients = [config['EMAIL']]
     else:
         info = 'finished the segmentation of'
+        recipients = []
 
     user = User.objects.get(username=username)
     if user.first_name:
         username = user.first_name
 
-    recipients = [config['EMAIL']]
     if user.profile.notification and user.email and user.email not in recipients:
         recipients.append(user.email)
 
@@ -2375,7 +2327,10 @@ def send_notification(username, image_name, time_str, server_name, train=False):
         # prepare data package
         datas={}
         datas['email'] = recipient
-        datas['email_path'] = '/ProcessCompleted.txt'
+        if train or predict:
+            datas['email_path'] = '/DeepLearningCompleted.txt'
+        else:
+            datas['email_path'] = '/InterpolationCompleted.txt'
         datas['email_subject'] = 'Segmentation successfully finished'
         datas['context'] = Context({'host':config['SERVER'], 'ctime':time_str, 'server_name': server_name,
                                     'username':username, 'image_name':image_name, 'info':info})
@@ -2468,3 +2423,4 @@ def dummy(request):
     # do nothing
     results = {'success':True}
     return JsonResponse(results)
+

@@ -24,24 +24,36 @@
       </div>
 
       <div class="article">
-        <h2>Biomedisa on Intel CPUs and OpenCL</h2>
-        <p class="infopost">Posted on <span class="date">20 sep 2022</span> by Philipp </p>
+        <h2>Large-scale analyses using Biomedisa's deep learning</h2>
+        <p class="infopost">Posted on <span class="date">19 oct 2022</span> by Philipp </p>
         <div class="clr"></div>
-        <div class="img"><a href="https://biomedisa.org/static/hardware_ctimes.png" target="_blank"><img src="/static/hardware_ctimes.png" width="640" height="320" title="opencl" /></a></div>
+        <div class="img"><a href="https://biomedisa.org/static/honeybee_brain_small.png" target="_blank"><img src="/static/honeybee_brain_small.png" width="640" height="306" title="honeybee brain" /></a></div>
         <div class="post_content">
-          <p> Biomedisa runs on both NVIDIA GPUs and Intel CPUs with OpenCL. Follow the <a href="https://github.com/biomedisa/biomedisa#installation-command-line-only" target="_blank">installation instructions</a>. The best available platform is selected automatically. You can manually select a specific platform by calling one of the options: <i>--platform cuda</i>, <i>opencl_NVIDIA_GPU</i> or <i>opencl_Intel_CPU</i>. If you are using Biomedisa via web browser, select the platform on the Profile tab. Performance tests were run on examples from the <a href="https://biomedisa.org/gallery/">gallery</a>. Mineralized wasp: (1077, 992, 2553), every 20th slice pre-segmented. <i>Trigonopterus:</i> (1497, 734, 1117). Mouse molar: (413, 553, 413).
+          <p> Large numbers of brain samples can reveal minor but statistically and biologically relevant variations that provide important insights into animal behavior, ecology, and evolution. We used micro-CT imaging and Biomedisa's deep learning feature to perform automated analyses of 187 bee brains (honeybees and bumblebees). In bumblebees, we found a significantly larger right side of the optic lobes, likely related to reported variations in visual learning (bees learn better with their right eye). Check out the <a href="https://doi.org/10.1101/2022.10.12.511944" target="_blank">preprint</a>!
           </p>
         </div>
         <div class="clr"></div>
       </div>
 
       <div class="article">
-        <h2>Installation on Windows 10 (21H2) and Windows 11</h2>
+        <h2>Biomedisa interpolation on Intel CPUs with OpenCL</h2>
+        <p class="infopost">Posted on <span class="date">20 sep 2022</span> by Philipp </p>
+        <div class="clr"></div>
+        <div class="img"><a href="https://biomedisa.org/static/hardware_ctimes.png" target="_blank"><img src="/static/hardware_ctimes.png" width="640" height="320" title="opencl" /></a></div>
+        <div class="post_content">
+          <p> Biomedisa interpolation runs on both NVIDIA GPUs and Intel CPUs with OpenCL. Follow the <a href="https://github.com/biomedisa/biomedisa#installation-command-line-only" target="_blank">installation instructions</a>. The best available platform is selected automatically. You can manually select a specific platform by calling one of the options: <i>--platform cuda</i>, <i>opencl_NVIDIA_GPU</i> or <i>opencl_Intel_CPU</i>. If you are using Biomedisa via web browser, select the platform on the <a href="https://biomedisa.org/profile/" target="_blank">Profile tab</a>. Performance tests were run on examples from the <a href="https://biomedisa.org/gallery/">gallery</a>. Mineralized wasp: (1077, 992, 2553), every 20th slice pre-segmented. <i>Trigonopterus:</i> (1497, 734, 1117). Mouse molar: (413, 553, 413).
+          </p>
+        </div>
+        <div class="clr"></div>
+      </div>
+
+      <div class="article">
+        <h2>Installation on Windows 10 and 11</h2>
         <p class="infopost">Posted on <span class="date">06 jan 2022</span> by Philipp </p>
         <div class="clr"></div>
         <div class="img"><a href="https://docs.microsoft.com/en-us/windows/wsl/" target="_blank"><img style="padding-right: 15px" src="/static/windows.jpg" width="178" height="100" title="windows" /></a></div>
         <div class="post_content">
-          <p> Microsoft's latest virtualization technology <a href="https://docs.microsoft.com/en-us/windows/wsl/" target="_blank">WSL 2</a> makes it easy to install Biomedisa on Windows 10 (version 21H2) and Windows 11. Please follow the <a href="https://github.com/biomedisa/biomedisa/blob/master/README/windows11.md" target="_blank">installation instructions</a> to run Biomedisa on your local Windows computer. Biomedisa requires an NVIDIA graphics card or a high-performance Intel CPU.
+          <p> Microsoft's latest virtualization technology <a href="https://docs.microsoft.com/en-us/windows/wsl/" target="_blank">WSL 2</a> makes it easy to install Biomedisa on Windows 10 (version 21H2 or higher) and Windows 11. Please follow the <a href="https://github.com/biomedisa/biomedisa/blob/master/README/windows11.md" target="_blank">installation instructions</a> to run Biomedisa on your local Windows computer. Biomedisa requires an NVIDIA graphics card or a high-performance Intel CPU.
           </p>
         </div>
         <div class="clr"></div>
@@ -172,7 +184,7 @@
         <div class="clr"></div>
         <div class="img"><a><img style="padding-right: 15px" src="/static/artificial-intelligence-Gerd-Altmann-Pixabay.jpg" width="150" height="100" title="ai" /></a></div>
         <div class="post_content">
-          <p> <strong>Artificial intelligence</strong> in the form of deep neural networks has become an established method not only in speech recognition but also in image processing. Biomedisa AI is optimized for the segmentation of 3D image data. Artificial neural networks can be trained on pre-labeld data and applied to new, unknown data, enabling fully automated segmentation within seconds. See our <a href="https://biomedisa.org/gallery/">gallery</a> for an example.</p>
+          <p> <strong>Artificial intelligence</strong> in the form of deep neural networks has become an established method not only in speech recognition but also in image processing. Biomedisa AI is optimized for the segmentation of 3D image data. Artificial neural networks can be trained on fully pre-segmented data and applied to new, unknown data, enabling fully automated segmentation within seconds. See our <a href="https://biomedisa.org/gallery/">gallery</a> for an example.</p>
         </div>
         <div class="clr"></div>
       </div>
