@@ -134,13 +134,11 @@ def active_contour(image_id, friend_id, label_id):
     except Upload.DoesNotExist:
         bm.success = False
 
-    # path to data
-    bm.path_to_data = bm.image.pic.path
-    bm.path_to_labels = friend.pic.path
-
     # pre-processing
     if bm.success:
         bm.process = 'acwe'
+        bm.path_to_data = bm.image.pic.path
+        bm.path_to_labels = friend.pic.path
         bm = pre_processing(bm)
 
     if bm.success:

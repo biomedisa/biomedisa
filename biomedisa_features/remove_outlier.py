@@ -161,11 +161,11 @@ def remove_outlier(image_id, final_id, friend_id, label_id, fill_holes=True):
     except Upload.DoesNotExist:
         success = False
 
-    # path to data
-    path_to_data = image.pic.path
-    path_to_final = final.pic.path
-
     if success:
+
+        # path to data
+        path_to_data = image.pic.path
+        path_to_final = final.pic.path
 
         # final filenames
         filename, extension = os.path.splitext(path_to_final)

@@ -81,7 +81,10 @@ def get_image_dimensions(header, data):
 
     # read header as string
     b = header.tobytes()
-    s = b.decode("utf-8")
+    try:
+        s = b.decode("utf-8")
+    except:
+        s = b.decode("latin1")
 
     # get image size in header
     lattice = re.search('define Lattice (.*)\n', s)
@@ -105,7 +108,10 @@ def get_physical_size(header, img_header):
 
     # read img_header as string
     b = img_header.tobytes()
-    s = b.decode("utf-8")
+    try:
+        s = b.decode("utf-8")
+    except:
+        s = b.decode("latin1")
 
     # get physical size from image header
     lattice = re.search('BoundingBox (.*),\n', s)
@@ -116,7 +122,10 @@ def get_physical_size(header, img_header):
 
     # read header as string
     b = header.tobytes()
-    s = b.decode("utf-8")
+    try:
+        s = b.decode("utf-8")
+    except:
+        s = b.decode("latin1")
 
     # get physical size from header
     lattice = re.search('BoundingBox (.*),\n', s)
