@@ -193,8 +193,7 @@ if __name__ == '__main__':
                         if any(i in sub_indices for i in sub_indices_minus_one):
                             neighbours = True
                     if neighbours:
-                        message = 'At least one empty slice between labels required.'
-                        bm = _error_(bm, message)
+                        bm = _error_(bm, 'At least one empty slice between labels required.')
 
                 # send executable
                 for dest in range(1, size):
@@ -237,7 +236,7 @@ if __name__ == '__main__':
                             bm.indices, bm.labels = read_labeled_slices(bm.labelData)
 
                         # number of ngpus
-                        ngpus = size if size < len(bm.indices) else len(bm.indices)
+                        ngpus = min(len(bm.indices), size)
 
                         # send number of GPUs to childs
                         for dest in range(1, size):

@@ -107,6 +107,26 @@ def smooth_img_3x3(img):
                 out[z,y,x] = tmp / i
     return out
 
+def set_labels_to_zero(label, labels_to_compute, labels_to_remove):
+
+    # compute only specific labels (set rest to zero)
+    labels_to_compute = labels_to_compute.split(',')
+    if not any([x in ['all', 'All', 'ALL'] for x in labels_to_compute]):
+        allLabels = np.unique(label)
+        labels_to_del = [k for k in allLabels if str(k) not in labels_to_compute and k > 0]
+        for k in labels_to_del:
+            label[label == k] = 0
+
+    # ignore specific labels (set to zero)
+    labels_to_remove = labels_to_remove.split(',')
+    if not any([x in ['none', 'None', 'NONE'] for x in labels_to_remove]):
+        for k in labels_to_remove:
+            k = int(k)
+            if np.any(label == k):
+                label[label == k] = 0
+
+    return label
+
 def img_to_uint8(img):
     if img.dtype != 'uint8':
         img = img.astype(np.float32)
@@ -184,9 +204,10 @@ def load_data_(path_to_data, process):
     if extension == '.am':
         try:
             data, header = amira_to_np(path_to_data)
+            header = [header]
             if len(data) > 1:
-                extension, header = '.tif', None
-                print('Warning! Multiple data streams are not supported. Falling back to TIFF.')
+                for arr in data[1:]:
+                    header.append(arr)
             data = data[0]
         except Exception as e:
             print(e)
@@ -307,6 +328,7 @@ def load_data(path_to_data, process='None', return_extension=False):
         return data, header
 
 def _error_(bm, message):
+    print('Error:', message)
     if bm.django_env:
         Upload.objects.create(user=bm.image.user, project=bm.image.project, log=1, imageType=None, shortfilename=message)
         bm.path_to_logfile = config['PATH_TO_BIOMEDISA'] + '/log/logfile.txt'
@@ -314,8 +336,6 @@ def _error_(bm, message):
             print('%s %s %s %s' %(time.ctime(), bm.image.user.username, bm.image.shortfilename, message), file=logfile)
         from biomedisa_app.views import send_error_message
         send_error_message(bm.image.user.username, bm.image.shortfilename, message)
-    else:
-        print(message)
     bm.success = False
     return bm
 
@@ -402,7 +422,12 @@ def save_data(path_to_final, final, header=None, final_image_type=None, compress
         if final_image_type == '.gz':
             final_image_type = '.nii.gz'
     if final_image_type == '.am':
-        np_to_amira(path_to_final, [final], header)
+        final = [final]
+        if len(header) > 1:
+            for arr in header[1:]:
+                final.append(arr)
+        header = header[0]
+        np_to_amira(path_to_final, final, header)
     elif final_image_type in ['.hdr', '.mhd', '.mha', '.nrrd', '.nii', '.nii.gz']:
         final = np.swapaxes(final, 0, 2)
         save(final, path_to_final, header)
@@ -827,7 +852,7 @@ def _get_device(platform, dev_id):
         if p.get_devices(device_type=device_type) and vendor in p.name:
             my_devices = p.get_devices(device_type=device_type)
     context = cl.Context(devices=my_devices)
-    queue = cl.CommandQueue(context, my_devices[dev_id])
+    queue = cl.CommandQueue(context, my_devices[dev_id % len(my_devices)])
     return context, queue
 
 def read_labeled_slices(arr):

@@ -43,10 +43,9 @@ def elastic_transform(image, alpha=100, sigma=20):
 class DataGeneratorCrop(tf.keras.utils.Sequence):
     'Generates data for Keras'
     def __init__(self, img, label, position, list_IDs_fg, list_IDs_bg, batch_size=32, dim=(32,32,32),
-                 dim_img=(32,32,32), n_channels=3, n_classes=2, shuffle=True):
+                 n_channels=3, n_classes=2, shuffle=True):
         'Initialization'
         self.dim = dim
-        self.dim_img = dim_img
         self.list_IDs_fg = list_IDs_fg
         self.list_IDs_bg = list_IDs_bg
         self.batch_size = batch_size

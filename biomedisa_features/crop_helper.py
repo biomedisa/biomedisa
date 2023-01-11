@@ -27,7 +27,7 @@
 ##########################################################################
 
 import os
-from biomedisa_features.biomedisa_helper import img_resize, load_data, save_data
+from biomedisa_features.biomedisa_helper import img_resize, load_data, save_data, set_labels_to_zero
 from tensorflow.python.framework.errors_impl import ResourceExhaustedError
 from tensorflow.keras.applications import DenseNet121, densenet
 from tensorflow.keras.optimizers import Adam
@@ -92,7 +92,8 @@ def make_densenet(inputshape):
     model = Model(inputs, outputs)
     return model
 
-def load_cropping_training_data(normalize, img_list, label_list, x_scale, y_scale, z_scale, mu=None, sig=None):
+def load_cropping_training_data(normalize, img_list, label_list, x_scale, y_scale, z_scale,
+    labels_to_compute, labels_to_remove, mu=None, sig=None):
 
     # get filenames
     img_names, label_names = [], []
@@ -146,6 +147,7 @@ def load_cropping_training_data(normalize, img_list, label_list, x_scale, y_scal
         InputError.message = "Invalid label data %s." %(os.path.basename(label_names[0]))
         raise InputError()
     a = a.astype(np.uint8)
+    a = set_labels_to_zero(a, labels_to_compute, labels_to_remove)
     label_z = np.any(a,axis=(1,2))
     label_y = np.any(a,axis=(0,2))
     label_x = np.any(a,axis=(0,1))
@@ -183,6 +185,7 @@ def load_cropping_training_data(normalize, img_list, label_list, x_scale, y_scal
             InputError.message = "Invalid label data %s." %(os.path.basename(name))
             raise InputError()
         a = a.astype(np.uint8)
+        a = set_labels_to_zero(a, labels_to_compute, labels_to_remove)
         next_label_z = np.any(a,axis=(1,2))
         next_label_y = np.any(a,axis=(0,2))
         next_label_x = np.any(a,axis=(0,1))
@@ -232,47 +235,71 @@ def train_cropping(img, label, path_to_model, epochs, batch_size,
     list_IDs_fg = list(np.where(label)[0])
     list_IDs_bg = list(np.where(label==False)[0])
 
+    # validation data
+    if np.any(img_val):
+        list_IDs_val_fg = list(np.where(label_val)[0])
+        list_IDs_val_bg = list(np.where(label_val==False)[0])
+    elif validation_split:
+        split_fg = int(len(list_IDs_fg) * validation_split)
+        split_bg = int(len(list_IDs_bg) * validation_split)
+        list_IDs_val_fg = list_IDs_fg[split_fg:]
+        list_IDs_val_bg = list_IDs_bg[split_bg:]
+        list_IDs_fg = list_IDs_fg[:split_fg]
+        list_IDs_bg = list_IDs_bg[:split_bg]
+
+    # upsample IDs
+    max_IDs = max(len(list_IDs_fg), len(list_IDs_bg))
+    tmp_fg = []
+    while len(tmp_fg) < max_IDs:
+        tmp_fg.extend(list_IDs_fg)
+        tmp_fg = tmp_fg[:max_IDs]
+    list_IDs_fg = tmp_fg[:]
+
+    tmp_bg = []
+    while len(tmp_bg) < max_IDs:
+        tmp_bg.extend(list_IDs_bg)
+        tmp_bg = tmp_bg[:max_IDs]
+    list_IDs_bg = tmp_bg[:]
+
+    # validation data
+    if np.any(img_val) or validation_split:
+        max_IDs = max(len(list_IDs_val_fg), len(list_IDs_val_bg))
+        tmp_fg = []
+        while len(tmp_fg) < max_IDs:
+            tmp_fg.extend(list_IDs_val_fg)
+            tmp_fg = tmp_fg[:max_IDs]
+        list_IDs_val_fg = tmp_fg[:]
+        tmp_bg = []
+
+        while len(tmp_bg) < max_IDs:
+            tmp_bg.extend(list_IDs_val_bg)
+            tmp_bg = tmp_bg[:max_IDs]
+        list_IDs_val_bg = tmp_bg[:]
+
     # input shape
     input_shape = (ysh, xsh, channels)
 
     # parameters
     params = {'dim': (ysh, xsh),
-              'dim_img': (zsh, ysh, xsh),
               'batch_size': batch_size,
               'n_classes': 2,
               'n_channels': channels,
               'shuffle': True}
 
-    # validation data
-    if np.any(img_val):
-        zsh_val = img_val.shape[0]
-        list_IDs_val_fg = list(np.where(label_val)[0])
-        list_IDs_val_bg = list(np.where(label_val==False)[0])
-    else:
-        zsh_val = zsh
-
     # validation parameters
     params_val = {'dim': (ysh, xsh),
-                  'dim_img': (zsh_val, ysh, xsh),
                   'batch_size': batch_size,
                   'n_classes': 2,
                   'n_channels': channels,
                   'shuffle': False}
 
     # data generator
+    training_generator = DataGeneratorCrop(img, label, position, list_IDs_fg, list_IDs_bg, **params)
     if np.any(img_val):
-        training_generator = DataGeneratorCrop(img, label, position, list_IDs_fg, list_IDs_bg, **params)
         validation_generator = DataGeneratorCrop(img_val, label_val, position_val, list_IDs_val_fg, list_IDs_val_bg, **params_val)
     elif validation_split:
-        split_IDs = int(zsh * validation_split)
-        list_IDs_fg = list(np.where(label[:split_IDs])[0])
-        list_IDs_bg = list(np.where(label[:split_IDs]==False)[0])
-        list_IDs_val_fg = list(np.where(label[split_IDs:])[0] + split_IDs)
-        list_IDs_val_bg = list(np.where(label[split_IDs:]==False)[0] + split_IDs)
-        training_generator = DataGeneratorCrop(img, label, position, list_IDs_fg, list_IDs_bg, **params)
         validation_generator = DataGeneratorCrop(img, label, position, list_IDs_val_fg, list_IDs_val_bg, **params_val)
     else:
-        training_generator = DataGeneratorCrop(img, label, position, list_IDs_fg, list_IDs_bg, **params)
         validation_generator = None
 
     # create a MirroredStrategy
@@ -474,18 +501,18 @@ def crop_volume(img, path_to_volume, path_to_model, z_shape, y_shape, x_shape, b
 
 def load_and_train(normalize,path_to_img,path_to_labels,path_to_model,
                 epochs,batch_size,validation_split,x_scale,y_scale,z_scale,
-                flip_x,flip_y,flip_z,rotate,path_val_img=[None],
-                path_val_labels=[None],demo=False):
+                flip_x,flip_y,flip_z,rotate,labels_to_compute,labels_to_remove,
+                path_val_img=[None],path_val_labels=[None],demo=False):
 
     # load training data
     img_val, labelData_val, position_val = None, None, None
     img, labelData, position, mu, sig, header, extension, number_of_images = load_cropping_training_data(normalize,
-                        path_to_img, path_to_labels, x_scale, y_scale, z_scale)
+                        path_to_img, path_to_labels, x_scale, y_scale, z_scale, labels_to_compute, labels_to_remove)
 
     # load validation data
     if any(path_val_img) and any(path_val_labels):
         img_val, labelData_val, position_val, _, _, _, _, _ = load_cropping_training_data(normalize,
-                            path_val_img, path_val_labels, x_scale, y_scale, z_scale, mu, sig)
+                            path_val_img, path_val_labels, x_scale, y_scale, z_scale, labels_to_compute, labels_to_remove, mu, sig)
 
     # force validation_split for large number of training images
     if number_of_images > 20 and not demo:

@@ -88,7 +88,7 @@ def conv_network(train, predict, refine, img_list, label_list, path_to_model,
             if crop_data:
                 cropping_weights, cropping_config = ch.load_and_train(normalize, img_list, label_list, path_to_model,
                     epochs, batch_size, label.validation_split, x_scale, y_scale, z_scale,
-                    label.flip_x, label.flip_y, label.flip_z, label.rotate)
+                    label.flip_x, label.flip_y, label.flip_z, label.rotate, label.only, label.ignore)
 
             # train network
             train_semantic_segmentation(normalize, img_list, label_list, x_scale, y_scale,
@@ -96,7 +96,8 @@ def conv_network(train, predict, refine, img_list, label_list, path_to_model,
                     batch_size, channels, label.validation_split, stride_size, balance,
                     label.flip_x, label.flip_y, label.flip_z, label.rotate, image,
                     label.early_stopping, label.val_tf, int(label.validation_freq),
-                    cropping_weights, cropping_config)
+                    cropping_weights, cropping_config, label.only, label.ignore,
+                    label.filters, label.resnet)
 
         except InputError:
             return success, InputError.message, None, None

@@ -4,7 +4,7 @@ Biomedisa successfully {{info}} {{image_name}} in {{ctime}} on {{server_name}}.
 
 If your result is incorrect, please note the two most common user errors:
 
-1. Not all labels are assigned in each pre-segmented slice: the non-labeld area in pre-segmented slices corresponds to the background label, therefore all structures must be labeled simultaneously in the pre-segmented slices. Otherwise, this area is assigned to the background.
+1. Not all segments are labeled in each pre-segmented slice: the non-labeld area in pre-segmented slices corresponds to the background label, therefore all structures must be labeled simultaneously in the pre-segmented slices. Otherwise, this area is assigned to the background.
 
 2. Not using “All axes” if pre-segmenting slices with different orientations: if the pre-segmentation is not exclusively in the xy plane, then the “All axes” function must be enabled in the settings. In this case, there must also be at least one empty slice between pre-segmented slices.
 

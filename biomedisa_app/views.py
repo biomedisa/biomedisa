@@ -69,20 +69,6 @@ import shutil, wget
 import subprocess
 import glob
 
-# list of demo files
-pk_list = [3856, 3857, 14244, \
-           36600, 36601, 36602, \
-           3860, 3861, 14253, \
-           8321, 14257, 14258, \
-           8315, 8322, 14261, \
-           21089, 21090, 21091, \
-           21088, 21140, \
-           36666,36667,36668, \
-           36645,36646,36659, \
-           36647,36648,36687, \
-           36650,36651,36652, \
-           36716,36717,36728]
-
 if config['OS'] == 'linux':
     from redis import Redis
     from rq import Queue, Worker
@@ -1650,6 +1636,16 @@ def app(request):
 
 # return error
 def return_error(img, error_message):
+    '''
+    Resets the image object when an error occurs. While _error_ in biomedisa_helper.py does not reset the object.
+
+    Parameter
+    ---------
+    img: object
+        object of the image file
+    error_message: string
+        name of the error
+    '''
     img.status = 0
     img.pid = 0
     img.save()
@@ -1689,16 +1685,19 @@ def share_data(request):
     if request.method == 'GET':
         id = request.GET.get('id')
         list_of_users = request.GET.get('username')
-        id = int(id)
         list_of_users = str(list_of_users)
 
         # share demo file
         demo = request.GET.get('demo')
-        if demo:
-            id = pk_list[id]
 
         # get object
-        stock_to_share = get_object_or_404(Upload, pk=id)
+        if demo:
+            id = str(id)
+            demo_id = User.objects.get(username='demo')
+            stock_to_share = Upload.objects.filter(user_id=demo_id, shortfilename=id)[0]
+        else:
+            id = int(id)
+            stock_to_share = get_object_or_404(Upload, pk=id)
 
         # shared by
         shared_id = User.objects.get(username=request.user)
