@@ -80,7 +80,7 @@ sudo apt-get install --no-install-recommends \
     libcudnn8-dev=8.0.5.39-1+cuda11.0
 
 # Install TensorRT. Requires that libcudnn8 is installed above.
-sudo apt-get install -y --no-install-recommends libnvinfer8=8.0.0-1+cuda11.0 \
+sudo apt-get install --no-install-recommends libnvinfer8=8.0.0-1+cuda11.0 \
     libnvinfer-dev=8.0.0-1+cuda11.0 \
     libnvinfer-plugin8=8.0.0-1+cuda11.0
 

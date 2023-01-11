@@ -133,8 +133,7 @@ if __name__ == '__main__':
                 bm.label.uncertainty = False
                 print('Warning: Uncertainty is not yet supported for opencl. Process starts without uncertainty.')
             if bm.label.allaxis:
-                bm.success = False
-                print('Error: Allx is not yet supported for opencl.')
+                bm = _error_(bm, 'Allx is not yet supported for opencl.')
 
         if not bm.success:
 
@@ -216,8 +215,7 @@ if __name__ == '__main__':
                     if any(i in sub_indices for i in sub_indices_minus_one):
                         neighbours = True
                 if neighbours:
-                    message = 'At least one empty slice between labels required.'
-                    bm = _error_(bm, message)
+                    bm = _error_(bm, 'At least one empty slice between labels required.')
 
             # send executable
             for dest in range(1, size):
@@ -260,7 +258,7 @@ if __name__ == '__main__':
                         bm.indices, bm.labels = read_labeled_slices(bm.labelData)
 
                     # number of ngpus
-                    ngpus = min(bm.available_devices, len(bm.indices), size)
+                    ngpus = min(len(bm.indices), size)
 
                     # send number of GPUs to childs
                     for dest in range(1, size):
@@ -279,7 +277,7 @@ if __name__ == '__main__':
                         comm.send(0, dest=dest, tag=1)
 
                     # number of ngpus
-                    ngpus = min(bm.available_devices, (bm.argmax_z - bm.argmin_z) // 100, size)
+                    ngpus = min((bm.argmax_z - bm.argmin_z) // 100, size)
                     ngpus = max(ngpus, 1)
 
                     # send number of GPUs to childs

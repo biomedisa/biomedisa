@@ -28,8 +28,11 @@
 
 from biomedisa_features.create_slices import create_slices
 from biomedisa_features.remove_outlier import clean, fill
-from biomedisa_features.biomedisa_helper import img_resize, load_data, save_data
-from tensorflow.keras.optimizers import SGD
+from biomedisa_features.biomedisa_helper import img_resize, load_data, save_data, set_labels_to_zero
+try:
+    from tensorflow.keras.optimizers.legacy import SGD
+except:
+    from tensorflow.keras.optimizers import SGD
 from tensorflow.keras.models import Model, load_model
 from tensorflow.keras.layers import (
     Input, Conv3D, MaxPooling3D, UpSampling3D, Activation, Reshape,
@@ -228,46 +231,51 @@ def make_conv_block_resnet(nb_filters, input_tensor, block):
 
     return out
 
-def make_unet(input_shape, nb_labels):
+def make_unet(input_shape, nb_labels, filters='32-64-128-256-512-1024', resnet=False):
 
     nb_plans, nb_rows, nb_cols, _ = input_shape
 
     inputs = Input(input_shape)
-    conv1 = make_conv_block(32, inputs, 1)
-    pool1 = MaxPooling3D(pool_size=(2, 2, 2))(conv1)
 
-    conv2 = make_conv_block(64, pool1, 2)
-    pool2 = MaxPooling3D(pool_size=(2, 2, 2))(conv2)
+    filters = filters.split('-')
+    filters = np.array(filters, dtype=int)
+    latent_space_size = filters[-1]
+    filters = filters[:-1]
+    convs = []
 
-    conv3 = make_conv_block(128, pool2, 3)
-    pool3 = MaxPooling3D(pool_size=(2, 2, 2))(conv3)
+    i = 1
+    for f in filters:
+        if i==1:
+            if resnet:
+                conv = make_conv_block_resnet(f, inputs, i)
+            else:
+                conv = make_conv_block(f, inputs, i)
+        else:
+            if resnet:
+                conv = make_conv_block_resnet(f, pool, i)
+            else:
+                conv = make_conv_block(f, pool, i)
+        pool = MaxPooling3D(pool_size=(2, 2, 2))(conv)
+        convs.append(conv)
+        i += 1
 
-    conv4 = make_conv_block(256, pool3, 4)
-    pool4 = MaxPooling3D(pool_size=(2, 2, 2))(conv4)
+    if resnet:
+        conv = make_conv_block_resnet(latent_space_size, pool, i)
+    else:
+        conv = make_conv_block(latent_space_size, pool, i)
+    i += 1
 
-    conv5 = make_conv_block(512, pool4, 5)
-    pool5 = MaxPooling3D(pool_size=(2, 2, 2))(conv5)
+    for k, f in enumerate(filters[::-1]):
+        up = Concatenate()([UpSampling3D(size=(2, 2, 2))(conv), convs[-(k+1)]])
+        if resnet:
+            conv = make_conv_block_resnet(f, up, i)
+        else:
+            conv = make_conv_block(f, up, i)
+        i += 1
 
-    conv6 = make_conv_block(1024, pool5, 6)
+    conv = Conv3D(nb_labels, (1, 1, 1), name=f'conv_{i}_1')(conv)
 
-    up7 = Concatenate()([UpSampling3D(size=(2, 2, 2))(conv6), conv5])
-    conv7 = make_conv_block(512, up7, 7)
-
-    up8 = Concatenate()([UpSampling3D(size=(2, 2, 2))(conv7), conv4])
-    conv8 = make_conv_block(256, up8, 8)
-
-    up9 = Concatenate()([UpSampling3D(size=(2, 2, 2))(conv8), conv3])
-    conv9 = make_conv_block(128, up9, 9)
-
-    up10 = Concatenate()([UpSampling3D(size=(2, 2, 2))(conv9), conv2])
-    conv10 = make_conv_block(64, up10, 10)
-
-    up11 = Concatenate()([UpSampling3D(size=(2, 2, 2))(conv10), conv1])
-    conv11 = make_conv_block(32, up11, 11)
-
-    conv12 = Conv3D(nb_labels, (1, 1, 1), name='conv_12_1')(conv11)
-
-    x = Reshape((nb_plans * nb_rows * nb_cols, nb_labels))(conv12)
+    x = Reshape((nb_plans * nb_rows * nb_cols, nb_labels))(conv)
     x = Activation('softmax')(x)
     outputs = Reshape((nb_plans, nb_rows, nb_cols, nb_labels))(x)
 
@@ -287,7 +295,8 @@ def get_labels(arr, allLabels):
 #=====================
 
 def load_training_data(normalize, img_list, label_list, channels, x_scale, y_scale, z_scale,
-        crop_data, configuration_data=None, allLabels=None, x_puffer=25, y_puffer=25, z_puffer=25):
+        crop_data, labels_to_compute, labels_to_remove, configuration_data=None, allLabels=None, counts=None,
+        x_puffer=25, y_puffer=25, z_puffer=25):
 
     # get filenames
     img_names, label_names = [], []
@@ -337,13 +346,26 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
 
     # load first label
     a, header, extension = load_data(label_names[0], 'first_queue', True)
+
+    # if header is not single data stream Amira Mesh falling back to Multi-TIFF
+    if extension != '.am':
+        if extension != '.tif':
+            print(f'Warning! {extension} not supported. Falling back to TIFF.')
+        extension, header = '.tif', None
+    elif len(header) > 1:
+        print('Warning! Multiple data streams are not supported. Falling back to TIFF.')
+        extension, header = '.tif', None
+    else:
+        header = header[0]
+
     if a is None:
         InputError.message = "Invalid label data %s." %(os.path.basename(label_names[0]))
         raise InputError()
+    a = a.astype(np.uint8)
+    a = set_labels_to_zero(a, labels_to_compute, labels_to_remove)
     if crop_data:
         argmin_z,argmax_z,argmin_y,argmax_y,argmin_x,argmax_x = predict_blocksize(a, x_puffer, y_puffer, z_puffer)
         a = np.copy(a[argmin_z:argmax_z,argmin_y:argmax_y,argmin_x:argmax_x], order='C')
-    a = a.astype(np.uint8)
     np_unique = np.unique(a)
     label = np.zeros((z_scale, y_scale, x_scale), dtype=a.dtype)
     for k in np_unique:
@@ -378,10 +400,11 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
         if a is None:
             InputError.message = "Invalid label data %s." %(os.path.basename(name))
             raise InputError()
+        a = a.astype(np.uint8)
+        a = set_labels_to_zero(a, labels_to_compute, labels_to_remove)
         if crop_data:
             argmin_z,argmax_z,argmin_y,argmax_y,argmin_x,argmax_x = predict_blocksize(a, x_puffer, y_puffer, z_puffer)
             a = np.copy(a[argmin_z:argmax_z,argmin_y:argmax_y,argmin_x:argmax_x], order='C')
-        a = a.astype(np.uint8)
         np_unique = np.unique(a)
         next_label = np.zeros((z_scale, y_scale, x_scale), dtype=a.dtype)
         for k in np_unique:
@@ -419,19 +442,17 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
         position = compute_position(position, z_scale, y_scale, x_scale)
         position = np.sqrt(position)
         position /= np.amax(position)
+        a = np.copy(position)
         for k in range(len(img_names[1:])):
-            a = np.copy(position)
             position = np.append(position, a, axis=0)
 
-    # labels must be in ascending order
-    if allLabels is not None:
-        counts = None
-        for k, l in enumerate(allLabels):
-            label[label==l] = k
-    else:
+    # get labels
+    if allLabels is None:
         allLabels, counts = np.unique(label, return_counts=True)
-        for k, l in enumerate(allLabels):
-            label[label==l] = k
+
+    # labels must be in ascending order
+    for k, l in enumerate(allLabels):
+        label[label==l] = k
 
     # configuration data
     configuration_data = np.array([channels, x_scale, y_scale, z_scale, normalize, mu, sig])
@@ -469,17 +490,19 @@ class MetaData(Callback):
         hf.close()
 
 class Metrics(Callback):
-    def __init__(self, img, label, list_IDs, dim_patch, dim_img, batch_size, path_to_model, early_stopping, validation_freq, n_classes):
+    def __init__(self, img, label, position, list_IDs, dim_patch, dim_img, batch_size, path_to_model, early_stopping, validation_freq, n_classes, n_channels):
         self.dim_patch = dim_patch
         self.dim_img = dim_img
         self.list_IDs = list_IDs
         self.batch_size = batch_size
         self.label = label
         self.img = img
+        self.position = position
         self.path_to_model = path_to_model
         self.early_stopping = early_stopping
         self.validation_freq = validation_freq
         self.n_classes = n_classes
+        self.n_channels = n_channels
 
     def on_train_begin(self, logs={}):
         self.history = {}
@@ -500,7 +523,7 @@ class Metrics(Callback):
                 list_IDs_batch = self.list_IDs[batch*self.batch_size:(batch+1)*self.batch_size]
 
                 # Initialization
-                X_val = np.empty((self.batch_size, *self.dim_patch, 1), dtype=np.float32)
+                X_val = np.empty((self.batch_size, *self.dim_patch, self.n_channels), dtype=np.float32)
                 y_val = np.empty((self.batch_size, *self.dim_patch), dtype=np.int32)
 
                 # Generate data
@@ -514,6 +537,8 @@ class Metrics(Callback):
 
                     X_val[i,:,:,:,0] = self.img[k:k+self.dim_patch[0],l:l+self.dim_patch[1],m:m+self.dim_patch[2]]
                     y_val[i,:,:,:] = self.label[k:k+self.dim_patch[0],l:l+self.dim_patch[1],m:m+self.dim_patch[2]]
+                    if self.n_channels == 2:
+                        X_val[i,:,:,:,1] = self.position[k:k+self.dim_patch[0],l:l+self.dim_patch[1],m:m+self.dim_patch[2]]
 
                 # Prediction segmentation
                 y_predict = np.asarray(self.model.predict(X_val, verbose=0, steps=None))
@@ -562,11 +587,13 @@ def train_semantic_segmentation(normalize, path_to_img, path_to_labels, x_scale,
             batch_size, channels, validation_split, stride_size, class_weights,
             flip_x, flip_y, flip_z, rotate, early_stopping, val_tf, learning_rate,
             path_val_img, path_val_labels, validation_stride_size, validation_freq,
-            validation_batch_size, cropping_weights, cropping_config):
+            validation_batch_size, cropping_weights, cropping_config, labels_to_compute,
+            labels_to_remove, filters, resnet):
 
     # training data
     img, label, position, allLabels, configuration_data, header, extension, counts = load_training_data(normalize,
-                    path_to_img, path_to_labels, channels, x_scale, y_scale, z_scale, crop_data, None, None)
+                    path_to_img, path_to_labels, channels, x_scale, y_scale, z_scale, crop_data,
+                    labels_to_compute, labels_to_remove, None, None, None)
 
     # img shape
     zsh, ysh, xsh = img.shape
@@ -574,7 +601,8 @@ def train_semantic_segmentation(normalize, path_to_img, path_to_labels, x_scale,
     # validation data
     if any(path_val_img):
         img_val, label_val, position_val, _, _, _, _, _ = load_training_data(normalize,
-                        path_val_img, path_val_labels, channels, x_scale, y_scale, z_scale, crop_data, configuration_data, allLabels)
+                        path_val_img, path_val_labels, channels, x_scale, y_scale, z_scale, crop_data,
+                        labels_to_compute, labels_to_remove, configuration_data, allLabels, counts)
 
     elif validation_split:
         number_of_images = zsh // z_scale
@@ -587,6 +615,8 @@ def train_semantic_segmentation(normalize, path_to_img, path_to_labels, x_scale,
         if channels == 2:
             position_val = np.copy(position[split*z_scale:])
             position = np.copy(position[:split*z_scale])
+        else:
+            position_val = None
 
     # list of IDs
     list_IDs = []
@@ -641,8 +671,8 @@ def train_semantic_segmentation(normalize, path_to_img, path_to_labels, x_scale,
             params['class_weights'] = False
             validation_generator = DataGenerator(img_val, label_val, position_val, list_IDs_val, counts, False, **params)
         else:
-            metrics = Metrics(img_val, label_val, list_IDs_val, (z_patch, y_patch, x_patch), (zsh_val, ysh_val, xsh_val), validation_batch_size,
-                              path_to_model, early_stopping, validation_freq, nb_labels)
+            metrics = Metrics(img_val, label_val, position_val, list_IDs_val, (z_patch, y_patch, x_patch), (zsh_val, ysh_val, xsh_val), validation_batch_size,
+                              path_to_model, early_stopping, validation_freq, nb_labels, channels)
 
     # optimizer
     sgd = SGD(learning_rate=learning_rate, decay=1e-6, momentum=0.9, nesterov=True)
@@ -657,7 +687,7 @@ def train_semantic_segmentation(normalize, path_to_img, path_to_labels, x_scale,
 
     # compile model
     with strategy.scope():
-        model = make_unet(input_shape, nb_labels)
+        model = make_unet(input_shape, nb_labels, filters, resnet)
         model.compile(loss='categorical_crossentropy',
                       optimizer=sgd,
                       metrics=['accuracy'])
@@ -703,6 +733,8 @@ def load_prediction_data(path_to_img, channels, x_scale, y_scale, z_scale,
         raise InputError()
     if img_ext != '.am':
         img_header = None
+    else:
+        img_header = img_header[0]
     z_shape, y_shape, x_shape = img.shape
 
     # automatic cropping of image to region of interest
@@ -813,6 +845,7 @@ def predict_semantic_segmentation(args, img, position, path_to_model, path_to_fi
         header = get_image_dimensions(header, label)
         if img_header is not None:
             header = get_physical_size(header, img_header)
+        header = [header]
     save_data(path_to_final, label, header=header, compress=compress)
 
     # post processing
@@ -1064,7 +1097,7 @@ def train_semantic_segmentation_refine(img, label, final, path_to_model, patch_s
     input_shape = (patch_size, patch_size, patch_size, 2)
 
     # optimizer
-    sgd = SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
+    sgd = SGD(learning_rate=0.01, decay=1e-6, momentum=0.9, nesterov=True)
 
     # create a MirroredStrategy
     if os.name == 'nt':
@@ -1210,5 +1243,6 @@ def refine_semantic_segmentation(path_to_img, path_to_final, path_to_model, patc
         header = get_image_dimensions(header, out)
         if img_header is not None:
             header = get_physical_size(header, img_header)
+        header = [header]
     save_data(path_to_final, out, header=header, compress=compress)
 

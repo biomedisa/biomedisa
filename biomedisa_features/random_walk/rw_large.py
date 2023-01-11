@@ -335,7 +335,7 @@ def _diffusion_child(comm, bm=None):
         if platform == 'cuda':
             import pycuda.driver as cuda
             cuda.init()
-            dev = cuda.Device(rank)
+            dev = cuda.Device(rank % cuda.Device.count())
             ctx, queue = dev.make_context(), None
             if allx:
                 from biomedisa_features.random_walk.pycuda_large_allx import walk

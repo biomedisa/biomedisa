@@ -77,7 +77,7 @@ def conv_network(args):
             if args.crop_data:
                 cropping_weights, cropping_config = ch.load_and_train(args.normalize, [args.path_to_img], [args.path_to_labels], args.path_to_model,
                             args.epochs, args.batch_size, args.validation_split, x_scale, y_scale, z_scale,
-                            args.flip_x, args.flip_y, args.flip_z, args.rotate, [args.val_images], [args.val_labels], True)
+                            args.flip_x, args.flip_y, args.flip_z, args.rotate, args.only, args.ignore, [args.val_images], [args.val_labels], True)
 
             # train automatic segmentation
             train_semantic_segmentation(args.normalize, [args.path_to_img], [args.path_to_labels], x_scale, y_scale,
@@ -85,7 +85,7 @@ def conv_network(args):
                             args.batch_size, args.channels, args.validation_split, args.stride_size, args.balance,
                             args.flip_x, args.flip_y, args.flip_z, args.rotate, args.early_stopping, args.val_tf, args.learning_rate,
                             [args.val_images], [args.val_labels], args.validation_stride_size, args.validation_freq,
-                            validation_batch_size, cropping_weights, cropping_config)
+                            validation_batch_size, cropping_weights, cropping_config, args.only, args.ignore, args.network_filters, args.resnet)
         except InputError:
             print('Error:', InputError.message)
         except MemoryError:
@@ -193,6 +193,14 @@ if __name__ == '__main__':
                         help='Enable compression of segmentation results')
     parser.add_argument('-cs','--create_slices', action='store_true', default=False,
                         help='Create slices of segmentation results')
+    parser.add_argument('--ignore', type=str, default='none',
+                        help='Ignore specific label(s), e.g. 2,5,6')
+    parser.add_argument('--only', type=str, default='all',
+                        help='Segment only specific label(s), e.g. 1,3,5')
+    parser.add_argument('-nf', '--network_filters', type=str, default='32-64-128-256-512-1024',
+                        help='Number of filters per layer up to the deepest, e.g. 32-64-128-256-512-1024')
+    parser.add_argument('-rn','--resnet', action='store_true', default=False,
+                        help='Use U-resnet instead of standard U-net')
     parser.add_argument('--channels', type=int, default=1,
                         help='Use voxel coordinates')
     parser.add_argument('-dc','--debug_cropping', action='store_true', default=False,
