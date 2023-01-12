@@ -44,8 +44,17 @@ urlpatterns = [
     url(r'^repository/visualization/$', views.visualization_repository, name='visualization_repository'),
     url(r'^repository/download/(?P<id>\d+)/$', views.download_repository, name='download_repository'),
     url(r'^repository/share_data/$', views.share_repository_data, name='share_repository_data'),
+    # manage repository
     url(r'^repository/unsubscribe/(?P<id>\d+)/$', views.unsubscribe_from_repository, name='unsubscribe_from_repository'),
     url(r'^share_repository/$', views.share_repository, name='share_repository'),
+    # antscan
+    url(r'^antscan/$', views.repository, name='repository'),
+    url(r'^antscan/specimen/(?P<id>\d+)/$', views.specimen_info, name='specimen_info'),
+    url(r'^antscan/data/(?P<id>\d+)/$', views.tomographic_info, name='tomographic_info'),
+    url(r'^antscan/sliceviewer/$', views.sliceviewer_repository, name='sliceviewer_repository'),
+    url(r'^antscan/visualization/$', views.visualization_repository, name='visualization_repository'),
+    url(r'^antscan/download/(?P<id>\d+)/$', views.download_repository, name='download_repository'),
+    url(r'^antscan/share_data/$', views.share_repository_data, name='share_repository_data'),
     # app
     url(r'^app/$', views.app, name='app'),
     # demo

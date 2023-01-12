@@ -52,6 +52,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'biomedisa_app.context_processors.selected_settings',
             ],
         },
     },
@@ -120,3 +121,4 @@ EMAIL_PORT = config['SMTP_PORT']
 EMAIL_HOST_USER = config['EMAIL_USER']
 EMAIL_HOST_PASSWORD = config['EMAIL_PASSWORD']
 DEFAULT_FROM_EMAIL = 'Biomedisa <'+config['EMAIL']+'>'
+

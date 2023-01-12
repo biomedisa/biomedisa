@@ -30,6 +30,7 @@
 import sys, os
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(BASE_DIR)
+import biomedisa
 from biomedisa_features.biomedisa_helper import (_get_platform, smooth_img_3x3,
     pre_processing, _error_, read_labeled_slices, read_labeled_slices_allx,
     read_indices_allx, predict_blocksize)
@@ -74,6 +75,8 @@ if __name__ == '__main__':
                             help='Location of label data')
 
         # optional arguments
+        parser.add_argument('-v', '--version', action='version', version=f'{biomedisa.__version__}',
+                            help='Biomedisa version')
         parser.add_argument('--nbrw', type=int, default=10,
                             help='Number of random walks starting at each pre-segmented pixel')
         parser.add_argument('--sorw', type=int, default=4000,
