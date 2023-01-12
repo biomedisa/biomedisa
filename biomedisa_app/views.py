@@ -171,7 +171,7 @@ def create_repository(request):
             repo.delete()'''
 
 @login_required
-def repository(request, id):
+def repository(request, id=1):
 
     try:
         state = request.session["state"]

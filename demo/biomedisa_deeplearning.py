@@ -31,9 +31,9 @@ import sys, os
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(BASE_DIR)
 from keras_helper import *
+import biomedisa
 import biomedisa_features.crop_helper as ch
 from multiprocessing import Process
-import subprocess
 import argparse
 from tensorflow.python.framework.errors_impl import ResourceExhaustedError
 import tensorflow as tf
@@ -173,6 +173,8 @@ if __name__ == '__main__':
                         help='Location of label data during training (tarball or directory) or model for prediction (h5)')
 
     # optional arguments
+    parser.add_argument('-v', '--version', action='version', version=f'{biomedisa.__version__}',
+                        help='Biomedisa version')
     parser.add_argument('-p','--predict', action='store_true', default=False,
                         help='Automatic/predict segmentation')
     parser.add_argument('-t','--train', action='store_true', default=False,
