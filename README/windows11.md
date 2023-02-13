@@ -37,6 +37,10 @@ install_biomedisa.cmd
 If the installation is interrupted, please run the script again.
 
 #### Start Biomedisa
+Use the desktop icon or open localhost in your browser.
+```
+http://localhost
+```
 Login as superuser "biomedisa" with password "biomedisa".
 
 #### Stop Biomedisa

@@ -31,6 +31,7 @@ SERVICE="apache2"
 if pgrep -x "$SERVICE" >/dev/null
 then
     echo "Biomedisa is running."
+    export BROWSER="powershell.exe /C start"
     xdg-open http://localhost
 else
     export CUDA_HOME=/usr/local/cuda-11.3
@@ -43,6 +44,7 @@ else
     service redis-server restart
     runuser --user biomedisa -- screen -wipe
     runuser --user biomedisa -- /home/biomedisa/git/biomedisa/start_workers.sh
+    export BROWSER="powershell.exe /C start"
     xdg-open http://localhost
 
     echo "      #####################################################"

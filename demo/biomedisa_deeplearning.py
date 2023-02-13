@@ -127,6 +127,7 @@ def conv_network(args):
         filename = os.path.splitext(filename)[0]
         if filename[-4:] in ['.nii','.tar']:
             filename = filename[:-4]
+        args.path_to_cropped_image = args.path_to_img.replace(os.path.basename(args.path_to_img), filename + '.cropped.tif')
         filename = 'final.' + filename
         path_to_final = args.path_to_img.replace(os.path.basename(args.path_to_img), filename + extension)
         args.path_to_cleaned = args.path_to_img.replace(os.path.basename(args.path_to_img), filename + '.cleaned' + extension)
@@ -137,7 +138,8 @@ def conv_network(args):
             # crop data
             region_of_interest = None
             if crop_data:
-                region_of_interest = ch.crop_data(args.path_to_img, args.path_to_model, args.batch_size, args.debug_cropping)
+                region_of_interest = ch.crop_data(args.path_to_img, args.path_to_model, args.path_to_cropped_image,
+                    args.batch_size, args.debug_cropping, args.save_cropped)
 
             # load prediction data
             img, img_header, position, z_shape, y_shape, x_shape, region_of_interest = load_prediction_data(args.path_to_img,
@@ -207,6 +209,8 @@ if __name__ == '__main__':
                         help='Use voxel coordinates')
     parser.add_argument('-dc','--debug_cropping', action='store_true', default=False,
                         help='Debug cropping')
+    parser.add_argument('-sc','--save_cropped', action='store_true', default=False,
+                        help='Save cropped image')
     parser.add_argument('-e','--epochs', type=int, default=200,
                         help='Epochs the network is trained')
     parser.add_argument('--normalize', type=int, default=1,

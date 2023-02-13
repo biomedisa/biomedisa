@@ -180,7 +180,7 @@ sudo service apache2 restart
 
 # Releases
 
-For the versions available, see the [tags on this repository](https://github.com/biomedisa/biomedisa/tags). 
+For the versions available, see the [list of releases](https://github.com/biomedisa/biomedisa/releases). 
 
 # Authors
 

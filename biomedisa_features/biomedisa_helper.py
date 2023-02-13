@@ -161,7 +161,7 @@ def unique_file_path(path, username):
 
     # get finaltype
     addon = ''
-    for feature in ['.filled','.smooth','.acwe','.cleaned','.8bit','.refined',
+    for feature in ['.filled','.smooth','.acwe','.cleaned','.8bit','.refined', '.cropped',
                     '.uncertainty','.smooth.cleaned','.cleaned.filled','.denoised']:
         if filename[-len(feature):] == feature:
             addon = feature

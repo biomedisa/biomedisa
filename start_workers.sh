@@ -12,6 +12,9 @@ path_to_biomedisa="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && p
 export DJANGO_SETTINGS_MODULE=biomedisa.settings
 export PYTHONPATH=${path_to_biomedisa}:${PYTHONPATH}
 
+# set biomedisa version
+git describe --tags --always > "${path_to_biomedisa}/log/biomedisa_version"
+
 # clean sessions
 screen -X -S first_queue quit
 screen -X -S second_queue quit

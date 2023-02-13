@@ -41,11 +41,15 @@ Download and install [Git](https://github.com/git-for-windows/git/releases/downl
 ```
 mkdir git
 cd git
-git clone https://github.com/biomedisa/biomedisa
+git clone https://github.com/biomedisa/biomedisa.git
 ```
 
 #### Biomedisa example
-Download test files from [Gallery](https://biomedisa.de/gallery/).
+Activate conda environment.
+```
+conda activate biomedisa
+```
+Download test files from [Gallery](https://biomedisa.de/gallery/) and run
 ```
 python git\biomedisa\demo\biomedisa_interpolation.py Downloads\tumor.tif Downloads\labels.tumor.tif --platform opencl_NVIDIA_GPU
 ```

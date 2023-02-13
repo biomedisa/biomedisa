@@ -9,7 +9,7 @@ Follow Biomedisa [installation](https://github.com/biomedisa/biomedisa/blob/mast
 
 #### Install TensorFlow
 ```
-wget http://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu2004/x86_64/nvidia-machine-learning-repo-ubuntu2004_1.0.0-1_amd64.deb
+wget https://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu2004/x86_64/nvidia-machine-learning-repo-ubuntu2004_1.0.0-1_amd64.deb
 sudo apt install ./nvidia-machine-learning-repo-ubuntu2004_1.0.0-1_amd64.deb
 sudo apt-get update
 
@@ -26,6 +26,9 @@ sudo apt-get install --no-install-recommends \
 sudo apt-get install --no-install-recommends libnvinfer8=8.0.3-1+cuda11.3 \
     libnvinfer-dev=8.0.3-1+cuda11.3 \
     libnvinfer-plugin8=8.0.3-1+cuda11.3
+
+# OPTIONAL: hold packages to avoid crash after system update
+sudo apt-mark hold libcudnn8 libcudnn8-dev libnvinfer-dev libnvinfer-plugin8 libnvinfer8 cuda-11-3
 
 # Install TensorFlow
 sudo -H pip3 install --upgrade tensorflow-gpu

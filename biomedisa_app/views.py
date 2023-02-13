@@ -118,58 +118,6 @@ def contact(request):
 def impressum(request):
     return render(request, 'impressum.html')
 
-# 10. repository
-@login_required
-def create_repository(request):
-
-    if request.user.is_superuser:
-        repository_alias = 'AntScan'
-        repository_name = '2020_12_antscan'
-        repository_id = 'r22D001'
-
-        # list all repositories
-        repositories = Repository.objects.filter()
-        print(repositories)
-
-        # creat repository
-        '''repository = Repository.objects.create(repository_alias=repository_alias, repository_name=repository_name, repository_id=repository_id)
-        repository.users.add(request.user)
-        repository.save()
-
-        # add user to repository
-        repository = get_object_or_404(Repository, repository_id=repository_id)
-        user_to_add = User.objects.get(username=request.user.username)
-        repository.users.add(user_to_add)
-        repository.save()
-        print(repository.users.all())'''
-
-        # create specimen and TomographicData
-        '''repository = get_object_or_404(Repository, repository_id=repository_id)
-        basename = config['PATH_TO_BIOMEDISA'] + '/media/'
-        for res in [2,5,10]:
-            files = glob.glob(basename + repository_name + f'/{res}x/*/*.tif')
-            for file in files:
-                if 'slices' in os.path.basename(file):
-                    internal_id = os.path.basename(os.path.dirname(file))[:-3]
-                    step_scans = os.path.basename(os.path.dirname(file))[-1]
-                    filename = file[len(basename):]
-                    if Specimen.objects.filter(internal_id=internal_id, repository=repository).exists():
-                        specimen = get_object_or_404(Specimen, internal_id=internal_id, repository=repository)
-                    else:
-                        specimen = Specimen.objects.create(internal_id=internal_id, repository=repository)
-                    if not TomographicData.objects.filter(pic=filename, specimen=specimen, imageType=1, step_scans=step_scans).exists():
-                        TomographicData.objects.create(pic=filename, specimen=specimen, imageType=1, step_scans=step_scans)'''
-
-        # delete all specimens
-        '''specimens = Specimen.objects.filter()
-        for specimen in specimens:
-            specimen.delete()
-
-        # delete all repositories
-        repository = Repository.objects.filter()
-        for repo in repository:
-            repo.delete()'''
-
 @login_required
 def repository(request, id=1):
 
@@ -269,11 +217,30 @@ def specimen_info(request, id):
                     messages.success(request, 'Information updated successfully.')
                 return redirect(specimen_info, id)
         else:
+            # preview stitched tomographic data
+            nos = 0
+            imshape = (0,0)
+            path_to_slices = None
+            processed_data = ProcessedData.objects.filter(specimen=specimen, imageType=1)
+            if ProcessedData.objects.filter(specimen=specimen, imageType=1).exists():
+                processed_data = ProcessedData.objects.filter(specimen=specimen, imageType=1)[0]
+                path_to_slices = os.path.splitext('/media/antscan/' + processed_data.pic.name)[0]
+                full_path = config['PATH_TO_BIOMEDISA'] + path_to_slices
+                if os.path.exists(full_path):
+                    nos = len(os.listdir(full_path)) - 1
+                    path_to_slices += '/'
+                    im = Image.open(full_path + '/0.png')
+                    imshape = np.asarray(im).shape
+            # form
             specimen_form = SpecimenForm(initial=initial)
             name = specimen.internal_id if not any([specimen.subfamily, specimen.genus, specimen.species, specimen.caste]) else "{subfamily} | {genus} | {species} | {caste}".format(subfamily=specimen.subfamily, genus=specimen.genus, species=specimen.species, caste=specimen.caste)
             tomographic_data = TomographicData.objects.filter(specimen=specimen)
+            processed_data = ProcessedData.objects.filter(specimen=specimen)
             sketchfab_id = specimen.sketchfab
-            return render(request, 'specimen_info.html', {'specimen_form':specimen_form,'tomographic_data':tomographic_data,'name':name,'specimen':specimen})
+            return render(request, 'specimen_info.html', {'specimen_form':specimen_form,'tomographic_data':tomographic_data,
+                                                          'processed_data':processed_data,'name':name,'specimen':specimen,
+                                                          'path_to_slices':path_to_slices,'nos':nos, 'imshape_x':imshape[1], 'imshape_y':imshape[0]
+                                                         })
 
 @login_required
 def tomographic_info(request, id):
@@ -302,6 +269,9 @@ def tomographic_info(request, id):
                 path_to_slices += '/'
                 im = Image.open(full_path + '/0.png')
                 imshape = np.asarray(im).shape
+                imshape_x = 400
+                imshape_y = int(imshape[0]/imshape[1]*400)
+                imshape = (imshape_y,imshape_x)
             else:
                 nos = 0
                 imshape = (0,0)
@@ -309,7 +279,7 @@ def tomographic_info(request, id):
             tomographic_form = TomographicDataForm(initial=initial)
             return render(request, 'tomographic_info.html', {'tomographic_form':tomographic_form,'name':tomographic_data.pic.name,
                                                              'related_specimen':tomographic_data.specimen.id, 'path_to_slices':path_to_slices,
-                                                             'nos':nos, 'imshape_x':imshape[1]//2, 'imshape_y':imshape[0]//2})
+                                                             'nos':nos, 'imshape_x':imshape[1], 'imshape_y':imshape[0]})
 
 @login_required
 def sliceviewer_repository(request):
@@ -318,11 +288,16 @@ def sliceviewer_repository(request):
         obj = str(request.GET.get('object'))[:11]
         if obj == 'tomographic':
             tomographic_data = get_object_or_404(TomographicData, pk=id)
+        elif obj == 'processed':
+            tomographic_data = get_object_or_404(ProcessedData, pk=id)
         elif obj == 'specimen':
             specimen = get_object_or_404(Specimen, pk=id)
-            tomographic_data = TomographicData.objects.filter(specimen=specimen)[0]
+            tomographic_data = ProcessedData.objects.filter(specimen=specimen, imageType=1)[0]
         if request.user in tomographic_data.specimen.repository.users.all():
-            path_to_slices = '/media/' + os.path.dirname(tomographic_data.pic.name) + '/slices'
+            if obj == 'processed' or obj == 'specimen':
+                path_to_slices = '/media/antscan/' + tomographic_data.pic.name.replace('.tif','')
+            else:
+                path_to_slices = '/media/' + os.path.dirname(tomographic_data.pic.name) + '/slices'
             full_path = config['PATH_TO_BIOMEDISA'] + path_to_slices
             nos = len(os.listdir(full_path)) - 1
             path_to_slices += '/'
@@ -333,44 +308,42 @@ def sliceviewer_repository(request):
 @login_required
 def visualization_repository(request):
     if request.method == 'GET':
-        id = request.GET.get('id')
-        specimen = get_object_or_404(Specimen, pk=id)
+        id = int(request.GET.get('id'))
+        obj = str(request.GET.get('object'))[:11]
+        if obj == 'processed':
+            specimen = get_object_or_404(ProcessedData, pk=id).specimen
+        elif obj == 'specimen':
+            specimen = get_object_or_404(Specimen, pk=id)
         if request.user in specimen.repository.users.all():
-
-            prefix = generate_activation_key()
-            path_to_link = '/media/' + prefix
-            dest = config['PATH_TO_BIOMEDISA'] + path_to_link
-            os.symlink(config['PATH_TO_BIOMEDISA'] + '/private_storage/2020_12_antscan/' + specimen.internal_id + '.stl', dest)
-
-            # create symlinks wich are removed when "app" is called or user loggs out
-            try:
-                symlinks = request.session["symlinks"]
-                symlinks.append(dest)
-                request.session["symlinks"] = symlinks
-            except:
-                request.session["symlinks"] = [dest]
-
+            path_to_link = '/media/antscan/2020_12_antscan/' + specimen.internal_id + '.stl'
             name = specimen.internal_id + '.stl'
             url = config['SERVER'] + path_to_link
             URL = config['SERVER'] + "/paraview/?name=["+name+"]&url=["+url+"]"
             return HttpResponseRedirect(URL)
 
 @login_required
-def download_repository(request, id):
-    id = int(id)
-    tomographic_data = get_object_or_404(TomographicData, pk=id)
-    if request.user in tomographic_data.specimen.repository.users.all():
-        filename = tomographic_data.pic.name
-        path_to_file = tomographic_data.pic.path
-        wrapper = FileWrapper(open(path_to_file, 'rb'))
-        imgsize = os.path.getsize(path_to_file)
-        if imgsize < 5000000000:
-            response = HttpResponse(wrapper, content_type=filename)
-        else:
-            response = StreamingHttpResponse(wrapper, content_type=filename)
-        response['Content-Disposition'] = 'attachment; filename="%s"' %(filename)
-        response['Content-Length'] = imgsize
-        return response
+def download_repository(request):
+    if request.method == 'GET':
+        id = int(request.GET.get('id'))
+        obj = str(request.GET.get('object'))[:11]
+        if obj == 'tomographic':
+            tomographic_data = get_object_or_404(TomographicData, pk=id)
+        elif obj == 'processed':
+            tomographic_data = get_object_or_404(ProcessedData, pk=id)
+        if request.user in tomographic_data.specimen.repository.users.all():
+            filename = tomographic_data.pic.name
+            path_to_file = tomographic_data.pic.path
+            if obj == 'processed':
+                path_to_file = path_to_file.replace('media','media/antscan')
+            wrapper = FileWrapper(open(path_to_file, 'rb'))
+            imgsize = os.path.getsize(path_to_file)
+            if imgsize < 5000000000:
+                response = HttpResponse(wrapper, content_type=filename)
+            else:
+                response = StreamingHttpResponse(wrapper, content_type=filename)
+            response['Content-Disposition'] = 'attachment; filename="%s"' %(filename)
+            response['Content-Length'] = imgsize
+            return response
 
 @login_required
 def share_repository_data(request):
@@ -556,12 +529,14 @@ def change_active_final(request, id, val):
             if val in [2,3,7,8]:
                 request.session['state'] = "Still processing. Please wait."
             elif val in [4,5]:
-                request.session['state'] = "Result not available. Disabled or GPUs out of memory. (Result is not available for AI segmentation.)"
-            elif val ==6:
+                request.session['state'] = "Result not available (disabled, GPUs out of memory, or not available for AI segmentation)"
+            elif val==6:
                 if any(Upload.objects.filter(user=request.user, friend=stock_to_change.friend, final=5)):
                     request.session['state'] = "Still processing. Please wait."
                 else:
-                    request.session['state'] = "Result not available. Disabled or GPUs out of memory. (Result is not available for AI segmentation.)"
+                    request.session['state'] = "Result not available (disabled, GPUs out of memory, or not available for AI segmentation)"
+            elif val==9:
+                request.session['state'] = "Result not available (only available for AI segmentation with auto-cropping)"
     next = request.GET.get('next', '')
     next = str(next)
     if next == "storage":
@@ -1383,9 +1358,6 @@ def app(request):
 
     # create profile for superuser
     if request.user.is_superuser:
-
-        # create new repository
-        #create_repository(request)
 
         # remove files if upload does not exist
         '''import glob

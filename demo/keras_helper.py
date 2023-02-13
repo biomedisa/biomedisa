@@ -773,6 +773,9 @@ def predict_semantic_segmentation(args, img, position, path_to_model, path_to_fi
     # img shape
     zsh, ysh, xsh = img.shape
 
+    # number of labels
+    nb_labels = len(allLabels)
+
     # list of IDs
     list_IDs = []
 
@@ -785,6 +788,9 @@ def predict_semantic_segmentation(args, img, position, path_to_model, path_to_fi
     # make length of list divisible by batch size
     rest = batch_size - (len(list_IDs) % batch_size)
     list_IDs = list_IDs + list_IDs[:rest]
+
+    # number of patches
+    nb_patches = len(list_IDs)
 
     # parameters
     params = {'dim': (z_patch, y_patch, x_patch),
@@ -807,10 +813,29 @@ def predict_semantic_segmentation(args, img, position, path_to_model, path_to_fi
         model = load_model(str(path_to_model))
 
     # predict
-    probabilities = model.predict(predict_generator, verbose=0, steps=None)
+    if nb_patches < 400:
+        probabilities = model.predict(predict_generator, verbose=0, steps=None)
+    else:
+        X = np.empty((batch_size, z_patch, y_patch, x_patch, channels), dtype=np.float32)
+        probabilities = np.zeros((nb_patches, z_patch, y_patch, x_patch, nb_labels), dtype=np.float32)
+        # get image patches
+        for step in range(nb_patches//batch_size):
+            for i, ID in enumerate(list_IDs[step*batch_size:(step+1)*batch_size]):
+
+                # get patch indices
+                k = ID // (ysh*xsh)
+                rest = ID % (ysh*xsh)
+                l = rest // xsh
+                m = rest % xsh
+
+                # get patch
+                X[i,:,:,:,0] = img[k:k+z_patch,l:l+y_patch,m:m+x_patch]
+                if channels == 2:
+                    X[i,:,:,:,1] = position[k:k+z_patch,l:l+y_patch,m:m+x_patch]
+            probabilities[step*batch_size:(step+1)*batch_size] = model.predict(X, verbose=0, steps=None)
 
     # create final
-    final = np.zeros((zsh, ysh, xsh, probabilities.shape[4]), dtype=np.float32)
+    final = np.zeros((zsh, ysh, xsh, nb_labels), dtype=np.float32)
     nb = 0
     for k in range(0, zsh-z_patch+1, stride_size):
         for l in range(0, ysh-y_patch+1, stride_size):
@@ -851,6 +876,8 @@ def predict_semantic_segmentation(args, img, position, path_to_model, path_to_fi
     # post processing
     if args.create_slices:
         create_slices(args.path_to_img, path_to_final, True)
+        if np.any(region_of_interest) and args.save_cropped:
+            create_slices(args.path_to_cropped_image, None, True)
     if args.clean:
         final_cleaned = clean(label, args.clean)
         save_data(args.path_to_cleaned, final_cleaned, header, compress)

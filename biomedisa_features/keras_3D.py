@@ -68,7 +68,7 @@ def conv_network(train, predict, refine, img_list, label_list, path_to_model,
         batch_size = batch_size - rest
 
     success = False
-    path_to_final = None
+    path_to_final, path_to_cropped_image = None, None
     batch_size_refine -= batch_size_refine % ngpus  # batch size must be divisible by number of GPUs
     z_patch, y_patch, x_patch = 64, 64, 64          # dimensions of patches for regular training
     patch_size = 64                                 # x,y,z-patch size for the refinement network
@@ -100,16 +100,16 @@ def conv_network(train, predict, refine, img_list, label_list, path_to_model,
                     label.filters, label.resnet)
 
         except InputError:
-            return success, InputError.message, None, None
+            return success, InputError.message, None, None, None
         except MemoryError:
             print('MemoryError')
-            return success, 'MemoryError', None, None
+            return success, 'MemoryError', None, None, None
         except ResourceExhaustedError:
             print('GPU out of memory')
-            return success, 'GPU out of memory', None, None
+            return success, 'GPU out of memory', None, None, None
         except Exception as e:
             print('Error:', e)
-            return success, e, None, None
+            return success, e, None, None, None
 
     if refine and not predict:
 
@@ -152,16 +152,16 @@ def conv_network(train, predict, refine, img_list, label_list, path_to_model,
             hf.close()
 
         except InputError:
-            return success, InputError.message, None, None
+            return success, InputError.message, None, None, None
         except MemoryError:
             print('MemoryError')
-            return success, 'MemoryError', None, None
+            return success, 'MemoryError', None, None, None
         except ResourceExhaustedError:
             print('GPU out of memory')
-            return success, 'GPU out of memory', None, None
+            return success, 'GPU out of memory', None, None, None
         except Exception as e:
             print('Error:', e)
-            return success, e, None, None
+            return success, e, None, None, None
 
     if predict:
 
@@ -203,7 +203,14 @@ def conv_network(train, predict, refine, img_list, label_list, path_to_model,
             # crop data
             region_of_interest = None
             if crop_data:
-                region_of_interest = ch.crop_data(path_to_img, path_to_model, batch_size, False)
+                filename = os.path.basename(path_to_img)
+                filename = os.path.splitext(filename)[0]
+                if filename[-4:] in ['.nii','.tar']:
+                    filename = filename[:-4]
+                filename = filename + '.cropped.tif'
+                path_to_cropped_image = os.path.dirname(path_to_img) + '/' + filename
+                path_to_cropped_image = unique_file_path(path_to_cropped_image, image.user.username)
+                region_of_interest = ch.crop_data(path_to_img, path_to_model, path_to_cropped_image, batch_size)
 
             # load prediction data
             img, img_header, position, z_shape, y_shape, x_shape, region_of_interest = load_prediction_data(path_to_img,
@@ -232,19 +239,19 @@ def conv_network(train, predict, refine, img_list, label_list, path_to_model,
                                              allLabels, mu, sig, batch_size_refine)
 
         except InputError:
-            return success, InputError.message, None, None
+            return success, InputError.message, None, None, None
         except MemoryError:
             print('MemoryError')
-            return success, 'MemoryError', None, None
+            return success, 'MemoryError', None, None, None
         except ResourceExhaustedError:
             print('GPU out of memory')
-            return success, 'GPU out of memory', None, None
+            return success, 'GPU out of memory', None, None, None
         except Exception as e:
             print('Error:', e)
-            return success, e, None, None
+            return success, e, None, None, None
 
     success = True
-    return success, None, path_to_final, path_to_refine_model
+    return success, None, path_to_final, path_to_refine_model, path_to_cropped_image
 
 if __name__ == '__main__':
 
@@ -348,7 +355,7 @@ if __name__ == '__main__':
             batch_size_refine = int(label.batch_size)
 
         # train network or predict segmentation
-        success, error_message, path_to_final, path_to_refine_model = conv_network(
+        success, error_message, path_to_final, path_to_refine_model, path_to_cropped_image = conv_network(
             train, predict, refine, raw_list, label_list, path_to_model, path_to_refine_model, compress,
             epochs, batch_size, batch_size_refine, stride_size, stride_size_refining, channels,
             normalize, path_to_img, x_scale, y_scale, z_scale, balance, image, label, crop_data
@@ -376,6 +383,12 @@ if __name__ == '__main__':
                 tmp.friend = tmp.id
                 tmp.save()
 
+                # save cropped image object
+                if path_to_cropped_image:
+                    shortfilename = os.path.basename(path_to_cropped_image)
+                    pic_path = 'images/' + image.user.username + '/' + shortfilename
+                    Upload.objects.create(pic=pic_path, user=image.user, project=image.project, final=9, active=0, imageType=3, shortfilename=shortfilename, friend=tmp.id)
+
                 # create slices, cleanup and acwe
                 if config['OS'] == 'linux':
                     q = Queue('slices', connection=Redis())
@@ -384,10 +397,15 @@ if __name__ == '__main__':
                     job = q.enqueue_call(active_contour, args=(image.id, tmp.id, model.id,), timeout=-1)
                     q = Queue('cleanup', connection=Redis())
                     job = q.enqueue_call(remove_outlier, args=(image.id, tmp.id, tmp.id, model.id,), timeout=-1)
+                    if path_to_cropped_image:
+                        q = Queue('slices', connection=Redis())
+                        job = q.enqueue_call(create_slices, args=(path_to_cropped_image, None,), timeout=-1)
                 elif config['OS'] == 'windows':
                     Process(target=create_slices, args=(path_to_img, path_to_final)).start()
                     Process(target=active_contour, args=(image.id, tmp.id, model.id)).start()
                     Process(target=remove_outlier, args=(image.id, tmp.id, tmp.id, model.id)).start()
+                    if path_to_cropped_image:
+                        Process(target=create_slices, args=(path_to_cropped_image, None)).start()
 
             # write in logs and send notification
             if predict:

@@ -31,7 +31,7 @@ sudo -H pip3 install --upgrade numpy scipy h5py colorama numpy-stl \
 ```
 mkdir ~/git
 cd ~/git
-git clone https://github.com/biomedisa/biomedisa
+git clone https://github.com/biomedisa/biomedisa.git
 ```
 
 #### Install CUDA 11.3
