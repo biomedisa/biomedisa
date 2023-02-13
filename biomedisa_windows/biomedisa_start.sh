@@ -1,7 +1,7 @@
 #!/bin/bash
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2022 Philipp Lösel. All rights reserved.              ##
+##  Copyright (c) 2023 Philipp Lösel. All rights reserved.              ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -34,7 +34,7 @@ then
     export BROWSER="powershell.exe /C start"
     xdg-open http://localhost
 else
-    export CUDA_HOME=/usr/local/cuda-11.3
+    export CUDA_HOME=/usr/local/cuda-11.8
     export LD_LIBRARY_PATH=${CUDA_HOME}/lib64
     export PATH=${CUDA_HOME}/bin:${PATH}
     export SCREENDIR=/home/biomedisa/.screen
