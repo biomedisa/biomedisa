@@ -24,7 +24,7 @@ sudo apt-get install libsm6 libxrender-dev \
 Download and install [Intel CPU Runtime for OpenCL Applications 18.1 for Linux OS](https://software.intel.com/en-us/articles/opencl-drivers).
 ```
 tar -xzf l_opencl_p_VERSION.tgz
-cd l_opencl_p_VERSION.tgz
+cd l_opencl_p_VERSION
 sudo ./install.sh
 ```
 Follow installation instructions (ignore "Missing optional prerequisites -- Unsupported OS").
@@ -41,7 +41,7 @@ sudo -H pip3 install --upgrade numpy scipy h5py colorama numpy-stl \
 ```
 mkdir ~/git
 cd ~/git
-git clone https://github.com/biomedisa/biomedisa
+git clone https://github.com/biomedisa/biomedisa.git
 ```
 
 #### Biomedisa example

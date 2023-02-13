@@ -1,20 +1,46 @@
 {% extends 'base.html' %}
 
 {% block scripts %}
+<style type="text/css"></style>
+<script type="text/javascript" src="/static/sliceviewer/external/jquery.js"></script>
+<script type="text/javascript" src="/static/sliceviewer/external/jquery.mousewheel.js"></script>
+<script type="text/javascript" src="/static/sliceviewer/external/jquery.ui.core.js"></script>
+<script type="text/javascript" src="/static/sliceviewer/external/jquery.ui.widget.js"></script>
+<script type="text/javascript" src="/static/sliceviewer/external/jquery.ui.mouse.js"></script>
+<script type="text/javascript" src="/static/sliceviewer/external/jquery.ui.slider.js"></script>
+<script type="text/javascript" src="/static/sliceviewer/external/jquery.ui.touch-punch.js"></script>
+<script type="text/javascript" src="/static/sliceviewer/src/sliceviewer.js"></script>
 <script type="text/javascript">
+$(function() {
+    images = [];
+    for (i = 0; i <= {{nos}}; i++) {
+        str = "{{ path_to_slices }}";
+        str = str + i + ".png";
+        images.push(str);
+    }
+    $("#viewer").sliceviewer({
+        images: images, width: {{imshape_x}}, height: {{imshape_y}}
+    });
+})
+
 function alertFunction(state) {
     alert(state);
     window.location.href = "/cleanstate/storage";
     window.close();
 }
 
-function sliceviewerFunction(id) {
-    window.location.href = "/repository/sliceviewer/?id=" + id + "&object=tomographic";
+function sliceviewerFunction(id, obj) {
+    window.location.href = "/repository/sliceviewer/?id=" + id + "&object=" + obj;
     window.close();
 }
 
-function visualizationFunction(id) {
-    window.location.href = "/visualization/?selected=" + id + "&next=storage";
+function downloadFunction(id, obj) {
+    window.location.href = "/repository/download/?id=" + id + "&object=" + obj;
+    window.close();
+}
+
+function visualizationFunction(id, obj) {
+    window.location.href = "/repository/visualization/?id=" + id + "&object=" + obj;
     window.close();
 }
 
@@ -166,8 +192,9 @@ $(document).ready(addClickHandlers);
 {% block content %}
 <div class="fbg">
   <div class="fbg_resize">
-    <div class="col c0">
-      <h2> <span> {{ name }} </span> </h2>
+    <h2> <span> {{ name }} </span> </h2>
+
+    <div class="col form">
 
       <div class="messagebox">
       {% if messages %}
@@ -191,92 +218,113 @@ $(document).ready(addClickHandlers);
         <button type="submit">Save changes</button>
       </form>
 
+    </div>
+
+    <div class="col preview">
+      {% if nos %}
+      <div id="viewer" >
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="col c0">
       </br>
       <h2> <span> Tomographic data </span> </h2>
       {% for img in tomographic_data %}
           {% if img.imageType == 1 %}
             <div id="img{{ img.id }}" >
               <p style="text-align:left;">
-              <a href=# onclick="visualizationFunction({{img.id}})"><img src="/static/file_image.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
+              <img src="/static/file_image.svg" title="visualization" style="width:50px;height:50px;border:0;">
               <span class="delete_link" id="{{img.id}}"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
-              <a href="/repository/download/{{img.id}}"><img src="/static/downloads.png" alt="download" style="width:20px;height:20px;border:0;"></a>
-              <a href=# onclick="sliceviewerFunction({{img.id}})"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
+              <a href=# onclick="downloadFunction({{img.id}},'tomographic')"><img src="/static/downloads.png" alt="download" style="width:20px;height:20px;border:0;"></a>
+              <a href=# onclick="sliceviewerFunction({{img.id}},'tomographic')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
               <span class="share_link" id="{{img.id}}"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
               <a href="/repository/data/{{img.id}}"><img src="/static/info.png" alt="info" style="width:20px;height:20px;border:0;"></a>
               <input type="checkbox" name="selected" value="{{img.id}}"/>
-              {{ img.pic }}
-              <span style="float:right;"> </br> {{ img.upload_date }}</span>
-              </p>
-            </div>
-          {% elif img.imageType == 2 %}
-            <div id="img{{ img.id }}" >
-              <p style="text-align:left;">
-              <a href=# onclick="visualizationFunction({{img.id}})"><img src="/static/file_label.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
-              <span class="delete_link" id="{{img.id}}"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
-              <a href="/repository/download/{{img.id}}"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
-              <a href=# onclick="sliceviewerFunction({{img.id}})"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
-              <span class="share_link" id="{{img.id}}"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
-              <input type="checkbox" name="selected" value="{{img.id}}"/>
-              <span class="rename_link" id="{{img.id}},{{img.shortfilename}}" title="rename">{{ img.shortfilename }}</span>
-              <span style="float:right;"> </br>> {{ img.upload_date }}</span>
-              </p>
-            </div>
-          {% elif img.imageType == 4 %}
-            <div id="img{{ img.id }}" >
-              <p style="text-align:left;">
-              <a href='#'><img src="/static/file_ai.svg" title="network" style="width:50px;height:50px;border:0;"></a>
-              <span class="delete_link" id="{{img.id}}"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
-              <a href="/repository/download/{{img.id}}"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
-              <span class="share_link" id="{{img.id}}"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
-              <input type="checkbox" name="selected" value="{{img.id}}"/>
-              <span class="rename_link" id="{{img.id}},{{img.shortfilename}}" title="rename">{{ img.shortfilename }}</span>
-              <span style="float:right;"> </br> {{ img.upload_date }}</span>
-              </p>
-            </div>
-          {% elif img.imageType == 5 %}
-            <div id="img{{ img.id }}" >
-              <p style="text-align:left;">
-              <a href=# onclick="visualizationFunction({{img.id}})"><img src="/static/file_mesh.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
-              <span class="delete_link" id="{{img.id}}"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
-              <a href="/repository/download/{{img.id}}"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
-              <span class="share_link" id="{{img.id}}"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
-              <input type="checkbox" name="selected" value="{{img.id}}"/>
-              <span class="rename_link" id="{{img.id}},{{img.shortfilename}}" title="rename">{{ img.shortfilename }}</span>
-              <span style="float:right;"> </br> {{ img.upload_date }}</span>
-              </p>
-            </div>
-          {% elif img.active %}
-            <div id="img{{ img.id }}" >
-              <p style="text-align:left;">
-              <a href=# onclick="visualizationFunction({{img.id}})"><img src="/static/file_final.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
-              <span class="delete_link" id="{{img.id}}"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
-              <a href="/repository/download/{{img.id}}"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
-              <a href=# onclick="sliceviewerFunction({{img.id}})"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
-              <span class="share_link" id="{{img.id}}"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
-              <input type="checkbox" name="selected" value="{{img.id}}"/>
-              <span class="rename_link" id="{{img.id}},{{img.shortfilename}}" title="rename">{{ img.shortfilename }}</span>
-              <select id="sel_id" name="sel_name" onchange="changeFunction({{img.id}}, value)">
-                  <option value="-1">select</option>
-                  <option value="1">regular</option>
-                  <option value="2">cleaned</option>
-                  <option value="7">fill holes</option>
-                  <option value="8">clean+fill</option>
-                  <option value="3">Active C</option>
-                  <option value="4">uncertainty</option>
-                  <option value="5">smooth</option>
-                  <option value="6">smooth+clean</option>
-              </select>
+              {{ img.pic.name }}
               <span style="float:right;"> </br> {{ img.upload_date }}</span>
               </p>
             </div>
           {% endif %}
       {% endfor %}
 
+      {% if processed_data %}
+          <h2> <span> Processed data </span> </h2>
+          {% for img in processed_data %}
+              {% if img.imageType == 1 %}
+                <div id="img{{ img.id }}" >
+                  <p style="text-align:left;">
+                  <img src="/static/file_image.svg" title="visualization" style="width:50px;height:50px;border:0;">
+                  <span class="delete_link" id="{{img.id}}"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+                  <a href=# onclick="downloadFunction({{img.id}},'processed')"><img src="/static/downloads.png" alt="download" style="width:20px;height:20px;border:0;"></a>
+                  <a href=# onclick="sliceviewerFunction({{img.id}},'processed')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
+                  <span class="share_link" id="{{img.id}}"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+                  <input type="checkbox" name="selected" value="{{img.id}}"/>
+                  {{ img.pic.name }}
+                  <span style="float:right;"> </br> {{ img.upload_date }}</span>
+                  </p>
+                </div>
+              {% elif img.imageType == 2 %}
+                <div id="img{{ img.id }}" >
+                  <p style="text-align:left;">
+                  <img src="/static/file_label.svg" title="visualization" style="width:50px;height:50px;border:0;">
+                  <span class="delete_link" id="{{img.id}}"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+                  <a href=# onclick="downloadFunction({{img.id}},'processed')"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+                  <a href=# onclick="sliceviewerFunction({{img.id}},'processed')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
+                  <span class="share_link" id="{{img.id}}"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+                  <input type="checkbox" name="selected" value="{{img.id}}"/>
+                  {{ img.pic.name }}
+                  <span style="float:right;"> </br>> {{ img.upload_date }}</span>
+                  </p>
+                </div>
+              {% elif img.imageType == 4 %}
+                <div id="img{{ img.id }}" >
+                  <p style="text-align:left;">
+                  <a href='#'><img src="/static/file_ai.svg" title="network" style="width:50px;height:50px;border:0;"></a>
+                  <span class="delete_link" id="{{img.id}}"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+                  <a href=# onclick="downloadFunction({{img.id}},'processed')"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+                  <span class="share_link" id="{{img.id}}"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+                  <input type="checkbox" name="selected" value="{{img.id}}"/>
+                  {{ img.pic.name }}
+                  <span style="float:right;"> </br> {{ img.upload_date }}</span>
+                  </p>
+                </div>
+              {% elif img.imageType == 5 %}
+                <div id="img{{ img.id }}" >
+                  <p style="text-align:left;">
+                  <a href=# onclick="visualizationFunction({{img.id}},'processed')"><img src="/static/file_mesh.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
+                  <span class="delete_link" id="{{img.id}}"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+                  <a href=# onclick="downloadFunction({{img.id}},'processed')"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+                  <span class="share_link" id="{{img.id}}"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+                  <input type="checkbox" name="selected" value="{{img.id}}"/>
+                  {{ img.pic.name }}
+                  <span style="float:right;"> </br> {{ img.upload_date }}</span>
+                  </p>
+                </div>
+              {% elif img.imageType == 3 %}
+                <div id="img{{ img.id }}" >
+                  <p style="text-align:left;">
+                  <img src="/static/file_final.svg" title="visualization" style="width:50px;height:50px;border:0;">
+                  <span class="delete_link" id="{{img.id}}"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+                  <a href=# onclick="downloadFunction({{img.id}},'processed')"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+                  <a href=# onclick="sliceviewerFunction({{img.id}},'processed')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
+                  <span class="share_link" id="{{img.id}}"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+                  <input type="checkbox" name="selected" value="{{img.id}}"/>
+                  {{ img.pic.name }}
+                  <span style="float:right;"> </br> {{ img.upload_date }}</span>
+                  </p>
+                </div>
+              {% endif %}
+          {% endfor %}
+      {% endif %}
+
       </br>
       <a href="/repository/{{ specimen.repository.id }}">Go back</a>
 
     </div>
+
     <div class="clr"></div>
   </div>
 </div>
 {% endblock %}
+

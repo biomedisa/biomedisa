@@ -2,6 +2,16 @@ Dear {{username}},
 
 Biomedisa successfully {{info}} {{image_name}} in {{ctime}} on {{server_name}}.
 
+Please note the two most common user errors using Biomedisa AI:
+
+1. GPU out of memory due to too many labels:
+
+Depending on the available GPU memory, the number of labels should not be more than ten.
+
+2. Only labeling slices of the volume for training:
+
+Biomedisa AI uses the entire 3D image and annotations for training. If you have only pre-segmented individual slices, please use Biomedisa Interpolation first to get a full segmentation.
+
 ---------------------- 
 This is an automatic notification from Biomedisa. Please log in to {{host}}/app/ to process your data.
 If you do not wish to receive notifications, please deactivate this service at {{host}}/profile/.

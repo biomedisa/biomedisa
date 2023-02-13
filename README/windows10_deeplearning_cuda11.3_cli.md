@@ -39,11 +39,15 @@ Download and install [Git](https://github.com/git-for-windows/git/releases/downl
 ```
 mkdir git
 cd git
-git clone https://github.com/biomedisa/biomedisa
+git clone https://github.com/biomedisa/biomedisa.git
 ```
 
 #### Biomedisa example
-Download test files from [Gallery](https://biomedisa.de/gallery/).
+Activate conda environment.
+```
+conda activate biomedisa
+```
+Download test files from [Gallery](https://biomedisa.de/gallery/) and run
 ```
 python git\biomedisa\demo\biomedisa_deeplearning.py Downloads\testing_axial_crop_pat13.nii.gz Downloads\heart.h5 -p
 ```

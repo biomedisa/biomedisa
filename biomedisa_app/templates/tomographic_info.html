@@ -32,13 +32,9 @@
 {% block content %}
 <div class="fbg">
   <div class="fbg_resize">
-    <div class="col c0">
-      <h2> <span> {{ name }} </span> </h2>
+    <h2> <span> {{ name }} </span> </h2>
 
-      {% if nos %}
-      <div id="viewer" >
-      </div>
-      {% endif %}
+    <div class="col form">
 
       <div class="messagebox">
       {% if messages %}
@@ -58,9 +54,17 @@
 
       </br>
       <a href="/repository/specimen/{{related_specimen}}">Go back</a>
-
     </div>
+
+    <div class="col preview">
+      {% if nos %}
+      <div id="viewer" >
+      </div>
+      {% endif %}
+    </div>
+
     <div class="clr"></div>
   </div>
 </div>
 {% endblock %}
+

@@ -368,6 +368,13 @@ p.infopost span.date {
 	margin:0;
 	float:left;
 }
+.fbg .form {
+	width:57%;
+}
+.fbg .preview {
+	margin:35px 0px 0px 0px;
+	width:40%;
+}
 .fbg .c0 {
 	padding:0 20px 30px 20px;
 	width:920px;

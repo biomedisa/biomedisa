@@ -380,16 +380,8 @@ def load_data_to_crop(path_to_img, x_scale, y_scale, z_scale,
         img_rgb[...,i] = img
     return img_rgb, z_shape, y_shape, x_shape
 
-def crop_volume(img, path_to_volume, path_to_model, z_shape, y_shape, x_shape, batch_size, debug_cropping,
-        x_puffer=25,y_puffer=25,z_puffer=25):
-
-    # path to cropped image
-    filename = os.path.basename(path_to_volume)
-    filename = os.path.splitext(filename)[0]
-    if filename[-4:] in ['.nii']:
-        filename = filename[:-4]
-    filename = filename + '_cropped.tif'
-    path_to_final = path_to_volume.replace(os.path.basename(path_to_volume), filename)
+def crop_volume(img, path_to_volume, path_to_model, path_to_final, z_shape, y_shape, x_shape, batch_size,
+        debug_cropping, save_cropped, x_puffer=25,y_puffer=25,z_puffer=25):
 
     # img shape
     zsh, ysh, xsh, channels = img.shape
@@ -488,7 +480,7 @@ def crop_volume(img, path_to_volume, path_to_model, z_shape, y_shape, x_shape, b
     x_lower = min(x_shape,x_shape - np.argmax(np.flip(probabilities[z_shape+y_shape:])) + x_puffer +1)
 
     # crop image data
-    if debug_cropping:
+    if save_cropped:
         volume, _ = load_data(path_to_volume)
         final = volume[z_upper:z_lower,y_upper:y_lower,x_upper:x_lower]
         save_data(path_to_final, final, compress=False)
@@ -538,7 +530,7 @@ def load_and_train(normalize,path_to_img,path_to_labels,path_to_model,
 
     return cropping_weights, cropping_config
 
-def crop_data(path_to_data, path_to_model, batch_size, debug_cropping):
+def crop_data(path_to_data, path_to_model, path_to_cropped_image, batch_size, debug_cropping=False, save_cropped=True):
 
     # get meta data
     hf = h5py.File(path_to_model, 'r')
@@ -555,7 +547,7 @@ def crop_data(path_to_data, path_to_model, batch_size, debug_cropping):
 
     # make prediction
     z_upper, z_lower, y_upper, y_lower, x_upper, x_lower = crop_volume(img, path_to_data, path_to_model,
-        z_shape, y_shape, x_shape, batch_size, debug_cropping)
+        path_to_cropped_image, z_shape, y_shape, x_shape, batch_size, debug_cropping, save_cropped)
 
     # region of interest
     region_of_interest = np.array([z_upper, z_lower, y_upper, y_lower, x_upper, x_lower])
