@@ -23,13 +23,13 @@ Open Anaconda Prompt (e.g. Windows Search `Anaconda Prompt`).
 ```
 conda create -n biomedisa python=3.9
 conda activate biomedisa
-conda install -c conda-forge numpy=1.21.6 scipy colorama numba=0.55.1
+conda install -c conda-forge numpy=1.21.5 scipy=1.9.3 colorama=0.4.5 numba=0.56.3
 conda install -c conda-forge imagecodecs-lite tifffile scikit-image opencv=4.5.1 Pillow
 conda install -c conda-forge nibabel medpy SimpleITK itk vtk numpy-stl matplotlib
 conda install -c conda-forge cudatoolkit=11.3.1
-conda install -c conda-forge cudnn
-conda install -c conda-forge tensorflow-gpu
-conda install -c anaconda h5py
+conda install -c conda-forge cudnn=8.2.1
+conda install -c conda-forge tensorflow-gpu=2.6.0
+conda install -c anaconda h5py=3.7.0
 ```
 
 #### Install Git
