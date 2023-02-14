@@ -1,11 +1,11 @@
-#  Ubuntu 20.04 LTS + CUDA 11.3 (full installation)
+#  Ubuntu 22.04 LTS + CUDA 11.8 (full installation)
 
 - [Install Python and pip](#install-python-and-pip)
 - [Install software dependencies](#install-software-dependencies)
 - [Install pip packages](#install-pip-packages)
 - [Clone Biomedisa](#clone-biomedisa)
 - [Install MySQL database](#install-mysql-database)
-- [Install CUDA 11.3](#install-cuda-11.3)
+- [Install CUDA 11.8](#install-cuda-11.8)
 - [Install TensorFlow](#install-tensorflow)
 - [Run Biomedisa](#run-biomedisa)
 - [Install Apache Server (optional)](#install-apache-server-optional)
@@ -91,21 +91,26 @@ python3 manage.py migrate
 python3 manage.py createsuperuser
 ```
 
-#### Install CUDA 11.3
+#### Install CUDA 11.8
 ```
 # Add NVIDIA package repositories
-wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-ubuntu2004.pin
-sudo mv cuda-ubuntu2004.pin /etc/apt/preferences.d/cuda-repository-pin-600
-sudo apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/3bf863cc.pub
-sudo add-apt-repository "deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/ /"
+wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-ubuntu2204.pin
+sudo mv cuda-ubuntu2204.pin /etc/apt/preferences.d/cuda-repository-pin-600
+sudo apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/3bf863cc.pub
+sudo add-apt-repository "deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/ /"
 sudo apt-get update
-sudo apt-get install --no-install-recommends cuda-11-3
+
+# If W: Key is stored in legacy trusted.gpg keyring (/etc/apt/trusted.gpg)
+sudo apt-key export 3BF863CC | sudo gpg --dearmour -o /etc/apt/trusted.gpg.d/cuda-tools.gpg
+
+# Install CUDA
+sudo apt-get install --no-install-recommends cuda-11-8
 
 # Reboot. Check that GPUs are visible using the command
 nvidia-smi
 
 # Add the following lines to your .bashrc (e.g. nano ~/.bashrc)
-export CUDA_HOME=/usr/local/cuda-11.3
+export CUDA_HOME=/usr/local/cuda-11.8
 export LD_LIBRARY_PATH=${CUDA_HOME}/lib64
 export PATH=${CUDA_HOME}/bin:${PATH}
 
@@ -114,7 +119,7 @@ source ~/.bashrc
 nvcc --version
 
 # Install PyCUDA
-sudo -H "PATH=/usr/local/cuda-11.3/bin:${PATH}" pip3 install --upgrade pycuda
+sudo -H "PATH=/usr/local/cuda-11.8/bin:${PATH}" pip3 install --upgrade pycuda
 
 # Verify that PyCUDA is working properly
 python3 ~/git/biomedisa/biomedisa_features/pycuda_test.py
@@ -122,29 +127,21 @@ python3 ~/git/biomedisa/biomedisa_features/pycuda_test.py
 
 #### Install TensorFlow
 ```
-wget https://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu2004/x86_64/nvidia-machine-learning-repo-ubuntu2004_1.0.0-1_amd64.deb
-sudo apt install ./nvidia-machine-learning-repo-ubuntu2004_1.0.0-1_amd64.deb
-sudo apt-get update
-
-wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/libnvinfer8_8.0.3-1+cuda11.3_amd64.deb
-sudo apt install ./libnvinfer8_8.0.3-1+cuda11.3_amd64.deb
-sudo apt-get update
-
-# Install development and runtime libraries (~4GB)
+# Install development and runtime libraries.
 sudo apt-get install --no-install-recommends \
-    libcudnn8=8.2.1.32-1+cuda11.3  \
-    libcudnn8-dev=8.2.1.32-1+cuda11.3
+    libcudnn8=8.8.0.121-1+cuda11.8 \
+    libcudnn8-dev=8.8.0.121-1+cuda11.8
 
 # Install TensorRT. Requires that libcudnn8 is installed above.
-sudo apt-get install --no-install-recommends libnvinfer8=8.0.3-1+cuda11.3 \
-    libnvinfer-dev=8.0.3-1+cuda11.3 \
-    libnvinfer-plugin8=8.0.3-1+cuda11.3
+sudo apt-get install --no-install-recommends libnvinfer8=8.5.3-1+cuda11.8 \
+    libnvinfer-dev=8.5.3-1+cuda11.8 \
+    libnvinfer-plugin8=8.5.3-1+cuda11.8
 
 # OPTIONAL: hold packages to avoid crash after system update
-sudo apt-mark hold libcudnn8 libcudnn8-dev libnvinfer-dev libnvinfer-plugin8 libnvinfer8 cuda-11-3
+sudo apt-mark hold libcudnn8 libcudnn8-dev libnvinfer-dev libnvinfer-plugin8 libnvinfer8 cuda-11-8
 
 # Install TensorFlow
-sudo -H pip3 install --upgrade tensorflow-gpu
+sudo -H pip3 install --upgrade tensorflow-gpu==2.10.0
 ```
 
 #### Run Biomedisa
