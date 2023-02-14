@@ -1,6 +1,6 @@
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2022 Philipp Lösel. All rights reserved.              ##
+##  Copyright (c) 2023 Philipp Lösel. All rights reserved.              ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -79,10 +79,6 @@ class Biomedisa(object):
 # 01. paraview
 def paraview(request):
     return render(request, 'paraview.html')
-
-# 02. maintenance
-def maintenance(request):
-    return render(request, 'maintenance.html')
 
 # 03. partners
 def partners(request):

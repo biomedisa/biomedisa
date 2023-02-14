@@ -16,7 +16,7 @@ sudo apt-get install python3 python3-dev python3-pip
 ```
 sudo apt-get install libsm6 libxrender-dev \
     libboost-python-dev build-essential libssl-dev cmake \
-    openmpi-bin openmpi-doc libopenmpi-dev git
+    openmpi-bin openmpi-doc libopenmpi-dev git libgl1
 ```
 
 #### Install pip packages
