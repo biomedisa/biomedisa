@@ -4,59 +4,45 @@
 ***                                                        ***
 **************************************************************
 
-# create an user with exactly the same user name (here dummy) on your remote machine
--------------------------------
-sudo adduser dummy
 
-
-# use exactly the same installation setup like on the machine where biomedisa is running
+# use exactly the same installation setup for each server
 -------------------------------
 
 
-# create biomedisa head folder on remote machine with exactly the same path
--------------------------------
-mkdir /home/dummy/git/biomedisa
-
-
-# copy the content of biomedisa_cluster to biomedisa on your remote machine
--------------------------------
-rsync -avP /home/dummy/git/biomedisa/biomedisa_cluster/ dummy@remote_server:/home/dummy/git/biomedisa
-
-
-# on biomedisa server generate ssh key or skip this step if you are using an existing key
+# generate ssh key or skip this step if you are using an existing key
 -------------------------------
 ssh-keygen -t rsa
 chmod 755 ~/.ssh
 
 
-# copy public key to your remote server
+# copy public key to each server
 -------------------------------
-scp ~/.ssh/id_rsa.pub dummy@remote_server:.ssh/authorized_keys
+scp ~/.ssh/id_rsa.pub dummy@<server_ip>:.ssh/authorized_keys
 
 
-# change permission on your remote server
+# change permission on each server
 -------------------------------
 chmod 600 ~/.ssh/authorized_keys
 
 
-# on your remote server add the following lines to ".ssh/environment"
+# add the following lines to "/etc/environment" on each server
 -------------------------------
-CUDA_HOME=/usr/local/cuda-11.0
-LD_LIBRARY_PATH=/usr/local/cuda-11.0/lib64
-PATH=/usr/local/cuda-11.0/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games
+CUDA_HOME="/usr/local/cuda-11.8"
+LD_LIBRARY_PATH="/usr/local/cuda-11.8/lib64"
+PATH="/usr/local/cuda-11.8/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin"
 
 
-# on your remote_server add the following line to "/etc/ssh/sshd_config"
+# add the following line to "/etc/ssh/sshd_config" on each server
 -------------------------------
 PermitUserEnvironment yes
 
 
-# restart ssh (probably not necessary)
+# restart ssh on each server (probably not necessary)
 -------------------------------
 sudo service ssh restart
 
 
-# on your biomedisa server check if "CUDA_HOME=/usr/local/cuda-11.0" is listed on your remote server
+# check if "CUDA_HOME=/usr/local/cuda-11.8" is listed on your remote server
 -------------------------------
-ssh -v dummy@remote_server env
+ssh -v dummy@<server_ip> env
 

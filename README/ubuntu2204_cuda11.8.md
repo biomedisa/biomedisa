@@ -98,12 +98,12 @@ wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/
 sudo mv cuda-ubuntu2204.pin /etc/apt/preferences.d/cuda-repository-pin-600
 sudo apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/3bf863cc.pub
 sudo add-apt-repository "deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/ /"
-sudo apt-get update
 
 # If W: Key is stored in legacy trusted.gpg keyring (/etc/apt/trusted.gpg)
 sudo apt-key export 3BF863CC | sudo gpg --dearmour -o /etc/apt/trusted.gpg.d/cuda-tools.gpg
 
 # Install CUDA
+sudo apt-get update
 sudo apt-get install --no-install-recommends cuda-11-8
 
 # Reboot. Check that GPUs are visible using the command
