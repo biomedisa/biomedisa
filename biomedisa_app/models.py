@@ -283,7 +283,7 @@ class Specimen(models.Model):
     notes = models.TextField(null=True, blank=True)
     sketchfab = models.TextField(null=True, blank=True)
     specimen_code = models.CharField(null=True, max_length=255, blank=True)
-    collection_event_code = models.CharField(null=True, max_length=255, blank=True)
+    collection_code = models.CharField(null=True, max_length=255, blank=True)
     taxon_code = models.CharField(null=True, max_length=255, blank=True)
     lifestagesex = models.CharField(null=True, max_length=255, blank=True)
     subcaste = models.CharField(null=True, max_length=255, blank=True)
@@ -291,7 +291,7 @@ class Specimen(models.Model):
     subcaste1 = models.CharField(null=True, max_length=255, blank=True)
     tribe = models.CharField(null=True, max_length=255, blank=True)
     genus_authority = models.CharField(null=True, max_length=255, blank=True)
-    antwiki_source = models.CharField(null=True, max_length=255, blank=True)
+    source = models.CharField(null=True, max_length=255, blank=True)
     located_at = models.CharField(null=True, max_length=255, blank=True)
     owned_by = models.CharField(null=True, max_length=255, blank=True)
     insert_user = models.CharField(null=True, max_length=255, blank=True)
@@ -315,6 +315,11 @@ class Specimen(models.Model):
     elevation = models.CharField(null=True, max_length=255, blank=True)
     elevation_error = models.CharField(null=True, max_length=255, blank=True)
     biogeographic_region = models.CharField(null=True, max_length=255, blank=True)
+    magnification = models.CharField(null=True, max_length=255, blank=True)
+    name_recommended = models.CharField(null=True, max_length=255, blank=True)
+    lts_box = models.CharField('LTS Box', null=True, max_length=255, blank=True)
+    for_more_specimen = models.CharField(null=True, max_length=255, blank=True)
+    specimens_left = models.CharField(null=True, max_length=255, blank=True)
 
 class TomographicData(models.Model):
     pic = models.FileField("", upload_to=repository_directory_path)
@@ -342,12 +347,13 @@ class SpecimenForm(forms.ModelForm):
     class Meta:
         model = Specimen
         widgets = {'sketchfab': forms.Textarea(attrs={'rows':1})}
-        fields = ('subfamily', 'genus', 'species', 'caste', 'status',
+        fields = ('name_recommended', 'subfamily', 'genus', 'species', 'caste', 'status',
                   'location', 'date', 'collected_by', 'collection_date',
                   'determined_by', 'collection', 'specimen_id', 'internal_id',
-                  'specimen_code', 'collection_event_code', 'taxon_code', 'lifestagesex',
-                  'subcaste', 'scanning_vial_box', 'subcaste1', 'tribe',
-                  'genus_authority', 'antwiki_source', 'located_at', 'owned_by',
+                  'specimen_code', 'collection_code', 'taxon_code', 'lifestagesex',
+                  'subcaste', 'lts_box', 'for_more_specimen', 'specimens_left',
+                  'scanning_vial_box', 'subcaste1', 'tribe',
+                  'genus_authority', 'source', 'located_at', 'owned_by',
                   'insert_user', 'method', 'sampling_effort', 'date_collected_start',
                   'date_collected_end', 'habitat', 'microhabitat', 'behavior',
                   'disturbance_level', 'country', 'adm1', 'adm2',
