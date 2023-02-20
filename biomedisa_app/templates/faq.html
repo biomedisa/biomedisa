@@ -30,10 +30,13 @@ function toggleAccordion(qsid) {
         <div class="questions">
           <button id="qs1" class="accordion" onclick="toggleAccordion(this.id);"> <b> 1) How to use Biomedisa Interpolation?</b> </button>
           <div id="ans1" class="panel">
-              <p> The segmentation is based on a smart interpolation of sparsely pre-segmented slices taking into account the complete underlying image data. That means, before you perform the segmentation process, you must pre-segment some reference slices in a segmentation editor of your choice. The pre-segmented slices are used to automatically segment the remaining volume. To start the segmentation process, upload your image data and your pre-segmented slices and click the start button. </p>
+              <p> The segmentation is based on a smart interpolation of sparsely pre-segmented slices taking into account the complete underlying image data. That means, before you perform the segmentation process, you must pre-segment some reference slices in a segmentation editor of your choice. The pre-segmented slices are used to automatically segment the remaining volume. To start the segmentation process, upload your image data and your pre-segmented slices and click the start button.</p>
               <div class="clr"></div>
               <div class="img"><img src="/static/labeledslices_large.png" width="650" height="200" alt="" class="fl" /></div>
               <div class="clr"></div>
+            <p>
+            Lösel, P.D. et al. <a href="https://www.nature.com/articles/s41467-020-19303-w" target="_blank" title="Introducing Biomedisa as an open-source online platform for biomedical image segmentation">Introducing Biomedisa as an open-source online platform for biomedical image segmentation.</a></strong><em> Nat. Commun. </em><strong>11</strong>, 5577 (2020).
+            </p>
           </div>
 
           <button id="qs2" class="accordion" onclick="toggleAccordion(this.id);"> <b> 2) What are the two most common user errors using Interpolation?</b> </button>
@@ -52,14 +55,17 @@ function toggleAccordion(qsid) {
 
           <button id="qs4" class="accordion" onclick="toggleAccordion(this.id);"> <b> 4) How to use Biomedisa AI?</b> </button>
           <div id="ans4" class="panel">
-            <p> You can train a deep neural network by selecting multiple image files and their corresponding fully segmented label files. Each pair must be in a different project. Then press the AI button <img src="/static/ai_logo.svg" title="train" style="width:18px;height:18px;border:0;">. When training is complete, select the trained network and one or more images for which you want to predict the segmentation. Finally, press the predict button <img src="/static/predict.svg" title="predict" style="width:18px;height:18px;border:0;">. Alternatively, you can upload all image files in one TAR file (<b>.tar</b> or <b>.tar.gz</b>) and all label files in one TAR file. In this case, the image file names must match the label file names, e.g. "brain_1.tif" and "brain_1.labels.tif". See our <a href="https://biomedisa.de/gallery/" title="gallery">gallery</a> for an example.
+            <p> You can train a deep neural network by selecting multiple image files and their corresponding fully segmented label files. Each pair must be in a different project. Then press the AI button <img src="/static/ai_logo.svg" title="train" style="width:18px;height:18px;border:0;">. When training is complete, select the trained network and one or more images for which you want to predict the segmentation. Finally, press the predict button <img src="/static/predict.svg" title="predict" style="width:18px;height:18px;border:0;">. Alternatively, you can upload all image files in one TAR file (<b>.tar</b> or <b>.tar.gz</b>) and all label files in one TAR file. In this case, the image file names must match the label file names, e.g. "brain_1.tif" and "brain_1.labels.tif". See our <a href="https://biomedisa.de/gallery/" title="gallery">gallery</a> for an example and check out the following preprint:
+            </p>
+            <p>
+            Lösel, P.D. et al. <a href="https://www.biorxiv.org/content/10.1101/2022.10.12.511944" target="_blank" title=" Natural variability in bee brain size and symmetry revealed by micro-CT imaging and deep learning."> Natural variability in bee brain size and symmetry revealed by micro-CT imaging and deep learning.</a></strong> Preprint at <em>bioRxiv</em> (2022).
             </p>
           </div>
 
           <button id="qs5" class="accordion" onclick="toggleAccordion(this.id);"> <b> 5) What are the two most common user errors using Biomedisa AI?</b> </button>
           <div id="ans5" class="panel">
-              <p><b>1. GPU out of memory due to too many labels:<\b> Depending on the available GPU memory, the number of labels should not be more than ten.</p>
-              <p><b>2. Only labeling slices of the volume for training:<\b> Biomedisa AI uses the entire 3D image and annotations for training. If you have only pre-segmented individual slices, please use Biomedisa Interpolation first to get a full segmentation.</p>
+              <p><b>1. GPU out of memory due to too many labels:</b> Depending on the available GPU memory, the number of labels should not be more than ten.</p>
+              <p><b>2. Only labeling slices of the volume for training:</b> Biomedisa AI uses the entire 3D image and annotations for training. If you have only pre-segmented individual slices, please use Biomedisa Interpolation first to get a full segmentation.</p>
           </div>
 
           <button id="qs6" class="accordion" onclick="toggleAccordion(this.id);"> <b> 6) Which hardware requirements do I need for Biomedisa Interpolation?</b> </button>
@@ -165,8 +171,8 @@ function toggleAccordion(qsid) {
 
           <button id="qs19" class="accordion" onclick="toggleAccordion(this.id);"> <b> 19) Which publication should I cite?</b> </button>
           <div id="ans19" class="panel">
-              <p> Lösel, P.D. et al. <a href="https://www.nature.com/articles/s41467-020-19303-w" target="_blank" title="Introducing Biomedisa as an open-source online
-                platform for biomedical image segmentation">Introducing Biomedisa as an open-source online platform for biomedical image segmentation.</a></strong><em> Nat. Commun. </em><strong>11</strong>, 5577 (2020).</p>
+              <p> Lösel, P.D. et al. <a href="https://www.nature.com/articles/s41467-020-19303-w" target="_blank" title="Introducing Biomedisa as an open-source online platform for biomedical image segmentation">Introducing Biomedisa as an open-source online platform for biomedical image segmentation.</a></strong><em> Nat. Commun. </em><strong>11</strong>, 5577 (2020).</p> If you use Biomedisa's deep learning, you may also cite:
+              <p> Lösel, P.D. et al. <a href="https://www.biorxiv.org/content/10.1101/2022.10.12.511944" target="_blank" title=" Natural variability in bee brain size and symmetry revealed by micro-CT imaging and deep learning."> Natural variability in bee brain size and symmetry revealed by micro-CT imaging and deep learning.</a></strong> Preprint at <em>bioRxiv</em> (2022).</p>
           </div>
 
         </div> <!-- end of questions -->
