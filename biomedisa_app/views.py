@@ -229,7 +229,7 @@ def specimen_info(request, id):
                     imshape = np.asarray(im).shape
             # form
             specimen_form = SpecimenForm(initial=initial)
-            name = specimen.internal_id if not any([specimen.subfamily, specimen.genus, specimen.species, specimen.caste]) else "{subfamily} | {genus} | {species} | {caste}".format(subfamily=specimen.subfamily, genus=specimen.genus, species=specimen.species, caste=specimen.caste)
+            name = specimen.internal_id if not any([specimen.name_recommended, specimen.subfamily, specimen.caste, specimen.specimen_code]) else "{name_recommended} | {subfamily} | {caste} | {specimen_code}".format(name_recommended=specimen.name_recommended, subfamily=specimen.subfamily, caste=specimen.caste, specimen_code=specimen.specimen_code)
             tomographic_data = TomographicData.objects.filter(specimen=specimen)
             processed_data = ProcessedData.objects.filter(specimen=specimen)
             sketchfab_id = specimen.sketchfab
