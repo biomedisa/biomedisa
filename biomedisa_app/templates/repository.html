@@ -234,8 +234,8 @@ $(document).ready(addClickHandlers);
           </br></br>
           {% endif %}
           <!-- get name of specimen -->
-          {% if img.subfamily or img.genus or img.species or img.caste %}
-              <span>{{ img.subfamily }} | {{ img.genus }} | {{ img.species }} | {{ img.caste }}</span>
+          {% if img.name_recommended or img.subfamily or img.caste or img.specimen_code %}
+              <span>{{ img.name_recommended }} | {{ img.subfamily }} | {{ img.caste }} | {{ img.specimen_code }}</span>
               {% else %}
               <span>{{ img.internal_id }}</span>
           {% endif %}
@@ -268,8 +268,8 @@ $(document).ready(addClickHandlers);
           <a href="/media/screenshots/{{img.internal_id}}.png"><img src="/media/screenshots/{{img.internal_id}}.png" title="screenshot" style="width:425px;height:238px;border:0"></a>
           </br></br>
           <!-- get name of specimen -->
-          {% if img.subfamily or img.genus or img.species or img.caste %}
-              <span>{{ img.subfamily }} | {{ img.genus }} | {{ img.species }} | {{ img.caste }}</span>
+          {% if img.name_recommended or img.subfamily or img.caste or img.specimen_code %}
+              <span>{{ img.name_recommended }} | {{ img.subfamily }} | {{ img.caste }} | {{ img.specimen_code }}</span>
               {% else %}
               <span>{{ img.internal_id }}</span>
           {% endif %}
