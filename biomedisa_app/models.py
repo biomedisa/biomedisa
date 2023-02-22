@@ -1,6 +1,6 @@
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2022 Philipp Lösel. All rights reserved.              ##
+##  Copyright (c) 2023 Philipp Lösel. All rights reserved.              ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -327,14 +327,16 @@ class TomographicData(models.Model):
     specimen = models.ForeignKey(Specimen, on_delete=models.CASCADE)
     imageType = models.IntegerField("Type", default=1, null=True)
     shortfilename = models.TextField(null=True)
-    facility = models.DateField(null=True, blank=True)
+    facility = models.CharField(null=True, max_length=255, blank=True)
     technique = models.CharField(null=True, max_length=255, blank=True)
     projections = models.CharField(null=True, max_length=255, blank=True)
-    frames_s = models.CharField(null=True, max_length=255, blank=True)
-    scintillator = models.DateField(null=True, blank=True)
+    frames_per_s = models.CharField(null=True, max_length=255, blank=True)
+    filter = models.CharField(null=True, max_length=255, blank=True)
     voxel_size = models.CharField(null=True, max_length=255, blank=True)
     volume_size = models.CharField(null=True, max_length=255, blank=True)
     step_scans = models.CharField(null=True, max_length=255, blank=True)
+    exposure_time_per_frame = models.CharField(null=True, max_length=255, blank=True)
+    scan_tray = models.CharField(null=True, max_length=255, blank=True)
 
 class ProcessedData(models.Model):
     pic = models.FileField("", upload_to=repository_directory_path)
@@ -364,8 +366,8 @@ class SpecimenForm(forms.ModelForm):
 class TomographicDataForm(forms.ModelForm):
     class Meta:
         model = TomographicData
-        fields = ('facility','technique', 'projections', 'frames_s', 'scintillator',
-                  'voxel_size', 'volume_size', 'step_scans')
+        fields = ('facility','technique', 'projections', 'frames_per_s', 'filter',
+                  'voxel_size', 'volume_size', 'step_scans', 'scan_tray', 'exposure_time_per_frame')
 
 @receiver(models.signals.post_delete, sender=Upload)
 def auto_delete_file_on_delete(sender, instance, **kwargs):
