@@ -243,9 +243,11 @@ def tomographic_info(request, id):
     id = int(id)
     tomographic_data = get_object_or_404(TomographicData, pk=id)
     if request.user in tomographic_data.specimen.repository.users.all():
-        initial={'facility':tomographic_data.facility,'technique':tomographic_data.technique,'projections':tomographic_data.projections,
-                 'frames_s':tomographic_data.frames_s,'scintillator':tomographic_data.scintillator,'voxel_size':tomographic_data.voxel_size,
-                 'volume_size':tomographic_data.volume_size,'step_scans':tomographic_data.step_scans}
+        # initialization
+        initial = {}
+        tomographic_form = TomographicDataForm()
+        for key in tomographic_form.fields.keys():
+            initial[key] = tomographic_data.__dict__[key]
         if request.method == 'POST':
             data = TomographicDataForm(request.POST)
             if data.is_valid():
