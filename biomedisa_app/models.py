@@ -351,7 +351,7 @@ class SpecimenForm(forms.ModelForm):
         widgets = {'sketchfab': forms.Textarea(attrs={'rows':1})}
         fields = ('name_recommended', 'subfamily', 'genus', 'species', 'caste', 'status',
                   'location', 'date', 'collected_by', 'collection_date',
-                  'determined_by', 'collection', 'specimen_id', 'internal_id',
+                  'determined_by', 'collection', 'specimen_id', 'internal_id', 'magnification',
                   'specimen_code', 'collection_code', 'taxon_code', 'lifestagesex',
                   'subcaste', 'lts_box', 'for_more_specimen', 'specimens_left',
                   'scanning_vial_box', 'subcaste1', 'tribe',
