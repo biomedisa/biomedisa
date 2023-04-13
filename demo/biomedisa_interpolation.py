@@ -89,8 +89,8 @@ if __name__ == '__main__':
                             help='Smoothing of active contour')
         parser.add_argument('--acwe-steps', metavar='STEPS', type=int, default=3,
                             help='Iterations of active contour')
-        parser.add_argument('--compression', action='store_true', default=True,
-                            help='Enable compression of segmentation results')
+        parser.add_argument('--no-compression', action='store_true', default=False,
+                            help='Disable compression of segmentation results')
         parser.add_argument('-allx', '--allaxis', action='store_true', default=False,
                             help='If pre-segmentation is not exlusively in xy-plane')
         parser.add_argument('-d','--denoise', action='store_true', default=False,
@@ -114,12 +114,18 @@ if __name__ == '__main__':
         args = parser.parse_args()
 
         # transfer arguments
-        for arg in ['nbrw','sorw','compression','allaxis','uncertainty','ignore','only','smooth','clean','fill']:
+        for arg in ['nbrw','sorw','allaxis','uncertainty','ignore','only','smooth','clean','fill']:
             bm.label.__dict__[arg] = args.__dict__[arg]
         for arg in ['acwe_alpha','acwe_smooth','acwe','acwe_steps']:
             bm.label.__dict__[arg] = args.__dict__[arg]
         for arg in ['path_to_data','path_to_labels','denoise','platform','create_slices',]:
             bm.__dict__[arg] = args.__dict__[arg]
+
+        # compression
+        if args.no_compression:
+            bm.label.compression = False
+        else:
+            bm.label.compression = True
 
         # load and preprocess data
         bm = pre_processing(bm)

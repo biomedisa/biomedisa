@@ -193,8 +193,8 @@ if __name__ == '__main__':
                         help='Randomly flip z-axis during training')
     parser.add_argument('-vt','--val_tf', action='store_true', default=False,
                         help='Use tensorflow standard accuracy on validation data')
-    parser.add_argument('--compression', action='store_true', default=True,
-                        help='Enable compression of segmentation results')
+    parser.add_argument('--no-compression', action='store_true', default=False,
+                        help='Disable compression of segmentation results')
     parser.add_argument('-cs','--create_slices', action='store_true', default=False,
                         help='Create slices of segmentation results')
     parser.add_argument('--ignore', type=str, default='none',
@@ -255,6 +255,12 @@ if __name__ == '__main__':
     if args.train:
         args.path_to_labels = args.path
         args.path_to_model = args.path_to_img + '.h5'
+
+    # compression
+    if args.no_compression:
+        args.compression = False
+    else:
+        args.compression = True
 
     # train network or predict segmentation
     conv_network(args)
