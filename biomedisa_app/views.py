@@ -1692,7 +1692,10 @@ def share_data(request):
                 if user_id:
 
                     if stock_to_share.final:
-                        images = Upload.objects.filter(user=request.user, friend=stock_to_share.friend)
+                        if demo:
+                            images = Upload.objects.filter(user=demo_id, friend=stock_to_share.friend)
+                        else:
+                            images = Upload.objects.filter(user=request.user, friend=stock_to_share.friend)
                     else:
                         images = [stock_to_share]
 
