@@ -637,59 +637,59 @@ $(document).ready(addClickHandlers);
 
     <td>
     <div class="col c7">
-      <h2><span>Mouse molar</span></h2>
+      <h2><span>ACSeg</span></h2>
 
       <p>
       <div>
-      <a href="/visualization_demo/?id=final.mouse_molar_tooth.stl" target="_blank"><img src="/static/mouse_molar_tooth.png" title="mouse molar tooth" style="width:107px;height:136px;border:0;padding-left:40px;"></a>
+      <a><img src="/static/ACSeg.png" title="acseg" style="width:72px;height:136px;border:0;padding-left:40px;"></a>
       </div>
       </p>
 
       <p>
       <div>
-      <a href="/visualization_demo/?id=mouse_molar_tooth.tif" target="_blank"><img src="/static/file_image.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
+      <a><img src="/static/file_ai.svg" style="width:50px;height:50px;border:0;"></a>
+      <a href=# onclick="alertFunction('...dancing on rainbows.')"><img src="/static/icon-deletelink.svg" title="delete" style="width:20px;height:20px;border:0;"></a>
+      <a href="/download/demo/?id=ACSeg.h5"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+      <a href=#><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
+      <a href=# onclick="alertFunction('Move data to long term storage')"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;"></a>
+      {% if user.is_authenticated %}
+      <span class="share_link" id='ACSeg.h5'><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span></br>
+      {% else %}
+      <a href=# onclick="alertFunction('Share data with other users or create a download link')"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;"></a></br>
+      {% endif %}
+      ACSeg.h5
+      </div>
+      </p>
+
+      <p>
+      <div>
+      <a href="/visualization_demo/?id=SamIsaacson_T_cells_531_3.mrc" target="_blank"><img src="/static/file_image.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
       <a href=# onclick="alertFunction('You can not delete the data.')"><img src="/static/icon-deletelink.svg" title="delete" style="width:20px;height:20px;border:0;"></a>
-      <a href="/download/demo/?id=mouse_molar_tooth.tif"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
-      <a href=# onclick="sliceViewer('mouse_molar_tooth.tif')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
+      <a href="/download/demo/?id=SamIsaacson_T_cells_531_3.mrc"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+      <a href=# onclick="sliceViewer('SamIsaacson_T_cells_531_3.mrc')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
       <a href=# onclick="alertFunction('Move data to long term storage')"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;"></a>
       {% if user.is_authenticated %}
       <span class="share_link" id='teeth_10003401_left.tif'><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span></br>
       {% else %}
       <a href=# onclick="alertFunction('Share data with other users or create a download link')"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;"></a></br>
       {% endif %}
-      mouse_molar_tooth.tif
+      SamIsaacson_T_cells_531_3.mrc
       </div>
       </p>
 
       <p>
       <div>
-      <a href="/visualization_demo/?id=labels.mouse_molar_tooth.tif" target="_blank"><img src="/static/file_label.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
-      <a href=# onclick="alertFunction('I really admire your effort.')"><img src="/static/icon-deletelink.svg" title="delete" style="width:20px;height:20px;border:0;"></a>
-      <a href="/download/demo/?id=labels.mouse_molar_tooth.tif"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
-      <a href=# onclick="sliceViewer('labels.mouse_molar_tooth.tif')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
-      <a href=# onclick="alertFunction('Move data to long term storage')"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;"></a>
-      {% if user.is_authenticated %}
-      <span class="share_link" id='teeth_10003401_left_labels.tif'><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span></br>
-      {% else %}
-      <a href=# onclick="alertFunction('Share data with other users or create a download link')"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;"></a></br>
-      {% endif %}
-      labels.mouse_molar_tooth.tif
-      </div>
-      </p>
-
-      <p>
-      <div>
-      <a href="/visualization_demo/?id=final.mouse_molar_tooth.tif" target="_blank"><img src="/static/file_final.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
+      <a href="/visualization_demo/?id=final.SamIsaacson_T_cells_531_3.tif" target="_blank"><img src="/static/file_final.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
       <a href=# onclick="alertFunction('You tried hard.')"><img src="/static/icon-deletelink.svg" title="delete" style="width:20px;height:20px;border:0;"></a>
-      <a href="/download/demo/?id=final.mouse_molar_tooth.tif"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
-      <a href=# onclick="sliceViewer('final.mouse_molar_tooth.tif')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
+      <a href="/download/demo/?id=final.SamIsaacson_T_cells_531_3.tif"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+      <a href=# onclick="sliceViewer('final.SamIsaacson_T_cells_531_3.tif')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
       <a href=# onclick="alertFunction('Move data to long term storage')"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;"></a>
       {% if user.is_authenticated %}
-      <span class="share_link" id='final.teeth_10003401_left.tif'><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span></br>
+      <span class="share_link" id='final.SamIsaacson_T_cells_531_3.tif'><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span></br>
       {% else %}
       <a href=# onclick="alertFunction('Share data with other users or create a download link')"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;"></a></br>
       {% endif %}
-      final.mouse_molar_tooth.tif
+      final.SamIsaacson_T_cells_531_3.tif
       </div>
       </p>
 
@@ -1035,6 +1035,67 @@ $(document).ready(addClickHandlers);
 
     </tr>
     <tr>
+
+    <td>
+    <div class="col c7">
+      <h2><span>Mouse molar</span></h2>
+
+      <p>
+      <div>
+      <a href="/visualization_demo/?id=final.mouse_molar_tooth.stl" target="_blank"><img src="/static/mouse_molar_tooth.png" title="mouse molar tooth" style="width:63px;height:80px;border:0;padding-left:40px;"></a>
+      </div>
+      </p>
+
+      <p>
+      <div>
+      <a href="/visualization_demo/?id=mouse_molar_tooth.tif" target="_blank"><img src="/static/file_image.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
+      <a href=# onclick="alertFunction('You can not delete the data.')"><img src="/static/icon-deletelink.svg" title="delete" style="width:20px;height:20px;border:0;"></a>
+      <a href="/download/demo/?id=mouse_molar_tooth.tif"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+      <a href=# onclick="sliceViewer('mouse_molar_tooth.tif')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
+      <a href=# onclick="alertFunction('Move data to long term storage')"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;"></a>
+      {% if user.is_authenticated %}
+      <span class="share_link" id='mouse_molar_tooth.tif'><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span></br>
+      {% else %}
+      <a href=# onclick="alertFunction('Share data with other users or create a download link')"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;"></a></br>
+      {% endif %}
+      mouse_molar_tooth.tif
+      </div>
+      </p>
+
+      <p>
+      <div>
+      <a href="/visualization_demo/?id=labels.mouse_molar_tooth.tif" target="_blank"><img src="/static/file_label.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
+      <a href=# onclick="alertFunction('I really admire your effort.')"><img src="/static/icon-deletelink.svg" title="delete" style="width:20px;height:20px;border:0;"></a>
+      <a href="/download/demo/?id=labels.mouse_molar_tooth.tif"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+      <a href=# onclick="sliceViewer('labels.mouse_molar_tooth.tif')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
+      <a href=# onclick="alertFunction('Move data to long term storage')"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;"></a>
+      {% if user.is_authenticated %}
+      <span class="share_link" id='labels.mouse_molar_tooth.tif'><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span></br>
+      {% else %}
+      <a href=# onclick="alertFunction('Share data with other users or create a download link')"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;"></a></br>
+      {% endif %}
+      labels.mouse_molar_tooth.tif
+      </div>
+      </p>
+
+      <p>
+      <div>
+      <a href="/visualization_demo/?id=final.mouse_molar_tooth.tif" target="_blank"><img src="/static/file_final.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
+      <a href=# onclick="alertFunction('You tried hard.')"><img src="/static/icon-deletelink.svg" title="delete" style="width:20px;height:20px;border:0;"></a>
+      <a href="/download/demo/?id=final.mouse_molar_tooth.tif"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+      <a href=# onclick="sliceViewer('final.mouse_molar_tooth.tif')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
+      <a href=# onclick="alertFunction('Move data to long term storage')"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;"></a>
+      {% if user.is_authenticated %}
+      <span class="share_link" id='final.mouse_molar_tooth.tif'><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span></br>
+      {% else %}
+      <a href=# onclick="alertFunction('Share data with other users or create a download link')"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;"></a></br>
+      {% endif %}
+      final.mouse_molar_tooth.tif
+      </div>
+      </p>
+
+    </div>
+    </td>
 
     <td>
     <div class="col c13">
