@@ -221,9 +221,9 @@ if __name__ == '__main__':
                         help='Percentage of data used for validation')
     parser.add_argument('-lr','--learning_rate', type=float, default=0.01,
                         help='Learning rate')
-    parser.add_argument('-ss','--stride_size', metavar="[1-64]", type=int, choices=range(1,64), default=32,
+    parser.add_argument('-ss','--stride_size', metavar="[1-64]", type=int, choices=range(1,65), default=32,
                         help='Stride size for patches')
-    parser.add_argument('-vss','--validation_stride_size', metavar="[1-64]", type=int, choices=range(1,64), default=32,
+    parser.add_argument('-vss','--validation_stride_size', metavar="[1-64]", type=int, choices=range(1,65), default=32,
                         help='Stride size for validation patches')
     parser.add_argument('-vf','--validation_freq', type=int, default=1,
                         help='Epochs performed before validation')
