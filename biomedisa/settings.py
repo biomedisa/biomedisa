@@ -62,6 +62,8 @@ WSGI_APPLICATION = 'biomedisa.wsgi.application'
 FILE_UPLOAD_PERMISSIONS = 0o660
 PRIVATE_STORAGE_ROOT = os.path.join(BASE_DIR, 'private_storage')
 PRIVATE_STORAGE_URL = '/private_storage/'
+if 'FILE_UPLOAD_TEMP_DIR' in config:
+    FILE_UPLOAD_TEMP_DIR = os.path.join(BASE_DIR, config['FILE_UPLOAD_TEMP_DIR'])
 
 # Database
 DATABASES = {
