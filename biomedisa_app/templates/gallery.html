@@ -69,7 +69,7 @@ $(document).ready(addClickHandlers);
 
     <td>
     <div class="col c1">
-      <h2><span>Training data</span></h2>
+      <h2><span>Honeybees training</span></h2>
 
       <p>
       <div>
@@ -130,7 +130,7 @@ $(document).ready(addClickHandlers);
 
     <td>
     <div class="col c2">
-      <h2><span>Test data</span></h2>
+      <h2><span>Honeybees testing</span></h2>
 
       <p>
       <div>
@@ -253,7 +253,7 @@ $(document).ready(addClickHandlers);
     <tr>
 
     <td>
-    <div class="col c1">
+    <div class="col c4">
       <h2><span>Uncropped training</span></h2>
 
       <p>
@@ -308,7 +308,7 @@ $(document).ready(addClickHandlers);
     </td>
 
     <td>
-    <div class="col c2">
+    <div class="col c5">
       <h2><span>Uncropped validation</span></h2>
 
       <p>
@@ -347,7 +347,7 @@ $(document).ready(addClickHandlers);
     </td>
 
     <td>
-    <div class="col c3">
+    <div class="col c6">
       <h2><span>Uncropped test</span></h2>
 
       <p>
@@ -405,7 +405,7 @@ $(document).ready(addClickHandlers);
     <tr>
 
     <td>
-    <div class="col c4">
+    <div class="col c7">
       <h2><span>Trigonopterus</span></h2>
 
       <p>
@@ -481,7 +481,7 @@ $(document).ready(addClickHandlers);
     </td>
 
     <td>
-    <div class="col c5">
+    <div class="col c8">
       <h2><span>Wasp from amber</span></h2>
 
       <p>
@@ -557,7 +557,7 @@ $(document).ready(addClickHandlers);
     </td>
 
     <td>
-    <div class="col c6">
+    <div class="col c9">
       <h2><span>Bull ant queen</span></h2>
 
       <p>
@@ -636,7 +636,7 @@ $(document).ready(addClickHandlers);
     <tr>
 
     <td>
-    <div class="col c7">
+    <div class="col c10">
       <h2><span>Cytoplasm</span></h2>
 
       <p>
@@ -697,7 +697,7 @@ $(document).ready(addClickHandlers);
     </td>
 
     <td>
-    <div class="col c8">
+    <div class="col c11">
       <h2><span>Deep learning</span></h2>
 
       <p>
@@ -758,7 +758,7 @@ $(document).ready(addClickHandlers);
     </td>
 
     <td>
-    <div class="col c9">
+    <div class="col c12">
       <h2><span>AI segmentation</span></h2>
 
       <p>
@@ -806,7 +806,7 @@ $(document).ready(addClickHandlers);
     <tr>
 
     <td>
-    <div class="col c10">
+    <div class="col c1">
       <h2><span>Theropod claw</span></h2>
 
       <p>
@@ -882,7 +882,7 @@ $(document).ready(addClickHandlers);
     </td>
 
     <td>
-    <div class="col c11">
+    <div class="col c2">
       <h2><span>Cockroach</span></h2>
 
       <p>
@@ -958,7 +958,7 @@ $(document).ready(addClickHandlers);
     </td>
 
     <td>
-    <div class="col c12">
+    <div class="col c3">
       <h2><span>Mineralized wasp</span></h2>
 
       <p>
@@ -1037,12 +1037,12 @@ $(document).ready(addClickHandlers);
     <tr>
 
     <td>
-    <div class="col c7">
+    <div class="col c1">
       <h2><span>Mouse molar</span></h2>
 
       <p>
       <div>
-      <a href="/visualization_demo/?id=final.mouse_molar_tooth.stl" target="_blank"><img src="/static/mouse_molar_tooth.png" title="mouse molar tooth" style="width:63px;height:80px;border:0;padding-left:40px;"></a>
+      <a href="/visualization_demo/?id=final.mouse_molar_tooth.stl" target="_blank"><img src="/static/mouse_molar_tooth.png" title="mouse molar tooth" style="width:107px;height:136px;border:0;padding-left:40px;"></a>
       </div>
       </p>
 
@@ -1098,12 +1098,137 @@ $(document).ready(addClickHandlers);
     </td>
 
     <td>
-    <div class="col c13">
+    <div class="col c2">
+      <h2><span>Bumblebees training</span></h2>
+
+      <p>
+      <div>
+      <a href="/visualization_demo/?id=final.Head35.stl" target="_blank"><img src="/static/training_data_bees.png" title="training data" style="width:223px;height:136px;border:0;"></a>
+      </div>
+      </p>
+
+      <p>
+      <div>
+      <a><img src="/static/file_image.svg" style="width:50px;height:50px;border:0;"></a>
+      <a href=# onclick="alertFunction('You can not delete the data.')"><img src="/static/icon-deletelink.svg" title="delete" style="width:20px;height:20px;border:0;"></a>
+      <a href="/download/demo/?id=bumblebees_training_images.tar.gz"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+      <a href=# onclick="sliceViewer('bumblebees_training_images.tar.gz')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
+      <a href=# onclick="alertFunction('Move data to long term storage')"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;"></a>
+      {% if user.is_authenticated %}
+      <span class="share_link" id='bumblebees_training_images.tar.gz'><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span></br>
+      {% else %}
+      <a href=# onclick="alertFunction('Share data with other users or create a download link')"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;"></a></br>
+      {% endif %}
+      bumblebees_training_images.tar.gz
+      </div>
+      </p>
+
+      <p>
+      <div>
+      <a><img src="/static/file_label.svg" style="width:50px;height:50px;border:0;"></a>
+      <a href=# onclick="alertFunction('I really admire your effort.')"><img src="/static/icon-deletelink.svg" title="delete" style="width:20px;height:20px;border:0;"></a>
+      <a href="/download/demo/?id=bumblebees_training_labels.tar.gz"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+      <a href=# onclick="sliceViewer('bumblebees_training_labels.tar.gz')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
+      <a href=# onclick="alertFunction('Move data to long term storage')"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;"></a>
+      {% if user.is_authenticated %}
+      <span class="share_link" id='bumblebees_training_labels.tar.gz'><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span></br>
+      {% else %}
+      <a href=# onclick="alertFunction('Share data with other users or create a download link')"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;"></a></br>
+      {% endif %}
+      bumblebees_training_labels.tar.gz
+      </div>
+      </p>
+
+      <p>
+      <div>
+      <a><img src="/static/file_ai.svg" style="width:50px;height:50px;border:0;"></a>
+      <a href=# onclick="alertFunction('...dancing on rainbows.')"><img src="/static/icon-deletelink.svg" title="delete" style="width:20px;height:20px;border:0;"></a>
+      <a href="/download/demo/?id=bumblebees_network.h5"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+      <a href=#><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
+      <a href=# onclick="alertFunction('Move data to long term storage')"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;"></a>
+      {% if user.is_authenticated %}
+      <span class="share_link" id='bumblebees_network.h5'><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span></br>
+      {% else %}
+      <a href=# onclick="alertFunction('Share data with other users or create a download link')"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;"></a></br>
+      {% endif %}
+      bumblebees_network.h5
+      </div>
+      </p>
+
+    </div>
+    </td>
+
+    <td>
+    <div class="col c3">
+      <h2><span>Bumblebees testing</span></h2>
+
+      <p>
+      <div>
+      <a href="/visualization_demo/?id=final.Head35.stl" target="_blank"><img src="/static/test_data_bees.png" title="test data" style="width:223px;height:136px;border:0;"></a>
+      </div>
+      </p>
+
+      <p>
+      <div>
+      <a><img src="/static/file_image.svg" style="width:50px;height:50px;border:0;"></a>
+      <a href=# onclick="alertFunction('You can not delete the data.')"><img src="/static/icon-deletelink.svg" title="delete" style="width:20px;height:20px;border:0;"></a>
+      <a href="/download/demo/?id=bumblebees_test_images.tar.gz"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+      <a href=# onclick="sliceViewer('bumblebees_test_images.tar.gz')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
+      <a href=# onclick="alertFunction('Move data to long term storage')"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;"></a>
+      {% if user.is_authenticated %}
+      <span class="share_link" id='bumblebees_test_images.tar.gz'><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span></br>
+      {% else %}
+      <a href=# onclick="alertFunction('Share data with other users or create a download link')"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;"></a></br>
+      {% endif %}
+      bumblebees_test_images.tar.gz
+      </div>
+      </p>
+
+      <p>
+      <div>
+      <a><img src="/static/file_label.svg" style="width:50px;height:50px;border:0;"></a>
+      <a href=# onclick="alertFunction('Pink fluffy unicorns...')"><img src="/static/icon-deletelink.svg" title="delete" style="width:20px;height:20px;border:0;"></a>
+      <a href="/download/demo/?id=bumblebees_test_labels.tar.gz"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+      <a href=# onclick="sliceViewer('bumblebees_test_labels.tar.gz')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
+      <a href=# onclick="alertFunction('Move data to long term storage')"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;"></a>
+      {% if user.is_authenticated %}
+      <span class="share_link" id='bumblebees_test_labels.tar.gz'><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span></br>
+      {% else %}
+      <a href=# onclick="alertFunction('Share data with other users or create a download link')"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;"></a></br>
+      {% endif %}
+      bumblebees_test_labels.tar.gz
+      </div>
+      </p>
+
+      <p>
+      <div>
+      <a><img src="/static/file_final.svg" style="width:50px;height:50px;border:0;"></a>
+      <a href=# onclick="alertFunction('This does not make any sense but I love it!')"><img src="/static/icon-deletelink.svg" title="delete" style="width:20px;height:20px;border:0;"></a>
+      <a href="/download/demo/?id=bumblebees_test_results.tar.gz"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+      <a href=# onclick="sliceViewer('bumblebees_test_results.tar.gz')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
+      <a href=# onclick="alertFunction('Move data to long term storage')"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;"></a>
+      {% if user.is_authenticated %}
+      <span class="share_link" id='bumblebees_test_results.tar.gz'><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span></br>
+      {% else %}
+      <a href=# onclick="alertFunction('Share data with other users or create a download link')"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;"></a></br>
+      {% endif %}
+      bumblebees_test_results.tar.gz
+      </div>
+      </p>
+
+    </div>
+    </td>
+
+    </tr>
+    <tr>
+
+    <td>
+    <div class="col c1">
       <h2><span>Brain tumor</span></h2>
 
       <p>
       <div>
-      <a><img src="/static/brain_tumor.jpg" title="brain tumor" style="width:89px;height:80px;border:0;padding-left:35px;"></a>
+      <a><img src="/static/brain_tumor.jpg" title="brain tumor" style="width:151px;height:136px;border:0;padding-left:35px;"></a>
       </div>
       </p>
 
@@ -1158,90 +1283,10 @@ $(document).ready(addClickHandlers);
     </div>
     </td>
 
-    <td>
-    <div class="col c14">
-      <h2><span>Biological screw joint</span></h2>
-
-      <p>
-      <div>
-      <a><img src="/static/screw_joint.png" title="screw joint" style="width:213px;height:80px;border:0;"></a>
-      </div>
-      </p>
-
-      <p>
-      <div>
-      <a href="/visualization_demo/?id=screw_joint.tif" target="_blank"><img src="/static/file_image.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
-      <a href=# onclick="alertFunction('You can not delete the data.')"><img src="/static/icon-deletelink.svg" title="delete" style="width:20px;height:20px;border:0;"></a>
-      <a href="/download/demo/?id=screw_joint.tif"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
-      <a href=# onclick="sliceViewer('screw_joint.tif')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
-      <a href=# onclick="alertFunction('Move data to long term storage')"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;"></a>
-      {% if user.is_authenticated %}
-      <span class="share_link" id='CT0188_T_caudatus_stack.tif'><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span></br>
-      {% else %}
-      <a href=# onclick="alertFunction('Share data with other users or create a download link')"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;"></a></br>
-      {% endif %}
-      screw_joint.tif
-      </div>
-      </p>
-
-      <p>
-      <div>
-      <a href="/visualization_demo/?id=labels.screw_joint.tif" target="_blank"><img src="/static/file_label.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
-      <a href=# onclick="alertFunction('Never give up!')"><img src="/static/icon-deletelink.svg" title="delete" style="width:20px;height:20px;border:0;"></a>
-      <a href="/download/demo/?id=labels.screw_joint.tif"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
-      <a href=# onclick="sliceViewer('labels.screw_joint.tif')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
-      <a href=# onclick="alertFunction('Move data to long term storage')"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;"></a>
-      {% if user.is_authenticated %}
-      <span class="share_link" id='CT0188_T_caudatus_labels.tif'><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span></br>
-      {% else %}
-      <a href=# onclick="alertFunction('Share data with other users or create a download link')"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;"></a></br>
-      {% endif %}
-      labels.screw_joint.tif
-      </div>
-      </p>
-
-      {% if k == 2 %}
-          <p>
-          <div>
-          <a href="/visualization_demo/?id=final.screw_joint.tif" target="_blank"><img src="/static/file_final.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
-      <a href=# onclick="alertFunction('Where have all the pinguins gone?')"><img src="/static/icon-deletelink.svg" title="delete" style="width:20px;height:20px;border:0;"></a>
-          <a href="/download/demo/?id=final.screw_joint.tif"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
-          <a href=# onclick="sliceViewer('final.screw_joint.tif')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
-          <a href=# onclick="alertFunction('Move data to long term storage')"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;"></a>
-          {% if user.is_authenticated %}
-          <span class="share_link" id='final.CT0188_T_caudatus_stack.tif'><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span></br>
-          {% else %}
-          <a href=# onclick="alertFunction('Share data with other users or create a download link')"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;"></a></br>
-          {% endif %}
-          final.screw_joint.tif
-          </div>
-          </p>
-      {% endif %}
-
-      {% if k == 0 %}
-      <p>
-      <div>
-      <form action="" method="post" enctype="multipart/form-data">
-      <a href="javascript:void(0)" onclick="refresh();"><img src="/static/startshadow.png" title="start" style="width:120px;height:62px;border:0;"></a>
-      </form>
-      </div>
-      </p>
-      {% endif %}
-
-      {% if k == 1 %}
-      <p>
-      <div>
-      <p><progress id="progressBar" max="100" value="0"></progress></p>
-      <script> count() </script>
-      </div>
-      </p>
-      {% endif %}
-    </div>
-    </td>
-
     </tr>
 
     <div class="clr"></div>
   </div>
 </div>
 {% endblock %}
+
