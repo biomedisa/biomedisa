@@ -61,7 +61,7 @@ def rotate_patch(src,trg,k,l,m,cos_a,sin_a,z_patch,y_patch,x_patch,imageHeight,i
 
 class DataGenerator(tf.keras.utils.Sequence):
     'Generates data for Keras'
-    def __init__(self, img, label, position, list_IDs, counts, shuffle, batch_size=32, dim=(32,32,32),
+    def __init__(self, img, label, position, list_IDs, counts, shuffle, number_of_images, batch_size=32, dim=(32,32,32),
                  dim_img=(32,32,32), n_classes=10, n_channels=1, class_weights=False, augment=(False,False,False,0)):
         'Initialization'
         self.dim = dim
@@ -77,12 +77,15 @@ class DataGenerator(tf.keras.utils.Sequence):
         self.augment = augment
         self.counts = counts
         self.class_weights = class_weights
+        self.number_of_images = number_of_images
         self.on_epoch_end()
 
     def __len__(self):
         'Denotes the number of batches per epoch'
         len_IDs = len(self.list_IDs)
-        return int(np.floor(len_IDs / self.batch_size))
+        n_batches = int(np.floor(len_IDs / self.batch_size))
+        n_batches = min((512 * self.number_of_images) // self.batch_size, n_batches)
+        return n_batches
 
     def __getitem__(self, index):
         'Generate one batch of data'

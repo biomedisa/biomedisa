@@ -483,7 +483,7 @@ class MetaData(Callback):
         hf.close()
 
 class Metrics(Callback):
-    def __init__(self, img, label, list_IDs, dim_patch, dim_img, batch_size, path_to_model, early_stopping, validation_freq, n_classes):
+    def __init__(self, img, label, list_IDs, dim_patch, dim_img, batch_size, path_to_model, early_stopping, validation_freq, n_classes, number_of_images):
         self.dim_patch = dim_patch
         self.dim_img = dim_img
         self.list_IDs = list_IDs
@@ -494,6 +494,7 @@ class Metrics(Callback):
         self.early_stopping = early_stopping
         self.validation_freq = validation_freq
         self.n_classes = n_classes
+        self.number_of_images = number_of_images
 
     def on_train_begin(self, logs={}):
         self.history = {}
@@ -508,6 +509,8 @@ class Metrics(Callback):
 
             len_IDs = len(self.list_IDs)
             n_batches = int(np.floor(len_IDs / self.batch_size))
+            n_batches = min((512 * self.number_of_images) // self.batch_size, n_batches)
+            np.random.shuffle(self.list_IDs)
 
             for batch in range(n_batches):
                 # Generate indexes of the batch
@@ -587,15 +590,16 @@ def train_semantic_segmentation(normalize, img_list, label_list, x_scale, y_scal
     # validation data
     if validation_split:
         number_of_images = zsh // z_scale
-        split = round(number_of_images * validation_split)
-        img_val = np.copy(img[split*z_scale:])
-        label_val = np.copy(label[split*z_scale:])
-        img = np.copy(img[:split*z_scale])
-        label = np.copy(label[:split*z_scale])
+        number_of_val_images = number_of_images - round(number_of_images * validation_split)
+        number_of_images = round(number_of_images * validation_split)
+        img_val = np.copy(img[number_of_images*z_scale:])
+        label_val = np.copy(label[number_of_images*z_scale:])
+        img = np.copy(img[:number_of_images*z_scale])
+        label = np.copy(label[:number_of_images*z_scale])
         zsh, ysh, xsh = img.shape
         if channels == 2:
-            position_val = np.copy(position[split*z_scale:])
-            position = np.copy(position[:split*z_scale])
+            position_val = np.copy(position[number_of_images*z_scale:])
+            position = np.copy(position[:number_of_images*z_scale])
         else:
             position_val = None
 
@@ -641,15 +645,15 @@ def train_semantic_segmentation(normalize, img_list, label_list, x_scale, y_scal
 
     # data generator
     validation_generator = None
-    training_generator = DataGenerator(img, label, position, list_IDs, counts, True, **params)
+    training_generator = DataGenerator(img, label, position, list_IDs, counts, True, number_of_images, **params)
     if validation_split:
         if val_tf:
             params['dim_img'] = (zsh_val, ysh_val, xsh_val)
             params['augment'] = (False, False, False, 0)
-            validation_generator = DataGenerator(img_val, label_val, position_val, list_IDs_val, counts, False, **params)
+            validation_generator = DataGenerator(img_val, label_val, position_val, list_IDs_val, counts, False, number_of_val_images, **params)
         else:
             metrics = Metrics(img_val, label_val, list_IDs_val, (z_patch, y_patch, x_patch), (zsh_val, ysh_val, xsh_val), batch_size,
-                              path_to_model, early_stopping, validation_freq, nb_labels)
+                              path_to_model, early_stopping, validation_freq, nb_labels, number_of_val_images)
 
     # optimizer
     sgd = SGD(learning_rate=0.01, decay=1e-6, momentum=0.9, nesterov=True)
