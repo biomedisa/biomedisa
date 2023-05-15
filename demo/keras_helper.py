@@ -29,10 +29,7 @@
 from biomedisa_features.create_slices import create_slices
 from biomedisa_features.remove_outlier import clean, fill
 from biomedisa_features.biomedisa_helper import img_resize, load_data, save_data, set_labels_to_zero
-try:
-    from tensorflow.keras.optimizers.legacy import SGD
-except:
-    from tensorflow.keras.optimizers import SGD
+from tensorflow.keras.optimizers import SGD
 from tensorflow.keras.models import Model, load_model
 from tensorflow.keras.layers import (
     Input, Conv3D, MaxPooling3D, UpSampling3D, Activation, Reshape,
@@ -662,20 +659,20 @@ def train_semantic_segmentation(normalize, path_to_img, path_to_labels, x_scale,
 
     # data generator
     validation_generator = None
-    training_generator = DataGenerator(img, label, position, list_IDs, counts, True, **params)
+    training_generator = DataGenerator(img, label, position, list_IDs, counts, True, False, **params)
     if any(path_val_img) or validation_split:
         if val_tf:
             params['batch_size'] = validation_batch_size
             params['dim_img'] = (zsh_val, ysh_val, xsh_val)
             params['augment'] = (False, False, False, 0)
             params['class_weights'] = False
-            validation_generator = DataGenerator(img_val, label_val, position_val, list_IDs_val, counts, False, **params)
+            validation_generator = DataGenerator(img_val, label_val, position_val, list_IDs_val, counts, False, False, **params)
         else:
             metrics = Metrics(img_val, label_val, position_val, list_IDs_val, (z_patch, y_patch, x_patch), (zsh_val, ysh_val, xsh_val), validation_batch_size,
                               path_to_model, early_stopping, validation_freq, nb_labels, channels)
 
     # optimizer
-    sgd = SGD(learning_rate=learning_rate, decay=1e-6, momentum=0.9, nesterov=True)
+    sgd = SGD(learning_rate=learning_rate, weight_decay=1e-6, momentum=0.9, nesterov=True)
 
     # create a MirroredStrategy
     if os.name == 'nt':
