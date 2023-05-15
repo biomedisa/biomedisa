@@ -29,7 +29,10 @@
 from biomedisa_features.create_slices import create_slices
 from biomedisa_features.remove_outlier import clean, fill
 from biomedisa_features.biomedisa_helper import img_resize, load_data, save_data, set_labels_to_zero
-from tensorflow.keras.optimizers import SGD
+try:
+    from tensorflow.keras.optimizers.legacy import SGD
+except:
+    from tensorflow.keras.optimizers import SGD
 from tensorflow.keras.models import Model, load_model
 from tensorflow.keras.layers import (
     Input, Conv3D, MaxPooling3D, UpSampling3D, Activation, Reshape,
@@ -672,7 +675,7 @@ def train_semantic_segmentation(normalize, path_to_img, path_to_labels, x_scale,
                               path_to_model, early_stopping, validation_freq, nb_labels, channels)
 
     # optimizer
-    sgd = SGD(learning_rate=learning_rate, weight_decay=1e-6, momentum=0.9, nesterov=True)
+    sgd = SGD(learning_rate=learning_rate, decay=1e-6, momentum=0.9, nesterov=True)
 
     # create a MirroredStrategy
     if os.name == 'nt':
