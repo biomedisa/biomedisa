@@ -30,10 +30,7 @@ import django
 django.setup()
 from biomedisa_app.models import Upload
 from biomedisa_features.biomedisa_helper import img_resize, load_data, save_data, set_labels_to_zero
-try:
-    from tensorflow.keras.optimizers.legacy import SGD
-except:
-    from tensorflow.keras.optimizers import SGD
+from tensorflow.keras.optimizers import SGD
 from tensorflow.keras.models import Model, load_model
 from tensorflow.keras.layers import (
     Input, Conv3D, MaxPooling3D, UpSampling3D, Activation, Reshape,
@@ -650,13 +647,13 @@ def train_semantic_segmentation(normalize, img_list, label_list, x_scale, y_scal
         if val_tf:
             params['dim_img'] = (zsh_val, ysh_val, xsh_val)
             params['augment'] = (False, False, False, 0)
-            validation_generator = DataGenerator(img_val, label_val, position_val, list_IDs_val, counts, False, number_of_val_images, **params)
+            validation_generator = DataGenerator(img_val, label_val, position_val, list_IDs_val, counts, True, number_of_val_images, **params)
         else:
             metrics = Metrics(img_val, label_val, list_IDs_val, (z_patch, y_patch, x_patch), (zsh_val, ysh_val, xsh_val), batch_size,
                               path_to_model, early_stopping, validation_freq, nb_labels, number_of_val_images)
 
     # optimizer
-    sgd = SGD(learning_rate=0.01, decay=1e-6, momentum=0.9, nesterov=True)
+    sgd = SGD(learning_rate=0.01, weight_decay=1e-6, momentum=0.9, nesterov=True)
 
     # create a MirroredStrategy
     if os.name == 'nt':
