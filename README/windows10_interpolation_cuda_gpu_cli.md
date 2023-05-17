@@ -24,6 +24,7 @@ Open Windows Search
 Type `View advanced system settings`  
 Click `Environment Variables...`  
 Add the following value to the **System variable** `Path`
+Please check whether the path exists and adjust it if necessary. Year `2022` and version number `14.34.31933` can be different.
 ```
 C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.34.31933\bin\Hostx64\x64
 ```
