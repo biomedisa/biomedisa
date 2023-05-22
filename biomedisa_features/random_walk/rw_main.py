@@ -31,7 +31,7 @@ import django
 django.setup()
 from biomedisa_app.config import config
 from biomedisa_app.models import Upload, Profile
-#from biomedisa_app.views import send_start_notification
+from biomedisa_app.views import send_start_notification
 from biomedisa_features.biomedisa_helper import (_get_platform, pre_processing, _error_,
     read_labeled_slices, read_labeled_slices_allx, read_indices_allx, predict_blocksize)
 from django.contrib.auth.models import User
@@ -90,7 +90,7 @@ if __name__ == '__main__':
             bm.path_to_logfile = config['PATH_TO_BIOMEDISA'] + '/log/logfile.txt'
 
             # send notification
-            #send_start_notification(bm.image)
+            send_start_notification(bm.image)
 
             # write in logfile
             with open(bm.path_to_logfile, 'a') as logfile:

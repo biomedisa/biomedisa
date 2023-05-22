@@ -69,9 +69,8 @@ import shutil, wget
 import subprocess
 import glob
 
-if config['OS'] == 'linux':
-    from redis import Redis
-    from rq import Queue, Worker
+from redis import Redis
+from rq import Queue, Worker, get_current_job
 
 class Biomedisa(object):
      pass
@@ -985,7 +984,7 @@ def rename_file(request):
     return JsonResponse(results)
 
 # init_keras_3D
-def init_keras_3D(image, label, model, refine, predict, img_list, label_list, queue_name):
+def init_keras_3D(image, label, model, refine, predict, img_list, label_list):
 
     # get objects
     try:
@@ -1000,58 +999,76 @@ def init_keras_3D(image, label, model, refine, predict, img_list, label_list, qu
     # check if aborted
     if image.status > 0:
 
+        # get worker name
+        worker_name = 'first_worker'
+        job = get_current_job()
+        if job is not None:
+            worker_name = job.worker_name
+
+        # get queue configuration
+        my_env = None
+        if 'first_worker' in worker_name:
+            QUEUE, worker_id = 'FIRST', 1
+        elif 'second_worker' in worker_name:
+            QUEUE, worker_id = 'SECOND', 2
+        elif 'third_worker' in worker_name:
+            QUEUE, worker_id = 'THIRD', 3
+            if image.queue == 1:
+                image.queue = 3
+                image.save()
+        host = config[f'{QUEUE}_QUEUE_HOST']
+
         # search for failed jobs in queue
-        if config['OS'] == 'linux':
-            q = Queue('check_queue', connection=Redis())
-            job = q.enqueue_call(init_check_queue, args=(image.id, image.queue,), timeout=-1)
+        q = Queue('check_queue', connection=Redis())
+        job = q.enqueue_call(init_check_queue, args=(image.id, worker_id,), timeout=-1)
 
         # set status to processing
-        if image.status == 1:
-            image.status = 2
-            if predict:
-                image.message = 'Processing'
-            elif label.automatic_cropping:
-                image.message = 'Train automatic cropping'
-            else:
-                image.message = 'Progress 0%'
-            image.save()
+        image.status = 2
+        if predict:
+            image.message = 'Processing'
+        elif label.automatic_cropping:
+            image.message = 'Train automatic cropping'
+        else:
+            image.message = 'Progress 0%'
+        image.save()
 
-    # change working directory
-    cwd = config['PATH_TO_BIOMEDISA'] + '/biomedisa_features/'
+        # number of gpus or list of gpu ids
+        if type(config[f'{QUEUE}_QUEUE_NGPUS'])==list:
+            list_of_ids = config[f'{QUEUE}_QUEUE_NGPUS']
+            gpu_ids = ''
+            for id in list_of_ids:
+                gpu_ids = gpu_ids + f'{id},'
+            gpu_ids = gpu_ids[:-1]
+            my_env = os.environ.copy()
+            my_env['CUDA_VISIBLE_DEVICES'] = gpu_ids
+        elif type(config[f'{QUEUE}_QUEUE_NGPUS'])==int:
+            ngpus = config[f'{QUEUE}_QUEUE_NGPUS']
+            gpu_ids = ''
+            for id in range(ngpus):
+                gpu_ids = gpu_ids + f'{id},'
+            gpu_ids = gpu_ids[:-1]
+            my_env = os.environ.copy()
+            my_env['CUDA_VISIBLE_DEVICES'] = gpu_ids
 
-    # get configuration
-    if queue_name == 'A':
-        host = config['FIRST_QUEUE_HOST']
-    elif queue_name == 'C':
-        host = config['THIRD_QUEUE_HOST']
+        # change working directory
+        cwd = config['PATH_TO_BIOMEDISA'] + '/biomedisa_features/'
 
-    # run keras
-    if config['OS'] == 'linux':
+        # run keras
         if host:
             p = subprocess.Popen(['ssh', host, 'python3', cwd+'keras_3D.py',\
                 str(image.id), str(label.id), str(model), str(refine), str(predict), str(img_list), str(label_list)])
         else:
             p = subprocess.Popen(['python3', 'keras_3D.py', str(image.id), str(label.id),\
-                str(model), str(refine), str(predict), str(img_list), str(label_list)], cwd=cwd)
+                str(model), str(refine), str(predict), str(img_list), str(label_list)], cwd=cwd, env=my_env)
 
-    elif config['OS'] == 'windows':
-        p = subprocess.Popen(['python', '-u', 'keras_3D.py', str(image.id), str(label.id),\
-                str(model), str(refine), str(predict), str(img_list), str(label_list)], cwd=cwd, stdout=subprocess.PIPE)
+        # wait for process to finish
+        p.wait()
 
-        # print output
-        for line in iter(p.stdout.readline, b''):
-            line = str(line,'utf-8')
-            print(line.rstrip())
-        p.stdout.close()
-
-    # wait for process to finish
-    p.wait()
-
-    # stop processing
-    image.path_to_model = ''
-    image.status = 0
-    image.pid = 0
-    image.save()
+        # stop processing
+        image.path_to_model = ''
+        image.status = 0
+        image.pid = 0
+        image.save()
 
 # 25. features
 def features(request, action):
@@ -1107,44 +1124,42 @@ def features(request, action):
                 if img.status > 0:
                     request.session['state'] = 'Image is already being processed.'
                 elif img.imageType == 1:
-                    if config['OS'] == 'linux':
 
-                        if config['THIRD_QUEUE']:
-                            q3 = Queue('third_queue', connection=Redis())
-                            w3 = Worker.all(queue=q3)[0]
+                    # two processing queues
+                    if config['SECOND_QUEUE']:
+                        q1 = Queue('first_queue', connection=Redis())
+                        q2 = Queue('second_queue', connection=Redis())
+                        w1 = Worker.all(queue=q1)[0]
+                        w2 = Worker.all(queue=q2)[0]
+                        lenq1 = len(q1)
+                        lenq2 = len(q2)
 
-                            if w3.state=='busy':
-                                keras_queue = 'first_queue'
-                                img.queue = 1
-                                queue_name = 'A'
-                            else:
-                                keras_queue = 'third_queue'
-                                img.queue = 3
-                                queue_name = 'C'
+                        if lenq1 > lenq2 or (lenq1==lenq2 and w1.state=='busy' and w2.state=='idle'):
+                            queue_short = 'B'
+                            job = q2.enqueue_call(init_keras_3D, args=(img.id, img.id, model, refine, 1, [], []), timeout=-1)
+                            lenq = len(q2)
+                            img.queue = 2
                         else:
-                            keras_queue = 'first_queue'
+                            queue_short = 'A'
+                            job = q1.enqueue_call(init_keras_3D, args=(img.id, img.id, model, refine, 1, [], []), timeout=-1)
+                            lenq = len(q1)
                             img.queue = 1
-                            queue_name = 'A'
 
-                        q = Queue(keras_queue, connection=Redis())
-                        job = q.enqueue_call(init_keras_3D, args=(img.id, img.id, model, refine, 1, [], [], queue_name), timeout=-1)
+                    # single processing queue
+                    else:
+                        queue_short = 'A'
+                        q = Queue('first_queue', connection=Redis())
+                        job = q.enqueue_call(init_keras_3D, args=(img.id, img.id, model, refine, 1, [], []), timeout=-1)
                         lenq = len(q)
-                        img.job_id = job.id
-                        if lenq == 0:
-                            img.status = 2
-                            img.message = 'Processing'
-                        else:
-                            img.status = 1
-                            img.message = 'Queue %s position %s of %s' %(queue_name, lenq, lenq)
-                        img.save()
-
-                    elif config['OS'] == 'windows':
                         img.queue = 1
-                        queue_name = 'A'
-                        Process(target=init_keras_3D, args=(img.id, img.id, model, refine, 1, [], [], queue_name)).start()
-                        img.status = 2
+
+                    if lenq == 0:
                         img.message = 'Processing'
-                        img.save()
+                    else:
+                        img.message = f'Queue {queue_short} position {lenq} of {lenq}'
+                    img.status = 1
+                    img.job_id = job.id
+                    img.save()
 
                 elif img.imageType in [2,3]:
                     request.session['state'] = 'No vaild image selected.'
@@ -1189,40 +1204,25 @@ def features(request, action):
         elif raw_out.status > 0:
             request.session['state'] = 'Image is already being processed.'
         else:
-            if config['OS'] == 'linux':
-                if config['THIRD_QUEUE']:
-                    keras_queue = 'third_queue'
-                    raw_out.queue = 3
-                    queue_name = 'C'
-                else:
-                    keras_queue = 'first_queue'
-                    raw_out.queue = 1
-                    queue_name = 'A'
-                q = Queue(keras_queue, connection=Redis())
-                job = q.enqueue_call(init_keras_3D, args=(raw_out.id, label_out.id, model, 0, 0, raw_list, label_list, queue_name), timeout=-1)
-                lenq = len(q)
-                raw_out.job_id = job.id
-                if lenq == 0:
-                    raw_out.status = 2
-                    if label_out.automatic_cropping:
-                        raw_out.message = 'Train automatic cropping'
-                    else:
-                        raw_out.message = 'Progress 0%'
-                else:
-                    raw_out.status = 1
-                    raw_out.message = 'Queue %s position %s of %s' %(queue_name, lenq, lenq)
-                raw_out.save()
-
-            elif config['OS'] == 'windows':
+            if config['THIRD_QUEUE']:
+                queue_name, queue_short = 'third_queue', 'C'
+                raw_out.queue = 3
+            else:
+                queue_name, queue_short = 'first_queue', 'A'
                 raw_out.queue = 1
-                queue_name = 'A'
-                Process(target=init_keras_3D, args=(raw_out.id, label_out.id, model, 0, 0, raw_list, label_list, queue_name)).start()
-                raw_out.status = 2
+            q = Queue(queue_name, connection=Redis())
+            job = q.enqueue_call(init_keras_3D, args=(raw_out.id, label_out.id, model, 0, 0, raw_list, label_list), timeout=-1)
+            lenq = len(q)
+            raw_out.job_id = job.id
+            if lenq == 0:
                 if label_out.automatic_cropping:
                     raw_out.message = 'Train automatic cropping'
                 else:
                     raw_out.message = 'Progress 0%'
-                raw_out.save()
+            else:
+                raw_out.message = f'Queue {queue_short} position {lenq} of {lenq}'
+            raw_out.status = 1
+            raw_out.save()
 
     # duplicate file
     elif int(action) == 6:
@@ -1290,7 +1290,7 @@ def features(request, action):
             if img.user == request.user:
                 if img.status > 0:
                     request.session['state'] = img.shortfilename + ' is already being processed.'
-                elif config['OS'] == 'linux':
+                else:
                     q = Queue('process_image', connection=Redis())
                     if int(action) == 7:
                         job = q.enqueue_call(convert_image, args=(img.id,), timeout=-1)
@@ -1305,18 +1305,8 @@ def features(request, action):
                         img.message = 'Processing'
                     else:
                         img.status = 1
-                        img.message = 'Queue E position %s of %s' %(lenq, lenq)
+                        img.message = f'Queue E position {lenq} of {lenq}'
                     img.queue = 5
-                    img.save()
-                elif config['OS'] == 'windows':
-                    if int(action) == 7:
-                        Process(target=convert_image, args=(img.id,)).start()
-                    elif int(action) == 8:
-                        Process(target=smooth_image, args=(img.id,)).start()
-                    elif int(action) == 11:
-                        Process(target=create_mesh, args=(img.id,)).start()
-                    img.status = 2
-                    img.message = 'Processing'
                     img.save()
 
     # switch image type
@@ -1471,21 +1461,15 @@ def app(request):
 
                 path_to_slices = newimg.pic.path.replace("images", "sliceviewer", 1)
                 if not os.path.exists(path_to_slices):
-                    if config['OS'] == 'linux':
-                        q = Queue('slices', connection=Redis())
-                        job = q.enqueue_call(create_slices, args=(newimg.pic.path, None,), timeout=-1)
-                    elif config['OS'] == 'windows':
-                        Process(target=create_slices, args=(newimg.pic.path, None)).start()
+                    q = Queue('slices', connection=Redis())
+                    job = q.enqueue_call(create_slices, args=(newimg.pic.path, None,), timeout=-1)
 
                 try:
                     tmp = Upload.objects.get(user=request.user, project=newimg.project, imageType=2)
                     path_to_slices = tmp.pic.path.replace("images", "sliceviewer", 1)
                     if not os.path.exists(path_to_slices):
-                        if config['OS'] == 'linux':
-                            q = Queue('slices', connection=Redis())
-                            job = q.enqueue_call(create_slices, args=(newimg.pic.path, tmp.pic.path,), timeout=-1)
-                        elif config['OS'] == 'windows':
-                            Process(target=create_slices, args=(newimg.pic.path, tmp.pic.path)).start()
+                        q = Queue('slices', connection=Redis())
+                        job = q.enqueue_call(create_slices, args=(newimg.pic.path, tmp.pic.path,), timeout=-1)
                 except:
                     pass
 
@@ -1495,11 +1479,8 @@ def app(request):
                     tmp = Upload.objects.get(user=request.user, project=newimg.project, imageType=1)
                     path_to_slices = newimg.pic.path.replace("images", "sliceviewer", 1)
                     if not os.path.exists(path_to_slices):
-                        if config['OS'] == 'linux':
-                            q = Queue('slices', connection=Redis())
-                            job = q.enqueue_call(create_slices, args=(tmp.pic.path, newimg.pic.path,), timeout=-1)
-                        elif config['OS'] == 'windows':
-                            Process(target=create_slices, args=(tmp.pic.path, newimg.pic.path)).start()
+                        q = Queue('slices', connection=Redis())
+                        job = q.enqueue_call(create_slices, args=(tmp.pic.path, newimg.pic.path,), timeout=-1)
                 except:
                     pass
 
@@ -1535,30 +1516,26 @@ def app(request):
                 tmp[0].save()
 
         # update queue position
-        if image.status == 1 and config['OS'] == 'linux':
+        if image.status == 1:
 
-            q1 = Queue('first_queue', connection=Redis())
-            q2 = Queue('second_queue', connection=Redis())
-            q3 = Queue('third_queue', connection=Redis())
-            q4 = Queue('acwe', connection=Redis())
-            q5 = Queue('process_image', connection=Redis())
+            if image.queue == 1:
+                queue_name, queue_short = 'first_queue', 'A'
+            elif image.queue == 2:
+                queue_name, queue_short = 'second_queue', 'B'
+            elif image.queue == 3:
+                queue_name, queue_short = 'third_queue', 'C'
+            elif image.queue == 4:
+                queue_name, queue_short = 'acwe', 'D'
+            elif image.queue == 5:
+                queue_name, queue_short = 'process_image', 'E'
+
             id_to_check = image.job_id
             new_message = image.message
-            if id_to_check in q1.job_ids:
-                i = q1.job_ids.index(id_to_check)
-                new_message = 'Queue A position %s of %s' %(i+1, len(q1))
-            elif id_to_check in q2.job_ids:
-                i = q2.job_ids.index(id_to_check)
-                new_message = 'Queue B position %s of %s' %(i+1, len(q2))
-            elif id_to_check in q3.job_ids:
-                i = q3.job_ids.index(id_to_check)
-                new_message = 'Queue C position %s of %s' %(i+1, len(q3))
-            elif id_to_check in q4.job_ids:
-                i = q4.job_ids.index(id_to_check)
-                new_message = 'Queue D position %s of %s' %(i+1, len(q4))
-            elif id_to_check in q5.job_ids:
-                i = q5.job_ids.index(id_to_check)
-                new_message = 'Queue E position %s of %s' %(i+1, len(q5))
+            q = Queue(queue_name, connection=Redis())
+            if id_to_check in q.job_ids:
+                i = q.job_ids.index(id_to_check)
+                new_message = f'Queue {queue_short} position {i+1} of {len(q)}'
+
             if image.message != new_message:
                 image.message = new_message
                 image.save()
@@ -1976,7 +1953,7 @@ def delete(request):
     return JsonResponse(results)
 
 # 42. init_random_walk
-def init_random_walk(image, label, second_queue):
+def init_random_walk(image, label):
 
     # get objects
     try:
@@ -1995,20 +1972,36 @@ def init_random_walk(image, label, second_queue):
         bm = Biomedisa()
         bm.success = True
 
+        # get worker name
+        worker_name = 'first_worker'
+        job = get_current_job()
+        if job is not None:
+            worker_name = job.worker_name
+
+        # get queue configuration
+        my_env = None
+        if 'first_worker' in worker_name:
+            QUEUE, queue_id = 'FIRST', 1
+        elif 'second_worker' in worker_name:
+            QUEUE, queue_id = 'SECOND', 2
+        elif 'third_worker' in worker_name:
+            QUEUE, queue_id = 'THIRD', 3
+            if image.queue == 1:
+                image.queue = 3
+                image.save()
+        host = config[f'{QUEUE}_QUEUE_HOST']
+        cluster = False
+        if f'{QUEUE}_QUEUE_CLUSTER' in config:
+            cluster = config[f'{QUEUE}_QUEUE_CLUSTER']
+
         # search for failed jobs in queue
-        if config['OS'] == 'linux':
-            q = Queue('check_queue', connection=Redis())
-            job = q.enqueue_call(init_check_queue, args=(image.id, image.queue,), timeout=-1)
+        q = Queue('check_queue', connection=Redis())
+        job = q.enqueue_call(init_check_queue, args=(image.id, queue_id,), timeout=-1)
 
         # set status to processing
-        if image.status == 1:
-            image.status = 2
-            image.message = 'Processing'
-            image.save()
-
-        # change working directory
-        cwd = config['PATH_TO_BIOMEDISA'] + '/biomedisa_features/random_walk/'
-        workers_host = config['PATH_TO_BIOMEDISA'] + '/log/workers_host'
+        image.status = 2
+        image.message = 'Processing'
+        image.save()
 
         # get platform
         if image.user.profile.platform:
@@ -2016,12 +2009,8 @@ def init_random_walk(image, label, second_queue):
         else:
             bm.platform = None
 
-        # get configuration
-        if second_queue:
-            ngpus = str(config['SECOND_QUEUE_NGPUS'])
-            host = config['SECOND_QUEUE_HOST']
-            cluster = config['SECOND_QUEUE_CLUSTER']
-        else:
+        # check if platform is available
+        if not host:
             bm = _get_platform(bm)
 
             # stop process
@@ -2029,11 +2018,24 @@ def init_random_walk(image, label, second_queue):
                 return_error(image, f'No {bm.platform} device found.')
                 raise Exception(f'No {bm.platform} device found.')
 
-            ngpus = str(config['FIRST_QUEUE_NGPUS'])
+        # number of gpus or list of gpu ids
+        if type(config[f'{QUEUE}_QUEUE_NGPUS'])==list:
+            list_of_ids = config[f'{QUEUE}_QUEUE_NGPUS']
+            ngpus = str(len(list_of_ids))
+            gpu_ids = ''
+            for id in list_of_ids:
+                gpu_ids = gpu_ids + f'{id},'
+            gpu_ids = gpu_ids[:-1]
+            my_env = os.environ.copy()
+            my_env['CUDA_VISIBLE_DEVICES'] = gpu_ids
+        else:
+            ngpus = str(config[f'{QUEUE}_QUEUE_NGPUS'])
             if ngpus == 'all':
-                ngpus = str(bm.available_devices)
-            host = config['FIRST_QUEUE_HOST']
-            cluster = config['FIRST_QUEUE_CLUSTER']
+                if host:
+                    return_error(image, 'Number of GPUs must be given if running on a remote host.')
+                    raise Exception('Number of GPUs must be given if running on a remote host.')
+                else:
+                    ngpus = str(bm.available_devices)
 
         # command
         cmd = ['mpiexec', '-np', ngpus, 'python3', 'rw_main.py', str(image.id), str(label.id)]
@@ -2045,34 +2047,21 @@ def init_random_walk(image, label, second_queue):
             if bm.platform.split('_')[-1] == 'CPU':
                 cmd = cmd[3:]
 
-        # run on windows
-        if config['OS'] == 'windows':
+        # change working directory
+        cwd = config['PATH_TO_BIOMEDISA'] + '/biomedisa_features/random_walk/'
+        workers_host = config['PATH_TO_BIOMEDISA'] + '/log/workers_host'
 
-            # edit command
-            cmd[cmd.index('python3')] = 'python'
-            cmd.insert(cmd.index('python')+1, '-u')
-
-            # start process
-            p = subprocess.Popen(cmd, cwd=cwd, stdout=subprocess.PIPE)
-
-            # print output
-            for line in iter(p.stdout.readline, b''):
-                line = str(line,'utf-8')
-                print(line.rstrip())
-            p.stdout.close()
-
-        # run on linux
-        elif config['OS'] == 'linux':
-            if cluster and 'mpiexec' in cmd:
-                cmd.insert(3, '--hostfile')
-                cmd.insert(4, workers_host)
-            if host:
-                cmd.insert(0, 'ssh')
-                cmd.insert(1, host)
-                cmd[cmd.index('rw_main.py')] = cwd+'rw_main.py'
-                p = subprocess.Popen(cmd)
-            else:
-                p = subprocess.Popen(cmd, cwd=cwd)
+        # run
+        if cluster and 'mpiexec' in cmd:
+            cmd.insert(3, '--hostfile')
+            cmd.insert(4, workers_host)
+        if host:
+            cmd.insert(0, 'ssh')
+            cmd.insert(1, host)
+            cmd[cmd.index('rw_main.py')] = cwd+'rw_main.py'
+            p = subprocess.Popen(cmd)
+        else:
+            p = subprocess.Popen(cmd, cwd=cwd, env=my_env)
 
         # wait for process to finish
         p.wait()
@@ -2095,59 +2084,41 @@ def run(request):
 
             if raw.user==request.user and label.user==request.user and raw.status==0:
 
-                if config['OS'] == 'linux':
+                # two processing queues
+                if config['SECOND_QUEUE']:
+                    q1 = Queue('first_queue', connection=Redis())
+                    q2 = Queue('second_queue', connection=Redis())
+                    w1 = Worker.all(queue=q1)[0]
+                    w2 = Worker.all(queue=q2)[0]
+                    lenq1 = len(q1)
+                    lenq2 = len(q2)
 
-                    # two processing queues
-                    if config['SECOND_QUEUE']:
-                        q1 = Queue('first_queue', connection=Redis())
-                        q2 = Queue('second_queue', connection=Redis())
-                        w1 = Worker.all(queue=q1)[0]
-                        w2 = Worker.all(queue=q2)[0]
-                        lenq1 = len(q1)
-                        lenq2 = len(q2)
-
-                        if lenq1 > lenq2 or (lenq1==lenq2 and w1.state=='busy' and w2.state=='idle'):
-                            second_queue = True
-                            job = q2.enqueue_call(init_random_walk, args=(raw.id, label.id, second_queue), timeout=-1)
-                            lenq = len(q2)
-                            raw.queue = 2
-                        else:
-                            second_queue = False
-                            job = q1.enqueue_call(init_random_walk, args=(raw.id, label.id, second_queue), timeout=-1)
-                            lenq = len(q1)
-                            raw.queue = 1
-
-                        raw.job_id = job.id
-                        if lenq == 0:
-                            raw.status = 2
-                            raw.message = 'Processing'
-                        else:
-                            raw.status = 1
-                            cluster = 'B' if second_queue else 'A'
-                            raw.message = 'Queue %s position %s of %s' %(cluster, lenq, lenq)
-                        raw.save()
-
-                    # single processing queue
+                    if lenq1 > lenq2 or (lenq1==lenq2 and w1.state=='busy' and w2.state=='idle'):
+                        queue_name = 'B'
+                        job = q2.enqueue_call(init_random_walk, args=(raw.id, label.id), timeout=-1)
+                        lenq = len(q2)
+                        raw.queue = 2
                     else:
-                        q1 = Queue('first_queue', connection=Redis())
-                        job = q1.enqueue_call(init_random_walk, args=(raw.id, label.id, False), timeout=-1)
+                        queue_name = 'A'
+                        job = q1.enqueue_call(init_random_walk, args=(raw.id, label.id), timeout=-1)
                         lenq = len(q1)
-                        raw.job_id = job.id
-                        if lenq == 0:
-                            raw.status = 2
-                            raw.message = 'Processing'
-                        else:
-                            raw.status = 1
-                            raw.message = 'Queue A position %s of %s' %(lenq, lenq)
                         raw.queue = 1
-                        raw.save()
 
-                elif config['OS'] == 'windows':
-                    Process(target=init_random_walk, args=(raw.id, label.id, False)).start()
-                    raw.status = 2
-                    raw.message = 'Processing'
+                # single processing queue
+                else:
+                    queue_name = 'A'
+                    q1 = Queue('first_queue', connection=Redis())
+                    job = q1.enqueue_call(init_random_walk, args=(raw.id, label.id), timeout=-1)
+                    lenq = len(q1)
                     raw.queue = 1
-                    raw.save()
+
+                raw.job_id = job.id
+                if lenq == 0:
+                    raw.message = 'Processing'
+                else:
+                    raw.message = f'Queue {queue_name} position {lenq} of {lenq}'
+                raw.status = 1
+                raw.save()
 
             results = {'success':True}
         except:
@@ -2205,36 +2176,26 @@ def remove_from_queue(request):
                         return JsonResponse(results)
 
                 # remove from queue
-                if config['OS'] == 'linux':
-                    q1 = Queue('first_queue', connection=Redis())
-                    q2 = Queue('second_queue', connection=Redis())
-                    q3 = Queue('third_queue', connection=Redis())
-                    q4 = Queue('acwe', connection=Redis())
-                    q5 = Queue('process_image', connection=Redis())
-                    id_to_check = image_to_stop.job_id
-                    if id_to_check in q1.job_ids:
-                        job = q1.fetch_job(id_to_check)
-                        job.delete()
-                    elif id_to_check in q2.job_ids:
-                        job = q2.fetch_job(id_to_check)
-                        job.delete()
-                    elif id_to_check in q3.job_ids:
-                        job = q3.fetch_job(id_to_check)
-                        job.delete()
-                    elif id_to_check in q4.job_ids:
-                        job = q4.fetch_job(id_to_check)
-                        job.delete()
-                    elif id_to_check in q5.job_ids:
-                        job = q5.fetch_job(id_to_check)
-                        job.delete()
+                if image_to_stop.queue == 1:
+                    queue_name = 'first_queue'
+                elif image_to_stop.queue == 2:
+                    queue_name = 'second_queue'
+                elif image_to_stop.queue == 3:
+                    queue_name = 'third_queue'
+                elif image_to_stop.queue == 4:
+                    queue_name = 'acwe'
+                elif image_to_stop.queue == 5:
+                    queue_name = 'process_image'
+                q = Queue(queue_name, connection=Redis())
+                id_to_check = image_to_stop.job_id
+                if id_to_check in q.job_ids:
+                    job = q.fetch_job(id_to_check)
+                    job.delete()
 
                 # kill running process
                 if image_to_stop.status in [2,3] and image_to_stop.pid > 0:
-                    if config['OS'] == 'linux':
-                        q = Queue('stop_job', connection=Redis())
-                        job = q.enqueue_call(stop_running_job, args=(image_to_stop.pid, image_to_stop.queue), timeout=-1)
-                    elif config['OS'] == 'windows':
-                        stop_running_job(image_to_stop.pid, image_to_stop.queue)
+                    q = Queue('stop_job', connection=Redis())
+                    job = q.enqueue_call(stop_running_job, args=(image_to_stop.pid, image_to_stop.queue), timeout=-1)
                     image_to_stop.pid = 0
 
                 # remove trained networks
@@ -2285,7 +2246,7 @@ def send_notification(username, image_name, time_str, server_name, train=False, 
         recipients = [config['EMAIL']]
     else:
         info = 'finished the segmentation of'
-        recipients = []
+        recipients = [config['EMAIL']]
 
     user = User.objects.get(username=username)
     if user.first_name:
