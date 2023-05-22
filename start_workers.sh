@@ -29,9 +29,10 @@ screen -X -S load_data quit
 screen -X -S process_image quit
 
 # start workers
-screen -d -m -S first_queue bash -c "cd ${path_to_biomedisa} && rq worker first_queue && exec /usr/bin/ssh-agent ${SHELL} && ssh-add"
-screen -d -m -S second_queue bash -c "cd ${path_to_biomedisa} && rq worker second_queue && exec /usr/bin/ssh-agent ${SHELL} && ssh-add"
-screen -d -m -S third_queue bash -c "cd ${path_to_biomedisa} && rq worker third_queue && exec /usr/bin/ssh-agent ${SHELL} && ssh-add"
+uuid=$(uuidgen)
+screen -d -m -S first_queue bash -c "cd ${path_to_biomedisa} && rq worker first_queue --name first_worker.${uuid} && exec /usr/bin/ssh-agent ${SHELL} && ssh-add"
+screen -d -m -S second_queue bash -c "cd ${path_to_biomedisa} && rq worker second_queue --name second_worker.${uuid} && exec /usr/bin/ssh-agent ${SHELL} && ssh-add"
+screen -d -m -S third_queue bash -c "cd ${path_to_biomedisa} && rq worker first_queue third_queue --name third_worker.${uuid} && exec /usr/bin/ssh-agent ${SHELL} && ssh-add"
 screen -d -m -S check_queue bash -c "cd ${path_to_biomedisa} && rq worker check_queue && exec /usr/bin/ssh-agent ${SHELL} && ssh-add"
 screen -d -m -S slices bash -c "cd ${path_to_biomedisa} && rq worker slices"
 screen -d -m -S acwe bash -c "cd ${path_to_biomedisa} && rq worker acwe"
