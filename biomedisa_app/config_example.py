@@ -10,10 +10,10 @@ config = {
     'DEBUG' : False, # activate the debug mode if you develop the app. This must be deactivated in production mode for security reasons!
 
     'EMAIL_CONFIRMATION' : False, # users must confirm their emails during the registration process (to handle biomedisa's notification service the following email support must be set up)
-    'EMAIL' : 'philipp.loesel@uni-heidelberg.de',
+    'EMAIL' : 'philipp.loesel@anu.edu.au',
     'EMAIL_USER' : '...',
     'EMAIL_PASSWORD' : '...',
-    'SMTP_SEND_SERVER' : 'mail.urz.uni-heidelberg.de',
+    'SMTP_SEND_SERVER' : 'smtp.office365.com',
     'SMTP_PORT' : 587,
 
     'FIRST_QUEUE_HOST' : '', # empty string ('') if it is running on your local machine
