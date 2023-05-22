@@ -213,8 +213,8 @@ if __name__ == '__main__':
                         help='Save cropped image')
     parser.add_argument('-e','--epochs', type=int, default=200,
                         help='Epochs the network is trained')
-    parser.add_argument('--normalize', type=int, default=1,
-                        help='Normalize images before training')
+    parser.add_argument('--no-normalization', action='store_true', default=False,
+                        help='Disable image normalization')
     parser.add_argument('-r','--rotate', type=float, default=0.0,
                         help='Randomly rotate during training')
     parser.add_argument('-vs','--validation_split', type=float, default=0.0,
@@ -261,6 +261,12 @@ if __name__ == '__main__':
         args.compression = False
     else:
         args.compression = True
+
+    # normalization
+    if args.no_normalization:
+        args.normalize = 0
+    else:
+        args.normalize = 1
 
     # train network or predict segmentation
     conv_network(args)
