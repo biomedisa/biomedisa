@@ -310,8 +310,8 @@ if __name__ == '__main__':
                 project = os.path.splitext(image.shortfilename)[0]
 
         # write in logs and send notification
-        #if train:
-        biomedisa_app.views.send_start_notification(image)
+        if train:
+            biomedisa_app.views.send_start_notification(image)
         with open(path_to_logfile, 'a') as logfile:
             print('%s %s %s %s' %(time.ctime(), image.user.username, image.shortfilename, 'Process was started.'), file=logfile)
             print('PROJECT:%s PREDICT:%s IMG:%s LABEL:%s RAW_LIST:%s LABEL_LIST:%s'
