@@ -31,13 +31,13 @@ try:
     django.setup()
     from biomedisa_app.models import Upload
     from biomedisa_app.config import config
-    if config['OS'] == 'linux':
-        from redis import Redis
-        from rq import Queue
+    from redis import Redis
+    from rq import Queue
 except:
     from biomedisa_app.config_example import config
 
 import os
+from biomedisa.settings import BASE_DIR, WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT
 from biomedisa_features.curvop_numba import curvop, evolution
 from biomedisa_features.create_slices import create_slices
 from biomedisa_features.biomedisa_helper import (unique_file_path,
@@ -122,8 +122,8 @@ def active_contour(image_id, friend_id, label_id):
     bm.django_env = True
 
     # path to logfiles
-    bm.path_to_time = config['PATH_TO_BIOMEDISA'] + '/log/time.txt'
-    bm.path_to_logfile = config['PATH_TO_BIOMEDISA'] + '/log/logfile.txt'
+    bm.path_to_time = BASE_DIR + '/log/time.txt'
+    bm.path_to_logfile = BASE_DIR + '/log/logfile.txt'
 
     # get objects
     try:
@@ -137,8 +137,8 @@ def active_contour(image_id, friend_id, label_id):
     # pre-processing
     if bm.success:
         bm.process = 'acwe'
-        bm.path_to_data = bm.image.pic.path
-        bm.path_to_labels = friend.pic.path
+        bm.path_to_data = bm.image.pic.path.replace(WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT)
+        bm.path_to_labels = friend.pic.path.replace(WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT)
         bm = pre_processing(bm)
 
     if bm.success:
@@ -174,11 +174,8 @@ def active_contour(image_id, friend_id, label_id):
             Upload.objects.create(pic=pic_path, user=bm.image.user, project=friend.project, final=3, imageType=3, shortfilename=shortfilename, friend=friend_id)
 
             # create slices
-            if config['OS'] == 'linux':
-                q = Queue('slices', connection=Redis())
-                job = q.enqueue_call(create_slices, args=(bm.path_to_data, bm.path_to_acwe,), timeout=-1)
-            elif config['OS'] == 'windows':
-                Process(target=create_slices, args=(bm.path_to_data, bm.path_to_acwe)).start()
+            q = Queue('slices', connection=Redis())
+            job = q.enqueue_call(create_slices, args=(bm.path_to_data, bm.path_to_acwe,), timeout=-1)
 
         except Upload.DoesNotExist:
             pass

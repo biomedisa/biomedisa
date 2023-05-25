@@ -30,7 +30,6 @@ import django
 django.setup()
 from django.contrib.auth.models import User
 from django.shortcuts import get_object_or_404
-
 from biomedisa_app.models import Upload, Profile
 from biomedisa_app.views import send_notification
 from biomedisa_features.biomedisa_helper import (_get_device, save_data, unique_file_path,
@@ -39,17 +38,14 @@ from biomedisa_features.active_contour import active_contour
 from biomedisa_features.remove_outlier import remove_outlier
 from biomedisa_features.create_slices import create_slices
 from biomedisa_app.config import config
-
 from multiprocessing import Process
 from mpi4py import MPI
 import os, sys
 import numpy as np
 import time
 import socket
-
-if config['OS'] == 'linux':
-    from redis import Redis
-    from rq import Queue
+from redis import Redis
+from rq import Queue
 
 def _diffusion_child(comm, bm=None):
 
@@ -213,42 +209,23 @@ def _diffusion_child(comm, bm=None):
         # send notification
         send_notification(bm.image.user.username, bm.image.shortfilename, time_str, config['SERVER_ALIAS'])
 
-        # start subprocesses
-        if config['OS'] == 'linux':
-            # acwe
-            q = Queue('acwe', connection=Redis())
-            job = q.enqueue_call(active_contour, args=(bm.image.id, tmp.id, bm.label.id,), timeout=-1)
+        # acwe
+        q = Queue('acwe', connection=Redis())
+        job = q.enqueue_call(active_contour, args=(bm.image.id, tmp.id, bm.label.id,), timeout=-1)
 
-            # cleanup
-            q = Queue('cleanup', connection=Redis())
-            job = q.enqueue_call(remove_outlier, args=(bm.image.id, tmp.id, tmp.id, bm.label.id,), timeout=-1)
-            if bm.label.smooth:
-                job = q.enqueue_call(remove_outlier, args=(bm.image.id, smooth.id, tmp.id, bm.label.id, False,), timeout=-1)
+        # cleanup
+        q = Queue('cleanup', connection=Redis())
+        job = q.enqueue_call(remove_outlier, args=(bm.image.id, tmp.id, tmp.id, bm.label.id,), timeout=-1)
+        if bm.label.smooth:
+            job = q.enqueue_call(remove_outlier, args=(bm.image.id, smooth.id, tmp.id, bm.label.id, False,), timeout=-1)
 
-            # create slices
-            q = Queue('slices', connection=Redis())
-            job = q.enqueue_call(create_slices, args=(bm.path_to_data, bm.path_to_final,), timeout=-1)
-            if bm.label.smooth:
-                job = q.enqueue_call(create_slices, args=(bm.path_to_data, bm.path_to_smooth,), timeout=-1)
-            if bm.label.uncertainty:
-                job = q.enqueue_call(create_slices, args=(bm.path_to_uq, None,), timeout=-1)
-
-        elif config['OS'] == 'windows':
-
-            # acwe
-            Process(target=active_contour, args=(bm.image.id, tmp.id, bm.label.id)).start()
-
-            # cleanup
-            Process(target=remove_outlier, args=(bm.image.id, tmp.id, tmp.id, bm.label.id)).start()
-            if bm.label.smooth:
-                Process(target=remove_outlier, args=(bm.image.id, smooth.id, tmp.id, bm.label.id, False)).start()
-
-            # create slices
-            Process(target=create_slices, args=(bm.path_to_data, bm.path_to_final)).start()
-            if bm.label.smooth:
-                Process(target=create_slices, args=(bm.path_to_data, bm.path_to_smooth)).start()
-            if bm.label.uncertainty:
-                Process(target=create_slices, args=(bm.path_to_uq, None)).start()
+        # create slices
+        q = Queue('slices', connection=Redis())
+        job = q.enqueue_call(create_slices, args=(bm.path_to_data, bm.path_to_final,), timeout=-1)
+        if bm.label.smooth:
+            job = q.enqueue_call(create_slices, args=(bm.path_to_data, bm.path_to_smooth,), timeout=-1)
+        if bm.label.uncertainty:
+            job = q.enqueue_call(create_slices, args=(bm.path_to_uq, None,), timeout=-1)
 
     else:
 

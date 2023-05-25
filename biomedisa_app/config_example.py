@@ -1,12 +1,10 @@
 config = {
-    'OS' : 'linux', # either 'linux' or 'windows'
     'SERVER' : 'http://localhost:8080', # localhost, URL of your homepage e.g. 'https://biomedisa.org' or your internal IP e.g. 'http://192.168.176.30'
     'SERVER_ALIAS' : 'biomedisa-001', # an alias name for your server (for email notification and logfiles)
-    'PATH_TO_BIOMEDISA' : '/home/dummy/git/biomedisa', # this is the path to your main biomedisa folder e.g. '/home/dummy/git/biomedisa'
     'SECRET_KEY' : '...', # some random string
     'DJANGO_DATABASE' : '...', # password of your mysql database
     'ALLOWED_HOSTS' : ['192.168.176.30', 'localhost', '0.0.0.0'], # you must tell django explicitly which hosts are allowed (e.g. your IP or the url of your homepage)
-    'SECURE_MODE' : False, # supported only on linux (this mode is highly recommended if you use biomedisa for production with users you do not trust)
+    'SECURE_MODE' : False, # this mode is highly recommended if you use biomedisa for production with users you do not trust
     'DEBUG' : False, # activate the debug mode if you develop the app. This must be deactivated in production mode for security reasons!
 
     'EMAIL_CONFIRMATION' : False, # users must confirm their emails during the registration process (to handle biomedisa's notification service the following email support must be set up)

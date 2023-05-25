@@ -27,6 +27,7 @@
 ##########################################################################
 
 from biomedisa_features.biomedisa_helper import load_data, color_to_gray, img_to_uint8, img_resize
+from biomedisa.settings import WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT
 from PIL import Image
 import numpy as np
 import os, sys
@@ -80,8 +81,10 @@ def create_slices(path_to_data, path_to_label, on_site=False):
                 path_to_label_slices = os.path.dirname(path_to_label) + '/' + os.path.splitext(os.path.basename(path_to_label))[0]
         else:
             if path_to_data:
+                path_to_data = path_to_data.replace(WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT)
                 path_to_slices = path_to_data.replace('images', 'sliceviewer', 1)
             if path_to_label:
+                path_to_label = path_to_label.replace(WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT)
                 path_to_label_slices = path_to_label.replace('images', 'sliceviewer', 1)
 
         if path_to_data:

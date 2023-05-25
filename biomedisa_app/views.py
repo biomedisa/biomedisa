@@ -53,6 +53,7 @@ from biomedisa_features.biomedisa_helper import (load_data, save_data, img_to_ui
     convert_image, smooth_image, create_mesh, unique_file_path, _get_platform)
 from django.utils.crypto import get_random_string
 from biomedisa_app.config import config
+from biomedisa.settings import BASE_DIR, WWW_DATA_ROOT
 from multiprocessing import Process
 
 from wsgiref.util import FileWrapper
@@ -154,11 +155,8 @@ def share_repository(request):
                 repository.users.add(user_to_add)
                 repository.save()
                 results = {'success':True, 'msg':'Repository shared successfully.'}
-                if config['OS'] == 'linux':
-                    q = Queue('share_notification', connection=Redis())
-                    job = q.enqueue_call(repository_share_notify, args=(username, repository.repository_alias, request.user.username,), timeout=-1)
-                elif config['OS'] == 'windows':
-                    Process(target=repository_share_notify, args=(username, repository.repository_alias, request.user.username)).start()
+                q = Queue('share_notification', connection=Redis())
+                job = q.enqueue_call(repository_share_notify, args=(username, repository.repository_alias, request.user.username,), timeout=-1)
             else:
                 results = {'success':True, 'msg':'User does not exist.'}
     return JsonResponse(results)
@@ -220,7 +218,7 @@ def specimen_info(request, id):
             if ProcessedData.objects.filter(specimen=specimen, imageType=1).exists():
                 processed_data = ProcessedData.objects.filter(specimen=specimen, imageType=1)[0]
                 path_to_slices = os.path.splitext('/media/antscan/' + processed_data.pic.name)[0]
-                full_path = config['PATH_TO_BIOMEDISA'] + path_to_slices
+                full_path = BASE_DIR + path_to_slices
                 if os.path.exists(full_path):
                     nos = len(os.listdir(full_path)) - 1
                     path_to_slices += '/'
@@ -260,7 +258,7 @@ def tomographic_info(request, id):
         else:
             # preview tomographic data
             path_to_slices = '/media/' + os.path.dirname(tomographic_data.pic.name) + '/slices'
-            full_path = config['PATH_TO_BIOMEDISA'] + path_to_slices
+            full_path = BASE_DIR + path_to_slices
             if os.path.exists(full_path):
                 nos = len(os.listdir(full_path)) - 1
                 path_to_slices += '/'
@@ -295,7 +293,7 @@ def sliceviewer_repository(request):
                 path_to_slices = '/media/antscan/' + tomographic_data.pic.name.replace('.tif','')
             else:
                 path_to_slices = '/media/' + os.path.dirname(tomographic_data.pic.name) + '/slices'
-            full_path = config['PATH_TO_BIOMEDISA'] + path_to_slices
+            full_path = BASE_DIR + path_to_slices
             nos = len(os.listdir(full_path)) - 1
             path_to_slices += '/'
             im = Image.open(full_path + '/0.png')
@@ -356,8 +354,8 @@ def share_repository_data(request):
             pic_path = 'images/' + request.user.username + '/' + shortfilename
 
             # rename image if path already exists
-            if os.path.exists(config['PATH_TO_BIOMEDISA'] + '/private_storage/' + pic_path):
-                path_to_data = unique_file_path(pic_path, request.user.username)
+            if os.path.exists(WWW_DATA_ROOT + '/' + pic_path):
+                path_to_data = unique_file_path(pic_path, request.user.username, WWW_DATA_ROOT+'/')
                 pic_path = 'images/' + request.user.username + '/' + os.path.basename(path_to_data)
                 shortfilename = os.path.basename(path_to_data)
 
@@ -394,7 +392,7 @@ def logout_user(request):
 # 12. send email notification
 def sendEmail(datas):
     c = datas['context']
-    f = open(config['PATH_TO_BIOMEDISA'] + '/biomedisa_app/messages' + datas['email_path'], 'r')
+    f = open(BASE_DIR + '/biomedisa_app/messages' + datas['email_path'], 'r')
     t = Template(f.read())
     f.close()
     message = t.render(c)
@@ -442,7 +440,7 @@ def register(request):
             else:
                 # create user directories
                 for directory in ['images', 'sliceviewer']:
-                    path_to_data = config['PATH_TO_BIOMEDISA'] + '/private_storage/' + directory + '/' + meta['username']
+                    path_to_data = WWW_DATA_ROOT + '/' + directory + '/' + meta['username']
                     os.makedirs(path_to_data)
                     try:
                         os.chmod(path_to_data, 0o770)
@@ -451,7 +449,7 @@ def register(request):
                 messages.success(request, 'Account created successfully.')
 
             # write in biomedisa/log/applications.txt
-            afile = open(config['PATH_TO_BIOMEDISA'] + '/log/applications.txt', 'a')
+            afile = open(WWW_DATA_ROOT + '/log/applications.txt', 'a')
             msg = 'Time: %s \nEmail: %s \nUsername: %s \nInstitution: %s \nSubject: %s \nMessage: %s' \
                 %(time.ctime(), meta['email'], meta['username'], meta['institution'].encode('ascii', 'ignore').decode(), \
                 meta['subject'].encode('ascii', 'ignore').decode(), meta['message'].encode('ascii', 'ignore').decode())
@@ -496,7 +494,7 @@ def activation(request, key):
             profile.user.save()
             # create user directories
             for directory in ['images', 'sliceviewer']:
-                path_to_data = config['PATH_TO_BIOMEDISA'] + '/private_storage/' + directory + '/' + str(profile.user.username)
+                path_to_data = WWW_DATA_ROOT + '/' + directory + '/' + str(profile.user.username)
                 os.makedirs(path_to_data)
                 try:
                     os.chmod(path_to_data, 0o770)
@@ -548,26 +546,20 @@ def sliceviewer(request, id):
     stock_to_show = get_object_or_404(Upload, pk=id)
     if stock_to_show.user == request.user:
 
-        if config['OS'] == 'linux':
-            prefix = generate_activation_key()
-            path_to_slices = '/media/' + prefix
-            src = config['PATH_TO_BIOMEDISA'] + '/private_storage/sliceviewer/%s/%s' %(request.user, stock_to_show.shortfilename)
-            dest = config['PATH_TO_BIOMEDISA'] + path_to_slices
-            os.symlink(src, dest)
-            path_to_slices += '/'
+        prefix = generate_activation_key()
+        path_to_slices = '/media/' + prefix
+        src = WWW_DATA_ROOT + '/sliceviewer/%s/%s' %(request.user, stock_to_show.shortfilename)
+        dest = BASE_DIR + path_to_slices
+        os.symlink(src, dest)
+        path_to_slices += '/'
 
-            # create symlinks wich are removed when "app" is called or user loggs out
-            try:
-                symlinks = request.session["symlinks"]
-                symlinks.append(dest)
-                request.session["symlinks"] = symlinks
-            except:
-                request.session["symlinks"] = [dest]
-
-        elif config['OS'] == 'windows':
-            path_to_slices = '/private_storage/sliceviewer/%s/%s' %(request.user, stock_to_show.shortfilename)
-            dest = config['PATH_TO_BIOMEDISA'] + path_to_slices
-            path_to_slices += '/'
+        # create symlinks wich are removed when "app" is called or user loggs out
+        try:
+            symlinks = request.session["symlinks"]
+            symlinks.append(dest)
+            request.session["symlinks"] = symlinks
+        except:
+            request.session["symlinks"] = [dest]
 
         if os.path.isdir(dest):
             nos = len(os.listdir(dest)) - 1
@@ -589,10 +581,10 @@ def visualization(request):
     if request.method == 'GET':
 
         # download paraview
-        if not os.path.exists(config['PATH_TO_BIOMEDISA'] + '/biomedisa_app/paraview'):
-            wget.download('https://biomedisa.org/media/paraview.zip', out=config['PATH_TO_BIOMEDISA'] + '/biomedisa_app/paraview.zip')
-            zip_ref = zipfile.ZipFile(config['PATH_TO_BIOMEDISA'] + '/biomedisa_app/paraview.zip', 'r')
-            zip_ref.extractall(path=config['PATH_TO_BIOMEDISA'] + '/biomedisa_app')
+        if not os.path.exists(BASE_DIR + '/biomedisa_app/paraview'):
+            wget.download('https://biomedisa.org/media/paraview.zip', out=BASE_DIR + '/biomedisa_app/paraview.zip')
+            zip_ref = zipfile.ZipFile(BASE_DIR + '/biomedisa_app/paraview.zip', 'r')
+            zip_ref.extractall(path=BASE_DIR + '/biomedisa_app')
             zip_ref.close()
 
         ids = request.GET.get('selected','')
@@ -604,22 +596,18 @@ def visualization(request):
             stock_to_show = get_object_or_404(Upload, pk=id)
             if stock_to_show.user == request.user:
 
-                if config['OS'] == 'linux':
-                    prefix = generate_activation_key()
-                    path_to_link = '/media/' + prefix
-                    dest = config['PATH_TO_BIOMEDISA'] + path_to_link
-                    os.symlink(stock_to_show.pic.path, dest)
+                prefix = generate_activation_key()
+                path_to_link = '/media/' + prefix
+                dest = BASE_DIR + path_to_link
+                os.symlink(stock_to_show.pic.path, dest)
 
-                    # create symlinks wich are removed when "app" is called or user loggs out
-                    try:
-                        symlinks = request.session["symlinks"]
-                        symlinks.append(dest)
-                        request.session["symlinks"] = symlinks
-                    except:
-                        request.session["symlinks"] = [dest]
-
-                elif config['OS'] == 'windows':
-                    path_to_link = '/private_storage/' + str(stock_to_show.pic)
+                # create symlinks wich are removed when "app" is called or user loggs out
+                try:
+                    symlinks = request.session["symlinks"]
+                    symlinks.append(dest)
+                    request.session["symlinks"] = symlinks
+                except:
+                    request.session["symlinks"] = [dest]
 
                 name += ","+stock_to_show.shortfilename
                 url += ","+config['SERVER']+path_to_link
@@ -838,7 +826,7 @@ def storage(request):
 
     # storage size
     storage_size = request.user.profile.storage_size
-    datasize = get_size(config['PATH_TO_BIOMEDISA'] + '/private_storage/images/' + request.user.username)
+    datasize = get_size(WWW_DATA_ROOT + '/images/' + request.user.username)
     storage_full = 1 if datasize > storage_size*10e8 else 0
     datasize *= 10e-10
     if datasize < 1:
@@ -889,21 +877,15 @@ def move(request):
 
                     path_to_slices = stock_to_move.pic.path.replace("images", "sliceviewer", 1)
                     if not os.path.exists(path_to_slices):
-                        if config['OS'] == 'linux':
-                            q = Queue('slices', connection=Redis())
-                            job = q.enqueue_call(create_slices, args=(stock_to_move.pic.path, None,), timeout=-1)
-                        elif config['OS'] == 'windows':
-                            Process(target=create_slices, args=(stock_to_move.pic.path, None)).start()
+                        q = Queue('slices', connection=Redis())
+                        job = q.enqueue_call(create_slices, args=(stock_to_move.pic.path, None,), timeout=-1)
 
                     try:
                         image_tmp = Upload.objects.get(user=request.user, project=stock_to_move.project, imageType=2)
                         path_to_slices = image_tmp.pic.path.replace("images", "sliceviewer", 1)
                         if not os.path.exists(path_to_slices):
-                            if config['OS'] == 'linux':
-                                q = Queue('slices', connection=Redis())
-                                job = q.enqueue_call(create_slices, args=(stock_to_move.pic.path, image_tmp.pic.path,), timeout=-1)
-                            elif config['OS'] == 'windows':
-                                Process(target=create_slices, args=(stock_to_move.pic.path, image_tmp.pic.path)).start()
+                            q = Queue('slices', connection=Redis())
+                            job = q.enqueue_call(create_slices, args=(stock_to_move.pic.path, image_tmp.pic.path,), timeout=-1)
                     except:
                         pass
 
@@ -913,11 +895,8 @@ def move(request):
                         image_tmp = Upload.objects.get(user=request.user, project=stock_to_move.project, imageType=1)
                         path_to_slices = stock_to_move.pic.path.replace("images", "sliceviewer", 1)
                         if not os.path.exists(path_to_slices):
-                            if config['OS'] == 'linux':
-                                q = Queue('slices', connection=Redis())
-                                job = q.enqueue_call(create_slices, args=(image_tmp.pic.path, stock_to_move.pic.path,), timeout=-1)
-                            elif config['OS'] == 'windows':
-                                Process(target=create_slices, args=(image_tmp.pic.path, stock_to_move.pic.path)).start()
+                            q = Queue('slices', connection=Redis())
+                            job = q.enqueue_call(create_slices, args=(image_tmp.pic.path, stock_to_move.pic.path,), timeout=-1)
                     except:
                         pass
 
@@ -1051,7 +1030,7 @@ def init_keras_3D(image, label, model, refine, predict, img_list, label_list):
             my_env['CUDA_VISIBLE_DEVICES'] = gpu_ids
 
         # change working directory
-        cwd = config['PATH_TO_BIOMEDISA'] + '/biomedisa_features/'
+        cwd = BASE_DIR + '/biomedisa_features/'
 
         # run keras
         if host:
@@ -1250,7 +1229,7 @@ def features(request, action):
                             extension = '.tar.gz'
 
                     # create unique filename
-                    path_to_data = unique_file_path(img.pic.path, img.user.username)
+                    path_to_data = unique_file_path(img.pic.path, img.user.username, WWW_DATA_ROOT+'/')
                     pic_path = 'images/' + img.user.username + '/' + os.path.basename(path_to_data)
                     new_short_name = os.path.basename(path_to_data)
 
@@ -1333,7 +1312,7 @@ def reset(request, id):
         id = int(id)
         img = get_object_or_404(Upload, pk=id)
         if img.status != 0:
-            with open(config['PATH_TO_BIOMEDISA'] + '/log/logfile.txt', 'a') as logfile:
+            with open(BASE_DIR + '/log/logfile.txt', 'a') as logfile:
                 print('%s reset %s %s' %(time.ctime(), img.user, img.shortfilename), file=logfile)
                 img.status = 0
                 img.pid = 0
@@ -1355,7 +1334,7 @@ def app(request):
 
             # create user directories
             for directory in ['images', 'sliceviewer']:
-                path_to_data = config['PATH_TO_BIOMEDISA'] + '/private_storage/' + directory + '/' + str(profile.user.username)
+                path_to_data = WWW_DATA_ROOT + '/' + directory + '/' + str(profile.user.username)
 
                 if not os.path.isdir(path_to_data):
                     os.makedirs(path_to_data)
@@ -1529,7 +1508,7 @@ def app(request):
 
     # get storage size of user
     storage_size = request.user.profile.storage_size
-    datasize = get_size(config['PATH_TO_BIOMEDISA'] + '/private_storage/images/' + request.user.username)
+    datasize = get_size(WWW_DATA_ROOT + '/images/' + request.user.username)
     storage_full = 1 if datasize > storage_size*10e8 else 0
     datasize *= 10e-10
     if datasize < 1:
@@ -1558,7 +1537,7 @@ def return_error(img, error_message):
     img.pid = 0
     img.save()
     Upload.objects.create(user=img.user, project=img.project, log=1, imageType=None, shortfilename=error_message)
-    path_to_logfile = config['PATH_TO_BIOMEDISA'] + '/log/logfile.txt'
+    path_to_logfile = BASE_DIR + '/log/logfile.txt'
     with open(path_to_logfile, 'a') as logfile:
         print('%s %s %s %s' %(time.ctime(), img.user.username, img.shortfilename, error_message), file=logfile)
     send_error_message(img.user.username, img.shortfilename, error_message)
@@ -1660,11 +1639,8 @@ def share_data(request):
                                 shared_by=shared_by, shared_path=img.pic.path)
 
                     if shared_id != user_id:
-                        if config['OS'] == 'linux':
-                            q = Queue('share_notification', connection=Redis())
-                            job = q.enqueue_call(send_share_notify, args=(user_id.username, img.shortfilename, shared_by,), timeout=-1)
-                        elif config['OS'] == 'windows':
-                            Process(target=send_share_notify, args=(user_id.username, img.shortfilename, shared_by)).start()
+                        q = Queue('share_notification', connection=Redis())
+                        job = q.enqueue_call(send_share_notify, args=(user_id.username, img.shortfilename, shared_by,), timeout=-1)
                 else:
                     unknown_users.append(new_user_name)
 
@@ -1733,7 +1709,7 @@ def accept_shared_data(request):
 
                     # rename image if path already exists
                     if os.path.exists(img.pic.path):
-                        path_to_data = unique_file_path(img.pic.path, img.user.username)
+                        path_to_data = unique_file_path(img.pic.path, img.user.username, WWW_DATA_ROOT+'/')
                         pic_path = 'images/' + img.user.username + '/' + os.path.basename(path_to_data)
                         img.shortfilename = os.path.basename(path_to_data)
                         img.pic.name = pic_path
@@ -1837,11 +1813,11 @@ def delete_demo(request):
 def download_demo(request):
     if request.method == 'GET':
         id = request.GET.get('id')
-        demo_files = glob.glob(config['PATH_TO_BIOMEDISA'] + '/media/data/*')
+        demo_files = glob.glob(BASE_DIR + '/media/data/*')
         demo_files = [os.path.basename(x) for x in demo_files]
         max_str = max(demo_files, key=len)
         if id[:len(max_str)] in demo_files:
-            path_to_file = config['PATH_TO_BIOMEDISA'] + '/media/data/' + id
+            path_to_file = BASE_DIR + '/media/data/' + id
             wrapper = FileWrapper(open(path_to_file, 'rb'))
             imgsize = os.path.getsize(path_to_file)
             if imgsize < 5000000000:
@@ -1856,7 +1832,7 @@ def download_demo(request):
 def visualization_demo(request):
     if request.method == 'GET':
         id = request.GET.get('id')
-        demo_files = glob.glob(config['PATH_TO_BIOMEDISA'] + '/media/paraview/*')
+        demo_files = glob.glob(BASE_DIR + '/media/paraview/*')
         demo_files = [os.path.basename(x) for x in demo_files]
         max_str = max(demo_files, key=len)
         if id[:len(max_str)] in demo_files:
@@ -1868,12 +1844,12 @@ def visualization_demo(request):
 def sliceviewer_demo(request):
     if request.method == 'GET':
         id = request.GET.get('id')
-        demo_files = glob.glob(config['PATH_TO_BIOMEDISA'] + '/media/data/*')
+        demo_files = glob.glob(BASE_DIR + '/media/data/*')
         demo_files = [os.path.basename(x) for x in demo_files]
         max_str = max(demo_files, key=len)
         if id[:len(max_str)] in demo_files:
             path_to_slices = "/media/sliceviewer/" + id
-            full_path = config['PATH_TO_BIOMEDISA'] + path_to_slices
+            full_path = BASE_DIR + path_to_slices
             nos = len(os.listdir(full_path)) - 1
             path_to_slices += '/'
             im = Image.open(full_path + '/0.png')
@@ -2009,8 +1985,8 @@ def init_random_walk(image, label):
                 cmd = cmd[3:]
 
         # change working directory
-        cwd = config['PATH_TO_BIOMEDISA'] + '/biomedisa_features/random_walk/'
-        workers_host = config['PATH_TO_BIOMEDISA'] + '/log/workers_host'
+        cwd = BASE_DIR + '/biomedisa_features/random_walk/'
+        workers_host = BASE_DIR + '/log/workers_host'
 
         # run
         if cluster and 'mpiexec' in cmd:
@@ -2104,13 +2080,10 @@ def stop_running_job(id, queue):
 
     # kill process
     try:
-        if config['OS'] == 'linux':
-            if host:
-                subprocess.Popen(['ssh', host, 'kill', str(id)])
-            else:
-                subprocess.Popen(['kill', str(id)])
-        elif config['OS'] == 'windows':
-            subprocess.Popen(['Taskkill', '/PID', str(id), '/F'])
+        if host:
+            subprocess.Popen(['ssh', host, 'kill', str(id)])
+        else:
+            subprocess.Popen(['kill', str(id)])
     except:
         pass
 
@@ -2187,7 +2160,7 @@ def delete_account(request):
             img.delete()
         # delete user directories
         for directory in ['images', 'sliceviewer']:
-            path_to_data = config['PATH_TO_BIOMEDISA'] + '/private_storage/' + directory + '/' + request.user.username
+            path_to_data = WWW_DATA_ROOT + '/' + directory + '/' + request.user.username
             shutil.rmtree(path_to_data)
         profile.delete()
         user_id.delete()

@@ -4,7 +4,10 @@ import os, sys
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(BASE_DIR)
 
-from biomedisa_app.config import config
+try:
+    from biomedisa_app.config import config
+except:
+    from biomedisa_app.config_example import config
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = config['SECRET_KEY']
@@ -62,6 +65,9 @@ WSGI_APPLICATION = 'biomedisa.wsgi.application'
 FILE_UPLOAD_PERMISSIONS = 0o660
 PRIVATE_STORAGE_ROOT = os.path.join(BASE_DIR, 'private_storage')
 PRIVATE_STORAGE_URL = '/private_storage/'
+WWW_DATA_ROOT = PRIVATE_STORAGE_ROOT
+if 'WWW_DATA_ROOT' in config:
+    WWW_DATA_ROOT = config['WWW_DATA_ROOT']
 if 'FILE_UPLOAD_TEMP_DIR' in config:
     FILE_UPLOAD_TEMP_DIR = os.path.join(BASE_DIR, config['FILE_UPLOAD_TEMP_DIR'])
 
@@ -70,7 +76,7 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'biomedisa_database',
-        'USER': ('biomedisa' if config['OS'] == 'linux' else 'root'),
+        'USER': ('biomedisa'),
         'PASSWORD': config['DJANGO_DATABASE'],
         'OPTIONS': {
         'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
