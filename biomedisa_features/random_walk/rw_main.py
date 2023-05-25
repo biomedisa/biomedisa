@@ -32,6 +32,7 @@ django.setup()
 from biomedisa_app.config import config
 from biomedisa_app.models import Upload, Profile
 #from biomedisa_app.views import send_start_notification
+from biomedisa.settings import BASE_DIR, WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT
 from biomedisa_features.biomedisa_helper import (_get_platform, pre_processing, _error_,
     read_labeled_slices, read_labeled_slices_allx, read_indices_allx, predict_blocksize)
 from django.contrib.auth.models import User
@@ -82,12 +83,12 @@ if __name__ == '__main__':
             bm.image.save()
 
             # path to data
-            bm.path_to_data = bm.image.pic.path
-            bm.path_to_labels = bm.label.pic.path
+            bm.path_to_data = bm.image.pic.path.replace(WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT)
+            bm.path_to_labels = bm.label.pic.path.replace(WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT)
 
             # path to logfiles
-            bm.path_to_time = config['PATH_TO_BIOMEDISA'] + '/log/time.txt'
-            bm.path_to_logfile = config['PATH_TO_BIOMEDISA'] + '/log/logfile.txt'
+            bm.path_to_time = BASE_DIR + '/log/time.txt'
+            bm.path_to_logfile = BASE_DIR + '/log/logfile.txt'
 
             # send notification
             #send_start_notification(bm.image)
@@ -133,7 +134,7 @@ if __name__ == '__main__':
                 if extension == '.gz':
                     filename = filename[:-4]
                 filename = 'final.' + filename
-                dir_path = config['PATH_TO_BIOMEDISA'] + '/private_storage/'
+                dir_path = BASE_DIR + '/private_storage/'
                 pic_path = 'images/%s/%s' %(bm.image.user, filename)
                 bm.path_to_final = dir_path + pic_path + bm.final_image_type
 

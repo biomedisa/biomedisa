@@ -32,12 +32,12 @@ try:
     from django.shortcuts import get_object_or_404
     from biomedisa_app.models import Upload
     from biomedisa_app.config import config
-    if config['OS'] == 'linux':
-        from redis import Redis
-        from rq import Queue
+    from redis import Redis
+    from rq import Queue
 except:
     from biomedisa_app.config_example import config
 
+from biomedisa.settings import BASE_DIR, WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT
 from biomedisa_features.amira_to_np.amira_helper import amira_to_np, np_to_amira
 from tifffile import imread, imwrite
 from medpy.io import load, save
@@ -136,7 +136,7 @@ def img_to_uint8(img):
         img = img.astype(np.uint8)
     return img
 
-def unique_file_path(path, username):
+def unique_file_path(path, username, dir_path=PRIVATE_STORAGE_ROOT+'/'):
 
     # get extension
     filename = os.path.basename(path)
@@ -170,7 +170,6 @@ def unique_file_path(path, username):
         filename = filename[:-len(addon)]
 
     # maximum lenght of path
-    dir_path = config['PATH_TO_BIOMEDISA'] + '/private_storage/'
     pic_path = 'images/%s/%s' %(username, filename)
     limit = 100 - len(addon) - len(suffix)
     path = dir_path + pic_path[:limit] + addon + suffix
@@ -282,7 +281,7 @@ def load_data_(path_to_data, process):
     else:
         data, header = None, None
 
-    if config['SECURE_MODE'] and config['OS'] == 'linux':
+    if config['SECURE_MODE']:
         if extension not in ['.am','.tif']:
             extension, header = '.tif', None
         if data is None:
@@ -290,19 +289,19 @@ def load_data_(path_to_data, process):
         if header is None:
             header = 'None'
         for file, data_type in [(data, 'data'), (header, 'header'), (extension, 'extension')]:
-            src = config['PATH_TO_BIOMEDISA'] + '/tmp/tmp.' + data_type + '_' + process + '.npy'
-            dest = config['PATH_TO_BIOMEDISA'] + '/tmp/' + data_type + '_' + process + '.npy'
+            src = BASE_DIR + '/tmp/tmp.' + data_type + '_' + process + '.npy'
+            dest = BASE_DIR + '/tmp/' + data_type + '_' + process + '.npy'
             np.save(src, file, allow_pickle=False)
             os.rename(src, dest)
     else:
         return data, header, extension
 
 def load_data(path_to_data, process='None', return_extension=False):
-    if config['SECURE_MODE'] and config['OS'] == 'linux':
+    if config['SECURE_MODE']:
         q = Queue('load_data', connection=Redis())
         job = q.enqueue_call(load_data_, args=(path_to_data, process), timeout=-1)
         for k, data_type in enumerate(['data', 'header', 'extension']):
-            file_path = config['PATH_TO_BIOMEDISA'] + '/tmp/' + data_type + '_' + process + '.npy'
+            file_path = BASE_DIR + '/tmp/' + data_type + '_' + process + '.npy'
             while not os.path.exists(file_path):
                 time.sleep(1)
             if k == 0:
@@ -331,7 +330,7 @@ def _error_(bm, message):
     print('Error:', message)
     if bm.django_env:
         Upload.objects.create(user=bm.image.user, project=bm.image.project, log=1, imageType=None, shortfilename=message)
-        bm.path_to_logfile = config['PATH_TO_BIOMEDISA'] + '/log/logfile.txt'
+        bm.path_to_logfile = BASE_DIR + '/log/logfile.txt'
         with open(bm.path_to_logfile, 'a') as logfile:
             print('%s %s %s %s' %(time.ctime(), bm.image.user.username, bm.image.shortfilename, message), file=logfile)
         from biomedisa_app.views import send_error_message
@@ -491,7 +490,7 @@ def convert_image(id):
     img.save()
 
     # load data
-    data, _ = load_data(img.pic.path, 'converter')
+    data, _ = load_data(img.pic.path.replace(WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT), 'converter')
 
     if data is None:
 
@@ -510,7 +509,7 @@ def convert_image(id):
         data = img_to_uint8(data)
 
         # create pic path
-        filename, extension = os.path.splitext(img.pic.path)
+        filename, extension = os.path.splitext(img.pic.path.replace(WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT))
         if extension == '.gz':
             filename = filename[:-4]
         path_to_data = unique_file_path(filename+'.8bit.tif', img.user.username)
@@ -521,7 +520,7 @@ def convert_image(id):
         save_data(path_to_data, data, final_image_type='.tif')
 
         # copy slices for sliceviewer
-        path_to_source = img.pic.path.replace('images', 'sliceviewer', 1)
+        path_to_source = img.pic.path.replace(WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT).replace('images', 'sliceviewer', 1)
         path_to_dest = path_to_data.replace('images', 'sliceviewer', 1)
         if os.path.exists(path_to_source):
             copytree(path_to_source, path_to_dest, copy_function=os.link)
@@ -549,7 +548,7 @@ def smooth_image(id):
     img.save()
 
     # load data
-    data, _ = load_data(img.pic.path, 'converter')
+    data, _ = load_data(img.pic.path.replace(WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT), 'converter')
 
     if data is None:
 
@@ -568,7 +567,7 @@ def smooth_image(id):
         out = smooth_img_3x3(data)
 
         # create pic path
-        filename, extension = os.path.splitext(img.pic.path)
+        filename, extension = os.path.splitext(img.pic.path.replace(WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT))
         if extension == '.gz':
             filename = filename[:-4]
         path_to_data = unique_file_path(filename+'.denoised.tif', img.user.username)
@@ -580,11 +579,8 @@ def smooth_image(id):
 
         # create slices
         from biomedisa_features.create_slices import create_slices
-        if config['OS'] == 'linux':
-            q = Queue('slices', connection=Redis())
-            job = q.enqueue_call(create_slices, args=(path_to_data, None,), timeout=-1)
-        elif config['OS'] == 'windows':
-            Process(target=create_slices, args=(path_to_data, None)).start()
+        q = Queue('slices', connection=Redis())
+        job = q.enqueue_call(create_slices, args=(path_to_data, None,), timeout=-1)
 
         # create object
         active = 1 if img.imageType == 3 else 0
@@ -741,7 +737,7 @@ def create_mesh(id):
         img.save()
 
         # load data
-        data, _ = load_data(img.pic.path, 'converter')
+        data, _ = load_data(img.pic.path.replace(WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT), 'converter')
 
         if data is None:
 
@@ -757,7 +753,7 @@ def create_mesh(id):
         else:
 
             # create pic path
-            filename, extension = os.path.splitext(img.pic.path)
+            filename, extension = os.path.splitext(img.pic.path.replace(WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT))
             if extension == '.gz':
                 filename = filename[:-4]
             path_to_data = unique_file_path(filename+'.stl', img.user.username)
@@ -768,8 +764,7 @@ def create_mesh(id):
             CreateSTL(data, path_to_data)
 
             # create biomedisa object
-            tmp = Upload.objects.create(pic=pic_path, user=img.user, project=img.project, 
-                imageType=5, shortfilename=new_short_name)
+            Upload.objects.create(pic=pic_path, user=img.user, project=img.project, imageType=5, shortfilename=new_short_name)
 
             # close process
             img.status = 0

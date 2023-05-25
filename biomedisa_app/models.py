@@ -32,6 +32,7 @@ from django.db import models
 from django import forms
 from django.contrib.auth.models import User
 from biomedisa_app.config import config
+from biomedisa.settings import WWW_DATA_ROOT
 from django.dispatch import receiver
 from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
@@ -150,7 +151,7 @@ class CustomUserCreationForm(forms.Form):
 @deconstructible
 class MyFileSystemStorage(FileSystemStorage):
     def __init__(self):
-        super(MyFileSystemStorage, self).__init__(location=config['PATH_TO_BIOMEDISA'] + '/private_storage/')
+        super(MyFileSystemStorage, self).__init__(location=WWW_DATA_ROOT + '/')
 
 class Upload(models.Model):
     pic = models.FileField("", upload_to=user_directory_path, storage=MyFileSystemStorage())

@@ -31,13 +31,13 @@ try:
     django.setup()
     from biomedisa_app.models import Upload
     from biomedisa_app.config import config
-    if config['OS'] == 'linux':
-        from redis import Redis
-        from rq import Queue
+    from redis import Redis
+    from rq import Queue
 except:
     from biomedisa_app.config_example import config
 
 import os
+from biomedisa.settings import WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT
 from biomedisa_features.create_slices import create_slices
 from biomedisa_features.biomedisa_helper import load_data, save_data, unique_file_path
 from multiprocessing import Process
@@ -164,8 +164,8 @@ def remove_outlier(image_id, final_id, friend_id, label_id, fill_holes=True):
     if success:
 
         # path to data
-        path_to_data = image.pic.path
-        path_to_final = final.pic.path
+        path_to_data = image.pic.path.replace(WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT)
+        path_to_final = final.pic.path.replace(WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT)
 
         # final filenames
         filename, extension = os.path.splitext(path_to_final)
@@ -179,7 +179,7 @@ def remove_outlier(image_id, final_id, friend_id, label_id, fill_holes=True):
         # load data and header
         final, header = load_data(path_to_final, 'cleanup')
         if extension not in ['.tif','.am']:
-            _, header = load_data(label.pic.path, 'cleanup')
+            _, header = load_data(label.pic.path.replace(WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT), 'cleanup')
 
         # remove outlier
         final_cleaned = clean(final, label.delete_outliers)
@@ -201,13 +201,8 @@ def remove_outlier(image_id, final_id, friend_id, label_id, fill_holes=True):
                 Upload.objects.create(pic=pic_path, user=friend.user, project=friend.project, final=6, imageType=3, shortfilename=shortfilename, friend=friend_id)
 
             # create slices for sliceviewer
-            if config['OS'] == 'linux':
-                q_slices = Queue('slices', connection=Redis())
-                job = q_slices.enqueue_call(create_slices, args=(path_to_data, path_to_cleaned,), timeout=-1)
-            elif config['OS'] == 'windows':
-                p = Process(target=create_slices, args=(path_to_data, path_to_cleaned))
-                p.start()
-                p.join()
+            q_slices = Queue('slices', connection=Redis())
+            job = q_slices.enqueue_call(create_slices, args=(path_to_data, path_to_cleaned,), timeout=-1)
 
         except Upload.DoesNotExist:
             success = False
@@ -237,17 +232,9 @@ def remove_outlier(image_id, final_id, friend_id, label_id, fill_holes=True):
                 Upload.objects.create(pic=pic_path, user=friend.user, project=friend.project, final=7, imageType=3, shortfilename=shortfilename, friend=friend_id)
 
                 # create slices for sliceviewer
-                if config['OS'] == 'linux':
-                    q_slices = Queue('slices', connection=Redis())
-                    job = q_slices.enqueue_call(create_slices, args=(path_to_data, path_to_filled,), timeout=-1)
-                    job = q_slices.enqueue_call(create_slices, args=(path_to_data, path_to_cleaned_filled,), timeout=-1)
-                elif config['OS'] == 'windows':
-                    p = Process(target=create_slices, args=(path_to_data, path_to_filled))
-                    p.start()
-                    p.join()
-                    p = Process(target=create_slices, args=(path_to_data, path_to_cleaned_filled))
-                    p.start()
-                    p.join()
+                q_slices = Queue('slices', connection=Redis())
+                job = q_slices.enqueue_call(create_slices, args=(path_to_data, path_to_filled,), timeout=-1)
+                job = q_slices.enqueue_call(create_slices, args=(path_to_data, path_to_cleaned_filled,), timeout=-1)
 
             except Upload.DoesNotExist:
                 pass

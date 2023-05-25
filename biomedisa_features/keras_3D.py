@@ -31,6 +31,7 @@ import django
 django.setup()
 import biomedisa_app.views
 from biomedisa_app.models import Upload
+from biomedisa.settings import BASE_DIR, WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT
 from biomedisa_features.active_contour import active_contour
 from biomedisa_features.remove_outlier import remove_outlier
 from biomedisa_features.create_slices import create_slices
@@ -47,9 +48,8 @@ import numpy as np
 import h5py
 import time
 
-if config['OS'] == 'linux':
-    from redis import Redis
-    from rq import Queue
+from redis import Redis
+from rq import Queue
 
 def conv_network(train, predict, refine, img_list, label_list, path_to_model,
             path_to_refine_model, compress, epochs, batch_size, batch_size_refine,
@@ -284,11 +284,11 @@ if __name__ == '__main__':
         label_list = sys.argv[7].split(';')[:-1]
 
         # path to image
-        path_to_img = image.pic.path
+        path_to_img = image.pic.path.replace(WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT)
 
         # path to files
-        path_to_time = config['PATH_TO_BIOMEDISA'] + '/log/time.txt'
-        path_to_logfile = config['PATH_TO_BIOMEDISA'] + '/log/logfile.txt'
+        path_to_time = BASE_DIR + '/log/time.txt'
+        path_to_logfile = BASE_DIR + '/log/logfile.txt'
 
         # train / refine / predict
         train, refine = False, False
@@ -297,7 +297,7 @@ if __name__ == '__main__':
             if refine_model_id > 0:
                 refine = True
                 refine_model = Upload.objects.get(pk=refine_model_id)
-                path_to_refine_model = refine_model.pic.path
+                path_to_refine_model = refine_model.pic.path.replace(WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT)
             model = Upload.objects.get(pk=model_id)
             project = os.path.splitext(model.shortfilename)[0]
         else:
@@ -320,14 +320,14 @@ if __name__ == '__main__':
         # create path_to_model
         if train:
             extension = '.h5'
-            dir_path = config['PATH_TO_BIOMEDISA'] + '/private_storage/'
+            dir_path = BASE_DIR + '/private_storage/'
             model_path = 'images/%s/%s' %(image.user.username, project)
             path_to_model = dir_path + model_path + extension
             path_to_model = unique_file_path(path_to_model, image.user.username)
             image.path_to_model = path_to_model
             image.save()
         else:
-            path_to_model = model.pic.path
+            path_to_model = model.pic.path.replace(WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT)
 
         # parameters
         compress = 1 if label.compression else 0            # wheter final result should be compressed or not
@@ -390,22 +390,15 @@ if __name__ == '__main__':
                     Upload.objects.create(pic=pic_path, user=image.user, project=image.project, final=9, active=0, imageType=3, shortfilename=shortfilename, friend=tmp.id)
 
                 # create slices, cleanup and acwe
-                if config['OS'] == 'linux':
+                q = Queue('slices', connection=Redis())
+                job = q.enqueue_call(create_slices, args=(path_to_img, path_to_final,), timeout=-1)
+                q = Queue('acwe', connection=Redis())
+                job = q.enqueue_call(active_contour, args=(image.id, tmp.id, model.id,), timeout=-1)
+                q = Queue('cleanup', connection=Redis())
+                job = q.enqueue_call(remove_outlier, args=(image.id, tmp.id, tmp.id, model.id,), timeout=-1)
+                if path_to_cropped_image:
                     q = Queue('slices', connection=Redis())
-                    job = q.enqueue_call(create_slices, args=(path_to_img, path_to_final,), timeout=-1)
-                    q = Queue('acwe', connection=Redis())
-                    job = q.enqueue_call(active_contour, args=(image.id, tmp.id, model.id,), timeout=-1)
-                    q = Queue('cleanup', connection=Redis())
-                    job = q.enqueue_call(remove_outlier, args=(image.id, tmp.id, tmp.id, model.id,), timeout=-1)
-                    if path_to_cropped_image:
-                        q = Queue('slices', connection=Redis())
-                        job = q.enqueue_call(create_slices, args=(path_to_cropped_image, None,), timeout=-1)
-                elif config['OS'] == 'windows':
-                    Process(target=create_slices, args=(path_to_img, path_to_final)).start()
-                    Process(target=active_contour, args=(image.id, tmp.id, model.id)).start()
-                    Process(target=remove_outlier, args=(image.id, tmp.id, tmp.id, model.id)).start()
-                    if path_to_cropped_image:
-                        Process(target=create_slices, args=(path_to_cropped_image, None)).start()
+                    job = q.enqueue_call(create_slices, args=(path_to_cropped_image, None,), timeout=-1)
 
             # write in logs and send notification
             if predict:
