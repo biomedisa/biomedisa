@@ -1347,45 +1347,6 @@ def app(request):
     # create profile for superuser
     if request.user.is_superuser:
 
-        # remove files if upload does not exist
-        '''import glob
-        profiles = Profile.objects.filter()
-        for profile in profiles:
-            #if str(profile.user.username) == 'loesel':
-            # remove files if upload does not exist
-            liste = glob.glob(config['PATH_TO_BIOMEDISA'] + '/private_storage/images/' + str(profile.user.username) +'/*')
-            for f in liste:
-                if not os.path.isdir(f):
-                    try:
-                        tmp = Upload.objects.get(user=profile.user, shortfilename=os.path.basename(f))
-                    except Upload.DoesNotExist:
-                        #os.remove(f)
-                        print('DoesNotExist:',f)
-                elif os.path.isdir(f):
-                    if not (os.path.exists(f+'.zip') or os.path.exists(f+'.tar') or os.path.exists(f+'.tar.gz')):
-                        print(f,'Source does not exist.')
-            # remove slices if file does not exist
-            liste = glob.glob(config['PATH_TO_BIOMEDISA'] + '/private_storage/sliceviewer/' + str(profile.user.username) +'/*')
-            for f in liste:
-                if not os.path.exists(f.replace('sliceviewer','images',1)):
-                    shutil.rmtree(f)
-                    print(f)'''
-
-        # remove upload (manually) if file does not exist
-        '''images = Upload.objects.filter()
-        for img in images:
-            try:
-                if not os.path.exists(img.pic.path) and not img.shared:
-                    print(img.user.username, img.pic.path)
-            except:
-                print(img.user.username, img.shortfilename)'''
-
-        # show processing images
-        '''images = Upload.objects.filter()
-        for img in images:
-            if img.status>0:
-                print(img.id,img.user.username)'''
-
         try:
             profile = Profile.objects.get(user=request.user)
         except Profile.DoesNotExist:
@@ -2246,7 +2207,7 @@ def send_notification(username, image_name, time_str, server_name, train=False, 
         recipients = [config['EMAIL']]
     else:
         info = 'finished the segmentation of'
-        recipients = [config['EMAIL']]
+        recipients = []
 
     user = User.objects.get(username=username)
     if user.first_name:
