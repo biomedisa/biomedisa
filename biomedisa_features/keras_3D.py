@@ -280,8 +280,11 @@ if __name__ == '__main__':
         model_id = int(sys.argv[3])
         refine_model_id = int(sys.argv[4])
         predict = int(sys.argv[5])
-        raw_list = sys.argv[6].split(';')[:-1]
+        img_list = sys.argv[6].split(';')[:-1]
         label_list = sys.argv[7].split(';')[:-1]
+        for k in range(len(img_list)):
+            img_list[k] = img_list[k].replace(WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT)
+            label_list[k] = label_list[k].replace(WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT)
 
         # path to image
         path_to_img = image.pic.path.replace(WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT)
@@ -314,8 +317,8 @@ if __name__ == '__main__':
             biomedisa_app.views.send_start_notification(image)
         with open(path_to_logfile, 'a') as logfile:
             print('%s %s %s %s' %(time.ctime(), image.user.username, image.shortfilename, 'Process was started.'), file=logfile)
-            print('PROJECT:%s PREDICT:%s IMG:%s LABEL:%s RAW_LIST:%s LABEL_LIST:%s'
-                 %(project, predict, image.shortfilename, label.shortfilename, raw_list, label_list), file=logfile)
+            print('PROJECT:%s PREDICT:%s IMG:%s LABEL:%s IMG_LIST:%s LABEL_LIST:%s'
+                 %(project, predict, image.shortfilename, label.shortfilename, img_list, label_list), file=logfile)
 
         # create path_to_model
         if train:
@@ -324,7 +327,7 @@ if __name__ == '__main__':
             model_path = 'images/%s/%s' %(image.user.username, project)
             path_to_model = dir_path + model_path + extension
             path_to_model = unique_file_path(path_to_model, image.user.username)
-            image.path_to_model = path_to_model
+            image.path_to_model = path_to_model.replace(PRIVATE_STORAGE_ROOT, WWW_DATA_ROOT)
             image.save()
         else:
             path_to_model = model.pic.path.replace(WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT)
@@ -356,7 +359,7 @@ if __name__ == '__main__':
 
         # train network or predict segmentation
         success, error_message, path_to_final, path_to_refine_model, path_to_cropped_image = conv_network(
-            train, predict, refine, raw_list, label_list, path_to_model, path_to_refine_model, compress,
+            train, predict, refine, img_list, label_list, path_to_model, path_to_refine_model, compress,
             epochs, batch_size, batch_size_refine, stride_size, stride_size_refining, channels,
             normalize, path_to_img, x_scale, y_scale, z_scale, balance, image, label, crop_data
             )
@@ -418,6 +421,7 @@ if __name__ == '__main__':
             biomedisa_app.views.send_notification(image.user.username, image.shortfilename, time_str, config['SERVER_ALIAS'], train, predict)
 
         else:
+            # return error message
             Upload.objects.create(user=image.user, project=image.project, log=1, imageType=None, shortfilename=error_message)
             with open(path_to_logfile, 'a') as logfile:
                 print('%s %s %s %s' %(time.ctime(), image.user.username, image.shortfilename, error_message), file=logfile)
