@@ -45,7 +45,6 @@ cp biomedisa/biomedisa_app/config_example.py biomedisa/biomedisa_app/config.py
 ```
 In particular, adapt the following lines in `biomedisa/biomedisa_app/config.py`
 ```
-'PATH_TO_BIOMEDISA' : '/home/dummy/git/biomedisa', # this is the path to your main biomedisa folder
 'SECRET_KEY' : 'vl[cihu8uN!FrJoDbEqUymgMR()n}y7744$2;YLDm3Q8;MMX-g', # some random string
 'DJANGO_DATABASE' : 'biomedisa_user_password', # password for the user 'biomedisa' of your biomedisa_database (set up in the next step)
 'ALLOWED_HOSTS' : ['YOUR_IP', 'localhost', '0.0.0.0'], # you must tell django explicitly which hosts are allowed (e.g. your IP or the URL of your homepage)
