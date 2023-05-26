@@ -449,7 +449,7 @@ def register(request):
                 messages.success(request, 'Account created successfully.')
 
             # write in biomedisa/log/applications.txt
-            afile = open(WWW_DATA_ROOT + '/log/applications.txt', 'a')
+            afile = open(BASE_DIR + '/log/applications.txt', 'a')
             msg = 'Time: %s \nEmail: %s \nUsername: %s \nInstitution: %s \nSubject: %s \nMessage: %s' \
                 %(time.ctime(), meta['email'], meta['username'], meta['institution'].encode('ascii', 'ignore').decode(), \
                 meta['subject'].encode('ascii', 'ignore').decode(), meta['message'].encode('ascii', 'ignore').decode())
