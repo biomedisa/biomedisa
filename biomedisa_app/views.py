@@ -2132,7 +2132,7 @@ def remove_from_queue(request):
                     job = q.enqueue_call(stop_running_job, args=(image_to_stop.pid, image_to_stop.queue), timeout=-1)
                     image_to_stop.pid = 0
 
-                # remove trained networks
+                # remove trained network
                 if image_to_stop.path_to_model:
                     if os.path.isfile(image_to_stop.path_to_model):
                         os.remove(image_to_stop.path_to_model)
