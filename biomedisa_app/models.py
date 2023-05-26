@@ -39,6 +39,7 @@ from django.core.validators import RegexValidator
 from django.contrib.auth.password_validation import validate_password
 from django.core.files.storage import FileSystemStorage
 from django.utils.deconstruct import deconstructible
+from multiprocessing import Process
 import shutil
 import os
 
@@ -370,28 +371,34 @@ class TomographicDataForm(forms.ModelForm):
         fields = ('facility','technique', 'projections', 'frames_per_s', 'filter',
                   'voxel_size', 'volume_size', 'step_scans', 'scan_tray', 'exposure_time_per_frame')
 
-@receiver(models.signals.post_delete, sender=Upload)
-def auto_delete_file_on_delete(sender, instance, **kwargs):
-    """Deletes file from filesystem
-    when corresponding `Upload` object is deleted.
-    """
-    if instance.pic:
-
-        # remove preview slices
+def delete_files(instance, files):
+    # remove preview slices
+    if files=='preview':
         path_to_slices = instance.pic.path.replace('images', 'sliceviewer', 1)
         if os.path.isdir(path_to_slices):
             shutil.rmtree(path_to_slices)
 
-        # remove extracted files
+    # remove extracted files
+    if files=='extracted':
         filename, extension = os.path.splitext(instance.pic.path)
         if extension == '.gz':
             filename, extension = os.path.splitext(filename)
         if extension in ['.tar','.zip'] and os.path.isdir(filename):
             shutil.rmtree(filename)
 
-        # remove individual files
+    # remove individual files
+    if files=='individual':
         if os.path.isfile(instance.pic.path):
             os.remove(instance.pic.path)
         elif os.path.isdir(instance.pic.path):
             shutil.rmtree(instance.pic.path)
+
+@receiver(models.signals.post_delete, sender=Upload)
+def auto_delete_file_on_delete(sender, instance, **kwargs):
+    """Deletes file from filesystem
+    when corresponding `Upload` object is deleted.
+    """
+    if instance.pic:
+        for files in ['preview','extracted','individual']:
+            Process(target=delete_files, args=(instance, files)).start()
 
