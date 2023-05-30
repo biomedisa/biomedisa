@@ -137,7 +137,7 @@ def conv_network(train, predict, refine, img_list, label_list, path_to_model,
             # path to refine model
             path_to_refine_model = path_to_model[:-3] + '.refined.h5'
             path_to_refine_model = unique_file_path(path_to_refine_model, image.user.username)
-            image.path_to_model = path_to_refine_model
+            image.path_to_model = path_to_refine_model.replace(PRIVATE_STORAGE_ROOT, WWW_DATA_ROOT)
             image.save()
 
             # train refinement network
