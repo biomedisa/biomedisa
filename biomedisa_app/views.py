@@ -368,7 +368,6 @@ def share_repository_data(request):
             # copy slices
             path_to_src = os.path.dirname(tomographic_data.pic.path) + '/slices'
             path_to_dest = img.pic.path.replace('images', 'sliceviewer', 1)
-
             if os.path.exists(path_to_src):
                 copytree(path_to_src, path_to_dest)
 
@@ -1621,26 +1620,31 @@ def share_data(request):
                         # new file path
                         pic_path = 'images/' + new_user_name + '/' + img.shortfilename
 
+                        # rename image if path already exists
+                        if os.path.exists(WWW_DATA_ROOT+'/'+pic_path):
+                            path_to_data = unique_file_path(pic_path, new_user_name, WWW_DATA_ROOT+'/')
+                            pic_path = 'images/' + new_user_name + '/' + os.path.basename(path_to_data)
+
                         # create object
                         if img.final:
                             if k == 0:
                                 ref_img = Upload.objects.create(pic=pic_path, user=user_id, project=0, imageType=img.imageType,
-                                            shortfilename=img.shortfilename, final=img.final, shared=1, shared_by=shared_by,
+                                            shortfilename=os.path.basename(pic_path), final=img.final, shared=1, shared_by=shared_by,
                                             shared_path=img.pic.path, active=img.active)
                                 ref_img.friend = ref_img.id
                                 ref_img.save()
                             else:
                                 Upload.objects.create(pic=pic_path, user=user_id, project=0, imageType=img.imageType,
-                                    shortfilename=img.shortfilename, final=img.final, shared=1, shared_by=shared_by,
+                                    shortfilename=os.path.basename(pic_path), final=img.final, shared=1, shared_by=shared_by,
                                     shared_path=img.pic.path, friend=ref_img.id, active=img.active)
                         else:
                             Upload.objects.create(pic=pic_path, user=user_id, project=0, imageType=img.imageType,
-                                shortfilename=img.shortfilename, final=img.final, shared=1,
+                                shortfilename=os.path.basename(pic_path), final=img.final, shared=1,
                                 shared_by=shared_by, shared_path=img.pic.path)
 
                     if shared_id != user_id:
                         q = Queue('share_notification', connection=Redis())
-                        job = q.enqueue_call(send_share_notify, args=(user_id.username, img.shortfilename, shared_by,), timeout=-1)
+                        job = q.enqueue_call(send_share_notify, args=(user_id.username, os.path.basename(pic_path), shared_by,), timeout=-1)
                 else:
                     unknown_users.append(new_user_name)
 
@@ -1713,6 +1717,7 @@ def accept_shared_data(request):
                         pic_path = 'images/' + img.user.username + '/' + os.path.basename(path_to_data)
                         img.shortfilename = os.path.basename(path_to_data)
                         img.pic.name = pic_path
+                        img.save()
 
                     # copy file
                     os.link(img.shared_path, img.pic.path)
