@@ -167,7 +167,6 @@ python3 ~/git/biomedisa/demo/biomedisa_deeplearning.py --help
 
 #### Load and save data (such as Amira Mesh, TIFF, NRRD, NIfTI or DICOM)
 ```
-# import functions
 import sys
 sys.path.append(path_to_biomedisa)  # e.g. '/home/<user>/git/biomedisa'
 from biomedisa_features.biomedisa_helper import load_data, save_data
@@ -181,7 +180,6 @@ save_data(path_to_data, data, header)
 
 #### Create STL mesh from segmentation (label values are saved as attributes)
 ```
-# import functions
 import os, sys
 sys.path.append(path_to_biomedisa)  # e.g. '/home/<user>/git/biomedisa'
 from biomedisa_features.biomedisa_helper import load_data, save_data
