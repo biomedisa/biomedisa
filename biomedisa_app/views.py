@@ -50,7 +50,7 @@ from biomedisa_app.models import (UploadForm, Upload, StorageForm, Profile,
     ProcessedData)
 from biomedisa_features.create_slices import create_slices
 from biomedisa_features.biomedisa_helper import (load_data, save_data, img_to_uint8, id_generator,
-    convert_image, smooth_image, create_mesh, unique_file_path, _get_platform)
+    convert_image, smooth_image, convert_to_stl, unique_file_path, _get_platform)
 from django.utils.crypto import get_random_string
 from biomedisa_app.config import config
 from biomedisa.settings import BASE_DIR, WWW_DATA_ROOT
@@ -1275,7 +1275,7 @@ def features(request, action):
                     elif int(action) == 8:
                         job = q.enqueue_call(smooth_image, args=(img.id,), timeout=-1)
                     elif int(action) == 11:
-                        job = q.enqueue_call(create_mesh, args=(img.id,), timeout=-1)
+                        job = q.enqueue_call(convert_to_stl, args=(img.id,), timeout=-1)
                     lenq = len(q)
                     img.job_id = job.id
                     if lenq == 0:

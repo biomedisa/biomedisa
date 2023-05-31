@@ -15,14 +15,15 @@ config = {
     'SMTP_PORT' : 587,
 
     'FIRST_QUEUE_HOST' : '', # empty string ('') if it is running on your local machine
-    'FIRST_QUEUE_NGPUS' : 'all', # total number of GPUs available (e.g. 1, 4, 'all'). If CLUSTER=True this must be the sum of of all GPUs
+    'FIRST_QUEUE_NGPUS' : 'all', # number of GPUs available (e.g. 1, 4, 'all') or list of GPU IDs (e.g. [0,3]). If CLUSTER=True this must be the sum of of all GPUs. List and 'all' works only locally and with CUDA.
     'FIRST_QUEUE_CLUSTER' : False, # if you want to use several machines for one queue (see README/INSTALL_CLUSTER.txt), you must specify the IPs of your machines and the number of GPUs respectively in 'log/workers_host'
 
     'SECOND_QUEUE' : False, # use an additional queue
     'SECOND_QUEUE_HOST' : 'dummy@192.168.176.31', # empty string ('') if it is running on your local machine
-    'SECOND_QUEUE_NGPUS' : 4, # total number of GPUs available. If SECOND_QUEUE_CLUSTER=True this must be the sum of of all GPUs
+    'SECOND_QUEUE_NGPUS' : 4, # number of GPUs available (e.g. 1, 4, 'all') or list of GPU IDs (e.g. [0,3]). If CLUSTER=True this must be the sum of of all GPUs. List and 'all' works only locally and with CUDA.
     'SECOND_QUEUE_CLUSTER' : False, # if you want to use several machines for one queue (see README/INSTALL_CLUSTER.txt), you must specify the IPs of your machines and the number of GPUs respectively in 'log/workers_host'
 
-    'THIRD_QUEUE' : False, # seperate queue for AI. If False, AI tasks are queued in first queue
-    'THIRD_QUEUE_HOST' : '' # empty string ('') if it is running on your local machine
+    'THIRD_QUEUE' : False, # seperate queue for AI training. If False, AI tasks are queued in first queue
+    'THIRD_QUEUE_HOST' : '', # empty string ('') if it is running on your local machine
+    'THIRD_QUEUE_NGPUS' : 'all', # number of GPUs available (e.g. 1, 4, 'all') or list of GPU IDs (e.g. [0,3]). Works only locally.
     }

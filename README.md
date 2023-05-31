@@ -5,8 +5,9 @@
 - [Software requirements](#software-requirements)
 - [Installation (command-line-only)](#installation-command-line-only)
 - [Full installation (GUI)](#full-installation-gui)
-- [Interpolation examples](#interpolation-examples)
-- [AI example](#ai-example)
+- [Biomedisa interpolation](#biomedisa-interpolation)
+- [Biomedisa deep learning](#biomedisa-deep-learning)
+- [Biomedisa features](#biomedisa-features)
 - [Update Biomedisa](#update-biomedisa)
 - [Releases](#releases)
 - [Authors](#authors)
@@ -40,7 +41,7 @@ Biomedisa (https://biomedisa.org) is a free and easy-to-use open-source online p
 + [Windows 10 (21H2 or higher)](https://github.com/biomedisa/biomedisa/blob/master/README/windows11.md)
 + [Windows 11](https://github.com/biomedisa/biomedisa/blob/master/README/windows11.md)
 
-# Interpolation examples
+# Biomedisa interpolation
 
 #### Small example
 Download the tumor test example from the [gallery](https://biomedisa.org/gallery/) or directly as follows:
@@ -95,14 +96,14 @@ For more information, type
 python3 ~/git/biomedisa/demo/biomedisa_interpolation.py --help
 ```
 
-#### Memory Error
+#### Memory error
 If memory errors (either GPU or host memory) occur, you can start the segmentation as follows:
 ```
 python3 ~/git/biomedisa/demo/split_volume.py 'path_to_image' 'path_to_labels' -np 4 -sz 2 -sy 2 -sx 2
 ```
 Where `-n` is the number of GPUs and each axis (`x`,`y` and `z`) is divided into two overlapping parts. The volume is thus divided into `2*2*2=8` subvolumes. These are segmented separately and then reassembled.
 
-# AI example
+# Biomedisa deep learning
 
 #### Automatic segmentation using a trained network
 Download a trained neural network and a test image from the [gallery](https://biomedisa.org/gallery/) or directly as follows:
@@ -160,6 +161,46 @@ python3 ~/git/biomedisa/demo/biomedisa_deeplearning.py 'path_to_images' 'path_to
 For more information, type
 ```
 python3 ~/git/biomedisa/demo/biomedisa_deeplearning.py --help
+```
+
+# Biomedisa features
+
+#### Load and save data (such as Amira Mesh, TIFF, NRRD, NIfTI or DICOM)
+```
+# import functions
+import sys
+sys.path.append(path_to_biomedisa)  # e.g. '/home/<user>/git/biomedisa'
+from biomedisa_features.biomedisa_helper import load_data, save_data
+
+# load data as numpy array (for DICOM, path_to_data must be a directory containing the slices)
+data, header = load_data(path_to_data)
+
+# save data (for TIFF, header=None)
+save_data(path_to_data, data, header)
+```
+
+#### Create STL mesh from segmentation (label values are saved as attributes)
+```
+# import functions
+import os, sys
+sys.path.append(path_to_biomedisa)  # e.g. '/home/<user>/git/biomedisa'
+from biomedisa_features.biomedisa_helper import load_data, save_data
+from biomedisa_features.create_mesh import get_voxel_spacing, save_mesh
+
+# load segmentation
+data, header, extension = load_data(path_to_data, return_extension=True)
+
+# get voxel spacing
+xres, yres, zres = get_voxel_spacing(header, data, extension)
+print(f'Voxel spacing: x_spacing, y_spacing, z_spacing = {xres}, {yres}, {zres}')
+
+# save stl file
+path_to_data = path_to_data.replace(os.path.splitext(path_to_data)[1],'.stl')
+save_mesh(path_to_data, data, xres, yres, zres)
+```
+or call directly
+```
+python3 git/biomedisa/biomedisa_features/create_mesh.py <path_to_data>
 ```
 
 # Update Biomedisa

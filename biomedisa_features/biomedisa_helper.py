@@ -1,6 +1,6 @@
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2022 Philipp Lösel. All rights reserved.              ##
+##  Copyright (c) 2023 Philipp Lösel. All rights reserved.              ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -38,6 +38,7 @@ except:
     from biomedisa_app.config_example import config
 
 from biomedisa.settings import BASE_DIR, WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT
+from biomedisa_features.create_mesh import save_mesh, get_voxel_spacing
 from biomedisa_features.amira_to_np.amira_helper import amira_to_np, np_to_amira
 from tifffile import imread, imwrite
 from medpy.io import load, save
@@ -52,9 +53,6 @@ import zipfile
 import numba
 from shutil import copytree
 from multiprocessing import Process
-import itk,vtk
-from vtk.util.numpy_support import vtk_to_numpy, numpy_to_vtk
-from stl import mesh
 import re
 import math
 
@@ -430,18 +428,20 @@ def save_data(path_to_final, final, header=None, final_image_type=None, compress
     elif final_image_type in ['.hdr', '.mhd', '.mha', '.nrrd', '.nii', '.nii.gz']:
         final = np.swapaxes(final, 0, 2)
         save(final, path_to_final, header)
-    elif final_image_type == '.zip':
+    elif final_image_type in ['.zip', 'directory', '']:
         header, file_names, final_dtype = header[0], header[1], header[2]
         final = final.astype(final_dtype)
         final = np.swapaxes(final, 2, 1)
         filename, _ = os.path.splitext(path_to_final)
-        os.makedirs(filename)
-        os.chmod(filename, 0o777)
+        if not os.path.isdir(filename):
+            os.makedirs(filename)
+            os.chmod(filename, 0o777)
         for k, file in enumerate(file_names):
             save(final[k], filename + '/' + os.path.basename(file), header[k])
-        with zipfile.ZipFile(path_to_final, 'w') as zip:
-            for file in file_names:
-                zip.write(filename + '/' + os.path.basename(file), os.path.basename(file))
+        if final_image_type == '.zip':
+            with zipfile.ZipFile(path_to_final, 'w') as zip:
+                for file in file_names:
+                    zip.write(filename + '/' + os.path.basename(file), os.path.basename(file))
     else:
         imageSize = int(final.nbytes * 10e-7)
         bigtiff = True if imageSize > 2000 else False
@@ -592,125 +592,7 @@ def smooth_image(id):
         img.pid = 0
         img.save()
 
-def MarchingCubes(image,threshold):
-
-    # marching cubes
-    mc = vtk.vtkMarchingCubes()
-    mc.SetInputData(image)
-    mc.ComputeNormalsOn()
-    mc.ComputeGradientsOn()
-    mc.SetValue(0, threshold)
-    mc.Update()
-
-    # To remain largest region
-    #confilter = vtk.vtkPolyDataConnectivityFilter()
-    #confilter.SetInputData(mc.GetOutput())
-    #confilter.SetExtractionModeToLargestRegion()
-    #confilter.Update()
-
-    # reduce poly data
-    inputPoly = vtk.vtkPolyData()
-    inputPoly.ShallowCopy(mc.GetOutput())
-
-    print("Before decimation\n"
-          "-----------------\n"
-          "There are " + str(inputPoly.GetNumberOfPoints()) + "points.\n"
-          "There are " + str(inputPoly.GetNumberOfPolys()) + "polygons.\n")
-
-    #decimate = vtk.vtkDecimatePro()
-    decimate = vtk.vtkQuadricDecimation()
-    decimate.SetInputData(inputPoly)
-    decimate.SetTargetReduction(.90)
-    decimate.Update()
-
-    decimatedPoly = vtk.vtkPolyData()
-    decimatedPoly.ShallowCopy(decimate.GetOutput())
-
-    print("After decimation \n"
-          "-----------------\n"
-          "There are " + str(decimatedPoly.GetNumberOfPoints()) + "points.\n"
-          "There are " + str(decimatedPoly.GetNumberOfPolys()) + "polygons.\n")
-
-    # smooth surface
-    smoothFilter = vtk.vtkSmoothPolyDataFilter()
-    smoothFilter.SetInputData(decimatedPoly)
-    smoothFilter.SetNumberOfIterations(15)
-    smoothFilter.SetRelaxationFactor(0.1)
-    smoothFilter.FeatureEdgeSmoothingOff()
-    smoothFilter.BoundarySmoothingOn()
-    smoothFilter.Update()
-
-    decimatedPoly = vtk.vtkPolyData()
-    decimatedPoly.ShallowCopy(smoothFilter.GetOutput())
-
-    return decimatedPoly#confilter.GetOutput()
-
-def CreateSTL(image,path_to_data):
-
-    # get labels
-    zsh,ysh,xsh=image.shape
-    allLabels = np.unique(image)
-    b = np.empty_like(image)
-    arr = np.empty((0,3,3))
-    nTotalCells = [0]
-
-    for label in allLabels[1:]:
-
-        # get label
-        b.fill(0)
-        b[image==label] = 1
-
-        # numpy to vtk
-        sc = numpy_to_vtk(num_array=b.ravel(), deep=True, array_type=vtk.VTK_UNSIGNED_CHAR)
-        imageData = vtk.vtkImageData()
-        imageData.SetOrigin(0, 0, 0)
-        imageData.SetSpacing(1, 1, 1)
-        #imageData.SetDimensions(zsh, ysh, xsh)
-        imageData.SetExtent(0,xsh-1,0,ysh-1,0,zsh-1)
-        imageData.GetPointData().SetScalars(sc)
-
-        # get poly data
-        poly = MarchingCubes(imageData,1)
-
-        # get number of cells
-        nPoints = poly.GetNumberOfPoints()
-        nPolys = poly.GetNumberOfPolys()
-        if nPoints and nPolys:
-
-            # get points
-            points = poly.GetPoints()
-            array = points.GetData()
-            numpy_points = vtk_to_numpy(array)
-
-            # get cells
-            cells = poly.GetPolys()
-            array = cells.GetData()
-            numpy_cells = vtk_to_numpy(array)
-            numpy_cells = numpy_cells.reshape(-1,4)
-
-            # create mesh
-            nCells, nCols = numpy_cells.shape
-            tmp = np.empty((nCells,3,3))
-            for k in range(nCells):
-                for l in range(1,4):
-                    id = numpy_cells[k,l]
-                    tmp[k,l-1] = numpy_points[id]
-
-            # append output
-            arr = np.append(arr, tmp, axis=0)
-            nTotalCells.append(nTotalCells[-1]+nCells)
-
-    # save data as mesh
-    data = np.zeros(nTotalCells[-1], dtype=mesh.Mesh.dtype)
-    data['vectors'] = arr
-    mesh_final = mesh.Mesh(data.copy())
-    for i in range(len(nTotalCells)-1):
-        start = nTotalCells[i]
-        stop = nTotalCells[i+1]
-        mesh_final.attr[start:stop,0] = i+1
-    mesh_final.save(path_to_data)
-
-def create_mesh(id):
+def convert_to_stl(id):
 
     # get object
     img = get_object_or_404(Upload, pk=id)
@@ -737,7 +619,7 @@ def create_mesh(id):
         img.save()
 
         # load data
-        data, _ = load_data(img.pic.path.replace(WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT), 'converter')
+        data, header, extension = load_data(img.pic.path.replace(WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT), process='converter', return_extension=True)
 
         if data is None:
 
@@ -752,6 +634,10 @@ def create_mesh(id):
 
         else:
 
+            # get voxel spacing
+            xres, yres, zres = get_voxel_spacing(header, data, extension)
+            print(f'Voxel spacing: x_spacing, y_spacing, z_spacing = {xres}, {yres}, {zres}')
+
             # create pic path
             filename, extension = os.path.splitext(img.pic.path.replace(WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT))
             if extension == '.gz':
@@ -761,7 +647,7 @@ def create_mesh(id):
             pic_path = 'images/%s/%s' %(img.user.username, new_short_name)
 
             # create stl file
-            CreateSTL(data, path_to_data)
+            save_mesh(path_to_data, data, xres, yres, zres)
 
             # create biomedisa object
             Upload.objects.create(pic=pic_path, user=img.user, project=img.project, imageType=5, shortfilename=new_short_name)
