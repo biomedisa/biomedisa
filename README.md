@@ -215,7 +215,7 @@ data = img_resize(data, new_zsh, new_ysh, new_xsh)
 # resize label data
 label_data = img_resize(label_data, new_zsh, new_ysh, new_xsh, labels=True)
 
-# delete outliers (smaller than 90% of the segment)
+# delete outliers smaller than 90% of the segment
 label_data = clean(label_data, 0.9)
 
 # fill holes
