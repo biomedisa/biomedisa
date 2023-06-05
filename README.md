@@ -201,6 +201,27 @@ or call directly
 python3 git/biomedisa/biomedisa_features/create_mesh.py <path_to_data>
 ```
 
+#### Other functions
+```
+import os, sys
+sys.path.append(path_to_biomedisa)  # e.g. '/home/<user>/git/biomedisa'
+from biomedisa_features.biomedisa_helper import img_resize, clean, fill
+
+# resize image data
+zsh, ysh, xsh = data.shape
+new_zsh, new_ysh, new_xsh = zsh//2, ysh//2, xsh//2
+data = img_resize(data, new_zsh, new_ysh, new_xsh)
+
+# resize label data
+label_data = img_resize(label_data, new_zsh, new_ysh, new_xsh, labels=True)
+
+# delete outliers (smaller than 90% of the segment)
+label_data = clean(label_data, 0.9)
+
+# fill holes
+label_data = fill(label_data, 0.9)
+```
+
 # Update Biomedisa
 If you have used `git clone`, change to the Biomedisa directory and make a pull request.
 ```
