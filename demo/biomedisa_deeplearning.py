@@ -81,7 +81,7 @@ def conv_network(args):
 
             # train automatic segmentation
             train_semantic_segmentation(args.normalize, [args.path_to_img], [args.path_to_labels], x_scale, y_scale,
-                            z_scale, args.crop_data, args.path_to_model, z_patch, y_patch, x_patch, args.epochs,
+                            z_scale, args.no_scaling, args.crop_data, args.path_to_model, z_patch, y_patch, x_patch, args.epochs,
                             args.batch_size, args.channels, args.validation_split, args.stride_size, args.balance,
                             args.flip_x, args.flip_y, args.flip_z, args.rotate, args.early_stopping, args.val_tf, args.learning_rate,
                             [args.val_images], [args.val_labels], args.validation_stride_size, args.validation_freq,
@@ -143,7 +143,7 @@ def conv_network(args):
 
             # load prediction data
             img, img_header, position, z_shape, y_shape, x_shape, region_of_interest = load_prediction_data(args.path_to_img,
-                channels, x_scale, y_scale, z_scale, normalize, mu, sig, region_of_interest)
+                channels, x_scale, y_scale, z_scale, args.no_scaling, normalize, mu, sig, region_of_interest)
 
             # make prediction
             predict_semantic_segmentation(args, img, position, args.path_to_model, path_to_final,
@@ -213,7 +213,7 @@ if __name__ == '__main__':
                         help='Save cropped image')
     parser.add_argument('-e','--epochs', type=int, default=200,
                         help='Epochs the network is trained')
-    parser.add_argument('--no-normalization', action='store_true', default=False,
+    parser.add_argument('-nn','--no-normalization', action='store_true', default=False,
                         help='Disable image normalization')
     parser.add_argument('-r','--rotate', type=float, default=0.0,
                         help='Randomly rotate during training')
@@ -245,6 +245,8 @@ if __name__ == '__main__':
                         help='Images and labels are scaled at y-axis to this size before training')
     parser.add_argument('-zs','--z_scale', type=int, default=256,
                         help='Images and labels are scaled at z-axis to this size before training')
+    parser.add_argument('-ns','--no-scaling', action='store_true', default=False,
+                        help='Do not resize image and label data')
     parser.add_argument('-es','--early_stopping', type=int, default=0,
                         help='Training is terminated when the accuracy has not increased in the epochs defined by this')
     args = parser.parse_args()

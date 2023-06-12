@@ -56,6 +56,28 @@ from multiprocessing import Process
 import re
 import math
 
+def Dice_score(ground_truth, result):
+    dice = 2 * np.logical_and(ground_truth==result, (ground_truth+result)>0).sum() / \
+    float((ground_truth>0).sum() + (result>0).sum())
+    return dice
+
+def ASSD(ground_truth, result):
+    try:
+        from biomedisa_features.assd import ASSD_one_label
+        number_of_elements = 0
+        distances = 0
+        hausdorff = 0
+        for label in np.unique(ground_truth)[1:]:
+            d, n, h = ASSD_one_label(ground_truth, result, label)
+            number_of_elements += n
+            distances += d
+            hausdorff = max(h, hausdorff)
+        assd = distances / float(number_of_elements)
+        return assd, hausdorff
+    except:
+        print('Error: no CUDA device found. ASSD is not available.')
+        return None, None
+
 def img_resize(a, z_shape, y_shape, x_shape, interpolation=None, labels=False):
     zsh, ysh, xsh = a.shape
     if interpolation == None:

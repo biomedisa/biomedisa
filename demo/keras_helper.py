@@ -294,7 +294,7 @@ def get_labels(arr, allLabels):
 # regular
 #=====================
 
-def load_training_data(normalize, img_list, label_list, channels, x_scale, y_scale, z_scale,
+def load_training_data(normalize, img_list, label_list, channels, x_scale, y_scale, z_scale, no_scaling,
         crop_data, labels_to_compute, labels_to_remove, configuration_data=None, allLabels=None, counts=None,
         x_puffer=25, y_puffer=25, z_puffer=25):
 
@@ -366,13 +366,16 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
     if crop_data:
         argmin_z,argmax_z,argmin_y,argmax_y,argmin_x,argmax_x = predict_blocksize(a, x_puffer, y_puffer, z_puffer)
         a = np.copy(a[argmin_z:argmax_z,argmin_y:argmax_y,argmin_x:argmax_x], order='C')
-    np_unique = np.unique(a)
-    label = np.zeros((z_scale, y_scale, x_scale), dtype=a.dtype)
-    for k in np_unique:
-        tmp = np.zeros_like(a)
-        tmp[a==k] = 1
-        tmp = img_resize(tmp, z_scale, y_scale, x_scale)
-        label[tmp==1] = k
+    if no_scaling:
+        label = np.copy(a)
+    else:
+        np_unique = np.unique(a)
+        label = np.zeros((z_scale, y_scale, x_scale), dtype=a.dtype)
+        for k in np_unique:
+            tmp = np.zeros_like(a)
+            tmp[a==k] = 1
+            tmp = img_resize(tmp, z_scale, y_scale, x_scale)
+            label[tmp==1] = k
 
     # load first img
     img, _ = load_data(img_names[0], 'first_queue')
@@ -382,7 +385,8 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
     if crop_data:
         img = np.copy(img[argmin_z:argmax_z,argmin_y:argmax_y,argmin_x:argmax_x], order='C')
     img = img.astype(np.float32)
-    img = img_resize(img, z_scale, y_scale, x_scale)
+    if not no_scaling:
+        img = img_resize(img, z_scale, y_scale, x_scale)
     img -= np.amin(img)
     img /= np.amax(img)
     if configuration_data is not None:
@@ -405,13 +409,16 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
         if crop_data:
             argmin_z,argmax_z,argmin_y,argmax_y,argmin_x,argmax_x = predict_blocksize(a, x_puffer, y_puffer, z_puffer)
             a = np.copy(a[argmin_z:argmax_z,argmin_y:argmax_y,argmin_x:argmax_x], order='C')
-        np_unique = np.unique(a)
-        next_label = np.zeros((z_scale, y_scale, x_scale), dtype=a.dtype)
-        for k in np_unique:
-            tmp = np.zeros_like(a)
-            tmp[a==k] = 1
-            tmp = img_resize(tmp, z_scale, y_scale, x_scale)
-            next_label[tmp==1] = k
+        if no_scaling:
+            next_label = np.copy(a)
+        else:
+            np_unique = np.unique(a)
+            next_label = np.zeros((z_scale, y_scale, x_scale), dtype=a.dtype)
+            for k in np_unique:
+                tmp = np.zeros_like(a)
+                tmp[a==k] = 1
+                tmp = img_resize(tmp, z_scale, y_scale, x_scale)
+                next_label[tmp==1] = k
         label = np.append(label, next_label, axis=0)
 
         # append image
@@ -422,7 +429,8 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
         if crop_data:
             a = np.copy(a[argmin_z:argmax_z,argmin_y:argmax_y,argmin_x:argmax_x], order='C')
         a = a.astype(np.float32)
-        a = img_resize(a, z_scale, y_scale, x_scale)
+        if not no_scaling:
+            a = img_resize(a, z_scale, y_scale, x_scale)
         a -= np.amin(a)
         a /= np.amax(a)
         if normalize:
@@ -583,7 +591,7 @@ class Metrics(Callback):
                 self.model.stop_training = True
 
 def train_semantic_segmentation(normalize, path_to_img, path_to_labels, x_scale, y_scale,
-            z_scale, crop_data, path_to_model, z_patch, y_patch, x_patch, epochs,
+            z_scale, no_scaling, crop_data, path_to_model, z_patch, y_patch, x_patch, epochs,
             batch_size, channels, validation_split, stride_size, class_weights,
             flip_x, flip_y, flip_z, rotate, early_stopping, val_tf, learning_rate,
             path_val_img, path_val_labels, validation_stride_size, validation_freq,
@@ -592,7 +600,7 @@ def train_semantic_segmentation(normalize, path_to_img, path_to_labels, x_scale,
 
     # training data
     img, label, position, allLabels, configuration_data, header, extension, counts = load_training_data(normalize,
-                    path_to_img, path_to_labels, channels, x_scale, y_scale, z_scale, crop_data,
+                    path_to_img, path_to_labels, channels, x_scale, y_scale, z_scale, no_scaling, crop_data,
                     labels_to_compute, labels_to_remove, None, None, None)
 
     # img shape
@@ -601,7 +609,7 @@ def train_semantic_segmentation(normalize, path_to_img, path_to_labels, x_scale,
     # validation data
     if any(path_val_img):
         img_val, label_val, position_val, _, _, _, _, _ = load_training_data(normalize,
-                        path_val_img, path_val_labels, channels, x_scale, y_scale, z_scale, crop_data,
+                        path_val_img, path_val_labels, channels, x_scale, y_scale, z_scale, no_scaling, crop_data,
                         labels_to_compute, labels_to_remove, configuration_data, allLabels, counts)
 
     elif validation_split:
@@ -625,6 +633,7 @@ def train_semantic_segmentation(normalize, path_to_img, path_to_labels, x_scale,
     for k in range(0, zsh-z_patch+1, stride_size):
         for l in range(0, ysh-y_patch+1, stride_size):
             for m in range(0, xsh-x_patch+1, stride_size):
+                #if np.any(label[k:k+64,l:l+64,m:m+64]):
                 list_IDs.append(k*ysh*xsh+l*xsh+m)
 
     if any(path_val_img) or validation_split:
@@ -724,7 +733,7 @@ def train_semantic_segmentation(normalize, path_to_img, path_to_labels, x_scale,
             save_history(history.history, path_to_model)
 
 def load_prediction_data(path_to_img, channels, x_scale, y_scale, z_scale,
-                        normalize, mu, sig, region_of_interest):
+                        no_scaling, normalize, mu, sig, region_of_interest):
 
     # read image data
     img, img_header, img_ext = load_data(path_to_img, 'first_queue', return_extension=True)
@@ -746,7 +755,8 @@ def load_prediction_data(path_to_img, channels, x_scale, y_scale, z_scale,
 
     # scale image data
     img = img.astype(np.float32)
-    img = img_resize(img, z_scale, y_scale, x_scale)
+    if not no_scaling:
+        img = img_resize(img, z_scale, y_scale, x_scale)
     img -= np.amin(img)
     img /= np.amax(img)
     if normalize:
@@ -844,6 +854,8 @@ def predict_semantic_segmentation(args, img, position, path_to_model, path_to_fi
                 nb += 1
 
     # get final
+    #out = np.zeros((zsh, ysh, xsh), dtype=np.uint8)
+    #out[final[:,:,:,1]>0.5]=1
     out = np.argmax(final, axis=3)
     out = out.astype(np.uint8)
 
