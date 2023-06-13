@@ -41,12 +41,9 @@ import argparse
 import tarfile
 import glob
 
-# samples scanned upside down
+# honeybees scanned upside down
 test_inv = ['Head10','Head17','Head27','Head29','Head32','Head36','Head38','Head39','Head41','Head43','Head69','Head71','Head75','Head84','Head95','Head98','S21','S25','S37','S38','S45','S55','S58']
 train_inv = ['Head1','Head4','Head7','Head8','Head12','Head19','Head21','Head22','Head57','Head78','Head81']
-
-# training samples
-list_train = ['Head1','Head4','Head5','Head7','Head8','Head12','Head16','Head19','Head21','Head22','Head51','Head52','Head53','Head54','Head57','Head58','Head59','Head60','Head61','Head73','Head77','Head78','Head79','Head80','Head81','Head99']
 
 if __name__ == "__main__":
 
@@ -54,7 +51,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Bees evaluation.',
              formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-    # optional arguments
+    # arguments
+    parser.add_argument('-hb', '--honeybees', action='store_true', default=False,
+                        help='analyse honeybee brains')
+    parser.add_argument('-bb', '--bumblebees', action='store_true', default=False,
+                        help='analyse bumblebee brains')
     parser.add_argument('-s', '--segmentation', action='store_true', default=False,
                         help='automatic segmentation of bee brains')
     parser.add_argument('-a', '--accuracy', action='store_true', default=False,
@@ -67,6 +68,14 @@ if __name__ == "__main__":
 
     if not any([args.segmentation, args.accuracy, args.volumes]):
         print('Please parse any of "--segmentation", "--accuracy", or "--volumes". See "--help" for more information.')
+    if not any([args.honeybees, args.bumblebees]):
+        print('Please parse any of "--honeybees" or "--bumblebees". See "--help" for more information.')
+    elif args.honeybees and args.bumblebees:
+        print('Please parse either "--honeybees" or "--bumblebees" but not both of them.')
+    elif args.honeybees:
+        dataset = 'honeybees'
+    elif args.bumblebees:
+        dataset = 'bumblebees'
 
     #=======================================================================================
     # segmentation
@@ -75,20 +84,20 @@ if __name__ == "__main__":
     if args.segmentation:
 
         # path to data
-        path_to_images = os.getcwd()+'/'+'honeybees_test_images'
-        path_to_results = os.getcwd()+'/'+'honeybees_test_results'
-        path_to_model = os.getcwd()+'/'+'honeybees_network.h5'
+        path_to_images = os.getcwd()+f'/{dataset}_test_images'
+        path_to_results = os.getcwd()+f'/{dataset}_test_results'
+        path_to_model = os.getcwd()+f'/{dataset}_network.h5'
 
         # download and extract image data
         if not os.path.isdir(path_to_images):
-            os.system(f'wget -nc --no-check-certificate https://biomedisa.org/download/demo/?id=honeybees_test_images.tar -O {path_to_images}.tar')
+            os.system(f'wget -nc --no-check-certificate https://biomedisa.org/download/demo/?id={dataset}_test_images.tar -O {path_to_images}.tar')
             tar = tarfile.open(f'{path_to_images}.tar')
             tar.extractall(path=path_to_images)
             tar.close()
 
         # download trained network
         if not os.path.exists(path_to_model):
-            os.system(f'wget -nc --no-check-certificate https://biomedisa.org/download/demo/?id=honeybees_network.h5 -O {path_to_model}')
+            os.system(f'wget -nc --no-check-certificate https://biomedisa.org/download/demo/?id={dataset}_network.h5 -O {path_to_model}')
 
         # crate directory for results
         if not os.path.exists(path_to_results):
@@ -111,19 +120,19 @@ if __name__ == "__main__":
     if args.accuracy:
 
         # path to data
-        path_to_refs = os.getcwd()+'/'+'honeybees_test_labels'
-        path_to_results = os.getcwd()+'/'+'honeybees_test_results'
+        path_to_refs = os.getcwd()+f'/{dataset}_test_labels'
+        path_to_results = os.getcwd()+f'/{dataset}_test_results'
 
         # download and extract reference data
         if not os.path.isdir(path_to_refs):
-            os.system(f'wget -nc --no-check-certificate https://biomedisa.org/download/demo/?id=honeybees_test_labels.tar -O {path_to_refs}.tar')
+            os.system(f'wget -nc --no-check-certificate https://biomedisa.org/download/demo/?id={dataset}_test_labels.tar -O {path_to_refs}.tar')
             tar = tarfile.open(f'{path_to_refs}.tar')
             tar.extractall(path=path_to_refs)
             tar.close()
 
         # download and extract segmentation results (if not created)
         if not os.path.isdir(path_to_results):
-            os.system(f'wget -nc --no-check-certificate https://biomedisa.org/download/demo/?id=honeybees_test_results.tar -O {path_to_results}.tar')
+            os.system(f'wget -nc --no-check-certificate https://biomedisa.org/download/demo/?id={dataset}_test_results.tar -O {path_to_results}.tar')
             tar = tarfile.open(f'{path_to_results}.tar')
             tar.extractall(path=path_to_results)
             tar.close()
@@ -149,17 +158,20 @@ if __name__ == "__main__":
 
             # path to reference
             sample = os.path.basename(path_to_data).replace('final.','').replace('.am','')
-            path_to_ref = path_to_refs+'/Clean.'+sample+'.am'
+            if args.honeybees:
+                path_to_ref = path_to_refs+'/Clean.'+sample+'.am'
+            elif args.bumblebees:
+                path_to_ref = path_to_refs+'/'+sample+'_OK.am'
 
             if os.path.exists(path_to_ref):
 
                 # load data
-                a,_=load_data(path_to_ref)
-                b,_=load_data(path_to_data)
+                a, _ = load_data(path_to_ref)
+                b, _ = load_data(path_to_data)
 
                 # remove outliers
                 c = np.copy(b)
-                c = clean(c,0.1)
+                c = clean(c, 0.1)
                 c[b==3] = 3     # CX is not cleaned
                 b = np.copy(c)
 
@@ -202,62 +214,74 @@ if __name__ == "__main__":
 
     if args.volumes:
 
-        path_to_volumes = os.getcwd()+'/'+'honeybees_brain_areas.txt'
-        training_images = os.getcwd()+'/'+'honeybees_training_images'
-        training_labels = os.getcwd()+'/'+'honeybees_training_labels'
-        test_images = os.getcwd()+'/'+'honeybees_test_images'
-        test_labels = os.getcwd()+'/'+'honeybees_test_labels'
+        path_to_volumes = os.getcwd()+f'/{dataset}_brain_areas.txt'
+        training_images = os.getcwd()+f'/{dataset}_training_images'
+        training_labels = os.getcwd()+f'/{dataset}_training_labels'
+        test_images = os.getcwd()+f'/{dataset}_test_images'
+        test_labels = os.getcwd()+f'/{dataset}_test_labels'
 
         # download and extract data
         if not os.path.isdir(training_images):
-            os.system(f'wget -nc --no-check-certificate https://biomedisa.org/download/demo/?id=honeybees_training_images.tar -O {training_images}.tar')
+            os.system(f'wget -nc --no-check-certificate https://biomedisa.org/download/demo/?id={dataset}_training_images.tar -O {training_images}.tar')
             tar = tarfile.open(f'{training_images}.tar')
             tar.extractall(path=training_images)
             tar.close()
         if not os.path.isdir(training_labels):
-            os.system(f'wget -nc --no-check-certificate https://biomedisa.org/download/demo/?id=honeybees_training_labels.tar -O {training_labels}.tar')
+            os.system(f'wget -nc --no-check-certificate https://biomedisa.org/download/demo/?id={dataset}_training_labels.tar -O {training_labels}.tar')
             tar = tarfile.open(f'{training_labels}.tar')
             tar.extractall(path=training_labels)
             tar.close()
         if not os.path.isdir(test_images):
-            os.system(f'wget -nc --no-check-certificate https://biomedisa.org/download/demo/?id=honeybees_test_images.tar -O {test_images}.tar')
+            os.system(f'wget -nc --no-check-certificate https://biomedisa.org/download/demo/?id={dataset}_test_images.tar -O {test_images}.tar')
             tar = tarfile.open(f'{test_images}.tar')
             tar.extractall(path=test_images)
             tar.close()
         if not os.path.isdir(test_labels):
-            os.system(f'wget -nc --no-check-certificate https://biomedisa.org/download/demo/?id=honeybees_test_labels.tar -O {test_labels}.tar')
+            os.system(f'wget -nc --no-check-certificate https://biomedisa.org/download/demo/?id={dataset}_test_labels.tar -O {test_labels}.tar')
             tar = tarfile.open(f'{test_labels}.tar')
             tar.extractall(path=test_labels)
             tar.close()
 
         with open(path_to_volumes, 'w') as file:
 
-            df = glob.glob(training_labels+'/**/*.am', recursive=True)
-            df += glob.glob(test_labels+'/**/*.am', recursive=True)
-            df = sorted(df)
+            df_train = glob.glob(training_labels+'/**/*.am', recursive=True)
+            df_test = glob.glob(test_labels+'/**/*.am', recursive=True)
+            df = sorted(df_train + df_test)
 
             for iterator, path in enumerate(df):
 
                 # load data
-                sample = os.path.basename(path).replace('.labels.am','').replace('Clean.','').replace('.am','')
-                image, _ = load_data(path)
+                image, img_header = load_data(path)
 
-                # get id
-                if 'Head' in sample:
-                    id = sample.replace('Head','')
-                else:
-                    id = sample.replace('S','')
-                    id = 1000+int(id)
+                # honeybees
+                if args.honeybees:
 
-                # load header from image data (because originally header was not transfered)
-                if sample in list_train:
-                    _, img_header = load_data(training_images+'/'+sample+'.am')
-                else:
-                    _, img_header = load_data(test_images+'/'+sample+'.am')
+                    # get sample
+                    sample = os.path.basename(path).replace('.labels.am','').replace('Clean.','').replace('.am','')
 
-                # align data if scanned upside down
-                if sample in test_inv or sample in train_inv:
-                    image = np.copy(image[::-1,:,::-1])
+                    # get id
+                    if 'Head' in sample:
+                        id = sample.replace('Head','')
+                    else:
+                        id = sample.replace('S','')
+                        id = 1000+int(id)
+
+                    # load header from image data (because voxel spacing was not originally transfered)
+                    if path in df_train:
+                        _, img_header = load_data(training_images+'/'+sample+'.am')
+                    else:
+                        _, img_header = load_data(test_images+'/'+sample+'.am')
+
+                    # align honeybee data if scanned upside down
+                    if args.honeybees and (sample in test_inv or sample in train_inv):
+                        image = np.copy(image[::-1,:,::-1])
+
+                # bumblebees
+                if args.bumblebees:
+
+                    # get id
+                    id = os.path.basename(path).replace('C_OK.am','')
+                    id = id[1:]
 
                 # read img_header as string
                 b = img_header[0].tobytes()
@@ -344,14 +368,15 @@ if __name__ == "__main__":
 
         # TXT to sorted XLSX
         l = np.loadtxt(path_to_volumes, delimiter=',', dtype='str')
-        for i in range(1,l.shape[1]):
+        ysh, xsh = l.shape
+        for i in range(1,xsh):
             t = []
-            for k in range(110):
+            for k in range(ysh):
                 t.append((int(l[k,0]),float(l[k,i])))
             t = sorted(t, key=lambda x: x[0])
-            for k in range(110):
+            for k in range(ysh):
                 l[k,i] = t[k][1]
-        for k in range(110):
+        for k in range(ysh):
             l[k,0] = t[k][0]
 
         # convert to float and save -1 as Nan
