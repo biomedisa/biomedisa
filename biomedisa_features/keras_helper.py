@@ -1,6 +1,6 @@
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2022 Philipp Lösel. All rights reserved.              ##
+##  Copyright (c) 2023 Philipp Lösel. All rights reserved.              ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -413,7 +413,7 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
             position = np.append(position, a, axis=0)
 
     # get labels
-    allLabels, counts = np.unique(label, return_counts=True)
+    allLabels = np.unique(label)
 
     # labels must be in ascending order
     for k, l in enumerate(allLabels):
@@ -422,7 +422,7 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
     # configuration data
     configuration_data = np.array([channels, x_scale, y_scale, z_scale, normalize, mu, sig])
 
-    return img, label, position, allLabels, configuration_data, header, extension, len(img_names), counts
+    return img, label, position, allLabels, configuration_data, header, extension, len(img_names)
 
 class CustomCallback(Callback):
     def __init__(self, id, epochs):
@@ -581,7 +581,7 @@ def train_semantic_segmentation(normalize, img_list, label_list, x_scale, y_scal
             labels_to_remove, filters, resnet):
 
     # training data
-    img, label, position, allLabels, configuration_data, header, extension, number_of_images, counts = load_training_data(normalize,
+    img, label, position, allLabels, configuration_data, header, extension, number_of_images = load_training_data(normalize,
                     img_list, label_list, channels, x_scale, y_scale, z_scale, crop_data, labels_to_compute, labels_to_remove)
 
     # img shape
@@ -640,17 +640,16 @@ def train_semantic_segmentation(normalize, img_list, label_list, x_scale, y_scal
               'dim_img': (zsh, ysh, xsh),
               'n_classes': nb_labels,
               'n_channels': channels,
-              'class_weights': False,
               'augment': (flip_x, flip_y, flip_z, rotate)}
 
     # data generator
     validation_generator = None
-    training_generator = DataGenerator(img, label, position, list_IDs, counts, True, number_of_images, **params)
+    training_generator = DataGenerator(img, label, position, list_IDs, [], True, number_of_images, **params)
     if validation_split:
         if val_tf:
             params['dim_img'] = (zsh_val, ysh_val, xsh_val)
             params['augment'] = (False, False, False, 0)
-            validation_generator = DataGenerator(img_val, label_val, position_val, list_IDs_val, counts, True, number_of_val_images, **params)
+            validation_generator = DataGenerator(img_val, label_val, position_val, list_IDs_val, [], True, number_of_val_images, **params)
         else:
             metrics = Metrics(img_val, label_val, list_IDs_val, (z_patch, y_patch, x_patch), (zsh_val, ysh_val, xsh_val), batch_size,
                               path_to_model, early_stopping, validation_freq, nb_labels, number_of_val_images)

@@ -32,7 +32,6 @@ screen -X -S process_image quit
 uuid=$(uuidgen)
 screen -d -m -S first_queue bash -c "cd ${path_to_biomedisa} && rq worker first_queue --name first_worker.${uuid} && exec /usr/bin/ssh-agent ${SHELL} && ssh-add"
 screen -d -m -S second_queue bash -c "cd ${path_to_biomedisa} && rq worker second_queue --name second_worker.${uuid} && exec /usr/bin/ssh-agent ${SHELL} && ssh-add"
-screen -d -m -S third_queue bash -c "cd ${path_to_biomedisa} && rq worker first_queue third_queue --name third_worker.${uuid} && exec /usr/bin/ssh-agent ${SHELL} && ssh-add"
 screen -d -m -S check_queue bash -c "cd ${path_to_biomedisa} && rq worker check_queue && exec /usr/bin/ssh-agent ${SHELL} && ssh-add"
 screen -d -m -S slices bash -c "cd ${path_to_biomedisa} && rq worker slices"
 screen -d -m -S acwe bash -c "cd ${path_to_biomedisa} && rq worker acwe"
@@ -41,3 +40,13 @@ screen -d -m -S share_notification bash -c "cd ${path_to_biomedisa} && rq worker
 screen -d -m -S stop_job bash -c "cd ${path_to_biomedisa} && rq worker stop_job"
 screen -d -m -S load_data bash -c "cd ${path_to_biomedisa} && rq worker load_data"
 screen -d -m -S process_image bash -c "cd ${path_to_biomedisa} && rq worker process_image"
+
+# third queue
+var=$(python3 -c "from biomedisa_app.config import config; print(config['THIRD_QUEUE'])")
+if [[ $var = True ]]
+then
+    screen -d -m -S third_queue bash -c "cd ${path_to_biomedisa} && rq worker first_queue third_queue --name third_worker.${uuid} && exec /usr/bin/ssh-agent ${SHELL} && ssh-add"
+else
+    screen -d -m -S third_queue bash -c "cd ${path_to_biomedisa} && rq worker third_queue --name third_worker.${uuid} && exec /usr/bin/ssh-agent ${SHELL} && ssh-add"
+fi
+
