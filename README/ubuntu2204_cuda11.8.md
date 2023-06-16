@@ -82,7 +82,7 @@ GRANT ALL PRIVILEGES ON *.* TO 'biomedisa'@'localhost' WITH GRANT OPTION;
 CREATE DATABASE biomedisa_database;
 exit;
 
-# Add the following line to `/etc/mysql/mysql.conf.d/mysqld.cnf`
+# Add the following line to /etc/mysql/mysql.conf.d/mysqld.cnf
 wait_timeout = 604800
 
 # Migrate database and create superuser
