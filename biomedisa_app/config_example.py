@@ -3,9 +3,9 @@ config = {
     'SERVER_ALIAS' : 'biomedisa-001', # an alias name for your server (for email notification and logfiles)
     'SECRET_KEY' : '...', # some random string
     'DJANGO_DATABASE' : '...', # password of your mysql database
-    'ALLOWED_HOSTS' : ['192.168.176.30', 'localhost', '0.0.0.0'], # you must tell django explicitly which hosts are allowed (e.g. your IP or the url of your homepage)
+    'ALLOWED_HOSTS' : ['localhost', '0.0.0.0'], # you must tell django explicitly which hosts are allowed (e.g. your IP and/or the URL of your homepage when running an APACHE server)
     'SECURE_MODE' : False, # this mode is highly recommended if you use biomedisa for production with users you do not trust
-    'DEBUG' : False, # activate the debug mode if you develop the app. This must be deactivated in production mode for security reasons!
+    'DEBUG' : True, # activate the debug mode if you develop the app. This must be deactivated in production mode for security reasons!
 
     'EMAIL_CONFIRMATION' : False, # users must confirm their emails during the registration process (to handle biomedisa's notification service the following email support must be set up)
     'EMAIL' : 'philipp.loesel@anu.edu.au',
