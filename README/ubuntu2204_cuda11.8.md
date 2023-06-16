@@ -23,10 +23,11 @@ sudo apt-get install libsm6 libxrender-dev libmysqlclient-dev \
 ```
 
 #### Install pip packages
+You may only use `pip3 install --upgrade <package>` and add `export PATH=/home/$USER/.local/bin:${PATH}` to `~/.bashrc` if you are installing Biomedisa only for your user
 ```
 sudo -H pip3 install --upgrade pip setuptools testresources scikit-build
 sudo -H pip3 install --upgrade numpy scipy h5py colorama wget numpy-stl \
-    numba imagecodecs-lite tifffile scikit-image opencv-python \
+    numba imagecodecs tifffile scikit-image opencv-python \
     Pillow nibabel medpy SimpleITK mpi4py itk vtk rq mysqlclient matplotlib
 sudo -H pip3 install django==3.2.6
 ```
@@ -47,7 +48,7 @@ In particular, adapt the following lines in `biomedisa/biomedisa_app/config.py`
 ```
 'SECRET_KEY' : 'vl[cihu8uN!FrJoDbEqUymgMR()n}y7744$2;YLDm3Q8;MMX-g', # some random string
 'DJANGO_DATABASE' : 'biomedisa_user_password', # password for the user 'biomedisa' of your biomedisa_database (set up in the next step)
-'ALLOWED_HOSTS' : ['YOUR_IP', 'localhost', '0.0.0.0'], # you must tell django explicitly which hosts are allowed (e.g. your IP or the URL of your homepage)
+'ALLOWED_HOSTS' : ['localhost', '0.0.0.0'], # you must tell django explicitly which hosts are allowed (e.g. your IP and/or the URL of your homepage when running an APACHE server)
 ```
 
 #### Install MySQL database
@@ -81,7 +82,7 @@ GRANT ALL PRIVILEGES ON *.* TO 'biomedisa'@'localhost' WITH GRANT OPTION;
 CREATE DATABASE biomedisa_database;
 exit;
 
-# Add the following line to /etc/mysql/mysql.conf.d/mysqld.cnf
+# Add the following line to `/etc/mysql/mysql.conf.d/mysqld.cnf`
 wait_timeout = 604800
 
 # Migrate database and create superuser
@@ -108,7 +109,7 @@ sudo apt-get install --no-install-recommends cuda-11-8
 # Reboot. Check that GPUs are visible using the command
 nvidia-smi
 
-# Add the following lines to your .bashrc (e.g. nano ~/.bashrc)
+# Add the following lines to `~/.bashrc` (e.g. nano ~/.bashrc)
 export CUDA_HOME=/usr/local/cuda-11.8
 export LD_LIBRARY_PATH=${CUDA_HOME}/lib64
 export PATH=${CUDA_HOME}/bin:${PATH}
@@ -140,7 +141,7 @@ sudo apt-get install --no-install-recommends libnvinfer8=8.5.3-1+cuda11.8 \
 sudo apt-mark hold libcudnn8 libcudnn8-dev libnvinfer-dev libnvinfer-plugin8 libnvinfer8 cuda-11-8
 
 # Install TensorFlow
-sudo -H pip3 install --upgrade tensorflow-gpu==2.10.0
+sudo -H pip3 install tensorflow-gpu==2.10.0
 ```
 
 #### Run Biomedisa
