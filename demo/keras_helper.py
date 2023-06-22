@@ -84,6 +84,8 @@ def save_history(history, path_to_model):
     plt.tight_layout()  # To prevent overlapping of subplots
     plt.savefig(path_to_model.replace(".h5","_loss.png"), dpi=300, bbox_inches='tight')
     plt.clf()
+    # save history dictonary
+    np.save(path_to_model.replace(".h5",".npy"), history)
 
 def predict_blocksize(labelData, x_puffer, y_puffer, z_puffer):
     zsh, ysh, xsh = labelData.shape
