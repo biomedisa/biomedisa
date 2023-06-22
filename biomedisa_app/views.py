@@ -777,6 +777,14 @@ def change_password(request):
         pw_form = PasswordChangeForm(request.user)
     return render(request, 'change_password.html', {'pw_form': pw_form})
 
+def recursive_file_permissions(path_to_dir):
+    files = glob.glob(path_to_dir+'/**/*', recursive=True)
+    for file in files:
+        try:
+            os.chmod(file, 0o770)
+        except:
+            pass
+
 # 23. storage
 @login_required
 def storage(request):
@@ -812,10 +820,12 @@ def storage(request):
                     zip_ref = zipfile.ZipFile(newimg.pic.path, 'r')
                     zip_ref.extractall(path=path_to_dir)
                     zip_ref.close()
+                    recursive_file_permissions(path_to_dir)
                 elif extension == '.tar':
                     tar = tarfile.open(newimg.pic.path)
                     tar.extractall(path=path_to_dir)
                     tar.close()
+                    recursive_file_permissions(path_to_dir)
                 return redirect(storage)
     else:
         img = StorageForm()
@@ -1390,10 +1400,12 @@ def app(request):
                 zip_ref = zipfile.ZipFile(newimg.pic.path, 'r')
                 zip_ref.extractall(path=path_to_dir)
                 zip_ref.close()
+                recursive_file_permissions(path_to_dir)
             elif extension == '.tar':
                 tar = tarfile.open(newimg.pic.path)
                 tar.extractall(path=path_to_dir)
                 tar.close()
+                recursive_file_permissions(path_to_dir)
 
             # create slices
             if newimg.imageType == 1:
