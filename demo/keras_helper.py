@@ -1,6 +1,6 @@
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2022 Philipp Lösel. All rights reserved.              ##
+##  Copyright (c) 2023 Philipp Lösel. All rights reserved.              ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -84,6 +84,8 @@ def save_history(history, path_to_model):
     plt.tight_layout()  # To prevent overlapping of subplots
     plt.savefig(path_to_model.replace(".h5","_loss.png"), dpi=300, bbox_inches='tight')
     plt.clf()
+    # save history dictonary
+    np.save(path_to_model.replace(".h5",".npy"), history)
 
 def predict_blocksize(labelData, x_puffer, y_puffer, z_puffer):
     zsh, ysh, xsh = labelData.shape
@@ -295,7 +297,7 @@ def get_labels(arr, allLabels):
 #=====================
 
 def load_training_data(normalize, img_list, label_list, channels, x_scale, y_scale, z_scale, no_scaling,
-        crop_data, labels_to_compute, labels_to_remove, configuration_data=None, allLabels=None, counts=None,
+        crop_data, labels_to_compute, labels_to_remove, configuration_data=None, allLabels=None,
         x_puffer=25, y_puffer=25, z_puffer=25):
 
     # get filenames
@@ -456,7 +458,7 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
 
     # get labels
     if allLabels is None:
-        allLabels, counts = np.unique(label, return_counts=True)
+        allLabels = np.unique(label)
 
     # labels must be in ascending order
     for k, l in enumerate(allLabels):
@@ -465,7 +467,7 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
     # configuration data
     configuration_data = np.array([channels, x_scale, y_scale, z_scale, normalize, mu, sig])
 
-    return img, label, position, allLabels, configuration_data, header, extension, counts
+    return img, label, position, allLabels, configuration_data, header, extension
 
 class MetaData(Callback):
     def __init__(self, path_to_model, configuration_data, allLabels, extension, header, crop_data, cropping_weights, cropping_config):
@@ -592,25 +594,25 @@ class Metrics(Callback):
 
 def train_semantic_segmentation(normalize, path_to_img, path_to_labels, x_scale, y_scale,
             z_scale, no_scaling, crop_data, path_to_model, z_patch, y_patch, x_patch, epochs,
-            batch_size, channels, validation_split, stride_size, class_weights,
+            batch_size, channels, validation_split, stride_size, balance,
             flip_x, flip_y, flip_z, rotate, early_stopping, val_tf, learning_rate,
             path_val_img, path_val_labels, validation_stride_size, validation_freq,
             validation_batch_size, cropping_weights, cropping_config, labels_to_compute,
-            labels_to_remove, filters, resnet):
+            labels_to_remove, filters, resnet, pretrained_model):
 
     # training data
-    img, label, position, allLabels, configuration_data, header, extension, counts = load_training_data(normalize,
+    img, label, position, allLabels, configuration_data, header, extension = load_training_data(normalize,
                     path_to_img, path_to_labels, channels, x_scale, y_scale, z_scale, no_scaling, crop_data,
-                    labels_to_compute, labels_to_remove, None, None, None)
+                    labels_to_compute, labels_to_remove, None, None)
 
     # img shape
     zsh, ysh, xsh = img.shape
 
     # validation data
     if any(path_val_img):
-        img_val, label_val, position_val, _, _, _, _, _ = load_training_data(normalize,
+        img_val, label_val, position_val, _, _, _, _ = load_training_data(normalize,
                         path_val_img, path_val_labels, channels, x_scale, y_scale, z_scale, no_scaling, crop_data,
-                        labels_to_compute, labels_to_remove, configuration_data, allLabels, counts)
+                        labels_to_compute, labels_to_remove, configuration_data, allLabels)
 
     elif validation_split:
         number_of_images = zsh // z_scale
@@ -627,14 +629,22 @@ def train_semantic_segmentation(normalize, path_to_img, path_to_labels, x_scale,
             position_val = None
 
     # list of IDs
-    list_IDs = []
+    list_IDs_fg, list_IDs_bg = [], []
 
     # get IDs of patches
-    for k in range(0, zsh-z_patch+1, stride_size):
-        for l in range(0, ysh-y_patch+1, stride_size):
-            for m in range(0, xsh-x_patch+1, stride_size):
-                #if np.any(label[k:k+64,l:l+64,m:m+64]):
-                list_IDs.append(k*ysh*xsh+l*xsh+m)
+    if balance:
+        for k in range(0, zsh-z_patch+1, stride_size):
+            for l in range(0, ysh-y_patch+1, stride_size):
+                for m in range(0, xsh-x_patch+1, stride_size):
+                    if np.any(label[k:k+z_patch, l:l+y_patch, m:m+x_patch]):
+                        list_IDs_fg.append(k*ysh*xsh+l*xsh+m)
+                    else:
+                        list_IDs_bg.append(k*ysh*xsh+l*xsh+m)
+    else:
+        for k in range(0, zsh-z_patch+1, stride_size):
+            for l in range(0, ysh-y_patch+1, stride_size):
+                for m in range(0, xsh-x_patch+1, stride_size):
+                    list_IDs_fg.append(k*ysh*xsh+l*xsh+m)
 
     if any(path_val_img) or validation_split:
 
@@ -642,17 +652,26 @@ def train_semantic_segmentation(normalize, path_to_img, path_to_labels, x_scale,
         zsh_val, ysh_val, xsh_val = img_val.shape
 
         # list of validation IDs
-        list_IDs_val = []
+        list_IDs_val_fg, list_IDs_val_bg = [], []
 
         # get validation IDs of patches
-        for k in range(0, zsh_val-z_patch+1, validation_stride_size):
-            for l in range(0, ysh_val-y_patch+1, validation_stride_size):
-                for m in range(0, xsh_val-x_patch+1, validation_stride_size):
-                    list_IDs_val.append(k*ysh_val*xsh_val+l*xsh_val+m)
+        if balance and val_tf:
+            for k in range(0, zsh_val-z_patch+1, validation_stride_size):
+                for l in range(0, ysh_val-y_patch+1, validation_stride_size):
+                    for m in range(0, xsh_val-x_patch+1, validation_stride_size):
+                        if np.any(label_val[k:k+z_patch, l:l+y_patch, m:m+x_patch]):
+                            list_IDs_val_fg.append(k*ysh_val*xsh_val+l*xsh_val+m)
+                        else:
+                            list_IDs_val_bg.append(k*ysh_val*xsh_val+l*xsh_val+m)
+        else:
+            for k in range(0, zsh_val-z_patch+1, validation_stride_size):
+                for l in range(0, ysh_val-y_patch+1, validation_stride_size):
+                    for m in range(0, xsh_val-x_patch+1, validation_stride_size):
+                        list_IDs_val_fg.append(k*ysh_val*xsh_val+l*xsh_val+m)
 
-        # make length of list divisible by validation batch size
-        rest = validation_batch_size - (len(list_IDs_val) % validation_batch_size)
-        list_IDs_val = list_IDs_val + list_IDs_val[:rest]
+            # make length of list divisible by validation batch size
+            rest = validation_batch_size - (len(list_IDs_val_fg) % validation_batch_size)
+            list_IDs_val_fg = list_IDs_val_fg + list_IDs_val_fg[:rest]
 
     # number of labels
     nb_labels = len(allLabels)
@@ -666,21 +685,19 @@ def train_semantic_segmentation(normalize, path_to_img, path_to_labels, x_scale,
               'dim_img': (zsh, ysh, xsh),
               'n_classes': nb_labels,
               'n_channels': channels,
-              'class_weights': class_weights,
               'augment': (flip_x, flip_y, flip_z, rotate)}
 
     # data generator
     validation_generator = None
-    training_generator = DataGenerator(img, label, position, list_IDs, counts, True, False, **params)
+    training_generator = DataGenerator(img, label, position, list_IDs_fg, list_IDs_bg, True, False, **params)
     if any(path_val_img) or validation_split:
         if val_tf:
             params['batch_size'] = validation_batch_size
             params['dim_img'] = (zsh_val, ysh_val, xsh_val)
             params['augment'] = (False, False, False, 0)
-            params['class_weights'] = False
-            validation_generator = DataGenerator(img_val, label_val, position_val, list_IDs_val, counts, False, False, **params)
+            validation_generator = DataGenerator(img_val, label_val, position_val, list_IDs_val_fg, list_IDs_val_bg, True, False, **params)
         else:
-            metrics = Metrics(img_val, label_val, position_val, list_IDs_val, (z_patch, y_patch, x_patch), (zsh_val, ysh_val, xsh_val), validation_batch_size,
+            metrics = Metrics(img_val, label_val, position_val, list_IDs_val_fg, (z_patch, y_patch, x_patch), (zsh_val, ysh_val, xsh_val), validation_batch_size,
                               path_to_model, early_stopping, validation_freq, nb_labels, channels)
 
     # optimizer
@@ -697,6 +714,25 @@ def train_semantic_segmentation(normalize, path_to_img, path_to_labels, x_scale,
     # compile model
     with strategy.scope():
         model = make_unet(input_shape, nb_labels, filters, resnet)
+
+        # pretrained model
+        if pretrained_model:
+            model_pretrained = load_model(pretrained_model)
+            model.set_weights(model_pretrained.get_weights())
+            for name in ['conv_7_1',#'batch_norm_7_1',
+                         'conv_7_2',#'batch_norm_7_2',
+                         'conv_8_1',#'batch_norm_8_1',
+                         'conv_8_2',#'batch_norm_8_2',
+                         'conv_9_1',#'batch_norm_9_1',
+                         'conv_9_2',#'batch_norm_9_2',
+                         'conv_10_1',#'batch_norm_10_1',
+                         'conv_10_2',#'batch_norm_10_2',
+                         'conv_11_1',#'batch_norm_11_1',
+                         'conv_11_2',#'batch_norm_11_2',
+                         'conv_12_1']:
+                layer = model.get_layer(name)
+                layer.trainable = False
+
         model.compile(loss='categorical_crossentropy',
                       optimizer=sgd,
                       metrics=['accuracy'])
