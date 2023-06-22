@@ -62,12 +62,22 @@ if __name__ == "__main__":
                         help='segmentation accuracy')
     parser.add_argument('--assd', action='store_true', default=False,
                         help='calculate ASSD')
-    parser.add_argument('-v', '--volumes', action='store_true', default=False,
+    parser.add_argument('-ba', '--brain-areas', action='store_true', default=False,
                         help='calculate brain area volumes')
+    parser.add_argument('-v', '--verbose', action='store_true', default=False,
+                        help='show calculation for each volume')
+    parser.add_argument('-nn', '--neural-network', type=str, default=None,
+                        help='path to trained network (data will be downloaded from Biomedisa if not specified)')
+    parser.add_argument('-ti', '--test-images', type=str, default=None,
+                        help='path to test images (data will be downloaded from Biomedisa if not specified)')
+    parser.add_argument('-tl', '--test-labels', type=str, default=None,
+                        help='path to test labels (data will be downloaded from Biomedisa if not specified)')
+    parser.add_argument('-tr', '--test-results', type=str, default=None,
+                        help='path to test results (data will be created in segmentation mode or downloaded from Biomedisa if not specified)')
     args = parser.parse_args()
 
-    if not any([args.segmentation, args.accuracy, args.volumes]):
-        print('Please parse any of "--segmentation", "--accuracy", or "--volumes". See "--help" for more information.')
+    if not any([args.segmentation, args.accuracy, args.brain_areas]):
+        print('Please parse any of "--segmentation", "--accuracy", or "--brain-areas". See "--help" for more information.')
     if not any([args.honeybees, args.bumblebees]):
         print('Please parse any of "--honeybees" or "--bumblebees". See "--help" for more information.')
     elif args.honeybees and args.bumblebees:
@@ -87,6 +97,12 @@ if __name__ == "__main__":
         path_to_images = os.getcwd()+f'/{dataset}_test_images'
         path_to_results = os.getcwd()+f'/{dataset}_test_results'
         path_to_model = os.getcwd()+f'/{dataset}_network.h5'
+        if args.test_images:
+            path_to_images = args.test_images
+        if args.test_results:
+            path_to_results = args.test_results
+        if args.neural_network:
+            path_to_model = args.neural_network
 
         # download and extract image data
         if not os.path.isdir(path_to_images):
@@ -122,6 +138,10 @@ if __name__ == "__main__":
         # path to data
         path_to_refs = os.getcwd()+f'/{dataset}_test_labels'
         path_to_results = os.getcwd()+f'/{dataset}_test_results'
+        if args.test_labels:
+            path_to_refs = args.test_labels
+        if args.test_results:
+            path_to_results = args.test_results
 
         # download and extract reference data
         if not os.path.isdir(path_to_refs):
@@ -202,7 +222,8 @@ if __name__ == "__main__":
                     A[n,-1] = all_dist / float(all_elements)
 
                 # print accuracy for each brain
-                print(sample, 'Dice:', D[n], 'ASSD:', A[n])
+                if args.verbose:
+                    print(sample, 'Dice:', D[n], 'ASSD:', A[n])
 
         print('Number of images:', len(liste))
         print('Dice:', np.mean(D, axis=0))
@@ -212,7 +233,7 @@ if __name__ == "__main__":
     # bee brain area volumes
     #=======================================================================================
 
-    if args.volumes:
+    if args.brain_areas:
 
         path_to_volumes = os.getcwd()+f'/{dataset}_brain_areas.txt'
         training_images = os.getcwd()+f'/{dataset}_training_images'
@@ -305,7 +326,8 @@ if __name__ == "__main__":
                 zres = (float(i5)-float(i4)) / zsh
                 #string = str(id)+','+str(xsh+1)+','+str(ysh+1)+','+str(zsh+1)+','+str(xres)+','+str(yres)+','+str(zres)
                 string = str(id)
-                print(string, v_res, xsh+1, ysh+1, zsh+1, xres, yres, zres)
+                if args.verbose:
+                    print(string, v_res, xsh+1, ysh+1, zsh+1, xres, yres, zres)
 
                 mask = np.empty_like(image)
                 s = [[[0,0,0], [0,1,0], [0,0,0]], [[0,1,0], [1,1,1], [0,1,0]], [[0,0,0], [0,1,0], [0,0,0]]]
