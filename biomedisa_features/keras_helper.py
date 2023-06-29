@@ -518,7 +518,6 @@ class Metrics(Callback):
 
                 # Initialization
                 X_val = np.empty((self.batch_size, *self.dim_patch, 1), dtype=np.float32)
-                y_val = np.empty((self.batch_size, *self.dim_patch), dtype=np.int32)
 
                 # Generate data
                 for i, ID in enumerate(list_IDs_batch):
@@ -528,9 +527,7 @@ class Metrics(Callback):
                     rest = ID % (self.dim_img[1]*self.dim_img[2])
                     l = rest // self.dim_img[2]
                     m = rest % self.dim_img[2]
-
                     X_val[i,:,:,:,0] = self.img[k:k+self.dim_patch[0],l:l+self.dim_patch[1],m:m+self.dim_patch[2]]
-                    y_val[i,:,:,:] = self.label[k:k+self.dim_patch[0],l:l+self.dim_patch[1],m:m+self.dim_patch[2]]
 
                 # Prediction segmentation
                 y_predict = np.asarray(self.model.predict(X_val, verbose=0, steps=None))
@@ -542,7 +539,6 @@ class Metrics(Callback):
                     rest = ID % (self.dim_img[1]*self.dim_img[2])
                     l = rest // self.dim_img[2]
                     m = rest % self.dim_img[2]
-
                     result[k:k+self.dim_patch[0],l:l+self.dim_patch[1],m:m+self.dim_patch[2]] += y_predict[i]
 
             # Compute dice score
