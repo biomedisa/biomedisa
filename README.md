@@ -78,23 +78,41 @@ mpiexec -np 4 python -u git\biomedisa\demo\biomedisa_interpolation.py Downloads\
 ```
 
 `--help` or `-h`: show more information and exit
+
 `--version` or `-v`: Biomedisa version
+
 `--nbrw INT`: number of random walks starting at each pre-segmented pixel (default: 10)
+
 `--sorw INT`: steps of a random walk (default: 4000)
+
 `--acwe`: post-processing with active contour (default: False)
+
 `--acwe-alpha FLOAT`: pushing force of active contour (default: 1.0)
+
 `--acwe-smooth INT`: smoothing of active contour (default: 1)
+
 `--acwe-steps INT`: iterations of active contour (default: 3)
+
 `--no-compression`: disable compression of segmentation results (default: False)
+
 `--allaxis` or `-allx`: if pre-segmentation is not exlusively in xy-plane (default: False)
+
 `--denoise` or `-d`: smooth/denoise image data before processing (default: False)
+
 `--uncertainty` or `-u`: return uncertainty of segmentation result (default: False)
+
 `--create_slices` or `-cs`: create slices of segmentation results (default: False)
+
 `--ignore STR`: ignore specific label(s), e.g. '2,5,6' (default: none)
+
 `--only STR`: segment only specific label(s), e.g. '1,3,5' (default: all)
+
 `--smooth INT` or `-s INT`: number of smoothing iterations for segmentation result (default: 0)
+
 `--clean FLOAT` or `-c FLOAT`: remove outliers, e.g. 0.5 means that objects smaller than 50 percent of the size of the largest object will be removed (default: None)
+
 `--fill FLOAT` or `-f FLOAT`: fill holes, e.g. 0.5 means that all holes smaller than 50 percent of the entire label will be filled (default: None)
+
 `--platform STR` or `-p STR`: one of "cuda", "opencl_NVIDIA_GPU", "opencl_Intel_CPU" (default: None)
 
 #### Memory error
@@ -144,18 +162,18 @@ python biomedisa_deeplearning.py Downloads\training_heart Downloads\training_hea
 ```
 `--train` or `-t`: train a neural network. The result will be saved in `Downloads`.
 
-`--epochs` or `-e` INT: number of epochs trained (default: 100). 
+`--epochs INT` or `-e INT`: number of epochs trained (default: 100). 
 
-`--batch-size` or `-bs` INT: batch size (default: 24). If you have a memory error, try reducing to 6, for example.
+`--batch-size INT` or `-bs INT`: batch size (default: 24). If you have a memory error, try reducing to 6, for example.
 
 #### Validate the network during training
-`--val-images` or `-vi` PATH: path to directory with validation images.
+`--val-images PATH` or `-vi PATH`: path to directory with validation images.
 
-`--val-labels` or `-vl` PATH: path to directory with validation labels.
+`--val-labels PATH` or `-vl PATH`: path to directory with validation labels.
 
-`--validation-split` or `-vs` FLOAT: for example, split your data into 80% training data and 20% validation data with `-vs 0.8`. 
+`--validation-split FLOAT` or `-vs FLOAT`: for example, split your data into 80% training data and 20% validation data with `-vs 0.8`. 
 
-`--early-stopping` or `-es` INT: early stopping if there is no improvement after specified number of epochs.
+`--early-stopping INT` or `-es INT`: early stopping if there is no improvement after specified number of epochs.
 
 #### Accuracy Assessment: Dice Score vs. Standard Accuracy in Biomedisa
 `--val-tf` or `-vt`: use standard pixelwise accuracy provided by TensorFlow. When evaluating accuracy, Biomedisa relies on the Dice score rather than the standard accuracy. The Dice score offers a more reliable assessment by measuring the overlap between the segmented regions, whereas the standard accuracy also considers background classification, which can lead to misleading results, especially when dealing with small segments within a much larger volume. Even if half of the segment is mislabeled, the standard accuracy may still yield a remarkably high value. However, if you still prefer to use the standard accuracy, you can enable it by using this option.
