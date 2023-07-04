@@ -59,7 +59,7 @@ wget --no-check-certificate https://biomedisa.org/download/demo/?id=NMB_F2875.ti
 wget --no-check-certificate https://biomedisa.org/download/demo/?id=labels.NMB_F2875.tif -O ~/Downloads/labels.NMB_F2875.tif
 ```
 
-Run the Biomedisa interpolation. The result will be saved in `Downloads` as `final.tumor.tif`.
+#### Run the Biomedisa interpolation
 ```
 # Ubuntu
 python3 ~/git/biomedisa/demo/biomedisa_interpolation.py ~/Downloads/tumor.tif ~/Downloads/labels.tumor.tif
@@ -68,7 +68,7 @@ python3 ~/git/biomedisa/demo/biomedisa_interpolation.py ~/Downloads/tumor.tif ~/
 python git\biomedisa\demo\biomedisa_interpolation.py Downloads\tumor.tif Downloads\labels.tumor.tif
 ```
 
-Run the segmentation using e.g. 4 GPUs.
+#### Multi-GPU (e.g. 4 GPUs)
 ```
 # Ubuntu
 mpiexec -np 4 python3 ~/git/biomedisa/demo/biomedisa_interpolation.py ~/Downloads/NMB_F2875.tif ~/Downloads/labels.NMB_F2875.tif
@@ -103,9 +103,9 @@ mpiexec -np 4 python -u git\biomedisa\demo\biomedisa_interpolation.py Downloads\
 
 `--create_slices` or `-cs`: create slices of segmentation results (default: False)
 
-`--ignore STR`: ignore specific label(s), e.g. '2,5,6' (default: none)
+`--ignore STR`: ignore specific label(s), e.g. "2,5,6" (default: none)
 
-`--only STR`: segment only specific label(s), e.g. '1,3,5' (default: all)
+`--only STR`: segment only specific label(s), e.g. "1,3,5" (default: all)
 
 `--smooth INT` or `-s INT`: number of smoothing iterations for segmentation result (default: 0)
 
