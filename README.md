@@ -77,6 +77,7 @@ mpiexec -np 4 python3 ~/git/biomedisa/demo/biomedisa_interpolation.py ~/Download
 mpiexec -np 4 python -u git\biomedisa\demo\biomedisa_interpolation.py Downloads\NMB_F2875.tif Downloads\labels.NMB_F2875.tif
 ```
 
+#### Options
 `--help` or `-h`: show more information and exit
 
 `--version` or `-v`: Biomedisa version
@@ -143,49 +144,53 @@ wget --no-check-certificate https://biomedisa.org/download/demo/?id=heart.h5 -O 
 wget --no-check-certificate https://biomedisa.org/download/demo/?id=testing_axial_crop_pat13.nii.gz -O ~/Downloads/testing_axial_crop_pat13.nii.gz
 ```
 
-#### Automatic segmentation using a trained network
-To segment the test image, change to the `demo` directory `cd ~/git/biomedisa/demo/` and run
+#### Automatic segmentation using a trained network and batch size 6
 ```
+# change to the demo directory
+cd ~/git/biomedisa/demo/
+
 # Ubuntu
 python3 biomedisa_deeplearning.py ~/Downloads/testing_axial_crop_pat13.nii.gz ~/Downloads/heart.h5 -p -bs 6
 
 # Windows
 python biomedisa_deeplearning.py Downloads\testing_axial_crop_pat13.nii.gz Downloads\heart.h5 -p -bs 6
 ```
-`--predict` or `-p`: use the trained neural network to predict the result of the test image. The result will be saved in `Downloads`.
 
 #### Train a neural network for automatic segmentation
-To train a neural network, change to the `demo` directory `cd ~/git/biomedisa/demo/` and run
 ```
+# change to the demo directory
+cd ~/git/biomedisa/demo/
+
 # Ubuntu
 python3 biomedisa_deeplearning.py ~/Downloads/training_heart ~/Downloads/training_heart_labels -t
 
 # Windows
 python biomedisa_deeplearning.py Downloads\training_heart Downloads\training_heart_labels -t
 ```
-`--train` or `-t`: train a neural network. The result will be saved in `Downloads`.
+#### Options
+`--help` or `-h`: show more information and exit
 
-`--epochs INT` or `-e INT`: number of epochs trained (default: 100). 
+`--predict` or `-p`: automatic/predict segmentation
+
+`--train` or `-t`: train a neural network
+
+`--epochs INT` or `-e INT`: number of epochs trained (default: 100)
 
 `--batch-size INT` or `-bs INT`: batch size (default: 24). If you have a memory error, try reducing to 6, for example.
 
-#### Validate the network during training
-`--val-images PATH` or `-vi PATH`: path to directory with validation images.
+`--val-images PATH` or `-vi PATH`: path to directory with validation images
 
-`--val-labels PATH` or `-vl PATH`: path to directory with validation labels.
+`--val-labels PATH` or `-vl PATH`: path to directory with validation labels
 
-`--validation-split FLOAT` or `-vs FLOAT`: for example, split your data into 80% training data and 20% validation data with `-vs 0.8`. 
+`--validation-split FLOAT` or `-vs FLOAT`: for example, split your data into 80% training data and 20% validation data with `-vs 0.8`
 
-`--early-stopping INT` or `-es INT`: early stopping if there is no improvement after specified number of epochs.
+`--early-stopping INT` or `-es INT`: early stopping if there is no improvement after specified number of epochs
 
 #### Accuracy Assessment: Dice Score vs. Standard Accuracy in Biomedisa
 `--val-tf` or `-vt`: use standard pixelwise accuracy provided by TensorFlow. When evaluating accuracy, Biomedisa relies on the Dice score rather than the standard accuracy. The Dice score offers a more reliable assessment by measuring the overlap between the segmented regions, whereas the standard accuracy also considers background classification, which can lead to misleading results, especially when dealing with small segments within a much larger volume. Even if half of the segment is mislabeled, the standard accuracy may still yield a remarkably high value. However, if you still prefer to use the standard accuracy, you can enable it by using this option.
 
 #### Automatic cropping
 `--crop-data` or `-cd`: Both the training and inference data should be cropped to the region of interest for best performance. As an alternative to manual cropping, you can use Biomedisa's AI-based automatic cropping. After training, auto cropping is automatically applied to your inference data.
-
-#### Get help
-`--help` or `-h`: For more information.
 
 # Biomedisa features
 
