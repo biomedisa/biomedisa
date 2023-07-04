@@ -192,7 +192,7 @@ class Upload(models.Model):
     pid = models.IntegerField(default=0)
     normalize = models.BooleanField("Normalize training data (AI)", default=True)
     compression = models.BooleanField('Compress results', default=True)
-    epochs = models.IntegerField("Number of epochs (AI)", default=200)
+    epochs = models.IntegerField("Number of epochs (AI)", default=100)
     inverse = models.BooleanField(default=False)
     only = models.CharField("compute only label", default='all', max_length=20)
     position = models.BooleanField("Consider voxel location (AI)", default=False)
@@ -215,7 +215,7 @@ class Upload(models.Model):
     early_stopping = models.BooleanField("Early stopping (AI)", default=False)
     val_tf = models.BooleanField("Validate TF accuracy (AI)", default=False)
     validation_freq = models.IntegerField("Validation frequency (AI)", default=1)
-    filters = models.CharField("Network architecture (AI)", default='32-64-128-256-512-1024', max_length=30)
+    filters = models.CharField("Network architecture (AI)", default='32-64-128-256-512', max_length=30)
     resnet = models.BooleanField("ResNet convolutional blocks (AI)", default=False)
 
 class UploadForm(forms.ModelForm):

@@ -201,8 +201,8 @@ if __name__ == '__main__':
                         help='Ignore specific label(s), e.g. 2,5,6')
     parser.add_argument('--only', type=str, default='all',
                         help='Segment only specific label(s), e.g. 1,3,5')
-    parser.add_argument('-nf', '--network-filters', type=str, default='32-64-128-256-512-1024',
-                        help='Number of filters per layer up to the deepest, e.g. 32-64-128-256-512-1024')
+    parser.add_argument('-nf', '--network-filters', type=str, default='32-64-128-256-512',
+                        help='Number of filters per layer up to the deepest, e.g. 32-64-128-256-512')
     parser.add_argument('-rn','--resnet', action='store_true', default=False,
                         help='Use U-resnet instead of standard U-net')
     parser.add_argument('--channels', type=int, default=1,
@@ -211,7 +211,7 @@ if __name__ == '__main__':
                         help='Debug cropping')
     parser.add_argument('-sc','--save-cropped', action='store_true', default=False,
                         help='Save cropped image')
-    parser.add_argument('-e','--epochs', type=int, default=200,
+    parser.add_argument('-e','--epochs', type=int, default=100,
                         help='Epochs the network is trained')
     parser.add_argument('-nn','--no-normalization', action='store_true', default=False,
                         help='Disable image normalization')
