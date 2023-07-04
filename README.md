@@ -112,10 +112,10 @@ wget --no-check-certificate https://biomedisa.org/download/demo/?id=heart.h5 -O 
 wget --no-check-certificate https://biomedisa.org/download/demo/?id=testing_axial_crop_pat13.nii.gz -O ~/Downloads/testing_axial_crop_pat13.nii.gz
 ```
 
-Use the trained neural network to predict the result of the test image with a batch size of 6 batches. The result will be saved in `Downloads` as `final.testing_axial_crop_pat13.tif`.
+`--predict` or `-p`: use the trained neural network to predict the result of the test image with a batch size of 6 batches. The result will be saved in `Downloads` as `final.testing_axial_crop_pat13.tif`.
 ```
 # Ubuntu
-python3 ~/git/biomedisa/demo/biomedisa_deeplearning.py ~/Downloads/testing_axial_crop_pat13.nii.gz ~/Downloads/heart.h5 --predict -bs 6
+python3 ~/git/biomedisa/demo/biomedisa_deeplearning.py ~/Downloads/testing_axial_crop_pat13.nii.gz ~/Downloads/heart.h5 -p -bs 6
 
 # Windows
 python git\biomedisa\demo\biomedisa_deeplearning.py Downloads\testing_axial_crop_pat13.nii.gz Downloads\heart.h5 -p -bs 6
@@ -131,43 +131,37 @@ tar -xf training_heart.tar
 tar -xf training_heart_labels.tar
 ```
 
-Train a neural network with 200 epochs and batch size (-bs) of 24. The result will be saved in `Downloads` as `heart.h5`. If you have a single GPU or low memory, reduce the batch size to 6.
+`--train` or `-t`: train a neural network. The result will be saved in `Downloads` as `heart.h5`.
 ```
 # Ubuntu
-python3 ~/git/biomedisa/demo/biomedisa_deeplearning.py ~/Downloads/training_heart ~/Downloads/training_heart_labels --train --epochs 200 -bs 24
+python3 ~/git/biomedisa/demo/biomedisa_deeplearning.py ~/Downloads/training_heart ~/Downloads/training_heart_labels -t
 
 # Windows
-python git\biomedisa\demo\biomedisa_deeplearning.py Downloads\training_heart Downloads\training_heart_labels --train --epochs 200 -bs 24
+python git\biomedisa\demo\biomedisa_deeplearning.py Downloads\training_heart Downloads\training_heart_labels -t
 ```
+
+`--epochs` or `-e` [INT]: number of epochs trained. Defaults to 100. 
+
+`--batch-size` or `-bs` [INT]: batch size. Defaults to 24. If you have memory error, try to reduce e.g. to 6.
 
 #### Validate the network during training
 Specify directories containing validation images and validation labels.
 ```
-python3 ~/git/biomedisa/demo/biomedisa_deeplearning.py ~/Downloads/training_heart ~/Downloads/training_heart_labels --train --val_images ~/Downloads/validation_images --val_labels ~/Downloads/validation_labels
+python3 ~/git/biomedisa/demo/biomedisa_deeplearning.py ~/Downloads/training_heart ~/Downloads/training_heart_labels --train --val-images ~/Downloads/validation_images --val-labels ~/Downloads/validation_labels
 ```
 
-Split your data into 80% training data and 20% validation data and use early stopping if there is no improvement within 10 epochs.
-```
-python3 ~/git/biomedisa/demo/biomedisa_deeplearning.py ~/Downloads/training_heart ~/Downloads/training_heart_labels --train --validation_split 0.8 --early_stopping 10
-```
+`--validation-split` or `-vs` [FLOAT]: for example, split your data into 80% training data and 20% validation data with `-vs 0.8`. 
+
+`--early-stopping` or `-es` [INT]: early stopping if there is no improvement after specified number of epochs.
 
 #### Accuracy Assessment: Dice Score vs. Standard Accuracy in Biomedisa
-When evaluating accuracy, Biomedisa relies on the Dice score rather than the standard pixelwise accuracy provided by TensorFlow. The Dice score offers a more reliable assessment by measuring the overlap between the segmented regions, whereas the standard accuracy also considers background classification, which can lead to misleading results, especially when dealing with small segments within a much larger volume. Even if half of the segment is mislabeled, the standard accuracy may still yield a remarkably high value. However, if you still prefer to use the standard accuracy, you can enable it by using the `--val-tf` or `-vt` option.
-```
-python3 ~/git/biomedisa/demo/biomedisa_deeplearning.py ~/Downloads/training_heart ~/Downloads/training_heart_labels --train --validation_split 0.8 --val-tf
-```
+`--val-tf` or `-vt`: When evaluating accuracy, Biomedisa relies on the Dice score rather than the standard pixelwise accuracy provided by TensorFlow. The Dice score offers a more reliable assessment by measuring the overlap between the segmented regions, whereas the standard accuracy also considers background classification, which can lead to misleading results, especially when dealing with small segments within a much larger volume. Even if half of the segment is mislabeled, the standard accuracy may still yield a remarkably high value. However, if you still prefer to use the standard accuracy, you can enable it by using the `--val-tf` or `-vt` option.
 
 #### Automatic cropping
-Both the training and inference data should be cropped to the region of interest for best performance. As an alternative to manual cropping, you can use Biomedisa's AI-based automatic cropping. After training, auto cropping is automatically applied to your inference data.
-```
-python3 ~/git/biomedisa/demo/biomedisa_deeplearning.py 'path_to_images' 'path_to_labels' --train --crop_data
-```
+`--crop-data` or `-cd`: Both the training and inference data should be cropped to the region of interest for best performance. As an alternative to manual cropping, you can use Biomedisa's AI-based automatic cropping. After training, auto cropping is automatically applied to your inference data.
 
 #### Get help
-For more information, type
-```
-python3 ~/git/biomedisa/demo/biomedisa_deeplearning.py --help
-```
+`--help` or `-h`: For more information.
 
 # Biomedisa features
 
