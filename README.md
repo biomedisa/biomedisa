@@ -130,7 +130,7 @@ python3 biomedisa_deeplearning.py ~/Downloads/testing_axial_crop_pat13.nii.gz ~/
 # Windows
 python biomedisa_deeplearning.py Downloads\testing_axial_crop_pat13.nii.gz Downloads\heart.h5 -p -bs 6
 ```
-`--predict` or `-p`: use the trained neural network to predict the result of the test image. The result will be saved in `Downloads` as `final.testing_axial_crop_pat13.tif`.
+`--predict` or `-p`: use the trained neural network to predict the result of the test image. The result will be saved in `Downloads`.
 
 #### Train a neural network for automatic segmentation
 To train a neural network, change to the `demo` directory `cd ~/git/biomedisa/demo/` and run
@@ -141,7 +141,7 @@ python3 biomedisa_deeplearning.py ~/Downloads/training_heart ~/Downloads/trainin
 # Windows
 python biomedisa_deeplearning.py Downloads\training_heart Downloads\training_heart_labels -t
 ```
-`--train` or `-t`: train a neural network. The result will be saved in `Downloads` as `heart.h5`.
+`--train` or `-t`: train a neural network. The result will be saved in `Downloads`.
 
 `--epochs` or `-e` INT: number of epochs trained. Defaults to 100. 
 
