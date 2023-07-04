@@ -718,9 +718,9 @@ def train_semantic_segmentation(normalize, path_to_img, path_to_labels, x_scale,
             nb_blocks = len(filters.split('-'))
             for k in range(nb_blocks+1, 2*nb_blocks):
                 for l in [1,2]:
-                name = f'conv_{k}_{l}'
-                layer = model.get_layer(name)
-                layer.trainable = False
+                    name = f'conv_{k}_{l}'
+                    layer = model.get_layer(name)
+                    layer.trainable = False
             name = f'conv_{2*nb_blocks}_1'
             layer = model.get_layer(name)
             layer.trainable = False
