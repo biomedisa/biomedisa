@@ -105,24 +105,8 @@ Where `-n` is the number of GPUs and each axis (`x`,`y` and `z`) is divided into
 
 # Biomedisa deep learning
 
-#### Automatic segmentation using a trained network
-Download a trained neural network and a test image from the [gallery](https://biomedisa.org/gallery/) or directly as follows:
-```
-wget --no-check-certificate https://biomedisa.org/download/demo/?id=heart.h5 -O ~/Downloads/heart.h5
-wget --no-check-certificate https://biomedisa.org/download/demo/?id=testing_axial_crop_pat13.nii.gz -O ~/Downloads/testing_axial_crop_pat13.nii.gz
-```
-
-`--predict` or `-p`: use the trained neural network to predict the result of the test image with a batch size of 6 batches. The result will be saved in `Downloads` as `final.testing_axial_crop_pat13.tif`.
-```
-# Ubuntu
-python3 ~/git/biomedisa/demo/biomedisa_deeplearning.py ~/Downloads/testing_axial_crop_pat13.nii.gz ~/Downloads/heart.h5 -p -bs 6
-
-# Windows
-python git\biomedisa\demo\biomedisa_deeplearning.py Downloads\testing_axial_crop_pat13.nii.gz Downloads\heart.h5 -p -bs 6
-```
-
-#### Train a neural network for automatic segmentation
-To train the neural network yourself, download and extract the training data from the [gallery](https://biomedisa.org/gallery/) or directly as follows:
+#### Download training data, network and test image
+Download and extract the training data from the [gallery](https://biomedisa.org/gallery/) or directly as follows:
 ```
 wget --no-check-certificate https://biomedisa.org/download/demo/?id=training_heart.tar -O ~/Downloads/training_heart.tar
 wget --no-check-certificate https://biomedisa.org/download/demo/?id=training_heart_labels.tar -O ~/Downloads/training_heart_labels.tar
@@ -131,24 +115,42 @@ tar -xf training_heart.tar
 tar -xf training_heart_labels.tar
 ```
 
-`--train` or `-t`: train a neural network. The result will be saved in `Downloads` as `heart.h5`.
+Download a trained neural network and a test image from the [gallery](https://biomedisa.org/gallery/) or directly as follows:
+```
+wget --no-check-certificate https://biomedisa.org/download/demo/?id=heart.h5 -O ~/Downloads/heart.h5
+wget --no-check-certificate https://biomedisa.org/download/demo/?id=testing_axial_crop_pat13.nii.gz -O ~/Downloads/testing_axial_crop_pat13.nii.gz
+```
+
+#### Automatic segmentation using a trained network
+To segment the test image, change to the `demo` directory `cd ~/git/biomedisa/demo/` and run
 ```
 # Ubuntu
-python3 ~/git/biomedisa/demo/biomedisa_deeplearning.py ~/Downloads/training_heart ~/Downloads/training_heart_labels -t
+python3 biomedisa_deeplearning.py ~/Downloads/testing_axial_crop_pat13.nii.gz ~/Downloads/heart.h5 -p -bs 6
 
 # Windows
-python git\biomedisa\demo\biomedisa_deeplearning.py Downloads\training_heart Downloads\training_heart_labels -t
+python biomedisa_deeplearning.py Downloads\testing_axial_crop_pat13.nii.gz Downloads\heart.h5 -p -bs 6
 ```
+`--predict` or `-p`: use the trained neural network to predict the result of the test image with a batch size of 6 batches. The result will be saved in `Downloads` as `final.testing_axial_crop_pat13.tif`.
+
+#### Train a neural network for automatic segmentation
+To train a neural network, change to the `demo` directory `cd ~/git/biomedisa/demo/` and run
+```
+# Ubuntu
+python3 biomedisa_deeplearning.py ~/Downloads/training_heart ~/Downloads/training_heart_labels -t
+
+# Windows
+python biomedisa_deeplearning.py Downloads\training_heart Downloads\training_heart_labels -t
+```
+`--train` or `-t`: train a neural network. The result will be saved in `Downloads` as `heart.h5`.
 
 `--epochs` or `-e` [INT]: number of epochs trained. Defaults to 100. 
 
 `--batch-size` or `-bs` [INT]: batch size. Defaults to 24. If you have memory error, try to reduce e.g. to 6.
 
 #### Validate the network during training
-Specify directories containing validation images and validation labels.
-```
-python3 ~/git/biomedisa/demo/biomedisa_deeplearning.py ~/Downloads/training_heart ~/Downloads/training_heart_labels --train --val-images ~/Downloads/validation_images --val-labels ~/Downloads/validation_labels
-```
+`--val-images` or `-vi` PATH: path to directory with validation images.
+
+`--val-labels` or `-vl` PATH: path to directory with validation labels.
 
 `--validation-split` or `-vs` [FLOAT]: for example, split your data into 80% training data and 20% validation data with `-vs 0.8`. 
 
