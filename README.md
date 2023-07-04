@@ -145,7 +145,7 @@ python biomedisa_deeplearning.py Downloads\training_heart Downloads\training_hea
 
 `--epochs` or `-e` INT: number of epochs trained. Defaults to 100. 
 
-`--batch-size` or `-bs` INT: batch size. Defaults to 24. If you have memory error, try to reduce e.g. to 6.
+`--batch-size` or `-bs` INT: batch size. Defaults to 24. If you have a memory error, try reducing to 6, for example.
 
 #### Validate the network during training
 `--val-images` or `-vi` PATH: path to directory with validation images.
