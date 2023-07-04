@@ -130,7 +130,7 @@ python3 biomedisa_deeplearning.py ~/Downloads/testing_axial_crop_pat13.nii.gz ~/
 # Windows
 python biomedisa_deeplearning.py Downloads\testing_axial_crop_pat13.nii.gz Downloads\heart.h5 -p -bs 6
 ```
-`--predict` or `-p`: use the trained neural network to predict the result of the test image with a batch size of 6 batches. The result will be saved in `Downloads` as `final.testing_axial_crop_pat13.tif`.
+`--predict` or `-p`: use the trained neural network to predict the result of the test image. The result will be saved in `Downloads` as `final.testing_axial_crop_pat13.tif`.
 
 #### Train a neural network for automatic segmentation
 To train a neural network, change to the `demo` directory `cd ~/git/biomedisa/demo/` and run
@@ -143,18 +143,18 @@ python biomedisa_deeplearning.py Downloads\training_heart Downloads\training_hea
 ```
 `--train` or `-t`: train a neural network. The result will be saved in `Downloads` as `heart.h5`.
 
-`--epochs` or `-e` [INT]: number of epochs trained. Defaults to 100. 
+`--epochs` or `-e` INT: number of epochs trained. Defaults to 100. 
 
-`--batch-size` or `-bs` [INT]: batch size. Defaults to 24. If you have memory error, try to reduce e.g. to 6.
+`--batch-size` or `-bs` INT: batch size. Defaults to 24. If you have memory error, try to reduce e.g. to 6.
 
 #### Validate the network during training
 `--val-images` or `-vi` PATH: path to directory with validation images.
 
 `--val-labels` or `-vl` PATH: path to directory with validation labels.
 
-`--validation-split` or `-vs` [FLOAT]: for example, split your data into 80% training data and 20% validation data with `-vs 0.8`. 
+`--validation-split` or `-vs` FLOAT: for example, split your data into 80% training data and 20% validation data with `-vs 0.8`. 
 
-`--early-stopping` or `-es` [INT]: early stopping if there is no improvement after specified number of epochs.
+`--early-stopping` or `-es` INT: early stopping if there is no improvement after specified number of epochs.
 
 #### Accuracy Assessment: Dice Score vs. Standard Accuracy in Biomedisa
 `--val-tf` or `-vt`: When evaluating accuracy, Biomedisa relies on the Dice score rather than the standard pixelwise accuracy provided by TensorFlow. The Dice score offers a more reliable assessment by measuring the overlap between the segmented regions, whereas the standard accuracy also considers background classification, which can lead to misleading results, especially when dealing with small segments within a much larger volume. Even if half of the segment is mislabeled, the standard accuracy may still yield a remarkably high value. However, if you still prefer to use the standard accuracy, you can enable it by using the `--val-tf` or `-vt` option.
