@@ -125,18 +125,21 @@ Where `-n` is the number of GPUs and each axis (`x`,`y` and `z`) is divided into
 # Biomedisa deep learning
 
 #### Download training data, network, and test image
-Download and extract the training data from the [gallery](https://biomedisa.org/gallery/) or directly as follows:
+Download data from the [gallery](https://biomedisa.org/gallery/) or directly as follows:
 ```
+# training data
 wget --no-check-certificate https://biomedisa.org/download/demo/?id=training_heart.tar -O ~/Downloads/training_heart.tar
 wget --no-check-certificate https://biomedisa.org/download/demo/?id=training_heart_labels.tar -O ~/Downloads/training_heart_labels.tar
+
+# extract data
 cd ~/Downloads
 tar -xf training_heart.tar
 tar -xf training_heart_labels.tar
-```
 
-Download a trained neural network and a test image from the [gallery](https://biomedisa.org/gallery/) or directly as follows:
-```
+# trained network
 wget --no-check-certificate https://biomedisa.org/download/demo/?id=heart.h5 -O ~/Downloads/heart.h5
+
+# test image
 wget --no-check-certificate https://biomedisa.org/download/demo/?id=testing_axial_crop_pat13.nii.gz -O ~/Downloads/testing_axial_crop_pat13.nii.gz
 ```
 
