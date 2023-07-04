@@ -684,7 +684,7 @@ def settings(request, id):
                     for key in cd.keys():
                         image.__dict__[key] = cd[key]
                     image.validation_freq = max(1, int(cd['validation_freq']))
-                    image.epochs = min(200, int(cd['epochs']))
+                    image.epochs = min(100, int(cd['epochs']))
                     image.rotate = min(180, max(0, int(cd['rotate'])))
                     image.validation_split = min(1.0, max(0.0, float(cd['validation_split'])))
                     image.stride_size = max(32, int(cd['stride_size']))

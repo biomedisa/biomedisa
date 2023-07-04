@@ -151,6 +151,12 @@ Split your data into 80% training data and 20% validation data and use early sto
 python3 ~/git/biomedisa/demo/biomedisa_deeplearning.py ~/Downloads/training_heart ~/Downloads/training_heart_labels --train --validation_split 0.8 --early_stopping 10
 ```
 
+#### Accuracy Assessment: Dice Score vs. Standard Accuracy in Biomedisa
+When evaluating accuracy, Biomedisa relies on the Dice score rather than the standard pixelwise accuracy provided by TensorFlow. The Dice score offers a more reliable assessment by measuring the overlap between the segmented regions, whereas the standard accuracy also considers background classification, which can lead to misleading results, especially when dealing with small segments within a much larger volume. Even if half of the segment is mislabeled, the standard accuracy may still yield a remarkably high value. However, if you still prefer to use the standard accuracy, you can enable it by using the `--val-tf` or `-vt` option.
+```
+python3 ~/git/biomedisa/demo/biomedisa_deeplearning.py ~/Downloads/training_heart ~/Downloads/training_heart_labels --train --validation_split 0.8 --val-tf
+```
+
 #### Automatic cropping
 Both the training and inference data should be cropped to the region of interest for best performance. As an alternative to manual cropping, you can use Biomedisa's AI-based automatic cropping. After training, auto cropping is automatically applied to your inference data.
 ```

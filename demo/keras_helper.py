@@ -715,19 +715,15 @@ def train_semantic_segmentation(normalize, path_to_img, path_to_labels, x_scale,
         if pretrained_model:
             model_pretrained = load_model(pretrained_model)
             model.set_weights(model_pretrained.get_weights())
-            for name in ['conv_7_1',#'batch_norm_7_1',
-                         'conv_7_2',#'batch_norm_7_2',
-                         'conv_8_1',#'batch_norm_8_1',
-                         'conv_8_2',#'batch_norm_8_2',
-                         'conv_9_1',#'batch_norm_9_1',
-                         'conv_9_2',#'batch_norm_9_2',
-                         'conv_10_1',#'batch_norm_10_1',
-                         'conv_10_2',#'batch_norm_10_2',
-                         'conv_11_1',#'batch_norm_11_1',
-                         'conv_11_2',#'batch_norm_11_2',
-                         'conv_12_1']:
+            nb_blocks = len(filters.split('-'))
+            for k in range(nb_blocks+1, 2*nb_blocks):
+                for l in [1,2]:
+                name = f'conv_{k}_{l}'
                 layer = model.get_layer(name)
                 layer.trainable = False
+            name = f'conv_{2*nb_blocks}_1'
+            layer = model.get_layer(name)
+            layer.trainable = False
 
         model.compile(loss='categorical_crossentropy',
                       optimizer=sgd,
