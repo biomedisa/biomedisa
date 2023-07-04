@@ -43,12 +43,20 @@ Biomedisa (https://biomedisa.org) is a free and easy-to-use open-source online p
 
 # Biomedisa interpolation
 
-#### Small example
-Download the tumor test example from the [gallery](https://biomedisa.org/gallery/) or directly as follows:
+#### Download examples
+Download data from the [gallery](https://biomedisa.org/gallery/) or directly as follows:
 ```
-# Brain tumor
+# Brain tumor (small example, good for testing)
 wget --no-check-certificate https://biomedisa.org/download/demo/?id=tumor.tif -O ~/Downloads/tumor.tif
 wget --no-check-certificate https://biomedisa.org/download/demo/?id=labels.tumor.tif -O ~/Downloads/labels.tumor.tif
+
+# Trigonopterus
+wget --no-check-certificate https://biomedisa.org/download/demo/?id=trigonopterus.tif -O ~/Downloads/trigonopterus.tif
+wget --no-check-certificate https://biomedisa.org/download/demo/?id=labels.trigonopterus_smart.am -O ~/Downloads/labels.trigonopterus_smart.am
+
+# Mineralized wasp
+wget --no-check-certificate https://biomedisa.org/download/demo/?id=NMB_F2875.tif -O ~/Downloads/NMB_F2875.tif
+wget --no-check-certificate https://biomedisa.org/download/demo/?id=labels.NMB_F2875.tif -O ~/Downloads/labels.NMB_F2875.tif
 ```
 
 Run the Biomedisa interpolation. The result will be saved in `Downloads` as `final.tumor.tif`.
@@ -60,18 +68,6 @@ python3 ~/git/biomedisa/demo/biomedisa_interpolation.py ~/Downloads/tumor.tif ~/
 python git\biomedisa\demo\biomedisa_interpolation.py Downloads\tumor.tif Downloads\labels.tumor.tif
 ```
 
-#### Further examples
-Download further examples from the [gallery](https://biomedisa.org/gallery/) or directly as follows:
-```
-# Trigonopterus
-wget --no-check-certificate https://biomedisa.org/download/demo/?id=trigonopterus.tif -O ~/Downloads/trigonopterus.tif
-wget --no-check-certificate https://biomedisa.org/download/demo/?id=labels.trigonopterus_smart.am -O ~/Downloads/labels.trigonopterus_smart.am
-
-# Mineralized wasp
-wget --no-check-certificate https://biomedisa.org/download/demo/?id=NMB_F2875.tif -O ~/Downloads/NMB_F2875.tif
-wget --no-check-certificate https://biomedisa.org/download/demo/?id=labels.NMB_F2875.tif -O ~/Downloads/labels.NMB_F2875.tif
-```
-
 Run the segmentation using e.g. 4 GPUs.
 ```
 # Ubuntu
@@ -81,20 +77,25 @@ mpiexec -np 4 python3 ~/git/biomedisa/demo/biomedisa_interpolation.py ~/Download
 mpiexec -np 4 python -u git\biomedisa\demo\biomedisa_interpolation.py Downloads\NMB_F2875.tif Downloads\labels.NMB_F2875.tif
 ```
 
-Obtain uncertainty and smoothing as optional results.
-```
-python3 ~/git/biomedisa/demo/biomedisa_interpolation.py ~/Downloads/tumor.tif ~/Downloads/labels.tumor.tif --uncertainty --smooth 100
-```
-
-Use pre-segmentation with different orientations (not exclusively xy-plane).
-```
-python3 ~/git/biomedisa/demo/biomedisa_interpolation.py 'path_to_image' 'path_to_labels' --allaxis
-```
-
-For more information, type
-```
-python3 ~/git/biomedisa/demo/biomedisa_interpolation.py --help
-```
+`--help` or `-h`: show more information and exit
+`--version` or `-v`: Biomedisa version
+`--nbrw INT`: number of random walks starting at each pre-segmented pixel (default: 10)
+`--sorw INT`: steps of a random walk (default: 4000)
+`--acwe`: post-processing with active contour (default: False)
+`--acwe-alpha FLOAT`: pushing force of active contour (default: 1.0)
+`--acwe-smooth INT`: smoothing of active contour (default: 1)
+`--acwe-steps INT`: iterations of active contour (default: 3)
+`--no-compression`: disable compression of segmentation results (default: False)
+`--allaxis` or `-allx`: if pre-segmentation is not exlusively in xy-plane (default: False)
+`--denoise` or `-d`: smooth/denoise image data before processing (default: False)
+`--uncertainty` or `-u`: return uncertainty of segmentation result (default: False)
+`--create_slices` or `-cs`: create slices of segmentation results (default: False)
+`--ignore STR`: ignore specific label(s), e.g. '2,5,6' (default: none)
+`--only STR`: segment only specific label(s), e.g. '1,3,5' (default: all)
+`--smooth INT` or `-s INT`: number of smoothing iterations for segmentation result (default: 0)
+`--clean FLOAT` or `-c FLOAT`: remove outliers, e.g. 0.5 means that objects smaller than 50 percent of the size of the largest object will be removed (default: None)
+`--fill FLOAT` or `-f FLOAT`: fill holes, e.g. 0.5 means that all holes smaller than 50 percent of the entire label will be filled (default: None)
+`--platform STR` or `-p STR`: one of "cuda", "opencl_NVIDIA_GPU", "opencl_Intel_CPU" (default: None)
 
 #### Memory error
 If memory errors (either GPU or host memory) occur, you can start the segmentation as follows:
@@ -143,9 +144,9 @@ python biomedisa_deeplearning.py Downloads\training_heart Downloads\training_hea
 ```
 `--train` or `-t`: train a neural network. The result will be saved in `Downloads`.
 
-`--epochs` or `-e` INT: number of epochs trained. Defaults to 100. 
+`--epochs` or `-e` INT: number of epochs trained (default: 100). 
 
-`--batch-size` or `-bs` INT: batch size. Defaults to 24. If you have a memory error, try reducing to 6, for example.
+`--batch-size` or `-bs` INT: batch size (default: 24). If you have a memory error, try reducing to 6, for example.
 
 #### Validate the network during training
 `--val-images` or `-vi` PATH: path to directory with validation images.
