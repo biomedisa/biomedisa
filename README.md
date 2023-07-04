@@ -105,7 +105,7 @@ Where `-n` is the number of GPUs and each axis (`x`,`y` and `z`) is divided into
 
 # Biomedisa deep learning
 
-#### Download training data, network and test image
+#### Download training data, network, and test image
 Download and extract the training data from the [gallery](https://biomedisa.org/gallery/) or directly as follows:
 ```
 wget --no-check-certificate https://biomedisa.org/download/demo/?id=training_heart.tar -O ~/Downloads/training_heart.tar
@@ -157,7 +157,7 @@ python biomedisa_deeplearning.py Downloads\training_heart Downloads\training_hea
 `--early-stopping` or `-es` INT: early stopping if there is no improvement after specified number of epochs.
 
 #### Accuracy Assessment: Dice Score vs. Standard Accuracy in Biomedisa
-`--val-tf` or `-vt`: When evaluating accuracy, Biomedisa relies on the Dice score rather than the standard pixelwise accuracy provided by TensorFlow. The Dice score offers a more reliable assessment by measuring the overlap between the segmented regions, whereas the standard accuracy also considers background classification, which can lead to misleading results, especially when dealing with small segments within a much larger volume. Even if half of the segment is mislabeled, the standard accuracy may still yield a remarkably high value. However, if you still prefer to use the standard accuracy, you can enable it by using the `--val-tf` or `-vt` option.
+`--val-tf` or `-vt`: use standard pixelwise accuracy provided by TensorFlow. When evaluating accuracy, Biomedisa relies on the Dice score rather than the standard accuracy. The Dice score offers a more reliable assessment by measuring the overlap between the segmented regions, whereas the standard accuracy also considers background classification, which can lead to misleading results, especially when dealing with small segments within a much larger volume. Even if half of the segment is mislabeled, the standard accuracy may still yield a remarkably high value. However, if you still prefer to use the standard accuracy, you can enable it by using this option.
 
 #### Automatic cropping
 `--crop-data` or `-cd`: Both the training and inference data should be cropped to the region of interest for best performance. As an alternative to manual cropping, you can use Biomedisa's AI-based automatic cropping. After training, auto cropping is automatically applied to your inference data.
