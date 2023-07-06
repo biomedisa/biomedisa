@@ -20,6 +20,7 @@ sudo apt-get install libsm6 libxrender-dev \
 ```
 
 #### Install pip packages
+You may only use `pip3 install --upgrade <package>` and add `export PATH=/home/$USER/.local/bin:${PATH}` to `~/.bashrc` if you only install Biomedisa for your user and do not have sudo rights, for example like on a supercomputer
 ```
 sudo -H pip3 install --upgrade pip setuptools testresources scikit-build
 sudo -H pip3 install --upgrade numpy scipy h5py colorama numpy-stl \
