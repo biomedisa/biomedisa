@@ -35,8 +35,9 @@ from vtk.util.numpy_support import vtk_to_numpy, numpy_to_vtk
 from stl import mesh
 import vtk
 import re
+import argparse
 
-def marching_cubes(image, threshold):
+def marching_cubes(image, threshold, poly_reduction, smoothing_iterations):
 
     # marching cubes
     mc = vtk.vtkMarchingCubes()
@@ -73,7 +74,7 @@ def marching_cubes(image, threshold):
     #decimate = vtk.vtkDecimatePro()
     decimate = vtk.vtkQuadricDecimation()
     decimate.SetInputData(inputPoly)
-    decimate.SetTargetReduction(.90)
+    decimate.SetTargetReduction(poly_reduction)
     decimate.Update()
 
     decimatedPoly = vtk.vtkPolyData()
@@ -87,7 +88,7 @@ def marching_cubes(image, threshold):
     # smooth surface
     smoothFilter = vtk.vtkSmoothPolyDataFilter()
     smoothFilter.SetInputData(decimatedPoly)
-    smoothFilter.SetNumberOfIterations(15)
+    smoothFilter.SetNumberOfIterations(smoothing_iterations)
     smoothFilter.SetRelaxationFactor(0.1)
     smoothFilter.FeatureEdgeSmoothingOff()
     smoothFilter.BoundarySmoothingOn()
@@ -98,7 +99,7 @@ def marching_cubes(image, threshold):
 
     return decimatedPoly#confilter.GetOutput()
 
-def save_mesh(path_to_data, image, xres=1, yres=1, zres=1):
+def save_mesh(path_to_data, image, xres=1, yres=1, zres=1, poly_reduction=0.9, smoothing_iterations=15):
 
     # get labels
     zsh, ysh, xsh = image.shape
@@ -123,7 +124,7 @@ def save_mesh(path_to_data, image, xres=1, yres=1, zres=1):
         imageData.GetPointData().SetScalars(sc)
 
         # get poly data
-        poly = marching_cubes(imageData,1)
+        poly = marching_cubes(imageData, 1, poly_reduction, smoothing_iterations)
 
         # get number of cells
         nPoints = poly.GetNumberOfPoints()
@@ -200,18 +201,47 @@ def get_voxel_spacing(header, data, extension):
 
 if __name__ == "__main__":
 
-    # path to data
-    path_to_data = sys.argv[1]
+    # initialize arguments
+    parser = argparse.ArgumentParser(description='Biomedisa mesh generator.',
+             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+    # required arguments
+    parser.add_argument('path_to_data', type=str, metavar='PATH_TO_LABELS',
+                        help='Location of label data')
+
+    # optional arguments
+    parser.add_argument('-pr', '--poly-reduction', type=float, default=0.9,
+                        help='Reduce number of polygons by this factor')
+    parser.add_argument('-s', '--smoothing-iterations', type=int, default=15,
+                        help='Iteration steps for smoothing')
+    parser.add_argument('-xres','--x-res', type=int, default=None,
+                        help='Voxel spacing/resolution x-axis')
+    parser.add_argument('-yres','--y-res', type=int, default=None,
+                        help='Voxel spacing/resolution y-axis')
+    parser.add_argument('-zres','--z-res', type=int, default=None,
+                        help='Voxel spacing/resolution z-axis')
+    args = parser.parse_args()
 
     # load data
     from biomedisa_features.biomedisa_helper import load_data
-    data, header, extension = load_data(path_to_data, return_extension=True)
+    data, header, extension = load_data(args.path_to_data, return_extension=True)
 
     # get voxel spacing
-    xres, yres, zres = get_voxel_spacing(header, data, extension)
-    print(f'Voxel spacing: x_spacing, y_spacing, z_spacing = {xres}, {yres}, {zres}')
+    if not all([args.x_res, args.y_res, args.z_res]):
+        xres, yres, zres = get_voxel_spacing(header, data, extension)
+        if args.x_res:
+            xres = args.x_res
+        if args.y_res:
+            yres = args.y_res
+        if args.z_res:
+            zres = args.z_res
+        print(f'Voxel spacing: x_spacing, y_spacing, z_spacing = {xres}, {yres}, {zres}')
+    else:
+        xres = args.x_res
+        yres = args.y_res
+        zres = args.z_res
 
     # save stl file
-    path_to_data = path_to_data.replace(os.path.splitext(path_to_data)[1],'.stl')
-    save_mesh(path_to_data, data, xres, yres, zres)
+    path_to_data = args.path_to_data.replace(os.path.splitext(args.path_to_data)[1],'.stl')
+    save_mesh(path_to_data, data, xres, yres, zres, args.poly_reduction, args.smoothing_iterations)
 
