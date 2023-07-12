@@ -35,7 +35,6 @@ import biomedisa
 import biomedisa_features.crop_helper as ch
 from multiprocessing import Process
 import argparse
-from tensorflow.python.framework.errors_impl import ResourceExhaustedError
 import tensorflow as tf
 import numpy as np
 import h5py
@@ -57,65 +56,48 @@ def conv_network(args):
     # validation batch size must be divisible by the number of GPUs and two
     rest = args.validation_batch_size % (2*ngpus)
     if 2*ngpus - rest < rest:
-        validation_batch_size = args.validation_batch_size + 2*ngpus - rest
+        args.validation_batch_size = args.validation_batch_size + 2*ngpus - rest
     else:
-        validation_batch_size = args.validation_batch_size - rest
+        args.validation_batch_size = args.validation_batch_size - rest
 
     # dimensions of patches for regular training
-    z_patch, y_patch, x_patch = 64, 64, 64
+    args.z_patch, args.y_patch, args.x_patch = 64, 64, 64
 
     # adapt scaling and stridesize to patchsize
-    x_scale = args.x_scale - (args.x_scale - 64) % args.stride_size
-    y_scale = args.y_scale - (args.y_scale - 64) % args.stride_size
-    z_scale = args.z_scale - (args.z_scale - 64) % args.stride_size
+    args.x_scale = args.x_scale - (args.x_scale - 64) % args.stride_size
+    args.y_scale = args.y_scale - (args.y_scale - 64) % args.stride_size
+    args.z_scale = args.z_scale - (args.z_scale - 64) % args.stride_size
 
     if args.train:
 
-        try:
-            # train automatic cropping
-            cropping_weights, cropping_config = None, None
-            if args.crop_data:
-                cropping_weights, cropping_config = ch.load_and_train(args.normalize, [args.path_to_img], [args.path_to_labels], args.path_to_model,
-                            args.epochs, args.batch_size, args.validation_split, x_scale, y_scale, z_scale,
-                            args.flip_x, args.flip_y, args.flip_z, args.rotate, args.only, args.ignore, [args.val_images], [args.val_labels], True)
+        # train automatic cropping
+        args.cropping_weights, args.cropping_config = None, None
+        if args.crop_data:
+            args.cropping_weights, args.cropping_config = ch.load_and_train(args.normalize, [args.path_to_img], [args.path_to_labels], args.path_to_model,
+                        args.epochs, args.batch_size, args.validation_split, args.x_scale, args.y_scale, args.z_scale,
+                        args.flip_x, args.flip_y, args.flip_z, args.rotate, args.only, args.ignore, [args.val_images], [args.val_labels], True)
 
-            # train automatic segmentation
-            train_semantic_segmentation(args.normalize, [args.path_to_img], [args.path_to_labels], x_scale, y_scale,
-                            z_scale, args.no_scaling, args.crop_data, args.path_to_model, z_patch, y_patch, x_patch, args.epochs,
-                            args.batch_size, args.channels, args.validation_split, args.stride_size, args.balance,
-                            args.flip_x, args.flip_y, args.flip_z, args.rotate, args.early_stopping, args.val_tf, args.learning_rate,
-                            [args.val_images], [args.val_labels], args.validation_stride_size, args.validation_freq,
-                            validation_batch_size, cropping_weights, cropping_config, args.only, args.ignore, args.network_filters, args.resnet, args.pretrained_model)
-        except InputError:
-            print('Error:', InputError.message)
-        except MemoryError:
-            print('MemoryError')
-        except ResourceExhaustedError:
-            print('Error: GPU out of memory')
-        except Exception as e:
-            print('Error:', e)
+        # train automatic segmentation
+        train_semantic_segmentation([args.path_to_img], [args.path_to_labels],
+                        [args.val_images], [args.val_labels], args)
 
     if args.predict:
 
+        # get meta data
+        hf = h5py.File(args.path_to_model, 'r')
+        meta = hf.get('meta')
+        configuration = meta.get('configuration')
+        channels, args.x_scale, args.y_scale, args.z_scale, normalize, mu, sig = np.array(configuration)[:]
+        channels, args.x_scale, args.y_scale, args.z_scale, normalize, mu, sig = int(channels), int(args.x_scale), \
+                                int(args.y_scale), int(args.z_scale), int(normalize), float(mu), float(sig)
+        allLabels = np.array(meta.get('labels'))
+        header = np.array(meta.get('header'))
         try:
-            # get meta data
-            hf = h5py.File(args.path_to_model, 'r')
-            meta = hf.get('meta')
-            configuration = meta.get('configuration')
-            channels, x_scale, y_scale, z_scale, normalize, mu, sig = np.array(configuration)[:]
-            channels, x_scale, y_scale, z_scale, normalize, mu, sig = int(channels), int(x_scale), \
-                                    int(y_scale), int(z_scale), int(normalize), float(mu), float(sig)
-            allLabels = np.array(meta.get('labels'))
-            header = np.array(meta.get('header'))
-            try:
-                extension = meta.get('extension').asstr()[()]
-            except:
-                extension = str(np.array(meta.get('extension')))
-            crop_data = True if 'cropping_weights' in hf else False
-            hf.close()
-        except Exception as e:
-            print('Error:', e)
-            return
+            extension = meta.get('extension').asstr()[()]
+        except:
+            extension = str(np.array(meta.get('extension')))
+        crop_data = True if 'cropping_weights' in hf else False
+        hf.close()
 
         # if header is not Amira falling back to Multi-TIFF
         if extension != '.am':
@@ -134,30 +116,21 @@ def conv_network(args):
         args.path_to_filled = args.path_to_img.replace(os.path.basename(args.path_to_img), filename + '.filled' + extension)
         args.path_to_cleaned_filled = args.path_to_img.replace(os.path.basename(args.path_to_img), filename + '.cleaned.filled' + extension)
 
-        try:
-            # crop data
-            region_of_interest = None
-            if crop_data:
-                region_of_interest = ch.crop_data(args.path_to_img, args.path_to_model, args.path_to_cropped_image,
-                    args.batch_size, args.debug_cropping, args.save_cropped)
+        # crop data
+        region_of_interest = None
+        if crop_data:
+            region_of_interest = ch.crop_data(args.path_to_img, args.path_to_model, args.path_to_cropped_image,
+                args.batch_size, args.debug_cropping, args.save_cropped)
 
-            # load prediction data
-            img, img_header, position, z_shape, y_shape, x_shape, region_of_interest = load_prediction_data(args.path_to_img,
-                channels, x_scale, y_scale, z_scale, args.no_scaling, normalize, mu, sig, region_of_interest)
+        # load prediction data
+        img, img_header, position, z_shape, y_shape, x_shape, region_of_interest = load_prediction_data(args.path_to_img,
+            channels, args.x_scale, args.y_scale, args.z_scale, args.no_scaling, normalize, mu, sig, region_of_interest)
 
-            # make prediction
-            predict_semantic_segmentation(args, img, position, args.path_to_model, path_to_final,
-                z_patch, y_patch, x_patch, z_shape, y_shape, x_shape, args.compression, header,
-                img_header, channels, args.stride_size, allLabels, args.batch_size, region_of_interest)
-
-        except InputError:
-            print('Error:', InputError.message)
-        except MemoryError:
-            print('MemoryError')
-        except ResourceExhaustedError:
-            print('GPU out of memory')
-        except Exception as e:
-            print('Error:', e)
+        # make prediction
+        predict_semantic_segmentation(args, img, position, args.path_to_model, path_to_final,
+            args.z_patch, args.y_patch, args.x_patch, z_shape, y_shape, x_shape, args.compression, header,
+            img_header, channels, args.stride_size, allLabels, args.batch_size, region_of_interest,
+            args.classification)
 
 if __name__ == '__main__':
 
@@ -191,6 +164,8 @@ if __name__ == '__main__':
                         help='Randomly flip y-axis during training')
     parser.add_argument('--flip-z', action='store_true', default=False,
                         help='Randomly flip z-axis during training')
+    parser.add_argument('-sa','--swapaxes', action='store_true', default=False,
+                        help='Randomly swap two axes during training')
     parser.add_argument('-vt','--val-tf', action='store_true', default=False,
                         help='Use tensorflow standard accuracy on validation data')
     parser.add_argument('--no-compression', action='store_true', default=False,
@@ -251,6 +226,12 @@ if __name__ == '__main__':
                         help='Training is terminated when the accuracy has not increased in the epochs defined by this')
     parser.add_argument('-pm','--pretrained-model', type=str, metavar='PATH', default=None,
                         help='Location of pretrained model (only encoder will be trained if specified)')
+    parser.add_argument('-ft','--fine-tune', action='store_true', default=False,
+                        help='Fine-tune a pretrained model. Choose a smaller learning rate, e.g. 0.0001')
+    parser.add_argument('-cl','--classification', action='store_true', default=False,
+                        help='Train a model for image classification. Validation works only with `-vt` option')
+    parser.add_argument('-w','--workers', type=int, default=1,
+                        help='Parallel workers for batch processing')
     args = parser.parse_args()
 
     if args.predict:

@@ -36,9 +36,11 @@ except:
 from tensorflow.keras.models import Model, load_model
 from tensorflow.keras.layers import (
     Input, Conv3D, MaxPooling3D, UpSampling3D, Activation, Reshape,
-    BatchNormalization, Concatenate, ReLU, Add)
+    BatchNormalization, Concatenate, ReLU, Add, GlobalAveragePooling3D,
+    Dense, Dropout, MaxPool3D, Flatten)
 from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.callbacks import Callback, ModelCheckpoint, EarlyStopping
+from tensorflow import keras
 from biomedisa_features.DataGenerator import DataGenerator
 from biomedisa_features.PredictDataGenerator import PredictDataGenerator
 import matplotlib.pyplot as plt
@@ -283,6 +285,38 @@ def make_unet(input_shape, nb_labels, filters='32-64-128-256-512-1024', resnet=F
 
     model = Model(inputs=inputs, outputs=outputs)
 
+    return model
+
+def make_classification_model(input_shape, nb_labels):
+    """Build a 3D convolutional neural network model."""
+    inputs = Input(input_shape)
+
+    x = Conv3D(filters=32, kernel_size=3, activation="relu")(inputs)
+    x = MaxPool3D(pool_size=2)(x)
+    #x = BatchNormalization()(x)
+    #x = Dropout(0.25)(x)
+
+    x = Conv3D(filters=64, kernel_size=3, activation="relu")(x)
+    x = MaxPool3D(pool_size=2)(x)
+    x = BatchNormalization()(x)
+    #x = Dropout(0.25)(x)
+
+    x = Conv3D(filters=256, kernel_size=3, activation="relu")(x)
+    x = MaxPool3D(pool_size=2)(x)
+    x = BatchNormalization()(x)
+    #x = Dropout(0.25)(x)
+
+    #x = Flatten()(x)
+    x = GlobalAveragePooling3D()(x)
+    #x = Dense(units=1024, activation="relu")(x)
+    #x = Dropout(0.5)(x)
+
+    x = Dense(units=512, activation="relu")(x)
+    x = Dropout(0.25)(x)
+
+    outputs = Dense(units=nb_labels, activation="sigmoid")(x)
+
+    model = Model(inputs=inputs, outputs=outputs)
     return model
 
 def get_labels(arr, allLabels):
@@ -588,39 +622,34 @@ class Metrics(Callback):
             if self.early_stopping > 0 and max(self.history['val_accuracy']) not in self.history['val_accuracy'][-self.early_stopping:]:
                 self.model.stop_training = True
 
-def train_semantic_segmentation(normalize, path_to_img, path_to_labels, x_scale, y_scale,
-            z_scale, no_scaling, crop_data, path_to_model, z_patch, y_patch, x_patch, epochs,
-            batch_size, channels, validation_split, stride_size, balance,
-            flip_x, flip_y, flip_z, rotate, early_stopping, val_tf, learning_rate,
-            path_val_img, path_val_labels, validation_stride_size, validation_freq,
-            validation_batch_size, cropping_weights, cropping_config, labels_to_compute,
-            labels_to_remove, filters, resnet, pretrained_model):
+def train_semantic_segmentation(path_to_img, path_to_labels,
+            path_val_img, path_val_labels, args):
 
     # training data
-    img, label, position, allLabels, configuration_data, header, extension = load_training_data(normalize,
-                    path_to_img, path_to_labels, channels, x_scale, y_scale, z_scale, no_scaling, crop_data,
-                    labels_to_compute, labels_to_remove, None, None)
+    img, label, position, allLabels, configuration_data, header, extension = load_training_data(args.normalize,
+                    path_to_img, path_to_labels, args.channels, args.x_scale, args.y_scale, args.z_scale, args.no_scaling, args.crop_data,
+                    args.only, args.ignore, None, None)
 
     # img shape
     zsh, ysh, xsh = img.shape
 
     # validation data
     if any(path_val_img):
-        img_val, label_val, position_val, _, _, _, _ = load_training_data(normalize,
-                        path_val_img, path_val_labels, channels, x_scale, y_scale, z_scale, no_scaling, crop_data,
-                        labels_to_compute, labels_to_remove, configuration_data, allLabels)
+        img_val, label_val, position_val, _, _, _, _ = load_training_data(args.normalize,
+                        path_val_img, path_val_labels, args.channels, args.x_scale, args.y_scale, args.z_scale, args.no_scaling, args.crop_data,
+                        args.only, args.ignore, configuration_data, allLabels)
 
-    elif validation_split:
-        number_of_images = zsh // z_scale
-        split = round(number_of_images * validation_split)
-        img_val = np.copy(img[split*z_scale:])
-        label_val = np.copy(label[split*z_scale:])
-        img = np.copy(img[:split*z_scale])
-        label = np.copy(label[:split*z_scale])
+    elif args.validation_split:
+        number_of_images = zsh // args.z_scale
+        split = round(number_of_images * args.validation_split)
+        img_val = np.copy(img[split*args.z_scale:])
+        label_val = np.copy(label[split*args.z_scale:])
+        img = np.copy(img[:split*args.z_scale])
+        label = np.copy(label[:split*args.z_scale])
         zsh, ysh, xsh = img.shape
-        if channels == 2:
-            position_val = np.copy(position[split*z_scale:])
-            position = np.copy(position[:split*z_scale])
+        if args.channels == 2:
+            position_val = np.copy(position[split*args.z_scale:])
+            position = np.copy(position[:split*args.z_scale])
         else:
             position_val = None
 
@@ -628,21 +657,21 @@ def train_semantic_segmentation(normalize, path_to_img, path_to_labels, x_scale,
     list_IDs_fg, list_IDs_bg = [], []
 
     # get IDs of patches
-    if balance:
-        for k in range(0, zsh-z_patch+1, stride_size):
-            for l in range(0, ysh-y_patch+1, stride_size):
-                for m in range(0, xsh-x_patch+1, stride_size):
-                    if np.any(label[k:k+z_patch, l:l+y_patch, m:m+x_patch]):
+    if args.balance:
+        for k in range(0, zsh-args.z_patch+1, args.stride_size):
+            for l in range(0, ysh-args.y_patch+1, args.stride_size):
+                for m in range(0, xsh-args.x_patch+1, args.stride_size):
+                    if np.any(label[k:k+args.z_patch, l:l+args.y_patch, m:m+args.x_patch]):
                         list_IDs_fg.append(k*ysh*xsh+l*xsh+m)
                     else:
                         list_IDs_bg.append(k*ysh*xsh+l*xsh+m)
     else:
-        for k in range(0, zsh-z_patch+1, stride_size):
-            for l in range(0, ysh-y_patch+1, stride_size):
-                for m in range(0, xsh-x_patch+1, stride_size):
+        for k in range(0, zsh-args.z_patch+1, args.stride_size):
+            for l in range(0, ysh-args.y_patch+1, args.stride_size):
+                for m in range(0, xsh-args.x_patch+1, args.stride_size):
                     list_IDs_fg.append(k*ysh*xsh+l*xsh+m)
 
-    if any(path_val_img) or validation_split:
+    if any(path_val_img) or args.validation_split:
 
         # img_val shape
         zsh_val, ysh_val, xsh_val = img_val.shape
@@ -651,53 +680,50 @@ def train_semantic_segmentation(normalize, path_to_img, path_to_labels, x_scale,
         list_IDs_val_fg, list_IDs_val_bg = [], []
 
         # get validation IDs of patches
-        if balance and val_tf:
-            for k in range(0, zsh_val-z_patch+1, validation_stride_size):
-                for l in range(0, ysh_val-y_patch+1, validation_stride_size):
-                    for m in range(0, xsh_val-x_patch+1, validation_stride_size):
-                        if np.any(label_val[k:k+z_patch, l:l+y_patch, m:m+x_patch]):
+        if args.balance and args.val_tf:
+            for k in range(0, zsh_val-args.z_patch+1, args.validation_stride_size):
+                for l in range(0, ysh_val-args.y_patch+1, args.validation_stride_size):
+                    for m in range(0, xsh_val-args.x_patch+1, args.validation_stride_size):
+                        if np.any(label_val[k:k+args.z_patch, l:l+args.y_patch, m:m+args.x_patch]):
                             list_IDs_val_fg.append(k*ysh_val*xsh_val+l*xsh_val+m)
                         else:
                             list_IDs_val_bg.append(k*ysh_val*xsh_val+l*xsh_val+m)
         else:
-            for k in range(0, zsh_val-z_patch+1, validation_stride_size):
-                for l in range(0, ysh_val-y_patch+1, validation_stride_size):
-                    for m in range(0, xsh_val-x_patch+1, validation_stride_size):
+            for k in range(0, zsh_val-args.z_patch+1, args.validation_stride_size):
+                for l in range(0, ysh_val-args.y_patch+1, args.validation_stride_size):
+                    for m in range(0, xsh_val-args.x_patch+1, args.validation_stride_size):
                         list_IDs_val_fg.append(k*ysh_val*xsh_val+l*xsh_val+m)
 
             # make length of list divisible by validation batch size
-            rest = validation_batch_size - (len(list_IDs_val_fg) % validation_batch_size)
+            rest = args.validation_batch_size - (len(list_IDs_val_fg) % args.validation_batch_size)
             list_IDs_val_fg = list_IDs_val_fg + list_IDs_val_fg[:rest]
 
     # number of labels
     nb_labels = len(allLabels)
 
     # input shape
-    input_shape = (z_patch, y_patch, x_patch, channels)
+    input_shape = (args.z_patch, args.y_patch, args.x_patch, args.channels)
 
     # parameters
-    params = {'batch_size': batch_size,
-              'dim': (z_patch, y_patch, x_patch),
+    params = {'batch_size': args.batch_size,
+              'dim': (args.z_patch, args.y_patch, args.x_patch),
               'dim_img': (zsh, ysh, xsh),
               'n_classes': nb_labels,
-              'n_channels': channels,
-              'augment': (flip_x, flip_y, flip_z, rotate)}
+              'n_channels': args.channels,
+              'augment': (args.flip_x, args.flip_y, args.flip_z, args.swapaxes, args.rotate)}
 
     # data generator
     validation_generator = None
-    training_generator = DataGenerator(img, label, position, list_IDs_fg, list_IDs_bg, True, False, **params)
-    if any(path_val_img) or validation_split:
-        if val_tf:
-            params['batch_size'] = validation_batch_size
+    training_generator = DataGenerator(img, label, position, list_IDs_fg, list_IDs_bg, True, False, True, args.classification, **params)
+    if any(path_val_img) or args.validation_split:
+        if args.val_tf:
+            params['batch_size'] = args.validation_batch_size
             params['dim_img'] = (zsh_val, ysh_val, xsh_val)
             params['augment'] = (False, False, False, 0)
-            validation_generator = DataGenerator(img_val, label_val, position_val, list_IDs_val_fg, list_IDs_val_bg, True, False, **params)
+            validation_generator = DataGenerator(img_val, label_val, position_val, list_IDs_val_fg, list_IDs_val_bg, True, False, False, args.classification, **params)
         else:
-            metrics = Metrics(img_val, label_val, position_val, list_IDs_val_fg, (z_patch, y_patch, x_patch), (zsh_val, ysh_val, xsh_val), validation_batch_size,
-                              path_to_model, early_stopping, validation_freq, nb_labels, channels)
-
-    # optimizer
-    sgd = SGD(learning_rate=learning_rate, decay=1e-6, momentum=0.9, nesterov=True)
+            metrics = Metrics(img_val, label_val, position_val, list_IDs_val_fg, (args.z_patch, args.y_patch, args.x_patch), (zsh_val, ysh_val, xsh_val), args.validation_batch_size,
+                              args.path_to_model, args.early_stopping, args.validation_freq, nb_labels, args.channels)
 
     # create a MirroredStrategy
     if os.name == 'nt':
@@ -709,56 +735,89 @@ def train_semantic_segmentation(normalize, path_to_img, path_to_labels, x_scale,
 
     # compile model
     with strategy.scope():
-        model = make_unet(input_shape, nb_labels, filters, resnet)
 
-        # pretrained model
-        if pretrained_model:
-            model_pretrained = load_model(pretrained_model)
-            model.set_weights(model_pretrained.get_weights())
-            nb_blocks = len(filters.split('-'))
-            for k in range(nb_blocks+1, 2*nb_blocks):
-                for l in [1,2]:
-                    name = f'conv_{k}_{l}'
+        if args.classification:
+            # build model
+            model = make_classification_model(input_shape, nb_labels)
+
+            # pretrained model
+            if args.pretrained_model:
+                model_pretrained = load_model(args.pretrained_model)
+                model.set_weights(model_pretrained.get_weights())
+                #model.summary()
+
+            # optimizer
+            initial_learning_rate = 0.0001
+            lr_schedule = keras.optimizers.schedules.ExponentialDecay(
+                initial_learning_rate, decay_steps=100000, decay_rate=0.96, staircase=True)
+
+            #sgd = keras.optimizers.SGD(learning_rate=0.001, decay=0, momentum=0, nesterov=False)
+            #sgd = keras.optimizers.RMSprop(lr=0.001, rho=0.9, epsilon=None, decay=0.0)
+
+            # compile model
+            model.compile(
+                loss='categorical_crossentropy',
+                optimizer=keras.optimizers.Adam(learning_rate=lr_schedule),
+                metrics=['accuracy'],
+            )
+
+        else:
+            # build model
+            model = make_unet(input_shape, nb_labels, args.network_filters, args.resnet)
+
+            # pretrained model
+            if args.pretrained_model:
+                model_pretrained = load_model(args.pretrained_model)
+                model.set_weights(model_pretrained.get_weights())
+                if not args.fine_tune:
+                    nb_blocks = len(args.network_filters.split('-'))
+                    for k in range(nb_blocks+1, 2*nb_blocks):
+                        for l in [1,2]:
+                            name = f'conv_{k}_{l}'
+                            layer = model.get_layer(name)
+                            layer.trainable = False
+                    name = f'conv_{2*nb_blocks}_1'
                     layer = model.get_layer(name)
                     layer.trainable = False
-            name = f'conv_{2*nb_blocks}_1'
-            layer = model.get_layer(name)
-            layer.trainable = False
 
-        model.compile(loss='categorical_crossentropy',
-                      optimizer=sgd,
-                      metrics=['accuracy'])
+            # optimizer
+            sgd = SGD(learning_rate=args.learning_rate, decay=1e-6, momentum=0.9, nesterov=True)
+
+            # comile model
+            model.compile(loss='categorical_crossentropy',
+                          optimizer=sgd,
+                          metrics=['accuracy'])
 
     # save meta data
-    meta_data = MetaData(path_to_model, configuration_data, allLabels, extension, header, crop_data, cropping_weights, cropping_config)
+    meta_data = MetaData(args.path_to_model, configuration_data, allLabels, extension, header, args.crop_data, args.cropping_weights, args.cropping_config)
 
     # model checkpoint
-    if any(path_val_img) or validation_split:
-        if val_tf:
+    if any(path_val_img) or args.validation_split:
+        if args.val_tf:
             model_checkpoint_callback = ModelCheckpoint(
-                filepath=str(path_to_model),
+                filepath=str(args.path_to_model),
                 save_weights_only=False,
                 monitor='val_accuracy',
                 mode='max',
                 save_best_only=True)
             callbacks = [model_checkpoint_callback, meta_data]
-            if early_stopping > 0:
-                callbacks.insert(0, EarlyStopping(monitor='val_accuracy', mode='max', patience=early_stopping))
+            if args.early_stopping > 0:
+                callbacks.insert(0, EarlyStopping(monitor='val_accuracy', mode='max', patience=args.early_stopping))
         else:
             callbacks = [metrics, meta_data]
     else:
-        callbacks = [ModelCheckpoint(filepath=str(path_to_model)), meta_data]
+        callbacks = [ModelCheckpoint(filepath=str(args.path_to_model)), meta_data]
 
     # train model
     history = model.fit(training_generator,
-              epochs=epochs,
+              epochs=args.epochs,
               validation_data=validation_generator,
-              callbacks=callbacks)
+              callbacks=callbacks, workers=args.workers)
 
     # save results in figure on train end
-    if any(path_val_img) or validation_split:
-        if val_tf:
-            save_history(history.history, path_to_model)
+    if any(path_val_img) or args.validation_split:
+        if args.val_tf:
+            save_history(history.history, args.path_to_model)
 
 def load_prediction_data(path_to_img, channels, x_scale, y_scale, z_scale,
                         no_scaling, normalize, mu, sig, region_of_interest):
@@ -806,133 +865,140 @@ def load_prediction_data(path_to_img, channels, x_scale, y_scale, z_scale,
 
 def predict_semantic_segmentation(args, img, position, path_to_model, path_to_final,
     z_patch, y_patch, x_patch, z_shape, y_shape, x_shape, compress, header,
-    img_header, channels, stride_size, allLabels, batch_size, region_of_interest):
+    img_header, channels, stride_size, allLabels, batch_size, region_of_interest, classification):
 
-    # img shape
-    zsh, ysh, xsh = img.shape
-
-    # number of labels
-    nb_labels = len(allLabels)
-
-    # list of IDs
-    list_IDs = []
-
-    # get nIds of patches
-    for k in range(0, zsh-z_patch+1, stride_size):
-        for l in range(0, ysh-y_patch+1, stride_size):
-            for m in range(0, xsh-x_patch+1, stride_size):
-                list_IDs.append(k*ysh*xsh+l*xsh+m)
-
-    # make length of list divisible by batch size
-    rest = batch_size - (len(list_IDs) % batch_size)
-    list_IDs = list_IDs + list_IDs[:rest]
-
-    # number of patches
-    nb_patches = len(list_IDs)
-
-    # parameters
-    params = {'dim': (z_patch, y_patch, x_patch),
-              'dim_img': (zsh, ysh, xsh),
-              'batch_size': batch_size,
-              'n_channels': channels}
-
-    # data generator
-    predict_generator = PredictDataGenerator(img, position, list_IDs, **params)
-
-    # create a MirroredStrategy
-    if os.name == 'nt':
-        cdo = tf.distribute.HierarchicalCopyAllReduce()
-    else:
-        cdo = tf.distribute.NcclAllReduce()
-    strategy = tf.distribute.MirroredStrategy(cross_device_ops=cdo)
-
-    # load model
-    with strategy.scope():
+    if classification:
         model = load_model(str(path_to_model))
+        probabilities = model.predict(img.reshape(1, z_patch, y_patch, x_patch,1), verbose=0, steps=None)
+        print('Class:', np.argmax(probabilities))
 
-    # predict
-    if nb_patches < 400:
-        probabilities = model.predict(predict_generator, verbose=0, steps=None)
     else:
-        X = np.empty((batch_size, z_patch, y_patch, x_patch, channels), dtype=np.float32)
-        probabilities = np.zeros((nb_patches, z_patch, y_patch, x_patch, nb_labels), dtype=np.float32)
-        # get image patches
-        for step in range(nb_patches//batch_size):
-            for i, ID in enumerate(list_IDs[step*batch_size:(step+1)*batch_size]):
 
-                # get patch indices
-                k = ID // (ysh*xsh)
-                rest = ID % (ysh*xsh)
-                l = rest // xsh
-                m = rest % xsh
+        # img shape
+        zsh, ysh, xsh = img.shape
 
-                # get patch
-                X[i,:,:,:,0] = img[k:k+z_patch,l:l+y_patch,m:m+x_patch]
-                if channels == 2:
-                    X[i,:,:,:,1] = position[k:k+z_patch,l:l+y_patch,m:m+x_patch]
-            probabilities[step*batch_size:(step+1)*batch_size] = model.predict(X, verbose=0, steps=None)
+        # number of labels
+        nb_labels = len(allLabels)
 
-    # create final
-    final = np.zeros((zsh, ysh, xsh, nb_labels), dtype=np.float32)
-    nb = 0
-    for k in range(0, zsh-z_patch+1, stride_size):
-        for l in range(0, ysh-y_patch+1, stride_size):
-            for m in range(0, xsh-x_patch+1, stride_size):
-                final[k:k+z_patch, l:l+y_patch, m:m+x_patch] += probabilities[nb]
-                nb += 1
+        # list of IDs
+        list_IDs = []
 
-    # get final
-    #out = np.zeros((zsh, ysh, xsh), dtype=np.uint8)
-    #out[final[:,:,:,1]>0.5]=1
-    out = np.argmax(final, axis=3)
-    out = out.astype(np.uint8)
+        # get nIds of patches
+        for k in range(0, zsh-z_patch+1, stride_size):
+            for l in range(0, ysh-y_patch+1, stride_size):
+                for m in range(0, xsh-x_patch+1, stride_size):
+                    list_IDs.append(k*ysh*xsh+l*xsh+m)
 
-    # rescale final to input size
-    np_unique = np.unique(out)
-    label = np.zeros((z_shape, y_shape, x_shape), dtype=out.dtype)
-    for k in np_unique:
-        tmp = np.zeros_like(out)
-        tmp[out==k] = 1
-        tmp = img_resize(tmp, z_shape, y_shape, x_shape)
-        label[tmp==1] = k
+        # make length of list divisible by batch size
+        rest = batch_size - (len(list_IDs) % batch_size)
+        list_IDs = list_IDs + list_IDs[:rest]
 
-    # revert automatic cropping
-    if np.any(region_of_interest):
-        min_z,max_z,min_y,max_y,min_x,max_x,z_shape,y_shape,x_shape = region_of_interest[:]
-        tmp = np.zeros((z_shape, y_shape, x_shape), dtype=out.dtype)
-        tmp[min_z:max_z,min_y:max_y,min_x:max_x] = label
-        label = np.copy(tmp)
+        # number of patches
+        nb_patches = len(list_IDs)
 
-    # save final
-    label = label.astype(np.uint8)
-    label = get_labels(label, allLabels)
-    if header is not None:
-        header = get_image_dimensions(header, label)
-        if img_header is not None:
-            header = get_physical_size(header, img_header)
-        header = [header]
-    save_data(path_to_final, label, header=header, compress=compress)
+        # parameters
+        params = {'dim': (z_patch, y_patch, x_patch),
+                  'dim_img': (zsh, ysh, xsh),
+                  'batch_size': batch_size,
+                  'n_channels': channels}
 
-    # post processing
-    if args.create_slices:
-        create_slices(args.path_to_img, path_to_final, True)
-        if np.any(region_of_interest) and args.save_cropped:
-            create_slices(args.path_to_cropped_image, None, True)
-    if args.clean:
-        final_cleaned = clean(label, args.clean)
-        save_data(args.path_to_cleaned, final_cleaned, header, compress)
+        # data generator
+        predict_generator = PredictDataGenerator(img, position, list_IDs, **params)
+
+        # create a MirroredStrategy
+        if os.name == 'nt':
+            cdo = tf.distribute.HierarchicalCopyAllReduce()
+        else:
+            cdo = tf.distribute.NcclAllReduce()
+        strategy = tf.distribute.MirroredStrategy(cross_device_ops=cdo)
+
+        # load model
+        with strategy.scope():
+            model = load_model(str(path_to_model))
+
+        # predict
+        if nb_patches < 400:
+            probabilities = model.predict(predict_generator, verbose=0, steps=None)
+        else:
+            X = np.empty((batch_size, z_patch, y_patch, x_patch, channels), dtype=np.float32)
+            probabilities = np.zeros((nb_patches, z_patch, y_patch, x_patch, nb_labels), dtype=np.float32)
+            # get image patches
+            for step in range(nb_patches//batch_size):
+                for i, ID in enumerate(list_IDs[step*batch_size:(step+1)*batch_size]):
+
+                    # get patch indices
+                    k = ID // (ysh*xsh)
+                    rest = ID % (ysh*xsh)
+                    l = rest // xsh
+                    m = rest % xsh
+
+                    # get patch
+                    X[i,:,:,:,0] = img[k:k+z_patch,l:l+y_patch,m:m+x_patch]
+                    if channels == 2:
+                        X[i,:,:,:,1] = position[k:k+z_patch,l:l+y_patch,m:m+x_patch]
+                probabilities[step*batch_size:(step+1)*batch_size] = model.predict(X, verbose=0, steps=None)
+
+        # create final
+        final = np.zeros((zsh, ysh, xsh, nb_labels), dtype=np.float32)
+        nb = 0
+        for k in range(0, zsh-z_patch+1, stride_size):
+            for l in range(0, ysh-y_patch+1, stride_size):
+                for m in range(0, xsh-x_patch+1, stride_size):
+                    final[k:k+z_patch, l:l+y_patch, m:m+x_patch] += probabilities[nb]
+                    nb += 1
+
+        # get final
+        #out = np.zeros((zsh, ysh, xsh), dtype=np.uint8)
+        #out[final[:,:,:,1]>0.5]=1
+        out = np.argmax(final, axis=3)
+        out = out.astype(np.uint8)
+
+        # rescale final to input size
+        np_unique = np.unique(out)
+        label = np.zeros((z_shape, y_shape, x_shape), dtype=out.dtype)
+        for k in np_unique:
+            tmp = np.zeros_like(out)
+            tmp[out==k] = 1
+            tmp = img_resize(tmp, z_shape, y_shape, x_shape)
+            label[tmp==1] = k
+
+        # revert automatic cropping
+        if np.any(region_of_interest):
+            min_z,max_z,min_y,max_y,min_x,max_x,z_shape,y_shape,x_shape = region_of_interest[:]
+            tmp = np.zeros((z_shape, y_shape, x_shape), dtype=out.dtype)
+            tmp[min_z:max_z,min_y:max_y,min_x:max_x] = label
+            label = np.copy(tmp)
+
+        # save final
+        label = label.astype(np.uint8)
+        label = get_labels(label, allLabels)
+        if header is not None:
+            header = get_image_dimensions(header, label)
+            if img_header is not None:
+                header = get_physical_size(header, img_header)
+            header = [header]
+        save_data(path_to_final, label, header=header, compress=compress)
+
+        # post processing
         if args.create_slices:
-            create_slices(args.path_to_img, args.path_to_cleaned, True)
-    if args.fill:
-        final_filled = clean(label, args.fill)
-        save_data(args.path_to_filled, final_filled, header, compress)
-        if args.create_slices:
-            create_slices(args.path_to_img, args.path_to_filled, True)
-    if args.clean and args.fill:
-        final_cleaned_filled = final_cleaned + (final_filled - label)
-        save_data(args.path_to_cleaned_filled, final_cleaned_filled, header, compress)
-        if args.create_slices:
-            create_slices(args.path_to_img, args.path_to_cleaned_filled, True)
+            create_slices(args.path_to_img, path_to_final, True)
+            if np.any(region_of_interest) and args.save_cropped:
+                create_slices(args.path_to_cropped_image, None, True)
+        if args.clean:
+            final_cleaned = clean(label, args.clean)
+            save_data(args.path_to_cleaned, final_cleaned, header, compress)
+            if args.create_slices:
+                create_slices(args.path_to_img, args.path_to_cleaned, True)
+        if args.fill:
+            final_filled = clean(label, args.fill)
+            save_data(args.path_to_filled, final_filled, header, compress)
+            if args.create_slices:
+                create_slices(args.path_to_img, args.path_to_filled, True)
+        if args.clean and args.fill:
+            final_cleaned_filled = final_cleaned + (final_filled - label)
+            save_data(args.path_to_cleaned_filled, final_cleaned_filled, header, compress)
+            if args.create_slices:
+                create_slices(args.path_to_img, args.path_to_cleaned_filled, True)
 
 def predict_pre_final(img, path_to_model, x_scale, y_scale, z_scale, z_patch, y_patch, x_patch, \
                       normalize, mu, sig, channels, stride_size, batch_size):
