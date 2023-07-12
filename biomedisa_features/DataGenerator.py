@@ -29,9 +29,11 @@
 import numpy as np
 import tensorflow as tf
 import numba
+import random
+import scipy
 
 @numba.jit(nopython=True)#parallel=True
-def rotate_patch(src,trg,k,l,m,cos_a,sin_a,z_patch,y_patch,x_patch,imageHeight,imageWidth):
+def rotate_img_patch(src,trg,k,l,m,cos_a,sin_a,z_patch,y_patch,x_patch,imageHeight,imageWidth):
     for y in range(l,l+y_patch):
         yA = y - imageHeight/2
         for x in range(m,m+x_patch):
@@ -59,10 +61,53 @@ def rotate_patch(src,trg,k,l,m,cos_a,sin_a,z_patch,y_patch,x_patch,imageHeight,i
                 trg[z-k,y-l,x-m] = val
     return trg
 
+@numba.jit(nopython=True)#parallel=True
+def rotate_label_patch(src,trg,k,l,m,cos_a,sin_a,z_patch,y_patch,x_patch,imageHeight,imageWidth):
+    for y in range(l,l+y_patch):
+        yA = y - imageHeight/2
+        for x in range(m,m+x_patch):
+            xA = x - imageWidth/2
+            xR = xA * cos_a - yA * sin_a
+            yR = xA * sin_a + yA * cos_a
+            src_x = xR + imageWidth/2
+            src_y = yR + imageHeight/2
+            # nearest neighbour
+            src_x = round(src_x)
+            src_y = round(src_y)
+            idx_src_x = int(min(max(0,src_x),imageWidth-1))
+            idx_src_y = int(min(max(0,src_y),imageHeight-1))
+            for z in range(k,k+z_patch):
+                trg[z-k,y-l,x-m] = src[z,idx_src_y,idx_src_x]
+    return trg
+
+def random_rotation_3d(image, max_angle=180):
+    """ Randomly rotate an image by a random angle (-max_angle, max_angle).
+
+    Arguments:
+    max_angle: `float`. The maximum rotation angle.
+
+    Returns:
+    batch of rotated 3D images
+    """
+
+    # rotate along z-axis
+    angle = random.uniform(-max_angle, max_angle)
+    image2 = scipy.ndimage.rotate(image, angle, mode='nearest', axes=(0, 1), reshape=False)
+
+    # rotate along y-axis
+    angle = random.uniform(-max_angle, max_angle)
+    image3 = scipy.ndimage.rotate(image2, angle, mode='nearest', axes=(0, 2), reshape=False)
+
+    # rotate along x-axis
+    angle = random.uniform(-max_angle, max_angle)
+    image_rot = scipy.ndimage.rotate(image3, angle, mode='nearest', axes=(1, 2), reshape=False)
+
+    return image_rot
+
 class DataGenerator(tf.keras.utils.Sequence):
     'Generates data for Keras'
-    def __init__(self, img, label, position, list_IDs_fg, list_IDs_bg, shuffle, number_of_images, batch_size=32, dim=(32,32,32),
-                 dim_img=(32,32,32), n_classes=10, n_channels=1, augment=(False,False,False,0)):
+    def __init__(self, img, label, position, list_IDs_fg, list_IDs_bg, shuffle, number_of_images, train, classification, batch_size=32, dim=(32,32,32),
+                 dim_img=(32,32,32), n_classes=10, n_channels=1, augment=(False,False,False,False,0)):
         'Initialization'
         self.dim = dim
         self.dim_img = dim_img
@@ -77,6 +122,8 @@ class DataGenerator(tf.keras.utils.Sequence):
         self.shuffle = shuffle
         self.augment = augment
         self.number_of_images = number_of_images
+        self.train = train
+        self.classification = classification
         self.on_epoch_end()
 
     def __len__(self):
@@ -141,12 +188,13 @@ class DataGenerator(tf.keras.utils.Sequence):
 
         # Initialization
         X = np.empty((self.batch_size, *self.dim, self.n_channels), dtype=np.float32)
-        y = np.empty((self.batch_size, *self.dim, 1), dtype=np.int32)
-        tmp_X = np.empty(self.dim, dtype=np.float32)
-        tmp_y = np.empty(self.dim, dtype=np.int32)
+        if self.classification:
+            y = np.empty((self.batch_size, 1), dtype=np.int32)
+        else:
+            y = np.empty((self.batch_size, *self.dim, 1), dtype=np.int32)
 
         # get augmentation parameter
-        flip_x, flip_y, flip_z, rotate = self.augment
+        flip_x, flip_y, flip_z, swapaxes, rotate = self.augment
         n_aug = np.sum([flip_z, flip_y, flip_x])
         flips =  np.where([flip_z, flip_y, flip_x])[0]
 
@@ -165,32 +213,84 @@ class DataGenerator(tf.keras.utils.Sequence):
             l = rest // self.dim_img[2]
             m = rest % self.dim_img[2]
 
-            # rotate patch
-            if rotate:
-                cos_a = cos_angle[i]
-                sin_a = sin_angle[i]
-                tmp_X = rotate_patch(self.img,tmp_X,k,l,m,cos_a,sin_a,
-                    self.dim[0],self.dim[1],self.dim[2],
-                    self.dim_img[1],self.dim_img[2])
-                tmp_y = rotate_patch(self.label,tmp_y,k,l,m,cos_a,sin_a,
-                    self.dim[0],self.dim[1],self.dim[2],
-                    self.dim_img[1],self.dim_img[2])
+            # get patch
+            if self.classification:
+                tmp_X = self.img[k:k+self.dim[0],l:l+self.dim[1],m:m+self.dim[2]]
+                tmp_y = self.label[k,l,m]
+
+                # augmentation
+                if self.train:
+
+                    # rotate in 3D
+                    if rotate:
+                        tmp_X = random_rotation_3d(tmp_X, max_angle=rotate)
+
+                    # flip patch along axes
+                    v = np.random.randint(n_aug+1)
+                    if np.any([flip_x, flip_y, flip_z]) and v>0:
+                        flip = flips[v-1]
+                        tmp_X = np.flip(tmp_X, flip)
+
+                    # swap axes
+                    if swapaxes:
+                        v = np.random.randint(4)
+                        if v==1:
+                            tmp_X = np.swapaxes(tmp_X,0,1)
+                        elif v==2:
+                            tmp_X = np.swapaxes(tmp_X,0,2)
+                        elif v==3:
+                            tmp_X = np.swapaxes(tmp_X,1,2)
+
+                # assign to batch
+                X[i,:,:,:,0] = tmp_X
+                y[i,0] = tmp_y
+
             else:
                 tmp_X = self.img[k:k+self.dim[0],l:l+self.dim[1],m:m+self.dim[2]]
                 tmp_y = self.label[k:k+self.dim[0],l:l+self.dim[1],m:m+self.dim[2]]
 
-            # flip patch
-            v = np.random.randint(n_aug+1)
-            if np.any([flip_x, flip_y, flip_z]) and v>0:
-                flip = flips[v-1]
-                X[i,:,:,:,0] = np.flip(tmp_X,flip)
-                y[i,:,:,:,0] = np.flip(tmp_y,flip)
-            else:
+                # augmentation
+                if self.train:
+
+                    # rotate in xy plane
+                    if rotate:
+                        tmp_X = np.empty(self.dim, dtype=np.float32)
+                        tmp_y = np.empty(self.dim, dtype=np.int32)
+                        cos_a = cos_angle[i]
+                        sin_a = sin_angle[i]
+                        tmp_X = rotate_img_patch(self.img,tmp_X,k,l,m,cos_a,sin_a,
+                            self.dim[0],self.dim[1],self.dim[2],
+                            self.dim_img[1],self.dim_img[2])
+                        tmp_y = rotate_label_patch(self.label,tmp_y,k,l,m,cos_a,sin_a,
+                            self.dim[0],self.dim[1],self.dim[2],
+                            self.dim_img[1],self.dim_img[2])
+
+                    # flip patch along axes
+                    v = np.random.randint(n_aug+1)
+                    if np.any([flip_x, flip_y, flip_z]) and v>0:
+                        flip = flips[v-1]
+                        tmp_X = np.flip(tmp_X, flip)
+                        tmp_y = np.flip(tmp_y, flip)
+
+                    # swap axes
+                    if swapaxes:
+                        v = np.random.randint(4)
+                        if v==1:
+                            tmp_X = np.swapaxes(tmp_X,0,1)
+                            tmp_y = np.swapaxes(tmp_y,0,1)
+                        elif v==2:
+                            tmp_X = np.swapaxes(tmp_X,0,2)
+                            tmp_y = np.swapaxes(tmp_y,0,2)
+                        elif v==3:
+                            tmp_X = np.swapaxes(tmp_X,1,2)
+                            tmp_y = np.swapaxes(tmp_y,1,2)
+
+                # assign to batch
                 X[i,:,:,:,0] = tmp_X
                 y[i,:,:,:,0] = tmp_y
 
-            if self.n_channels == 2:
-                X[i,:,:,:,1] = self.position[k:k+self.dim[0],l:l+self.dim[1],m:m+self.dim[2]]
+                if self.n_channels == 2:
+                    X[i,:,:,:,1] = self.position[k:k+self.dim[0],l:l+self.dim[1],m:m+self.dim[2]]
 
         return X, tf.keras.utils.to_categorical(y, num_classes=self.n_classes)
 
