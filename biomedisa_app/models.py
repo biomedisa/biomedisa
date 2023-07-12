@@ -59,6 +59,13 @@ class UserForm(forms.ModelForm):
         model = User
         fields = ('first_name', 'last_name', 'email', 'platform', 'storage_size', 'notification')
 
+def validate_file_size(value):
+    filesize= value.size
+    if filesize > 53687091200:
+        raise ValidationError("The maximum file size that can be uploaded is 50GB")
+    else:
+        return value
+
 def user_directory_path(instance, filename):
     filename = filename.encode('ascii', 'ignore').decode()
     filename = os.path.basename(filename)
@@ -155,7 +162,7 @@ class MyFileSystemStorage(FileSystemStorage):
         super(MyFileSystemStorage, self).__init__(location=WWW_DATA_ROOT + '/')
 
 class Upload(models.Model):
-    pic = models.FileField("", upload_to=user_directory_path, storage=MyFileSystemStorage())
+    pic = models.FileField("", upload_to=user_directory_path, storage=MyFileSystemStorage(), validators=[validate_file_size])
     upload_date = models.DateTimeField(auto_now_add=True, null=True)
     user = models.ForeignKey(User, on_delete=models.DO_NOTHING)
     CHOICES = zip( range(1,10), range(1,10) )
