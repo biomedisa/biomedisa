@@ -1,6 +1,6 @@
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2022 Philipp Lösel. All rights reserved.              ##
+##  Copyright (c) 2023 Philipp Lösel. All rights reserved.              ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -57,6 +57,8 @@ if __name__ == '__main__':
         bm = Biomedisa()
         bm.django_env = True
         bm.process = 'first_queue'
+        bm.data = None
+        bm.labelData = None
 
         # time
         bm.TIC = time.time()
