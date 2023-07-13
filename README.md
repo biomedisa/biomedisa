@@ -59,7 +59,7 @@ wget --no-check-certificate https://biomedisa.org/download/demo/?id=NMB_F2875.ti
 wget --no-check-certificate https://biomedisa.org/download/demo/?id=labels.NMB_F2875.tif -O ~/Downloads/labels.NMB_F2875.tif
 ```
 
-#### In Python
+#### Python function
 ```
 import os, sys
 sys.path.append(path_to_biomedisa)  # e.g. '/home/<user>/git/biomedisa'
@@ -70,7 +70,7 @@ from demo.biomedisa_interpolation import smart_interpolation
 img, _ = load_data('Downloads/trigonopterus.tif')
 labels, header = load_data('Downloads/labels.trigonopterus_smart.am')
 
-# run smart interpolation
+# run smart interpolation with optional smoothing result
 results = smart_interpolation(img, labels, smooth=100)
 
 # get results
