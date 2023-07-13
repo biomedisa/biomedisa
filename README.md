@@ -61,7 +61,7 @@ wget --no-check-certificate https://biomedisa.org/download/demo/?id=labels.NMB_F
 
 #### Python function
 ```
-import os, sys
+import sys
 sys.path.append(path_to_biomedisa)  # e.g. '/home/<user>/git/biomedisa'
 from biomedisa_features.biomedisa_helper import load_data, save_data
 from demo.biomedisa_interpolation import smart_interpolation
