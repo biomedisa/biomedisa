@@ -41,7 +41,7 @@ Biomedisa (https://biomedisa.org) is a free and easy-to-use open-source online p
 + [Windows 10 (21H2 or higher)](https://github.com/biomedisa/biomedisa/blob/master/README/windows11.md)
 + [Windows 11](https://github.com/biomedisa/biomedisa/blob/master/README/windows11.md)
 
-# Biomedisa Smart Interpolation
+# Smart Interpolation
 
 #### Download examples
 Download data from the [gallery](https://biomedisa.org/gallery/) or directly as follows:
