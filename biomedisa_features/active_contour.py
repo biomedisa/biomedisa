@@ -1,6 +1,6 @@
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2022 Philipp Lösel. All rights reserved.              ##
+##  Copyright (c) 2023 Philipp Lösel. All rights reserved.              ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -120,6 +120,8 @@ def active_contour(image_id, friend_id, label_id):
     # create biomedisa
     bm = Biomedisa()
     bm.django_env = True
+    bm.data = None
+    bm.labelData = None
 
     # path to logfiles
     bm.path_to_time = BASE_DIR + '/log/time.txt'

@@ -361,14 +361,16 @@ def _error_(bm, message):
 def pre_processing(bm):
 
     # load data
-    bm.data, _ = load_data(bm.path_to_data, bm.process)
+    if bm.data is None:
+        bm.data, _ = load_data(bm.path_to_data, bm.process)
 
     # error handling
     if bm.data is None:
         return _error_(bm, 'Invalid image data.')
 
     # load label data
-    bm.labelData, bm.header, bm.final_image_type = load_data(bm.path_to_labels, bm.process, True)
+    if bm.labelData is None:
+        bm.labelData, bm.header, bm.final_image_type = load_data(bm.path_to_labels, bm.process, True)
 
     # error handling
     if bm.labelData is None:

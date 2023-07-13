@@ -99,7 +99,7 @@ def marching_cubes(image, threshold, poly_reduction, smoothing_iterations):
 
     return decimatedPoly#confilter.GetOutput()
 
-def save_mesh(path_to_data, image, xres=1, yres=1, zres=1, poly_reduction=0.9, smoothing_iterations=15):
+def save_mesh(path_to_data, image, x_res=1, y_res=1, z_res=1, poly_reduction=0.9, smoothing_iterations=15):
 
     # get labels
     zsh, ysh, xsh = image.shape
@@ -118,7 +118,7 @@ def save_mesh(path_to_data, image, xres=1, yres=1, zres=1, poly_reduction=0.9, s
         sc = numpy_to_vtk(num_array=b.ravel(), deep=True, array_type=vtk.VTK_UNSIGNED_CHAR)
         imageData = vtk.vtkImageData()
         imageData.SetOrigin(0, 0, 0)
-        imageData.SetSpacing(xres, yres, zres)
+        imageData.SetSpacing(x_res, y_res, z_res)
         #imageData.SetDimensions(zsh, ysh, xsh)
         imageData.SetExtent(0,xsh-1,0,ysh-1,0,zsh-1)
         imageData.GetPointData().SetScalars(sc)
@@ -210,15 +210,15 @@ if __name__ == "__main__":
                         help='Location of label data')
 
     # optional arguments
-    parser.add_argument('-pr', '--poly-reduction', type=float, default=0.9,
+    parser.add_argument('-pr', '--poly_reduction', type=float, default=0.9,
                         help='Reduce number of polygons by this factor')
-    parser.add_argument('-s', '--smoothing-iterations', type=int, default=15,
+    parser.add_argument('-s', '--smoothing_iterations', type=int, default=15,
                         help='Iteration steps for smoothing')
-    parser.add_argument('-xres','--x-res', type=int, default=None,
+    parser.add_argument('-xres','--x_res', type=int, default=None,
                         help='Voxel spacing/resolution x-axis')
-    parser.add_argument('-yres','--y-res', type=int, default=None,
+    parser.add_argument('-yres','--y_res', type=int, default=None,
                         help='Voxel spacing/resolution y-axis')
-    parser.add_argument('-zres','--z-res', type=int, default=None,
+    parser.add_argument('-zres','--z_res', type=int, default=None,
                         help='Voxel spacing/resolution z-axis')
     args = parser.parse_args()
 
@@ -228,20 +228,20 @@ if __name__ == "__main__":
 
     # get voxel spacing
     if not all([args.x_res, args.y_res, args.z_res]):
-        xres, yres, zres = get_voxel_spacing(header, data, extension)
+        x_res, y_res, z_res = get_voxel_spacing(header, data, extension)
         if args.x_res:
-            xres = args.x_res
+            x_res = args.x_res
         if args.y_res:
-            yres = args.y_res
+            y_res = args.y_res
         if args.z_res:
-            zres = args.z_res
-        print(f'Voxel spacing: x_spacing, y_spacing, z_spacing = {xres}, {yres}, {zres}')
+            z_res = args.z_res
+        print(f'Voxel spacing: x_spacing, y_spacing, z_spacing = {x_res}, {y_res}, {z_res}')
     else:
-        xres = args.x_res
-        yres = args.y_res
-        zres = args.z_res
+        x_res = args.x_res
+        y_res = args.y_res
+        z_res = args.z_res
 
     # save stl file
     path_to_data = args.path_to_data.replace(os.path.splitext(args.path_to_data)[1],'.stl')
-    save_mesh(path_to_data, data, xres, yres, zres, args.poly_reduction, args.smoothing_iterations)
+    save_mesh(path_to_data, data, x_res, y_res, z_res, args.poly_reduction, args.smoothing_iterations)
 

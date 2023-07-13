@@ -41,7 +41,7 @@ Biomedisa (https://biomedisa.org) is a free and easy-to-use open-source online p
 + [Windows 10 (21H2 or higher)](https://github.com/biomedisa/biomedisa/blob/master/README/windows11.md)
 + [Windows 11](https://github.com/biomedisa/biomedisa/blob/master/README/windows11.md)
 
-# Biomedisa interpolation
+# Biomedisa smart interpolation
 
 #### Download examples
 Download data from the [gallery](https://biomedisa.org/gallery/) or directly as follows:
@@ -59,7 +59,30 @@ wget --no-check-certificate https://biomedisa.org/download/demo/?id=NMB_F2875.ti
 wget --no-check-certificate https://biomedisa.org/download/demo/?id=labels.NMB_F2875.tif -O ~/Downloads/labels.NMB_F2875.tif
 ```
 
-#### Run the Biomedisa interpolation
+#### In Python
+```
+import os, sys
+sys.path.append(path_to_biomedisa)  # e.g. '/home/<user>/git/biomedisa'
+from biomedisa_features.biomedisa_helper import load_data, save_data
+from demo.biomedisa_interpolation import smart_interpolation
+
+# load data
+img, _ = load_data('Downloads/trigonopterus.tif')
+labels, header = load_data('Downloads/labels.trigonopterus_smart.am')
+
+# run smart interpolation
+results = smart_interpolation(img, labels, smooth=100)
+
+# get results
+regular_result = results['regular']
+smooth_result = results['smooth']
+
+# save results
+save_data('Downloads/final.trigonopterus.am', regular_result, header=header)
+save_data('Downloads/final.trigonopterus.smooth.am', smooth_result, header=header)
+```
+
+#### Command-line based
 ```
 # Ubuntu
 python3 ~/git/biomedisa/demo/biomedisa_interpolation.py ~/Downloads/tumor.tif ~/Downloads/labels.tumor.tif
@@ -88,13 +111,13 @@ mpiexec -np 4 python -u git\biomedisa\demo\biomedisa_interpolation.py Downloads\
 
 `--acwe`: post-processing with active contour (default: False)
 
-`--acwe-alpha FLOAT`: pushing force of active contour (default: 1.0)
+`--acwe_alpha FLOAT`: pushing force of active contour (default: 1.0)
 
-`--acwe-smooth INT`: smoothing of active contour (default: 1)
+`--acwe_smooth INT`: smoothing of active contour (default: 1)
 
-`--acwe-steps INT`: iterations of active contour (default: 3)
+`--acwe_steps INT`: iterations of active contour (default: 3)
 
-`--no-compression`: disable compression of segmentation results (default: False)
+`--no_compression`: disable compression of segmentation results (default: False)
 
 `--allaxis` or `-allx`: if pre-segmentation is not exlusively in xy-plane (default: False)
 
@@ -268,17 +291,27 @@ from biomedisa_features.create_mesh import get_voxel_spacing, save_mesh
 data, header, extension = load_data(path_to_data, return_extension=True)
 
 # get voxel spacing
-xres, yres, zres = get_voxel_spacing(header, data, extension)
-print(f'Voxel spacing: x_spacing, y_spacing, z_spacing = {xres}, {yres}, {zres}')
+x_res, y_res, z_res = get_voxel_spacing(header, data, extension)
+print(f'Voxel spacing: x_spacing, y_spacing, z_spacing = {x_res}, {y_res}, {z_res}')
 
 # save stl file
 path_to_data = path_to_data.replace(os.path.splitext(path_to_data)[1],'.stl')
-save_mesh(path_to_data, data, xres, yres, zres)
+save_mesh(path_to_data, data, x_res, y_res, z_res, poly_reduction=0.9, smoothing_iterations=15)
 ```
 or call directly
 ```
 python3 git/biomedisa/biomedisa_features/create_mesh.py <path_to_data>
 ```
+Options
+`--poly_reduction` or `-pr`: Reduce number of polygons by this factor (default: 0.9)
+
+`--smoothing_iterations` or `-s`: Iteration steps for smoothing (default: 15)
+
+`--x_res` or `-xres`: Voxel spacing/resolution x-axis (default: None)
+
+`--y_res` or `-yres`: Voxel spacing/resolution y-axis (default: None)
+
+`--z_res` or `-zres`: Voxel spacing/resolution z-axis (default: None)
 
 #### Other functions
 ```
@@ -299,6 +332,11 @@ label_data = clean(label_data, 0.9)
 
 # fill holes
 label_data = fill(label_data, 0.9)
+
+# measure accuracy
+from biomedisa_features.helper import Dice_score, ASSD
+dice = Dice_score(ground_truth, result)
+assd = ASSD(ground_truth, result)
 ```
 
 # Update Biomedisa
