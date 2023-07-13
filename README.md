@@ -1,13 +1,13 @@
 # Biomedisa
 
 - [Overview](#overview)
-- [Hardware requirements](#hardware-requirements)
-- [Software requirements](#software-requirements)
+- [Hardware Requirements](#hardware-requirements)
+- [Software Requirements](#software-requirements)
 - [Installation (command-line-only)](#installation-command-line-only)
-- [Full installation (GUI)](#full-installation-gui)
-- [Biomedisa interpolation](#biomedisa-interpolation)
-- [Biomedisa deep learning](#biomedisa-deep-learning)
-- [Biomedisa features](#biomedisa-features)
+- [Full Installation (browser based)](#full-installation-browser-based)
+- [Smart Interpolation](#smart-interpolation)
+- [Deep Learning](#deep-learning)
+- [Biomedisa Features](#biomedisa-features)
 - [Update Biomedisa](#update-biomedisa)
 - [Releases](#releases)
 - [Authors](#authors)
@@ -146,7 +146,7 @@ python3 ~/git/biomedisa/demo/split_volume.py 'path_to_image' 'path_to_labels' -n
 ```
 Where `-n` is the number of GPUs and each axis (`x`,`y` and `z`) is divided into two overlapping parts. The volume is thus divided into `2*2*2=8` subvolumes. These are segmented separately and then reassembled.
 
-# Biomedisa Deep Learning
+# Deep Learning
 
 #### Download training data, network, and test image
 Download data from the [gallery](https://biomedisa.org/gallery/) or directly as follows:
