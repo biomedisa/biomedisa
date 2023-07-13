@@ -59,7 +59,7 @@ wget --no-check-certificate https://biomedisa.org/download/demo/?id=NMB_F2875.ti
 wget --no-check-certificate https://biomedisa.org/download/demo/?id=labels.NMB_F2875.tif -O ~/Downloads/labels.NMB_F2875.tif
 ```
 
-#### Python function
+#### Python example
 ```
 import sys
 sys.path.append(path_to_biomedisa)  # e.g. '/home/<user>/git/biomedisa'
