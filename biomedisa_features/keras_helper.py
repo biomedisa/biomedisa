@@ -644,7 +644,7 @@ def train_semantic_segmentation(normalize, img_list, label_list, x_scale, y_scal
     if validation_split:
         if val_tf:
             params['dim_img'] = (zsh_val, ysh_val, xsh_val)
-            params['augment'] = (False, False, False, 0)
+            params['augment'] = (False, False, False, False, 0)
             validation_generator = DataGenerator(img_val, label_val, position_val, list_IDs_val, [], True, number_of_val_images, False, False, **params)
         else:
             metrics = Metrics(img_val, label_val, list_IDs_val, (z_patch, y_patch, x_patch), (zsh_val, ysh_val, xsh_val), batch_size,
