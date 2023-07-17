@@ -696,7 +696,7 @@ def train_semantic_segmentation(path_to_img, path_to_labels,
 
             # make length of list divisible by validation batch size
             rest = args.validation_batch_size - (len(list_IDs_val_fg) % args.validation_batch_size)
-            list_IDs_val_fg = list_IDs_val_fg + list_IDs_val_fg[:rest]
+            list_IDs_val_fg = list_IDs_val_fg + list_IDs_val_fg[:rest % args.validation_batch_size]
 
     # number of labels
     nb_labels = len(allLabels)
@@ -869,7 +869,8 @@ def predict_semantic_segmentation(args, img, position, path_to_model, path_to_fi
 
     if classification:
         model = load_model(str(path_to_model))
-        probabilities = model.predict(img.reshape(1, z_patch, y_patch, x_patch,1), verbose=0, steps=None)
+        probabilities = model.predict(img.reshape(1, z_patch, y_patch, x_patch, 1), verbose=0, steps=None)
+        print('Probabilities:', probabilities)
         print('Class:', np.argmax(probabilities))
 
     else:
