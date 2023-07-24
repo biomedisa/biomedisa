@@ -385,6 +385,7 @@ $(document).ready(addClickHandlers);
                   <a href=# onclick="sliceviewerFunction({{img.id}})"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
                   <span class="move_link" id="{{img.id}},{{img.status}}"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
                   <span class="share_link" id="{{img.id}}"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+                  <a href="/settings/{{img.id}}"><img src="/static/einst_filled.jpg" title="settings" width="20" height="20" onMouseOver="this.src='/static/einst2.jpg'" onMouseOut="this.src='/static/einst_filled.jpg'"></a>
                   <input type="checkbox" name="selected" value="{{img.id}}"/> </br>
                   <select id="sel_id" name="sel_name" onchange="changeFunction({{img.id}}, value)">
                       <option value="-1">select</option>
