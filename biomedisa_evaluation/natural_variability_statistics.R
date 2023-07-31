@@ -1,20 +1,19 @@
-library(multcomp)
-library(emmeans)
-library(ggplot2)
+#library(multcomp)
+#library(emmeans)
+#library(ggplot2)
 library(lme4)
-library(ggpubr)
+#library(ggpubr)
 #library(RVAideMemoire)
 #library(esquisse)
-library(ggpubr)
 library(lmerTest)
-library(afex)
-library(car)
-library(glmmTMB)
-library(plyr)
-library(dplyr)
+#library(afex)
+#library(car)
+#library(glmmTMB)
+#library(plyr)
+#library(dplyr)
 library(Hmisc)
+options( warn = -1 )
 
-  
 ######ANALYSIS FOR HONEYBEES############
 
 #Brain size variation####
@@ -39,17 +38,17 @@ anova(mod)
 
 mod=lmer(CX~Hive+(1|Date),data=HB)
 anova(mod)
-  
+
 mod=lmer(LO~Hive+(1|Date),data=HB)
-anova(mod)  
+anova(mod)
 
 mod=lmer(ME~Hive+(1|Date),data=HB)
-anova(mod)  
+anova(mod)
 
 mod=lmer(OL~Hive+(1|Date),data=HB)
-anova(mod)  
+anova(mod)
 
-  
+
 #Asymmetry####
 HB=read.csv("HBAsym.csv", header=T, sep=";")
 
@@ -84,7 +83,7 @@ anova(mod)
 mod=lmer(LOr~Side+(1|Date)+(1|ID),data=HB)
 anova(mod)
 
-  
+
 
 #TABLE 1#####
 mod=lmer(Brain~Hive+(1|Site),data=HB)
@@ -95,7 +94,7 @@ anova(mod)
 
 mod=lmer(MB~Hive+(1|Site),data=HB)
 anova(mod)
-  
+
 mod=lmer(MBr~Hive+(1|Site),data=HB)
 anova(mod)
 
@@ -171,13 +170,13 @@ anova(mod)
 
 mod=lm(LO~Hive,data=BB)
 anova(mod)
-                    
+
 mod=lm(CX~Hive,data=BB)
 anova(mod)
 
 mod=lm(OTH~Hive,data=BB)
 anova(mod)
-      
+
 
 ####Within colonies######
 BB=read.csv("BBBrain.csv", header=T, sep=";")
@@ -224,7 +223,7 @@ anova(mod)
 
 mod=lmer(MEr~Side+(1|ID)+(1|Hive),data=BB)
 anova(mod)
-  
+
 mod=lmer(LOr~Side+(1|ID)+(1|Hive),data=BB)
 anova(mod)
 
