@@ -34,12 +34,14 @@ from biomedisa_features.biomedisa_helper import *
 from biomedisa_features.remove_outlier import clean
 from scipy import ndimage
 from pandas import DataFrame
+import pandas as pd
 import numpy as np
 import subprocess
 from shutil import move
 import argparse
 import tarfile
 import glob
+import scipy
 
 # honeybees scanned upside down
 test_inv = ['Head10','Head17','Head27','Head29','Head32','Head36','Head38','Head39','Head41','Head43','Head69','Head71','Head75','Head84','Head95','Head98','S21','S25','S37','S38','S45','S55','S58']
@@ -64,6 +66,8 @@ if __name__ == "__main__":
                         help='calculate ASSD')
     parser.add_argument('-ba', '--brain-areas', action='store_true', default=False,
                         help='calculate brain area volumes')
+    parser.add_argument('-st', '--statistics', action='store_true', default=False,
+                        help='calculate statistics')
     parser.add_argument('-v', '--verbose', action='store_true', default=False,
                         help='show calculation for each volume')
     parser.add_argument('-nn', '--neural-network', type=str, default=None,
@@ -76,8 +80,8 @@ if __name__ == "__main__":
                         help='path to test results (data will be created in segmentation mode or downloaded from Biomedisa if not specified)')
     args = parser.parse_args()
 
-    if not any([args.segmentation, args.accuracy, args.brain_areas]):
-        print('Please parse any of "--segmentation", "--accuracy", or "--brain-areas". See "--help" for more information.')
+    if not any([args.segmentation, args.accuracy, args.brain_areas, args.statistics]):
+        print('Please parse any of "--segmentation", "--accuracy", "--brain-areas", or "--statistics". See "--help" for more information.')
     if not any([args.honeybees, args.bumblebees]):
         print('Please parse any of "--honeybees" or "--bumblebees". See "--help" for more information.')
     elif args.honeybees and args.bumblebees:
@@ -406,14 +410,116 @@ if __name__ == "__main__":
         l[l<0] = np.nan
 
         # save data as excel
-        df = DataFrame({'ID': l[:,0].astype(int), 'MB': l[:,1], 'CX': l[:,2], 'AL': l[:,3],
+        df = DataFrame({'BeeID': l[:,0].astype(int), 'MB': l[:,1], 'CX': l[:,2], 'AL': l[:,3],
                         'ME': l[:,4], 'OTH': l[:,5], 'LO': l[:,6], 'OL': l[:,4]+l[:,6],
-                        'AllBrain': l[:,7],
-                        'MB right': l[:,8], 'MB left': l[:,9],
-                        'AL right': l[:,10], 'AL left': l[:,11],
-                        'ME right': l[:,12], 'ME left': l[:,13],
-                        'LO right': l[:,14], 'LO left': l[:,15],
-                        'OL right': l[:,12]+l[:,14], 'OL left': l[:,13]+l[:,15]
+                        'Brain': l[:,7],
+                        'MB_Right': l[:,8], 'MB_Left': l[:,9],
+                        'AL_Right': l[:,10], 'AL_Left': l[:,11],
+                        'ME_Right': l[:,12], 'ME_Left': l[:,13],
+                        'LO_Right': l[:,14], 'LO_Left': l[:,15],
+                        'OL_Right': l[:,12]+l[:,14], 'OL_Left': l[:,13]+l[:,15]
                         })
         df.to_excel(path_to_volumes.replace('.txt','.xlsx'), sheet_name='sheet1', index=False)
+
+    #=======================================================================================
+    # statistics
+    #=======================================================================================
+
+    if args.statistics:
+
+        path_to_volumes = os.getcwd()+f'/{dataset}_brain_areas.xlsx'
+        df = pd.read_excel(path_to_volumes, engine='openpyxl', sheet_name='sheet1')
+
+        # variations
+        for key in df.keys()[1:]:
+            a = np.array(df[key]).astype(float)
+            a = a[a>0]
+            print('=============')
+            print(key+' Statistics:')
+            print('=============')
+            print('mean:', np.mean(a))
+            print('std:', np.std(a))
+            print('min:', min(a))
+            print('max:', max(a))
+            print('variation:', (max(a) - min(a)) / max(a))
+            print('\n')
+
+        # asymmetry
+        for key1, key2 in [('MB_Left','MB_Right'),('AL_Left','AL_Right'),('ME_Left','ME_Right'),('LO_Left','LO_Right'),('OL_Left','OL_Right')]:
+            print('=============')
+            print(key1[:2]+' Asymmetry:')
+            print('=============')
+            a = np.array(df[key1]).astype(float)
+            b = np.array(df[key2]).astype(float)
+            c = np.array(df['Brain']).astype(float)
+            c = c[a>0]
+            b = b[a>0]
+            a = a[a>0]
+            print('(Total)', f'N={a.size}')
+            print('(Left < right)', f'N={np.sum(a<b)}', f'{round(100 / a.size * np.sum(a<b))}%')
+            print('(Absolute Volume)', f'p-value={round(scipy.stats.ttest_rel(np.ravel(a), np.ravel(b)).pvalue,4)}')
+            print('(Relative Volume)', f'p-value={round(scipy.stats.ttest_1samp(np.ravel(a-b)/np.ravel(c), 0).pvalue,4)}')
+            print('\n')
+
+        # correlation right-left differences
+        for i, tuple in enumerate([('MB_Left','MB_Right'),('AL_Left','AL_Right'),('OL_Left','OL_Right')]):
+            key3, key4 = tuple
+            for j, tuple in enumerate([('MB_Left','MB_Right'),('AL_Left','AL_Right'),('OL_Left','OL_Right')]):
+                key1, key2 = tuple
+                if j>i:
+                    print('=============')
+                    print(key3[:2], '/', key1[:2])
+                    print('=============')
+                    l1 = np.array(df[key1]).astype(float)
+                    r1 = np.array(df[key2]).astype(float)
+                    l2 = np.array(df[key3]).astype(float)
+                    r2 = np.array(df[key4]).astype(float)
+                    total = np.array(df['Brain']).astype(float)
+                    nas = np.logical_and(np.logical_and(l1>0, l2>0), np.logical_and(r1>0, r2>0))
+                    l1 = l1[nas]
+                    r1 = r1[nas]
+                    l2 = l2[nas]
+                    r2 = r2[nas]
+                    total = total[nas]
+                    print(f'Correlation ({key4})-({key3}) and ({key2})-({key1})', scipy.stats.pearsonr((r2-l2), (r1-l1)))
+                    summe = np.sum(np.logical_and(l2>r2, l1>r1))
+                    print(f'larger {key3} and larger {key1}:', f'N={summe},', round(100* summe / np.sum(nas),1), '%')
+                    summe = np.sum(np.logical_and(l2>r2, l1<r1))
+                    print(f'larger {key3} and larger {key2}:', f'N={summe},', round(100* summe / np.sum(nas),1), '%')
+                    summe = np.sum(np.logical_and(l2<r2, l1>r1))
+                    print(f'larger {key4} and larger {key1}:', f'N={summe},', round(100* summe / np.sum(nas),1), '%')
+                    summe = np.sum(np.logical_and(l2<r2, l1<r1))
+                    print(f'larger {key4} and larger {key2}:', f'N={summe},', round(100* summe / np.sum(nas),1), '%')
+                    print('\n')
+
+        # correlations
+        labels = ['MB','CX','AL','ME','OTH','LO','OL']
+
+        # between neuropil volumes
+        '''for i, key1 in enumerate(labels):
+            for j, key2 in enumerate(labels):
+                if j > i:
+                    a = np.array(df[key1]).astype(float)
+                    b = np.array(df[key2]).astype(float)
+                    c = np.array(df['Brain']).astype(float)
+                    c = c[a>0]
+                    a = a[a>0]
+                    b = b[b>0]
+                    print(key1, '/', key2)
+                    print('----------------------------')
+                    #print('abs:', scipy.stats.pearsonr(a, b))
+                    print('rel:', scipy.stats.pearsonr(a/c, b/c))
+                    print('')'''
+
+        # between neuropil volumes and total brain volume
+        '''for key1 in labels:
+            a = np.array(df[key1]).astype(float)
+            b = np.array(df['Brain']).astype(float)
+            b = b[a>0]
+            a = a[a>0]
+            print(key1, '/', 'Brain')
+            print('----------------------------')
+            print('abs:', scipy.stats.pearsonr(a, b))
+            print('rel:', scipy.stats.pearsonr(a/b, b))
+            print('')'''
 
