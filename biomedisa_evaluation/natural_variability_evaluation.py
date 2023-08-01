@@ -410,7 +410,7 @@ if __name__ == "__main__":
         l[l<0] = np.nan
 
         # save data as excel
-        df = DataFrame({'BeeID': l[:,0].astype(int), 'MB': l[:,1], 'CX': l[:,2], 'AL': l[:,3],
+        df = DataFrame({'Bee ID': l[:,0].astype(int), 'MB': l[:,1], 'CX': l[:,2], 'AL': l[:,3],
                         'ME': l[:,4], 'OTH': l[:,5], 'LO': l[:,6], 'OL': l[:,4]+l[:,6],
                         'Brain': l[:,7],
                         'MB_Right': l[:,8], 'MB_Left': l[:,9],
