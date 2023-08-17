@@ -315,7 +315,7 @@ if __name__ == '__main__':
                         help='Smoothing of active contour')
     parser.add_argument('--acwe_steps', metavar='STEPS', type=int, default=3,
                         help='Iterations of active contour')
-    parser.add_argument('--no_compression', action='store_true', default=False,
+    parser.add_argument('-nc', '--no_compression', action='store_true', default=False,
                         help='Disable compression of segmentation results')
     parser.add_argument('-allx', '--allaxis', action='store_true', default=False,
                         help='If pre-segmentation is not exlusively in xy-plane')

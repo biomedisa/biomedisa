@@ -119,7 +119,7 @@ if __name__ == "__main__":
         if not os.path.exists(path_to_model):
             os.system(f'wget -nc --no-check-certificate https://biomedisa.org/download/demo/?id={dataset}_network.h5 -O {path_to_model}')
 
-        # crate directory for results
+        # create directory for results
         if not os.path.exists(path_to_results):
             os.mkdir(path_to_results)
 

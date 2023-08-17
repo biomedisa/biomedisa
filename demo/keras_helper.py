@@ -331,59 +331,77 @@ def get_labels(arr, allLabels):
 #=====================
 
 def load_training_data(normalize, img_list, label_list, channels, x_scale, y_scale, z_scale, no_scaling,
-        crop_data, labels_to_compute, labels_to_remove, configuration_data=None, allLabels=None,
+        crop_data, labels_to_compute, labels_to_remove, img_in, label_in, position_in, configuration_data=None, allLabels=None,
         x_puffer=25, y_puffer=25, z_puffer=25):
 
-    # get filenames
-    img_names, label_names = [], []
-    for img_name, label_name in zip(img_list, label_list):
+    if any(img_list):
 
-        # check for tarball
-        img_dir, img_ext = os.path.splitext(img_name)
-        if img_ext == '.gz':
-            img_dir, img_ext = os.path.splitext(img_dir)
+        # get filenames
+        img_names, label_names = [], []
+        for img_name, label_name in zip(img_list, label_list):
 
-        label_dir, label_ext = os.path.splitext(label_name)
-        if label_ext == '.gz':
-            label_dir, label_ext = os.path.splitext(label_dir)
+            # check for tarball
+            img_dir, img_ext = os.path.splitext(img_name)
+            if img_ext == '.gz':
+                img_dir, img_ext = os.path.splitext(img_dir)
 
-        if (img_ext == '.tar' and label_ext == '.tar') or (os.path.isdir(img_name) and os.path.isdir(label_name)):
+            label_dir, label_ext = os.path.splitext(label_name)
+            if label_ext == '.gz':
+                label_dir, label_ext = os.path.splitext(label_dir)
 
-            # extract files if necessary
-            if img_ext == '.tar':
-                if not os.path.exists(img_dir):
-                    tar = tarfile.open(img_name)
-                    tar.extractall(path=img_dir)
-                    tar.close()
-                img_name = img_dir
-            if label_ext == '.tar':
-                if not os.path.exists(label_dir):
-                    tar = tarfile.open(label_name)
-                    tar.extractall(path=label_dir)
-                    tar.close()
-                label_name = label_dir
+            if (img_ext == '.tar' and label_ext == '.tar') or (os.path.isdir(img_name) and os.path.isdir(label_name)):
 
-            for data_type in ['.am','.tif','.tiff','.hdr','.mhd','.mha','.nrrd','.nii','.nii.gz']:
-                tmp_img_names = glob(img_name+'/**/*'+data_type, recursive=True)
-                tmp_label_names = glob(label_name+'/**/*'+data_type, recursive=True)
-                tmp_img_names = sorted(tmp_img_names)
-                tmp_label_names = sorted(tmp_label_names)
-                img_names.extend(tmp_img_names)
-                label_names.extend(tmp_label_names)
-            if len(img_names)==0:
-                InputError.message = "Invalid image data."
-                raise InputError()
-            if len(label_names)==0:
-                InputError.message = "Invalid label data."
-                raise InputError()
-        else:
-            img_names.append(img_name)
-            label_names.append(label_name)
+                # extract files if necessary
+                if img_ext == '.tar':
+                    if not os.path.exists(img_dir):
+                        tar = tarfile.open(img_name)
+                        tar.extractall(path=img_dir)
+                        tar.close()
+                    img_name = img_dir
+                if label_ext == '.tar':
+                    if not os.path.exists(label_dir):
+                        tar = tarfile.open(label_name)
+                        tar.extractall(path=label_dir)
+                        tar.close()
+                    label_name = label_dir
+
+                for data_type in ['.am','.tif','.tiff','.hdr','.mhd','.mha','.nrrd','.nii','.nii.gz']:
+                    tmp_img_names = glob(img_name+'/**/*'+data_type, recursive=True)
+                    tmp_label_names = glob(label_name+'/**/*'+data_type, recursive=True)
+                    tmp_img_names = sorted(tmp_img_names)
+                    tmp_label_names = sorted(tmp_label_names)
+                    img_names.extend(tmp_img_names)
+                    label_names.extend(tmp_label_names)
+                if len(img_names)==0:
+                    InputError.message = "Invalid image data."
+                    raise InputError()
+                if len(label_names)==0:
+                    InputError.message = "Invalid label data."
+                    raise InputError()
+            else:
+                img_names.append(img_name)
+                label_names.append(label_name)
 
     # load first label
-    a, header, extension = load_data(label_names[0], 'first_queue', True)
+    extension, header = '.tif', None
+    if any(img_list):
+        label, header, extension = load_data(label_names[0], 'first_queue', True)
+        if label is None:
+            InputError.message = "Invalid label data %s." %(os.path.basename(label_names[0]))
+            raise InputError()
+    elif type(label_in) is list:
+        label = label_in[0]
+    else:
+        label = label_in
+    label = label.astype(np.uint8)
+    label = set_labels_to_zero(label, labels_to_compute, labels_to_remove)
+    if crop_data:
+        argmin_z,argmax_z,argmin_y,argmax_y,argmin_x,argmax_x = predict_blocksize(label, x_puffer, y_puffer, z_puffer)
+        label = np.copy(label[argmin_z:argmax_z,argmin_y:argmax_y,argmin_x:argmax_x], order='C')
+    if not no_scaling:
+        label = img_resize(label, z_scale, y_scale, x_scale, labels=True)
 
-    # if header is not single data stream Amira Mesh falling back to Multi-TIFF
+    # falling back to Multi-TIFF if header is not single data stream Amira Mesh
     if extension != '.am':
         if extension != '.tif':
             print(f'Warning! {extension} not supported. Falling back to TIFF.')
@@ -394,30 +412,16 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
     else:
         header = header[0]
 
-    if a is None:
-        InputError.message = "Invalid label data %s." %(os.path.basename(label_names[0]))
-        raise InputError()
-    a = a.astype(np.uint8)
-    a = set_labels_to_zero(a, labels_to_compute, labels_to_remove)
-    if crop_data:
-        argmin_z,argmax_z,argmin_y,argmax_y,argmin_x,argmax_x = predict_blocksize(a, x_puffer, y_puffer, z_puffer)
-        a = np.copy(a[argmin_z:argmax_z,argmin_y:argmax_y,argmin_x:argmax_x], order='C')
-    if no_scaling:
-        label = np.copy(a)
-    else:
-        np_unique = np.unique(a)
-        label = np.zeros((z_scale, y_scale, x_scale), dtype=a.dtype)
-        for k in np_unique:
-            tmp = np.zeros_like(a)
-            tmp[a==k] = 1
-            tmp = img_resize(tmp, z_scale, y_scale, x_scale)
-            label[tmp==1] = k
-
     # load first img
-    img, _ = load_data(img_names[0], 'first_queue')
-    if img is None:
-        InputError.message = "Invalid image data %s." %(os.path.basename(img_names[0]))
-        raise InputError()
+    if any(img_list):
+        img, _ = load_data(img_names[0], 'first_queue')
+        if img is None:
+            InputError.message = "Invalid image data %s." %(os.path.basename(img_names[0]))
+            raise InputError()
+    elif type(img_in) is list:
+        img = img_in[0]
+    else:
+        img = img_in
     if crop_data:
         img = np.copy(img[argmin_z:argmax_z,argmin_y:argmax_y,argmin_x:argmax_x], order='C')
     img = img.astype(np.float32)
@@ -425,7 +429,7 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
         img = img_resize(img, z_scale, y_scale, x_scale)
     img -= np.amin(img)
     img /= np.amax(img)
-    if configuration_data is not None:
+    if configuration_data is not None and normalize:
         mu, sig = configuration_data[5], configuration_data[6]
         mu_tmp, sig_tmp = np.mean(img), np.std(img)
         img = (img - mu_tmp) / sig_tmp
@@ -433,47 +437,48 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
     else:
         mu, sig = np.mean(img), np.std(img)
 
-    for img_name, label_name in zip(img_names[1:], label_names[1:]):
+    if any(img_list) or type(img_in) is list:
+        number_of_images = len(img_names) if any(img_list) else len(img_in)
 
-        # append label
-        a, _ = load_data(label_name, 'first_queue')
-        if a is None:
-            InputError.message = "Invalid label data %s." %(os.path.basename(name))
-            raise InputError()
-        a = a.astype(np.uint8)
-        a = set_labels_to_zero(a, labels_to_compute, labels_to_remove)
-        if crop_data:
-            argmin_z,argmax_z,argmin_y,argmax_y,argmin_x,argmax_x = predict_blocksize(a, x_puffer, y_puffer, z_puffer)
-            a = np.copy(a[argmin_z:argmax_z,argmin_y:argmax_y,argmin_x:argmax_x], order='C')
-        if no_scaling:
-            next_label = np.copy(a)
-        else:
-            np_unique = np.unique(a)
-            next_label = np.zeros((z_scale, y_scale, x_scale), dtype=a.dtype)
-            for k in np_unique:
-                tmp = np.zeros_like(a)
-                tmp[a==k] = 1
-                tmp = img_resize(tmp, z_scale, y_scale, x_scale)
-                next_label[tmp==1] = k
-        label = np.append(label, next_label, axis=0)
+        for k in range(1, number_of_images):
 
-        # append image
-        a, _ = load_data(img_name, 'first_queue')
-        if a is None:
-            InputError.message = "Invalid image data %s." %(os.path.basename(name))
-            raise InputError()
-        if crop_data:
-            a = np.copy(a[argmin_z:argmax_z,argmin_y:argmax_y,argmin_x:argmax_x], order='C')
-        a = a.astype(np.float32)
-        if not no_scaling:
-            a = img_resize(a, z_scale, y_scale, x_scale)
-        a -= np.amin(a)
-        a /= np.amax(a)
-        if normalize:
-            mu_tmp, sig_tmp = np.mean(a), np.std(a)
-            a = (a - mu_tmp) / sig_tmp
-            a = a * sig + mu
-        img = np.append(img, a, axis=0)
+            # append label
+            if any(label_list):
+                a, _ = load_data(label_names[k], 'first_queue')
+                if a is None:
+                    InputError.message = "Invalid label data %s." %(os.path.basename(label_names[k]))
+                    raise InputError()
+            else:
+                a = label_in[k]
+            a = a.astype(np.uint8)
+            a = set_labels_to_zero(a, labels_to_compute, labels_to_remove)
+            if crop_data:
+                argmin_z,argmax_z,argmin_y,argmax_y,argmin_x,argmax_x = predict_blocksize(a, x_puffer, y_puffer, z_puffer)
+                a = np.copy(a[argmin_z:argmax_z,argmin_y:argmax_y,argmin_x:argmax_x], order='C')
+            if not no_scaling:
+                a = img_resize(a, z_scale, y_scale, x_scale, labels=True)
+            label = np.append(label, a, axis=0)
+
+            # append image
+            if any(img_list):
+                a, _ = load_data(img_names[k], 'first_queue')
+                if a is None:
+                    InputError.message = "Invalid image data %s." %(os.path.basename(img_names[k]))
+                    raise InputError()
+            else:
+                a = img_in[k]
+            if crop_data:
+                a = np.copy(a[argmin_z:argmax_z,argmin_y:argmax_y,argmin_x:argmax_x], order='C')
+            a = a.astype(np.float32)
+            if not no_scaling:
+                a = img_resize(a, z_scale, y_scale, x_scale)
+            a -= np.amin(a)
+            a /= np.amax(a)
+            if normalize:
+                mu_tmp, sig_tmp = np.mean(a), np.std(a)
+                a = (a - mu_tmp) / sig_tmp
+                a = a * sig + mu
+            img = np.append(img, a, axis=0)
 
     # scale image data to [0,1]
     img[img<0] = 0
@@ -622,22 +627,24 @@ class Metrics(Callback):
             if self.early_stopping > 0 and max(self.history['val_accuracy']) not in self.history['val_accuracy'][-self.early_stopping:]:
                 self.model.stop_training = True
 
-def train_semantic_segmentation(path_to_img, path_to_labels,
-            path_val_img, path_val_labels, args):
+def train_semantic_segmentation(path_to_img, path_to_labels, path_val_img, path_val_labels,
+    args, img=None, label=None, position=None, img_val=None, label_val=None, position_val=None):
 
     # training data
     img, label, position, allLabels, configuration_data, header, extension = load_training_data(args.normalize,
                     path_to_img, path_to_labels, args.channels, args.x_scale, args.y_scale, args.z_scale, args.no_scaling, args.crop_data,
-                    args.only, args.ignore, None, None)
+                    args.only, args.ignore, img, label, position, None, None)
+
+    print(img.shape, label.shape, np.amin(img), np.amax(img), np.unique(label), configuration_data)
 
     # img shape
     zsh, ysh, xsh = img.shape
 
     # validation data
-    if any(path_val_img):
+    if any(path_val_img) or img_val is not None:
         img_val, label_val, position_val, _, _, _, _ = load_training_data(args.normalize,
                         path_val_img, path_val_labels, args.channels, args.x_scale, args.y_scale, args.z_scale, args.no_scaling, args.crop_data,
-                        args.only, args.ignore, configuration_data, allLabels)
+                        args.only, args.ignore, img_val, label_val, position_val, configuration_data, allLabels)
 
     elif args.validation_split:
         number_of_images = zsh // args.z_scale
@@ -671,7 +678,7 @@ def train_semantic_segmentation(path_to_img, path_to_labels,
                 for m in range(0, xsh-args.x_patch+1, args.stride_size):
                     list_IDs_fg.append(k*ysh*xsh+l*xsh+m)
 
-    if any(path_val_img) or args.validation_split:
+    if img_val is not None:
 
         # img_val shape
         zsh_val, ysh_val, xsh_val = img_val.shape
@@ -715,7 +722,7 @@ def train_semantic_segmentation(path_to_img, path_to_labels,
     # data generator
     validation_generator = None
     training_generator = DataGenerator(img, label, position, list_IDs_fg, list_IDs_bg, True, False, True, args.classification, **params)
-    if any(path_val_img) or args.validation_split:
+    if img_val is not None:
         if args.val_tf:
             params['batch_size'] = args.validation_batch_size
             params['dim_img'] = (zsh_val, ysh_val, xsh_val)
@@ -792,7 +799,7 @@ def train_semantic_segmentation(path_to_img, path_to_labels,
     meta_data = MetaData(args.path_to_model, configuration_data, allLabels, extension, header, args.crop_data, args.cropping_weights, args.cropping_config)
 
     # model checkpoint
-    if any(path_val_img) or args.validation_split:
+    if img_val is not None:
         if args.val_tf:
             model_checkpoint_callback = ModelCheckpoint(
                 filepath=str(args.path_to_model),
@@ -815,15 +822,16 @@ def train_semantic_segmentation(path_to_img, path_to_labels,
               callbacks=callbacks, workers=args.workers)
 
     # save results in figure on train end
-    if any(path_val_img) or args.validation_split:
-        if args.val_tf:
-            save_history(history.history, args.path_to_model)
+    if img_val is not None and args.val_tf:
+        save_history(history.history, args.path_to_model)
 
 def load_prediction_data(path_to_img, channels, x_scale, y_scale, z_scale,
-                        no_scaling, normalize, mu, sig, region_of_interest):
+                        no_scaling, normalize, mu, sig, region_of_interest, img):
 
     # read image data
-    img, img_header, img_ext = load_data(path_to_img, 'first_queue', return_extension=True)
+    img_header, img_ext = None, None
+    if img is None:
+        img, img_header, img_ext = load_data(path_to_img, 'first_queue', return_extension=True)
     if img is None:
         InputError.message = "Invalid image data %s." %(os.path.basename(path_to_img))
         raise InputError()
@@ -863,7 +871,7 @@ def load_prediction_data(path_to_img, channels, x_scale, y_scale, z_scale,
 
     return img, img_header, position, z_shape, y_shape, x_shape, region_of_interest
 
-def predict_semantic_segmentation(args, img, position, path_to_model, path_to_final,
+def predict_semantic_segmentation(args, img, position, path_to_model,
     z_patch, y_patch, x_patch, z_shape, y_shape, x_shape, compress, header,
     img_header, channels, stride_size, allLabels, batch_size, region_of_interest, classification):
 
@@ -874,6 +882,8 @@ def predict_semantic_segmentation(args, img, position, path_to_model, path_to_fi
         print('Class:', np.argmax(probabilities))
 
     else:
+
+        results = {}
 
         # img shape
         zsh, ysh, xsh = img.shape
@@ -955,13 +965,7 @@ def predict_semantic_segmentation(args, img, position, path_to_model, path_to_fi
         out = out.astype(np.uint8)
 
         # rescale final to input size
-        np_unique = np.unique(out)
-        label = np.zeros((z_shape, y_shape, x_shape), dtype=out.dtype)
-        for k in np_unique:
-            tmp = np.zeros_like(out)
-            tmp[out==k] = 1
-            tmp = img_resize(tmp, z_shape, y_shape, x_shape)
-            label[tmp==1] = k
+        label = img_resize(out, z_shape, y_shape, x_shape, labels=True)
 
         # revert automatic cropping
         if np.any(region_of_interest):
@@ -978,28 +982,38 @@ def predict_semantic_segmentation(args, img, position, path_to_model, path_to_fi
             if img_header is not None:
                 header = get_physical_size(header, img_header)
             header = [header]
-        save_data(path_to_final, label, header=header, compress=compress)
+        results['regular'] = label
+        if args.path_to_img:
+            save_data(args.path_to_final, label, header=header, compress=compress)
 
         # post processing
         if args.create_slices:
-            create_slices(args.path_to_img, path_to_final, True)
+            create_slices(args.path_to_img, args.path_to_final, True)
             if np.any(region_of_interest) and args.save_cropped:
                 create_slices(args.path_to_cropped_image, None, True)
         if args.clean:
             final_cleaned = clean(label, args.clean)
-            save_data(args.path_to_cleaned, final_cleaned, header, compress)
+            results['cleaned'] = final_cleaned
+            if args.path_to_img:
+                save_data(args.path_to_cleaned, final_cleaned, header, compress)
             if args.create_slices:
                 create_slices(args.path_to_img, args.path_to_cleaned, True)
         if args.fill:
             final_filled = clean(label, args.fill)
-            save_data(args.path_to_filled, final_filled, header, compress)
+            results['filled'] = final_filled
+            if args.path_to_img:
+                save_data(args.path_to_filled, final_filled, header, compress)
             if args.create_slices:
                 create_slices(args.path_to_img, args.path_to_filled, True)
         if args.clean and args.fill:
             final_cleaned_filled = final_cleaned + (final_filled - label)
-            save_data(args.path_to_cleaned_filled, final_cleaned_filled, header, compress)
+            results['cleaned_filled'] = final_cleaned_filled
+            if args.path_to_img:
+                save_data(args.path_to_cleaned_filled, final_cleaned_filled, header, compress)
             if args.create_slices:
                 create_slices(args.path_to_img, args.path_to_cleaned_filled, True)
+
+        return results
 
 def predict_pre_final(img, path_to_model, x_scale, y_scale, z_scale, z_patch, y_patch, x_patch, \
                       normalize, mu, sig, channels, stride_size, batch_size):

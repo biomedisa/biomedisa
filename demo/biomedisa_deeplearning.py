@@ -30,7 +30,7 @@
 import sys, os
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(BASE_DIR)
-from keras_helper import *
+from demo.keras_helper import *
 import biomedisa
 import biomedisa_features.crop_helper as ch
 from multiprocessing import Process
@@ -40,7 +40,54 @@ import numpy as np
 import h5py
 import time
 
-def conv_network(args):
+class Biomedisa(object):
+     pass
+
+def deep_learning(img_data, label_data=None, path_to_img=None, path_to_labels=None, path_to_model=None,
+    predict=False, train=False, balance=False, crop_data=False, flip_x=False, flip_y=False, flip_z=False,
+    swapaxes=False, val_tf=False, no_compression=False, create_slices=False, ignore='none', only='all',
+    network_filters='32-64-128-256-512', resnet=False, channels=1, debug_cropping=False,
+    save_cropped=False, epochs=100, no_normalization=False, rotate=0.0, validation_split=0.0,
+    learning_rate=0.01, stride_size=32, validation_stride_size=32, validation_freq=1,
+    batch_size=24, validation_batch_size=24, val_images=None, val_labels=None, clean=None,
+    fill=None, x_scale=256, y_scale=256, z_scale=256, no_scaling=False, early_stopping=0,
+    pretrained_model=None, fine_tune=False, classification=False, workers=1, cropping_epochs=50,
+    val_img_data=None, val_label_data=None, x_range=None, y_range=None, z_range=None):
+
+    # time
+    TIC = time.time()
+
+    # build biomedisa objects
+    results = None
+    args = Biomedisa()
+    key_copy = tuple(locals().keys())
+    for arg in key_copy:
+        args.__dict__[arg] = locals()[arg]
+
+    # path to model
+    if args.train and not args.path_to_model:
+        current_time = time.strftime("%d-%m-%Y_%H:%M:%S", time.localtime())
+        args.path_to_model = os.getcwd() + f'/biomedisa-{current_time}.h5'
+    if args.predict and not args.path_to_model:
+        raise Exception("'path_to_model' must be specified")
+
+    # compression
+    if args.no_compression:
+        args.compression = False
+    else:
+        args.compression = True
+
+    # normalization
+    if args.no_normalization:
+        args.normalize = 0
+    else:
+        args.normalize = 1
+
+    # disable file saving when called as a function
+    if img_data is not None:
+        args.path_to_img = None
+        args.create_slices = False
+        args.path_to_cropped_image = None
 
     # get number of GPUs
     strategy = tf.distribute.MirroredStrategy()
@@ -63,7 +110,7 @@ def conv_network(args):
     # dimensions of patches for regular training
     args.z_patch, args.y_patch, args.x_patch = 64, 64, 64
 
-    # adapt scaling and stridesize to patchsize
+    # adapt scaling to stridesize and patchsize
     args.x_scale = args.x_scale - (args.x_scale - 64) % args.stride_size
     args.y_scale = args.y_scale - (args.y_scale - 64) % args.stride_size
     args.z_scale = args.z_scale - (args.z_scale - 64) % args.stride_size
@@ -74,12 +121,14 @@ def conv_network(args):
         args.cropping_weights, args.cropping_config = None, None
         if args.crop_data:
             args.cropping_weights, args.cropping_config = ch.load_and_train(args.normalize, [args.path_to_img], [args.path_to_labels], args.path_to_model,
-                        args.epochs, args.batch_size, args.validation_split, args.x_scale, args.y_scale, args.z_scale,
+                        args.cropping_epochs, args.batch_size, args.validation_split, args.x_scale, args.y_scale, args.z_scale,
                         args.flip_x, args.flip_y, args.flip_z, args.rotate, args.only, args.ignore, [args.val_images], [args.val_labels], True)
 
         # train automatic segmentation
         train_semantic_segmentation([args.path_to_img], [args.path_to_labels],
-                        [args.val_images], [args.val_labels], args)
+                        [args.val_images], [args.val_labels], args,
+                        img_data, label_data, None,
+                        val_img_data, val_label_data, None)
 
     if args.predict:
 
@@ -105,37 +154,53 @@ def conv_network(args):
             header = None
 
         # create path_to_final
-        filename = os.path.basename(args.path_to_img)
-        filename = os.path.splitext(filename)[0]
-        if filename[-4:] in ['.nii','.tar']:
-            filename = filename[:-4]
-        args.path_to_cropped_image = args.path_to_img.replace(os.path.basename(args.path_to_img), filename + '.cropped.tif')
-        filename = 'final.' + filename
-        path_to_final = args.path_to_img.replace(os.path.basename(args.path_to_img), filename + extension)
-        args.path_to_cleaned = args.path_to_img.replace(os.path.basename(args.path_to_img), filename + '.cleaned' + extension)
-        args.path_to_filled = args.path_to_img.replace(os.path.basename(args.path_to_img), filename + '.filled' + extension)
-        args.path_to_cleaned_filled = args.path_to_img.replace(os.path.basename(args.path_to_img), filename + '.cleaned.filled' + extension)
+        if args.path_to_img:
+            filename = os.path.basename(args.path_to_img)
+            filename = os.path.splitext(filename)[0]
+            if filename[-4:] in ['.nii','.tar']:
+                filename = filename[:-4]
+            args.path_to_cropped_image = args.path_to_img.replace(os.path.basename(args.path_to_img), filename + '.cropped.tif')
+            filename = 'final.' + filename
+            args.path_to_final = args.path_to_img.replace(os.path.basename(args.path_to_img), filename + extension)
+            args.path_to_cleaned = args.path_to_img.replace(os.path.basename(args.path_to_img), filename + '.cleaned' + extension)
+            args.path_to_filled = args.path_to_img.replace(os.path.basename(args.path_to_img), filename + '.filled' + extension)
+            args.path_to_cleaned_filled = args.path_to_img.replace(os.path.basename(args.path_to_img), filename + '.cleaned.filled' + extension)
 
         # crop data
-        region_of_interest = None
+        region_of_interest, cropped_volume = None, None
         if crop_data:
-            region_of_interest = ch.crop_data(args.path_to_img, args.path_to_model, args.path_to_cropped_image,
-                args.batch_size, args.debug_cropping, args.save_cropped)
+            region_of_interest, cropped_volume = ch.crop_data(args.path_to_img, args.path_to_model, args.path_to_cropped_image,
+                args.batch_size, args.debug_cropping, args.save_cropped, img_data, args)
 
         # load prediction data
         img, img_header, position, z_shape, y_shape, x_shape, region_of_interest = load_prediction_data(args.path_to_img,
-            channels, args.x_scale, args.y_scale, args.z_scale, args.no_scaling, normalize, mu, sig, region_of_interest)
+            channels, args.x_scale, args.y_scale, args.z_scale, args.no_scaling, normalize, mu, sig, region_of_interest, img_data)
 
         # make prediction
-        predict_semantic_segmentation(args, img, position, args.path_to_model, path_to_final,
+        results = predict_semantic_segmentation(args, img, position, args.path_to_model,
             args.z_patch, args.y_patch, args.x_patch, z_shape, y_shape, x_shape, args.compression, header,
             img_header, channels, args.stride_size, allLabels, args.batch_size, region_of_interest,
             args.classification)
 
-if __name__ == '__main__':
+        # results
+        if header is not None:
+            results['labels_header'] = header
+        if cropped_volume is not None:
+            results['cropped_volume'] = cropped_volume
 
-    # time
-    TIC = time.time()
+    # calculation time
+    t = int(time.time() - TIC)
+    if t < 60:
+        time_str = str(t) + " sec"
+    elif 60 <= t < 3600:
+        time_str = str(t // 60) + " min " + str(t % 60) + " sec"
+    elif 3600 < t:
+        time_str = str(t // 3600) + " h " + str((t % 3600) // 60) + " min " + str(t % 60) + " sec"
+    print('Total calculation time:', time_str)
+
+    return results
+
+if __name__ == '__main__':
 
     # initialize arguments
     parser = argparse.ArgumentParser(description='Biomedisa deeplearning.',
@@ -156,82 +221,90 @@ if __name__ == '__main__':
                         help='Train neural network')
     parser.add_argument('-b','--balance', action='store_true', default=False,
                         help='Balance foreground and background training patches')
-    parser.add_argument('-cd','--crop-data', action='store_true', default=False,
+    parser.add_argument('-cd','--crop_data', action='store_true', default=False,
                         help='Crop data automatically to region of interest')
-    parser.add_argument('--flip-x', action='store_true', default=False,
+    parser.add_argument('--flip_x', action='store_true', default=False,
                         help='Randomly flip x-axis during training')
-    parser.add_argument('--flip-y', action='store_true', default=False,
+    parser.add_argument('--flip_y', action='store_true', default=False,
                         help='Randomly flip y-axis during training')
-    parser.add_argument('--flip-z', action='store_true', default=False,
+    parser.add_argument('--flip_z', action='store_true', default=False,
                         help='Randomly flip z-axis during training')
     parser.add_argument('-sa','--swapaxes', action='store_true', default=False,
                         help='Randomly swap two axes during training')
-    parser.add_argument('-vt','--val-tf', action='store_true', default=False,
+    parser.add_argument('-vt','--val_tf', action='store_true', default=False,
                         help='Use tensorflow standard accuracy on validation data')
-    parser.add_argument('--no-compression', action='store_true', default=False,
+    parser.add_argument('--no_compression', action='store_true', default=False,
                         help='Disable compression of segmentation results')
-    parser.add_argument('-cs','--create-slices', action='store_true', default=False,
+    parser.add_argument('-cs','--create_slices', action='store_true', default=False,
                         help='Create slices of segmentation results')
     parser.add_argument('--ignore', type=str, default='none',
                         help='Ignore specific label(s), e.g. 2,5,6')
     parser.add_argument('--only', type=str, default='all',
                         help='Segment only specific label(s), e.g. 1,3,5')
-    parser.add_argument('-nf', '--network-filters', type=str, default='32-64-128-256-512',
+    parser.add_argument('-nf', '--network_filters', type=str, default='32-64-128-256-512',
                         help='Number of filters per layer up to the deepest, e.g. 32-64-128-256-512')
     parser.add_argument('-rn','--resnet', action='store_true', default=False,
                         help='Use U-resnet instead of standard U-net')
     parser.add_argument('--channels', type=int, default=1,
                         help='Use voxel coordinates')
-    parser.add_argument('-dc','--debug-cropping', action='store_true', default=False,
+    parser.add_argument('-dc','--debug_cropping', action='store_true', default=False,
                         help='Debug cropping')
-    parser.add_argument('-sc','--save-cropped', action='store_true', default=False,
+    parser.add_argument('-sc','--save_cropped', action='store_true', default=False,
                         help='Save cropped image')
     parser.add_argument('-e','--epochs', type=int, default=100,
                         help='Epochs the network is trained')
-    parser.add_argument('-nn','--no-normalization', action='store_true', default=False,
+    parser.add_argument('-ce','--cropping_epochs', type=int, default=50,
+                        help='Epochs the network for auto-cropping is trained')
+    parser.add_argument('-nn','--no_normalization', action='store_true', default=False,
                         help='Disable image normalization')
     parser.add_argument('-r','--rotate', type=float, default=0.0,
                         help='Randomly rotate during training')
-    parser.add_argument('-vs','--validation-split', type=float, default=0.0,
+    parser.add_argument('-vs','--validation_split', type=float, default=0.0,
                         help='Percentage of data used for validation')
-    parser.add_argument('-lr','--learning-rate', type=float, default=0.01,
+    parser.add_argument('-lr','--learning_rate', type=float, default=0.01,
                         help='Learning rate')
-    parser.add_argument('-ss','--stride-size', metavar="[1-64]", type=int, choices=range(1,65), default=32,
+    parser.add_argument('-ss','--stride_size', metavar="[1-64]", type=int, choices=range(1,65), default=32,
                         help='Stride size for patches')
-    parser.add_argument('-vss','--validation-stride-size', metavar="[1-64]", type=int, choices=range(1,65), default=32,
+    parser.add_argument('-vss','--validation_stride_size', metavar="[1-64]", type=int, choices=range(1,65), default=32,
                         help='Stride size for validation patches')
-    parser.add_argument('-vf','--validation-freq', type=int, default=1,
+    parser.add_argument('-vf','--validation_freq', type=int, default=1,
                         help='Epochs performed before validation')
-    parser.add_argument('-bs','--batch-size', type=int, default=24,
+    parser.add_argument('-bs','--batch_size', type=int, default=24,
                         help='batch size')
-    parser.add_argument('-vbs','--validation-batch-size', type=int, default=24,
+    parser.add_argument('-vbs','--validation_batch_size', type=int, default=24,
                         help='validation batch size')
-    parser.add_argument('-vi','--val-images', type=str, metavar='PATH', default=None,
+    parser.add_argument('-vi','--val_images', type=str, metavar='PATH', default=None,
                         help='Location of validation image data (tarball or directory)')
-    parser.add_argument('-vl','--val-labels', type=str, metavar='PATH', default=None,
+    parser.add_argument('-vl','--val_labels', type=str, metavar='PATH', default=None,
                         help='Location of validation label data (tarball or directory)')
     parser.add_argument('-c','--clean', nargs='?', type=float, const=0.1, default=None,
                         help='Remove outliers, e.g. 0.5 means that objects smaller than 50 percent of the size of the largest object will be removed')
     parser.add_argument('-f','--fill', nargs='?', type=float, const=0.9, default=None,
                         help='Fill holes, e.g. 0.5 means that all holes smaller than 50 percent of the entire label will be filled')
-    parser.add_argument('-xs','--x-scale', type=int, default=256,
+    parser.add_argument('-xs','--x_scale', type=int, default=256,
                         help='Images and labels are scaled at x-axis to this size before training')
-    parser.add_argument('-ys','--y-scale', type=int, default=256,
+    parser.add_argument('-ys','--y_scale', type=int, default=256,
                         help='Images and labels are scaled at y-axis to this size before training')
-    parser.add_argument('-zs','--z-scale', type=int, default=256,
+    parser.add_argument('-zs','--z_scale', type=int, default=256,
                         help='Images and labels are scaled at z-axis to this size before training')
-    parser.add_argument('-ns','--no-scaling', action='store_true', default=False,
+    parser.add_argument('-ns','--no_scaling', action='store_true', default=False,
                         help='Do not resize image and label data')
-    parser.add_argument('-es','--early-stopping', type=int, default=0,
+    parser.add_argument('-es','--early_stopping', type=int, default=0,
                         help='Training is terminated when the accuracy has not increased in the epochs defined by this')
-    parser.add_argument('-pm','--pretrained-model', type=str, metavar='PATH', default=None,
+    parser.add_argument('-pm','--pretrained_model', type=str, metavar='PATH', default=None,
                         help='Location of pretrained model (only encoder will be trained if specified)')
-    parser.add_argument('-ft','--fine-tune', action='store_true', default=False,
+    parser.add_argument('-ft','--fine_tune', action='store_true', default=False,
                         help='Fine-tune a pretrained model. Choose a smaller learning rate, e.g. 0.0001')
     parser.add_argument('-cl','--classification', action='store_true', default=False,
                         help='Train a model for image classification. Validation works only with `-vt` option')
     parser.add_argument('-w','--workers', type=int, default=1,
                         help='Parallel workers for batch processing')
+    parser.add_argument('-xr','--x_range', nargs="+", type=int, default=None,
+                        help='Manually crop x-axis of image data for prediction, e.g. -xr 100 200')
+    parser.add_argument('-yr','--y_range', nargs="+", type=int, default=None,
+                        help='Manually crop y-axis of image data for prediction, e.g. -xr 100 200')
+    parser.add_argument('-zr','--z_range', nargs="+", type=int, default=None,
+                        help='Manually crop z-axis of image data for prediction, e.g. -xr 100 200')
     args = parser.parse_args()
 
     if args.predict:
@@ -241,28 +314,9 @@ if __name__ == '__main__':
         args.path_to_labels = args.path
         args.path_to_model = args.path_to_img + '.h5'
 
-    # compression
-    if args.no_compression:
-        args.compression = False
-    else:
-        args.compression = True
-
-    # normalization
-    if args.no_normalization:
-        args.normalize = 0
-    else:
-        args.normalize = 1
+    kwargs = vars(args)
+    del kwargs['path']
 
     # train network or predict segmentation
-    conv_network(args)
-
-    # calculation time
-    t = int(time.time() - TIC)
-    if t < 60:
-        time_str = str(t) + " sec"
-    elif 60 <= t < 3600:
-        time_str = str(t // 60) + " min " + str(t % 60) + " sec"
-    elif 3600 < t:
-        time_str = str(t // 3600) + " h " + str((t % 3600) // 60) + " min " + str(t % 60) + " sec"
-    print('Total calculation time:', time_str)
+    deep_learning(None, **kwargs)
 
