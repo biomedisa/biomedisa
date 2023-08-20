@@ -66,8 +66,8 @@ def deep_learning(img_data, label_data=None, path_to_img=None, path_to_labels=No
 
     # path to model
     if args.train and not args.path_to_model:
-        current_time = time.strftime("%d-%m-%Y_%H:%M:%S", time.localtime())
-        args.path_to_model = os.getcwd() + f'/biomedisa-{current_time}.h5'
+        current_time = time.strftime("%d-%m-%Y_%H-%M-%S", time.localtime())
+        args.path_to_model = os.getcwd() + f'/biomedisa_{current_time}.h5'
     if args.predict and not args.path_to_model:
         raise Exception("'path_to_model' must be specified")
 
