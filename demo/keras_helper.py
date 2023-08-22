@@ -646,18 +646,15 @@ def train_semantic_segmentation(path_to_img, path_to_labels, path_val_img, path_
                         args.only, args.ignore, img_val, label_val, position_val, configuration_data, allLabels)
 
     elif args.validation_split:
-        number_of_images = zsh // args.z_scale
-        split = round(number_of_images * args.validation_split)
-        img_val = np.copy(img[split*args.z_scale:])
-        label_val = np.copy(label[split*args.z_scale:])
-        img = np.copy(img[:split*args.z_scale])
-        label = np.copy(label[:split*args.z_scale])
+        split = round(zsh * args.validation_split)
+        img_val = np.copy(img[split:])
+        label_val = np.copy(label[split:])
+        img = np.copy(img[:split])
+        label = np.copy(label[:split])
         zsh, ysh, xsh = img.shape
         if args.channels == 2:
-            position_val = np.copy(position[split*args.z_scale:])
-            position = np.copy(position[:split*args.z_scale])
-        else:
-            position_val = None
+            position_val = np.copy(position[split:])
+            position = np.copy(position[:split])
 
     # list of IDs
     list_IDs_fg, list_IDs_bg = [], []
