@@ -54,7 +54,7 @@ from rq import Queue
 def conv_network(train, predict, refine, img_list, label_list, path_to_model,
             path_to_refine_model, compress, epochs, batch_size, batch_size_refine,
             stride_size, stride_size_refining, channels, normalize, path_to_img,
-            x_scale, y_scale, z_scale, balance, image, label, crop_data):
+            x_scale, y_scale, z_scale, balance, image, label, crop_data, cropping_epochs):
 
     # get number of GPUs
     strategy = tf.distribute.MirroredStrategy()
@@ -87,7 +87,7 @@ def conv_network(train, predict, refine, img_list, label_list, path_to_model,
             cropping_weights, cropping_config = None, None
             if crop_data:
                 cropping_weights, cropping_config = ch.load_and_train(normalize, img_list, label_list, path_to_model,
-                    epochs, batch_size, label.validation_split, x_scale, y_scale, z_scale,
+                    cropping_epochs, batch_size, label.validation_split, x_scale, y_scale, z_scale,
                     label.flip_x, label.flip_y, label.flip_z, label.rotate, label.only, label.ignore)
 
             # train network
@@ -342,6 +342,7 @@ if __name__ == '__main__':
         y_scale = int(label.y_scale)                        # images are scaled at y-axis to this size before training
         z_scale = int(label.z_scale)                        # images are scaled at z-axis to this size before training
         crop_data = 1 if label.automatic_cropping else 0    # crop data automatically to region of interest
+        cropping_epochs = 50                                # Epochs the network for auto-cropping is trained
 
         # the stride which is made for generating patches
         if model_id > 0:
@@ -361,8 +362,8 @@ if __name__ == '__main__':
         success, error_message, path_to_final, path_to_refine_model, path_to_cropped_image = conv_network(
             train, predict, refine, img_list, label_list, path_to_model, path_to_refine_model, compress,
             epochs, batch_size, batch_size_refine, stride_size, stride_size_refining, channels,
-            normalize, path_to_img, x_scale, y_scale, z_scale, balance, image, label, crop_data
-            )
+            normalize, path_to_img, x_scale, y_scale, z_scale, balance, image, label, crop_data,
+            cropping_epochs)
 
         if success:
 
