@@ -122,7 +122,10 @@ def deep_learning(img_data, label_data=None, path_to_img=None, path_to_labels=No
         if args.crop_data:
             args.cropping_weights, args.cropping_config = ch.load_and_train(args.normalize, [args.path_to_img], [args.path_to_labels], args.path_to_model,
                         args.cropping_epochs, args.batch_size, args.validation_split, args.x_scale, args.y_scale, args.z_scale,
-                        args.flip_x, args.flip_y, args.flip_z, args.rotate, args.only, args.ignore, [args.val_images], [args.val_labels], True)
+                        args.flip_x, args.flip_y, args.flip_z, args.rotate, args.only, args.ignore,
+                        [args.val_images], [args.val_labels],
+                        img_data, label_data, None,
+                        val_img_data, val_label_data, None, True)
 
         # train automatic segmentation
         train_semantic_segmentation([args.path_to_img], [args.path_to_labels],
@@ -170,7 +173,7 @@ def deep_learning(img_data, label_data=None, path_to_img=None, path_to_labels=No
         region_of_interest, cropped_volume = None, None
         if crop_data:
             region_of_interest, cropped_volume = ch.crop_data(args.path_to_img, args.path_to_model, args.path_to_cropped_image,
-                args.batch_size, args.debug_cropping, args.save_cropped, img_data, args)
+                args.batch_size, args.debug_cropping, args.save_cropped, img_data, args.x_range, args.y_range, args.z_range)
 
         # load prediction data
         img, img_header, position, z_shape, y_shape, x_shape, region_of_interest = load_prediction_data(args.path_to_img,

@@ -437,6 +437,7 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
     else:
         mu, sig = np.mean(img), np.std(img)
 
+    # loop over list of images
     if any(img_list) or type(img_in) is list:
         number_of_images = len(img_names) if any(img_list) else len(img_in)
 
@@ -634,8 +635,6 @@ def train_semantic_segmentation(path_to_img, path_to_labels, path_val_img, path_
     img, label, position, allLabels, configuration_data, header, extension = load_training_data(args.normalize,
                     path_to_img, path_to_labels, args.channels, args.x_scale, args.y_scale, args.z_scale, args.no_scaling, args.crop_data,
                     args.only, args.ignore, img, label, position, None, None)
-
-    print(img.shape, label.shape, np.amin(img), np.amax(img), np.unique(label), configuration_data)
 
     # img shape
     zsh, ysh, xsh = img.shape

@@ -93,59 +93,66 @@ def make_densenet(inputshape):
     return model
 
 def load_cropping_training_data(normalize, img_list, label_list, x_scale, y_scale, z_scale,
-    labels_to_compute, labels_to_remove, mu=None, sig=None):
+    labels_to_compute, labels_to_remove, img_in, label_in, position_in, mu=None, sig=None):
 
-    # get filenames
-    img_names, label_names = [], []
-    for img_name, label_name in zip(img_list, label_list):
+    if any(img_list):
 
-        # check for tarball
-        img_dir, img_ext = os.path.splitext(img_name)
-        if img_ext == '.gz':
-            img_dir, img_ext = os.path.splitext(img_dir)
+        # get filenames
+        img_names, label_names = [], []
+        for img_name, label_name in zip(img_list, label_list):
 
-        label_dir, label_ext = os.path.splitext(label_name)
-        if label_ext == '.gz':
-            label_dir, label_ext = os.path.splitext(label_dir)
+            # check for tarball
+            img_dir, img_ext = os.path.splitext(img_name)
+            if img_ext == '.gz':
+                img_dir, img_ext = os.path.splitext(img_dir)
 
-        if (img_ext == '.tar' and label_ext == '.tar') or (os.path.isdir(img_name) and os.path.isdir(label_name)):
+            label_dir, label_ext = os.path.splitext(label_name)
+            if label_ext == '.gz':
+                label_dir, label_ext = os.path.splitext(label_dir)
 
-            # extract files if necessary
-            if img_ext == '.tar':
-                if not os.path.exists(img_dir):
-                    tar = tarfile.open(img_name)
-                    tar.extractall(path=img_dir)
-                    tar.close()
-                img_name = img_dir
-            if label_ext == '.tar':
-                if not os.path.exists(label_dir):
-                    tar = tarfile.open(label_name)
-                    tar.extractall(path=label_dir)
-                    tar.close()
-                label_name = label_dir
+            if (img_ext == '.tar' and label_ext == '.tar') or (os.path.isdir(img_name) and os.path.isdir(label_name)):
 
-            for data_type in ['.am','.tif','.tiff','.hdr','.mhd','.mha','.nrrd','.nii','.nii.gz']:
-                tmp_img_names = glob(img_name+'/**/*'+data_type, recursive=True)
-                tmp_label_names = glob(label_name+'/**/*'+data_type, recursive=True)
-                tmp_img_names = sorted(tmp_img_names)
-                tmp_label_names = sorted(tmp_label_names)
-                img_names.extend(tmp_img_names)
-                label_names.extend(tmp_label_names)
-            if len(img_names)==0:
-                InputError.message = "Invalid image TAR file."
-                raise InputError()
-            if len(label_names)==0:
-                InputError.message = "Invalid label TAR file."
-                raise InputError()
-        else:
-            img_names.append(img_name)
-            label_names.append(label_name)
+                # extract files if necessary
+                if img_ext == '.tar':
+                    if not os.path.exists(img_dir):
+                        tar = tarfile.open(img_name)
+                        tar.extractall(path=img_dir)
+                        tar.close()
+                    img_name = img_dir
+                if label_ext == '.tar':
+                    if not os.path.exists(label_dir):
+                        tar = tarfile.open(label_name)
+                        tar.extractall(path=label_dir)
+                        tar.close()
+                    label_name = label_dir
+
+                for data_type in ['.am','.tif','.tiff','.hdr','.mhd','.mha','.nrrd','.nii','.nii.gz']:
+                    tmp_img_names = glob(img_name+'/**/*'+data_type, recursive=True)
+                    tmp_label_names = glob(label_name+'/**/*'+data_type, recursive=True)
+                    tmp_img_names = sorted(tmp_img_names)
+                    tmp_label_names = sorted(tmp_label_names)
+                    img_names.extend(tmp_img_names)
+                    label_names.extend(tmp_label_names)
+                if len(img_names)==0:
+                    InputError.message = "Invalid image TAR file."
+                    raise InputError()
+                if len(label_names)==0:
+                    InputError.message = "Invalid label TAR file."
+                    raise InputError()
+            else:
+                img_names.append(img_name)
+                label_names.append(label_name)
 
     # load first label
-    a, header, extension = load_data(label_names[0], 'first_queue', True)
-    if a is None:
-        InputError.message = "Invalid label data %s." %(os.path.basename(label_names[0]))
-        raise InputError()
+    if any(img_list):
+        a, _, _ = load_data(label_names[0], 'first_queue', True)
+        if a is None:
+            InputError.message = "Invalid label data %s." %(os.path.basename(label_names[0]))
+            raise InputError()
+    elif type(label_in) is list:
+        a = label_in[0]
+    else:
+        a = label_in
     a = a.astype(np.uint8)
     a = set_labels_to_zero(a, labels_to_compute, labels_to_remove)
     label_z = np.any(a,axis=(1,2))
@@ -155,10 +162,15 @@ def load_cropping_training_data(normalize, img_list, label_list, x_scale, y_scal
     label = np.append(label,label_x,axis=0)
 
     # load first img
-    img, _ = load_data(img_names[0], 'first_queue')
-    if img is None:
-        InputError.message = "Invalid image data %s." %(os.path.basename(img_names[0]))
-        raise InputError()
+    if any(img_list):
+        img, _ = load_data(img_names[0], 'first_queue')
+        if img is None:
+            InputError.message = "Invalid image data %s." %(os.path.basename(img_names[0]))
+            raise InputError()
+    elif type(img_in) is list:
+        img = img_in[0]
+    else:
+        img = img_in
     img = img.astype(np.float32)
     img_z = img_resize(img, a.shape[0], y_scale, x_scale)
     img_y = np.swapaxes(img_resize(img, z_scale, a.shape[1], x_scale),0,1)
@@ -177,43 +189,53 @@ def load_cropping_training_data(normalize, img_list, label_list, x_scale, y_scal
         mu, sig = np.mean(img), np.std(img)
     img = np.uint8(img*255)
 
-    for img_name, label_name in zip(img_names[1:], label_names[1:]):
+    # loop over list of images
+    if any(img_list) or type(img_in) is list:
+        number_of_images = len(img_names) if any(img_list) else len(img_in)
 
-        # append label
-        a, _ = load_data(label_name, 'first_queue')
-        if a is None:
-            InputError.message = "Invalid label data %s." %(os.path.basename(name))
-            raise InputError()
-        a = a.astype(np.uint8)
-        a = set_labels_to_zero(a, labels_to_compute, labels_to_remove)
-        next_label_z = np.any(a,axis=(1,2))
-        next_label_y = np.any(a,axis=(0,2))
-        next_label_x = np.any(a,axis=(0,1))
-        label = np.append(label,next_label_z,axis=0)
-        label = np.append(label,next_label_y,axis=0)
-        label = np.append(label,next_label_x,axis=0)
+        for k in range(1, number_of_images):
 
-        # append image
-        a, _ = load_data(img_name, 'first_queue')
-        if a is None:
-            InputError.message = "Invalid image data %s." %(os.path.basename(name))
-            raise InputError()
-        a = a.astype(np.float32)
-        img_z = img_resize(a, a.shape[0], y_scale, x_scale)
-        img_y = np.swapaxes(img_resize(a, z_scale, a.shape[1], x_scale),0,1)
-        img_x = np.swapaxes(img_resize(a, z_scale, y_scale, a.shape[2]),0,2)
-        next_img = np.append(img_z,img_y,axis=0)
-        next_img = np.append(next_img,img_x,axis=0)
-        next_img -= np.amin(next_img)
-        next_img /= np.amax(next_img)
-        if normalize:
-            mu_tmp, sig_tmp = np.mean(next_img), np.std(next_img)
-            next_img = (next_img - mu_tmp) / sig_tmp
-            next_img = next_img * sig + mu
-            next_img[next_img<0] = 0
-            next_img[next_img>1] = 1
-        next_img = np.uint8(next_img*255)
-        img = np.append(img, next_img, axis=0)
+            # append label
+            if any(label_list):
+                a, _ = load_data(label_names[k], 'first_queue')
+                if a is None:
+                    InputError.message = "Invalid label data %s." %(os.path.basename(name))
+                    raise InputError()
+            else:
+                a = label_in[k]
+            a = a.astype(np.uint8)
+            a = set_labels_to_zero(a, labels_to_compute, labels_to_remove)
+            next_label_z = np.any(a,axis=(1,2))
+            next_label_y = np.any(a,axis=(0,2))
+            next_label_x = np.any(a,axis=(0,1))
+            label = np.append(label,next_label_z,axis=0)
+            label = np.append(label,next_label_y,axis=0)
+            label = np.append(label,next_label_x,axis=0)
+
+            # append image
+            if any(img_list):
+                a, _ = load_data(img_names[k], 'first_queue')
+                if a is None:
+                    InputError.message = "Invalid image data %s." %(os.path.basename(name))
+                    raise InputError()
+            else:
+                a = img_in[k]
+            a = a.astype(np.float32)
+            img_z = img_resize(a, a.shape[0], y_scale, x_scale)
+            img_y = np.swapaxes(img_resize(a, z_scale, a.shape[1], x_scale),0,1)
+            img_x = np.swapaxes(img_resize(a, z_scale, y_scale, a.shape[2]),0,2)
+            next_img = np.append(img_z,img_y,axis=0)
+            next_img = np.append(next_img,img_x,axis=0)
+            next_img -= np.amin(next_img)
+            next_img /= np.amax(next_img)
+            if normalize:
+                mu_tmp, sig_tmp = np.mean(next_img), np.std(next_img)
+                next_img = (next_img - mu_tmp) / sig_tmp
+                next_img = next_img * sig + mu
+                next_img[next_img<0] = 0
+                next_img[next_img>1] = 1
+            next_img = np.uint8(next_img*255)
+            img = np.append(img, next_img, axis=0)
 
     img_rgb = np.empty((img.shape + (3,)), dtype=np.uint8)
     for i in range(3):
@@ -222,7 +244,7 @@ def load_cropping_training_data(normalize, img_list, label_list, x_scale, y_scal
     # compute position data
     position = None
 
-    return img_rgb, label, position, mu, sig, header, extension, len(img_names)
+    return img_rgb, label, position, mu, sig, len(img_names)
 
 def train_cropping(img, label, path_to_model, epochs, batch_size,
                     validation_split, position, flip_x, flip_y, flip_z, rotate,
@@ -383,7 +405,7 @@ def load_data_to_crop(path_to_img, x_scale, y_scale, z_scale,
     return img_rgb, z_shape, y_shape, x_shape, img_data
 
 def crop_volume(img, path_to_model, path_to_final, z_shape, y_shape, x_shape, batch_size,
-        debug_cropping, save_cropped, img_data=None, args=None, x_puffer=25, y_puffer=25, z_puffer=25):
+        debug_cropping, save_cropped, img_data, x_range, y_range, z_range, x_puffer=25, y_puffer=25, z_puffer=25):
 
     # img shape
     zsh, ysh, xsh, channels = img.shape
@@ -466,20 +488,20 @@ def crop_volume(img, path_to_model, path_to_final, z_shape, y_shape, x_shape, ba
             probabilities[k-4:k+5] = 0
 
     # create final
-    if args.z_range is not None:
-        z_lower, z_upper = args.z_range
+    if z_range is not None:
+        z_lower, z_upper = z_range
     else:
         z_lower = max(0,np.argmax(probabilities[:z_shape]) - z_puffer)
         z_upper = min(z_shape,z_shape - np.argmax(np.flip(probabilities[:z_shape])) + z_puffer +1)
 
-    if args.y_range is not None:
-        y_lower, y_upper = args.y_range
+    if y_range is not None:
+        y_lower, y_upper = y_range
     else:
         y_lower = max(0,np.argmax(probabilities[z_shape:z_shape+y_shape]) - y_puffer)
         y_upper = min(y_shape,y_shape - np.argmax(np.flip(probabilities[z_shape:z_shape+y_shape])) + y_puffer +1)
 
-    if args.x_range is not None:
-        x_lower, x_upper = args.x_range
+    if x_range is not None:
+        x_lower, x_upper = x_range
     else:
         x_lower = max(0,np.argmax(probabilities[z_shape+y_shape:]) - x_puffer)
         x_upper = min(x_shape,x_shape - np.argmax(np.flip(probabilities[z_shape+y_shape:])) + x_puffer +1)
@@ -509,17 +531,22 @@ def crop_volume(img, path_to_model, path_to_final, z_shape, y_shape, x_shape, ba
 def load_and_train(normalize,path_to_img,path_to_labels,path_to_model,
                 epochs,batch_size,validation_split,x_scale,y_scale,z_scale,
                 flip_x,flip_y,flip_z,rotate,labels_to_compute,labels_to_remove,
-                path_val_img=[None],path_val_labels=[None],demo=False):
+                path_val_img=[None],path_val_labels=[None],
+                img=None, label=None, position=None,
+                img_val=None, label_val=None, position_val=None,
+                demo=False):
 
     # load training data
-    img_val, labelData_val, position_val = None, None, None
-    img, labelData, position, mu, sig, header, extension, number_of_images = load_cropping_training_data(normalize,
-                        path_to_img, path_to_labels, x_scale, y_scale, z_scale, labels_to_compute, labels_to_remove)
+    img, label, position, mu, sig, number_of_images = load_cropping_training_data(normalize,
+                        path_to_img, path_to_labels, x_scale, y_scale, z_scale, labels_to_compute, labels_to_remove,
+                        img, label, position)
 
     # load validation data
-    if any(path_val_img) and any(path_val_labels):
-        img_val, labelData_val, position_val, _, _, _, _, _ = load_cropping_training_data(normalize,
-                            path_val_img, path_val_labels, x_scale, y_scale, z_scale, labels_to_compute, labels_to_remove, mu, sig)
+    if any(path_val_img) or img_val is not None:
+        img_val, label_val, position_val, _, _, _ = load_cropping_training_data(normalize,
+                            path_val_img, path_val_labels, x_scale, y_scale, z_scale,
+                            labels_to_compute, labels_to_remove,
+                            img_val, label_val, position_val, mu, sig)
 
     # force validation_split for large number of training images
     if number_of_images > 20 and not demo:
@@ -527,10 +554,10 @@ def load_and_train(normalize,path_to_img,path_to_labels,path_to_model,
             validation_split = 0.8
 
     # train cropping
-    train_cropping(img, labelData, path_to_model, epochs,
+    train_cropping(img, label, path_to_model, epochs,
                     batch_size, validation_split, position,
                     flip_x, flip_y, flip_z, rotate,
-                    img_val, labelData_val, position_val)
+                    img_val, label_val, position_val)
 
     # load weights
     model = load_model(str(path_to_model))
@@ -546,7 +573,8 @@ def load_and_train(normalize,path_to_img,path_to_labels,path_to_model,
     return cropping_weights, cropping_config
 
 def crop_data(path_to_data, path_to_model, path_to_cropped_image, batch_size,
-    debug_cropping=False, save_cropped=True, img_data=None, args=None):
+    debug_cropping=False, save_cropped=True, img_data=None,
+    x_range=None, y_range=None, z_range=None):
 
     # get meta data
     hf = h5py.File(path_to_model, 'r')
@@ -563,7 +591,8 @@ def crop_data(path_to_data, path_to_model, path_to_cropped_image, batch_size,
 
     # make prediction
     z_lower, z_upper, y_lower, y_upper, x_lower, x_upper, cropped_volume = crop_volume(img, path_to_model,
-        path_to_cropped_image, z_shape, y_shape, x_shape, batch_size, debug_cropping, save_cropped, img_data, args)
+        path_to_cropped_image, z_shape, y_shape, x_shape, batch_size, debug_cropping, save_cropped, img_data,
+        x_range, y_range, z_range)
 
     # region of interest
     region_of_interest = np.array([z_lower, z_upper, y_lower, y_upper, x_lower, x_upper])
