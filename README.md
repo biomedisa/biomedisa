@@ -35,7 +35,7 @@ Biomedisa (https://biomedisa.org) is a free and easy-to-use open-source online p
 + [Windows 10 + Smart Interpolation + OpenCL + CPU](https://github.com/biomedisa/biomedisa/blob/master/README/windows10_interpolation_opencl_cpu_cli.md)
 + [Windows 10 + Deep Learning](https://github.com/biomedisa/biomedisa/blob/master/README/windows10_deeplearning_cuda11.3_cli.md)
 
-# Full Installation (browser based)
+# Installation (browser based)
 + [Ubuntu 20.04](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu2004_cuda11.3.md)
 + [Ubuntu 22.04](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu2204_cuda11.8.md)
 + [Windows 10 (21H2 or higher)](https://github.com/biomedisa/biomedisa/blob/master/README/windows11.md)
@@ -117,7 +117,7 @@ mpiexec -np 4 python -u git\biomedisa\demo\biomedisa_interpolation.py Downloads\
 
 `--acwe_steps INT`: iterations of active contour (default: 3)
 
-`--no_compression`: disable compression of segmentation results (default: False)
+`--no_compression` or `-nc`: disable compression of segmentation results (default: False)
 
 `--allaxis` or `-allx`: if pre-segmentation is not exlusively in xy-plane (default: False)
 
@@ -202,19 +202,19 @@ python biomedisa_deeplearning.py Downloads\training_heart Downloads\training_hea
 
 `--epochs INT` or `-e INT`: number of epochs trained (default: 100)
 
-`--batch-size INT` or `-bs INT`: batch size (default: 24). If you have a memory error, try reducing to 6, for example.
+`--batch_size INT` or `-bs INT`: batch size (default: 24). If you have a memory error, try reducing to 6, for example.
 
-`--val-images PATH` or `-vi PATH`: path to directory with validation images
+`--val_images PATH` or `-vi PATH`: path to directory with validation images
 
-`--val-labels PATH` or `-vl PATH`: path to directory with validation labels
+`--val_labels PATH` or `-vl PATH`: path to directory with validation labels
 
-`--validation-split FLOAT` or `-vs FLOAT`: for example, split your data into 80% training data and 20% validation data with `-vs 0.8`
+`--validation_split FLOAT` or `-vs FLOAT`: for example, split your data into 80% training data and 20% validation data with `-vs 0.8`
 
-`--early-stopping INT` or `-es INT`: stop training if there is no improvement after specified number of epochs
+`--early_stopping INT` or `-es INT`: stop training if there is no improvement after specified number of epochs
 
-`--no-compression`: disable compression of segmentation results (default: False)
+`--no_compression` or `-nc`: disable compression of segmentation results (default: False)
 
-`--create-slices` or `-cs`: create slices of segmentation results (default: False)
+`--create_slices` or `-cs`: create slices of segmentation results (default: False)
 
 `--ignore STR`: ignore specific label(s), e.g. "2,5,6" (default: none)
 
@@ -226,45 +226,45 @@ python biomedisa_deeplearning.py Downloads\training_heart Downloads\training_hea
 
 `--balance` or `-b`: Balance foreground and background training patches (default: False)
 
-`--flip-x`: Randomly flip x-axis during training (default: False)
+`--flip_x`: Randomly flip x-axis during training (default: False)
 
-`--flip-y`: Randomly flip y-axis during training (default: False)
+`--flip_y`: Randomly flip y-axis during training (default: False)
 
-`--flip-z`: Randomly flip z-axis during training (default: False)
+`--flip_z`: Randomly flip z-axis during training (default: False)
 
-`--network-filters STR` or `-nf STR`: Number of filters per layer up to the deepest, e.g. "32-64-128-256-512" (default: "32-64-128-256-512")
+`--network_filters STR` or `-nf STR`: Number of filters per layer up to the deepest, e.g. "32-64-128-256-512" (default: "32-64-128-256-512")
 
 `--resnet` or `-rn`: Use U-resnet instead of standard U-net (default: False)
 
-`--no-normalization` or `-nn`: Disable image normalization (default: False)
+`--no_normalization` or `-nn`: Disable image normalization (default: False)
 
 `--rotate FLOAT` or `-r FLOAT`: Randomly rotate during training (default: 0.0)
 
-`--learning-rate FLOAT` or `-lr`: Learning rate (default: 0.01)
+`--learning_rate FLOAT` or `-lr`: Learning rate (default: 0.01)
 
-`--stride-size [1-64]` or `-ss [1-64]`: Stride size for patches (default: 32)
+`--stride_size [1-64]` or `-ss [1-64]`: Stride size for patches (default: 32)
 
-`--validation-stride-size [1-64]` or `-vss [1-64]`: Stride size for validation patches (default: 32)
+`--validation_stride_size [1-64]` or `-vss [1-64]`: Stride size for validation patches (default: 32)
 
-`--validation-freq INT` or `-vf INT`: Epochs performed before validation (default: 1)
+`--validation_freq INT` or `-vf INT`: Epochs performed before validation (default: 1)
 
-`--validation-batch-size INT` or `-vbs INT`: validation batch size (default: 24)
+`--validation_batch_size INT` or `-vbs INT`: validation batch size (default: 24)
 
-`--x-scale INT` or `-xs INT`: Images and labels are scaled at x-axis to this size before training (default: 256)
+`--x_scale INT` or `-xs INT`: Images and labels are scaled at x-axis to this size before training (default: 256)
 
-`--y-scale INT` or `-ys INT`: Images and labels are scaled at y-axis to this size before training (default: 256)
+`--y_scale INT` or `-ys INT`: Images and labels are scaled at y-axis to this size before training (default: 256)
 
-`--z-scale INT` or `-zs INT`: Images and labels are scaled at z-axis to this size before training (default: 256)
+`--z_scale INT` or `-zs INT`: Images and labels are scaled at z-axis to this size before training (default: 256)
 
-`--no-scaling` or `-ns`: Do not resize image and label data (default: False)
+`--no_scaling` or `-ns`: Do not resize image and label data (default: False)
 
 #### Accuracy Assessment: Dice Score vs. Standard Accuracy in Biomedisa
-`--val-tf` or `-vt`: use standard pixelwise accuracy provided by TensorFlow (default: False). When evaluating accuracy, Biomedisa relies on the Dice score rather than the standard accuracy. The Dice score offers a more reliable assessment by measuring the overlap between the segmented regions, whereas the standard accuracy also considers background classification, which can lead to misleading results, especially when dealing with small segments within a much larger volume. Even if half of the segment is mislabeled, the standard accuracy may still yield a remarkably high value. However, if you still prefer to use the standard accuracy, you can enable it by using this option.
+`--val_tf` or `-vt`: use standard pixelwise accuracy provided by TensorFlow (default: False). When evaluating accuracy, Biomedisa relies on the Dice score rather than the standard accuracy. The Dice score offers a more reliable assessment by measuring the overlap between the segmented regions, whereas the standard accuracy also considers background classification, which can lead to misleading results, especially when dealing with small segments within a much larger volume. Even if half of the segment is mislabeled, the standard accuracy may still yield a remarkably high value. However, if you still prefer to use the standard accuracy, you can enable it by using this option.
 
 #### Automatic cropping
-`--crop-data` or `-cd`: Both the training and inference data should be cropped to the region of interest for best performance. As an alternative to manual cropping, you can use Biomedisa's AI-based automatic cropping. After training, auto cropping is automatically applied to your inference data.
+`--crop_data` or `-cd`: Both the training and inference data should be cropped to the region of interest for best performance. As an alternative to manual cropping, you can use Biomedisa's AI-based automatic cropping. After training, auto cropping is automatically applied to your inference data.
 
-`--save-cropped` or `-sc`: save cropped image (default: False)
+`--save_cropped` or `-sc`: save cropped image (default: False)
 
 # Biomedisa Features
 

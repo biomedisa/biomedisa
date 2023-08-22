@@ -52,7 +52,8 @@ def deep_learning(img_data, label_data=None, path_to_img=None, path_to_labels=No
     batch_size=24, validation_batch_size=24, val_images=None, val_labels=None, clean=None,
     fill=None, x_scale=256, y_scale=256, z_scale=256, no_scaling=False, early_stopping=0,
     pretrained_model=None, fine_tune=False, classification=False, workers=1, cropping_epochs=50,
-    val_img_data=None, val_label_data=None, x_range=None, y_range=None, z_range=None):
+    val_img_data=None, val_label_data=None, x_range=None, y_range=None, z_range=None,
+    header=None, extension='.tif', img_header=None, img_extension='.tif'):
 
     # time
     TIC = time.time()
@@ -131,7 +132,8 @@ def deep_learning(img_data, label_data=None, path_to_img=None, path_to_labels=No
         train_semantic_segmentation([args.path_to_img], [args.path_to_labels],
                         [args.val_images], [args.val_labels], args,
                         img_data, label_data, None,
-                        val_img_data, val_label_data, None)
+                        val_img_data, val_label_data, None,
+                        header, extension)
 
     if args.predict:
 
@@ -177,7 +179,8 @@ def deep_learning(img_data, label_data=None, path_to_img=None, path_to_labels=No
 
         # load prediction data
         img, img_header, position, z_shape, y_shape, x_shape, region_of_interest = load_prediction_data(args.path_to_img,
-            channels, args.x_scale, args.y_scale, args.z_scale, args.no_scaling, normalize, mu, sig, region_of_interest, img_data)
+            channels, args.x_scale, args.y_scale, args.z_scale, args.no_scaling, normalize, mu, sig, region_of_interest,
+            img_data, img_header, img_extension)
 
         # make prediction
         results = predict_semantic_segmentation(args, img, position, args.path_to_model,
@@ -186,8 +189,6 @@ def deep_learning(img_data, label_data=None, path_to_img=None, path_to_labels=No
             args.classification)
 
         # results
-        if header is not None:
-            results['labels_header'] = header
         if cropped_volume is not None:
             results['cropped_volume'] = cropped_volume
 
@@ -236,7 +237,7 @@ if __name__ == '__main__':
                         help='Randomly swap two axes during training')
     parser.add_argument('-vt','--val_tf', action='store_true', default=False,
                         help='Use tensorflow standard accuracy on validation data')
-    parser.add_argument('--no_compression', action='store_true', default=False,
+    parser.add_argument('-nc', '--no_compression', action='store_true', default=False,
                         help='Disable compression of segmentation results')
     parser.add_argument('-cs','--create_slices', action='store_true', default=False,
                         help='Create slices of segmentation results')

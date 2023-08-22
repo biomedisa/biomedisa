@@ -190,6 +190,7 @@ def load_cropping_training_data(normalize, img_list, label_list, x_scale, y_scal
     img = np.uint8(img*255)
 
     # loop over list of images
+    number_of_images = 1
     if any(img_list) or type(img_in) is list:
         number_of_images = len(img_names) if any(img_list) else len(img_in)
 
@@ -244,7 +245,7 @@ def load_cropping_training_data(normalize, img_list, label_list, x_scale, y_scal
     # compute position data
     position = None
 
-    return img_rgb, label, position, mu, sig, len(img_names)
+    return img_rgb, label, position, mu, sig, number_of_images
 
 def train_cropping(img, label, path_to_model, epochs, batch_size,
                     validation_split, position, flip_x, flip_y, flip_z, rotate,
