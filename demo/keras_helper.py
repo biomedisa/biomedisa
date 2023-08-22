@@ -331,8 +331,8 @@ def get_labels(arr, allLabels):
 #=====================
 
 def load_training_data(normalize, img_list, label_list, channels, x_scale, y_scale, z_scale, no_scaling,
-        crop_data, labels_to_compute, labels_to_remove, img_in, label_in, position_in, configuration_data=None, allLabels=None,
-        x_puffer=25, y_puffer=25, z_puffer=25):
+        crop_data, labels_to_compute, labels_to_remove, img_in, label_in, position_in, configuration_data=None,
+        allLabels=None, header=None, extension='.tif', x_puffer=25, y_puffer=25, z_puffer=25):
 
     if any(img_list):
 
@@ -383,7 +383,6 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
                 label_names.append(label_name)
 
     # load first label
-    extension, header = '.tif', None
     if any(img_list):
         label, header, extension = load_data(label_names[0], 'first_queue', True)
         if label is None:
@@ -629,12 +628,13 @@ class Metrics(Callback):
                 self.model.stop_training = True
 
 def train_semantic_segmentation(path_to_img, path_to_labels, path_val_img, path_val_labels,
-    args, img=None, label=None, position=None, img_val=None, label_val=None, position_val=None):
+    args, img=None, label=None, position=None, img_val=None, label_val=None, position_val=None,
+    header=None, extension='.tif'):
 
     # training data
     img, label, position, allLabels, configuration_data, header, extension = load_training_data(args.normalize,
                     path_to_img, path_to_labels, args.channels, args.x_scale, args.y_scale, args.z_scale, args.no_scaling, args.crop_data,
-                    args.only, args.ignore, img, label, position, None, None)
+                    args.only, args.ignore, img, label, position, None, None, header, extension)
 
     # img shape
     zsh, ysh, xsh = img.shape
@@ -825,16 +825,16 @@ def train_semantic_segmentation(path_to_img, path_to_labels, path_val_img, path_
         save_history(history.history, args.path_to_model)
 
 def load_prediction_data(path_to_img, channels, x_scale, y_scale, z_scale,
-                        no_scaling, normalize, mu, sig, region_of_interest, img):
+                        no_scaling, normalize, mu, sig, region_of_interest,
+                        img, img_header, img_extension):
 
     # read image data
-    img_header, img_ext = None, None
     if img is None:
-        img, img_header, img_ext = load_data(path_to_img, 'first_queue', return_extension=True)
+        img, img_header, img_extension = load_data(path_to_img, 'first_queue', return_extension=True)
     if img is None:
         InputError.message = "Invalid image data %s." %(os.path.basename(path_to_img))
         raise InputError()
-    if img_ext != '.am':
+    if img_extension != '.am':
         img_header = None
     else:
         img_header = img_header[0]
@@ -981,6 +981,7 @@ def predict_semantic_segmentation(args, img, position, path_to_model,
             if img_header is not None:
                 header = get_physical_size(header, img_header)
             header = [header]
+            results['header'] = header
         results['regular'] = label
         if args.path_to_img:
             save_data(args.path_to_final, label, header=header, compress=compress)
