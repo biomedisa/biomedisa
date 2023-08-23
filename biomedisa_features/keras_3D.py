@@ -1,6 +1,6 @@
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2022 Philipp Lösel. All rights reserved.              ##
+##  Copyright (c) 2023 Philipp Lösel. All rights reserved.              ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -210,7 +210,7 @@ def conv_network(train, predict, refine, img_list, label_list, path_to_model,
                 filename = filename + '.cropped.tif'
                 path_to_cropped_image = os.path.dirname(path_to_img) + '/' + filename
                 path_to_cropped_image = unique_file_path(path_to_cropped_image, image.user.username)
-                region_of_interest = ch.crop_data(path_to_img, path_to_model, path_to_cropped_image, batch_size)
+                region_of_interest, cropped_volume = ch.crop_data(path_to_img, path_to_model, path_to_cropped_image, batch_size)
 
             # load prediction data
             img, img_header, position, z_shape, y_shape, x_shape, region_of_interest = load_prediction_data(path_to_img,

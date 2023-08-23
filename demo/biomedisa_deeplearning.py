@@ -43,7 +43,7 @@ import time
 class Biomedisa(object):
      pass
 
-def deep_learning(img_data, label_data=None, path_to_img=None, path_to_labels=None, path_to_model=None,
+def deep_learning(img_data, label_data=None, path_to_images=None, path_to_labels=None, path_to_model=None,
     predict=False, train=False, balance=False, crop_data=False, flip_x=False, flip_y=False, flip_z=False,
     swapaxes=False, val_tf=False, no_compression=False, create_slices=False, ignore='none', only='all',
     network_filters='32-64-128-256-512', resnet=False, channels=1, debug_cropping=False,
@@ -86,7 +86,7 @@ def deep_learning(img_data, label_data=None, path_to_img=None, path_to_labels=No
 
     # disable file saving when called as a function
     if img_data is not None:
-        args.path_to_img = None
+        args.path_to_images = None
         args.create_slices = False
         args.path_to_cropped_image = None
 
@@ -121,7 +121,7 @@ def deep_learning(img_data, label_data=None, path_to_img=None, path_to_labels=No
         # train automatic cropping
         args.cropping_weights, args.cropping_config = None, None
         if args.crop_data:
-            args.cropping_weights, args.cropping_config = ch.load_and_train(args.normalize, [args.path_to_img], [args.path_to_labels], args.path_to_model,
+            args.cropping_weights, args.cropping_config = ch.load_and_train(args.normalize, [args.path_to_images], [args.path_to_labels], args.path_to_model,
                         args.cropping_epochs, args.batch_size, args.validation_split, args.x_scale, args.y_scale, args.z_scale,
                         args.flip_x, args.flip_y, args.flip_z, args.rotate, args.only, args.ignore,
                         [args.val_images], [args.val_labels],
@@ -129,7 +129,7 @@ def deep_learning(img_data, label_data=None, path_to_img=None, path_to_labels=No
                         val_img_data, val_label_data, None, True)
 
         # train automatic segmentation
-        train_semantic_segmentation([args.path_to_img], [args.path_to_labels],
+        train_semantic_segmentation([args.path_to_images], [args.path_to_labels],
                         [args.val_images], [args.val_labels], args,
                         img_data, label_data, None,
                         val_img_data, val_label_data, None,
@@ -159,26 +159,26 @@ def deep_learning(img_data, label_data=None, path_to_img=None, path_to_labels=No
             header = None
 
         # create path_to_final
-        if args.path_to_img:
-            filename = os.path.basename(args.path_to_img)
+        if args.path_to_images:
+            filename = os.path.basename(args.path_to_images)
             filename = os.path.splitext(filename)[0]
             if filename[-4:] in ['.nii','.tar']:
                 filename = filename[:-4]
-            args.path_to_cropped_image = args.path_to_img.replace(os.path.basename(args.path_to_img), filename + '.cropped.tif')
+            args.path_to_cropped_image = args.path_to_images.replace(os.path.basename(args.path_to_images), filename + '.cropped.tif')
             filename = 'final.' + filename
-            args.path_to_final = args.path_to_img.replace(os.path.basename(args.path_to_img), filename + extension)
-            args.path_to_cleaned = args.path_to_img.replace(os.path.basename(args.path_to_img), filename + '.cleaned' + extension)
-            args.path_to_filled = args.path_to_img.replace(os.path.basename(args.path_to_img), filename + '.filled' + extension)
-            args.path_to_cleaned_filled = args.path_to_img.replace(os.path.basename(args.path_to_img), filename + '.cleaned.filled' + extension)
+            args.path_to_final = args.path_to_images.replace(os.path.basename(args.path_to_images), filename + extension)
+            args.path_to_cleaned = args.path_to_images.replace(os.path.basename(args.path_to_images), filename + '.cleaned' + extension)
+            args.path_to_filled = args.path_to_images.replace(os.path.basename(args.path_to_images), filename + '.filled' + extension)
+            args.path_to_cleaned_filled = args.path_to_images.replace(os.path.basename(args.path_to_images), filename + '.cleaned.filled' + extension)
 
         # crop data
         region_of_interest, cropped_volume = None, None
         if crop_data:
-            region_of_interest, cropped_volume = ch.crop_data(args.path_to_img, args.path_to_model, args.path_to_cropped_image,
+            region_of_interest, cropped_volume = ch.crop_data(args.path_to_images, args.path_to_model, args.path_to_cropped_image,
                 args.batch_size, args.debug_cropping, args.save_cropped, img_data, args.x_range, args.y_range, args.z_range)
 
         # load prediction data
-        img, img_header, position, z_shape, y_shape, x_shape, region_of_interest = load_prediction_data(args.path_to_img,
+        img, img_header, position, z_shape, y_shape, x_shape, region_of_interest = load_prediction_data(args.path_to_images,
             channels, args.x_scale, args.y_scale, args.z_scale, args.no_scaling, normalize, mu, sig, region_of_interest,
             img_data, img_header, img_extension)
 
@@ -211,7 +211,7 @@ if __name__ == '__main__':
              formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     # required arguments
-    parser.add_argument('path_to_img', type=str, metavar='PATH_TO_IMAGE',
+    parser.add_argument('path_to_images', type=str, metavar='PATH_TO_IMAGES',
                         help='Location of image data (tarball or directory)')
     parser.add_argument('path', type=str, metavar='PATH',
                         help='Location of label data during training (tarball or directory) or model for prediction (h5)')
@@ -316,7 +316,7 @@ if __name__ == '__main__':
         args.path_to_model = args.path
     if args.train:
         args.path_to_labels = args.path
-        args.path_to_model = args.path_to_img + '.h5'
+        args.path_to_model = args.path_to_images + '.h5'
 
     kwargs = vars(args)
     del kwargs['path']

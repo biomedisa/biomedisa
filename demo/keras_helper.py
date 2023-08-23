@@ -980,35 +980,35 @@ def predict_semantic_segmentation(args, img, position, path_to_model,
             header = [header]
             results['header'] = header
         results['regular'] = label
-        if args.path_to_img:
+        if args.path_to_images:
             save_data(args.path_to_final, label, header=header, compress=compress)
 
         # post processing
         if args.create_slices:
-            create_slices(args.path_to_img, args.path_to_final, True)
+            create_slices(args.path_to_images, args.path_to_final, True)
             if np.any(region_of_interest) and args.save_cropped:
                 create_slices(args.path_to_cropped_image, None, True)
         if args.clean:
             final_cleaned = clean(label, args.clean)
             results['cleaned'] = final_cleaned
-            if args.path_to_img:
+            if args.path_to_images:
                 save_data(args.path_to_cleaned, final_cleaned, header, compress)
             if args.create_slices:
-                create_slices(args.path_to_img, args.path_to_cleaned, True)
+                create_slices(args.path_to_images, args.path_to_cleaned, True)
         if args.fill:
             final_filled = clean(label, args.fill)
             results['filled'] = final_filled
-            if args.path_to_img:
+            if args.path_to_images:
                 save_data(args.path_to_filled, final_filled, header, compress)
             if args.create_slices:
-                create_slices(args.path_to_img, args.path_to_filled, True)
+                create_slices(args.path_to_images, args.path_to_filled, True)
         if args.clean and args.fill:
             final_cleaned_filled = final_cleaned + (final_filled - label)
             results['cleaned_filled'] = final_cleaned_filled
-            if args.path_to_img:
+            if args.path_to_images:
                 save_data(args.path_to_cleaned_filled, final_cleaned_filled, header, compress)
             if args.create_slices:
-                create_slices(args.path_to_img, args.path_to_cleaned_filled, True)
+                create_slices(args.path_to_images, args.path_to_cleaned_filled, True)
 
         return results
 

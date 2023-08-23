@@ -42,6 +42,7 @@ from biomedisa_features.create_mesh import save_mesh, get_voxel_spacing
 from biomedisa_features.amira_to_np.amira_helper import amira_to_np, np_to_amira
 from tifffile import imread, imwrite
 from medpy.io import load, save
+import SimpleITK as sitk
 from PIL import Image
 import numpy as np
 import glob
@@ -452,6 +453,9 @@ def save_data(path_to_final, final, header=None, final_image_type=None, compress
     elif final_image_type in ['.hdr', '.mhd', '.mha', '.nrrd', '.nii', '.nii.gz']:
         final = np.swapaxes(final, 0, 2)
         save(final, path_to_final, header)
+        if final_image_type == '.nrrd':
+            simg = sitk.ReadImage(path_to_final)
+            sitk.WriteImage(simg, path_to_final, useCompression=True)
     elif final_image_type in ['.zip', 'directory', '']:
         header, file_names, final_dtype = header[0], header[1], header[2]
         final = final.astype(final_dtype)
