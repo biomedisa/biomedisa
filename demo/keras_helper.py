@@ -38,6 +38,7 @@ from tensorflow.keras.layers import (
     Input, Conv3D, MaxPooling3D, UpSampling3D, Activation, Reshape,
     BatchNormalization, Concatenate, ReLU, Add, GlobalAveragePooling3D,
     Dense, Dropout, MaxPool3D, Flatten)
+from tensorflow.keras.layers.experimental import SyncBatchNormalization
 from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.callbacks import Callback, ModelCheckpoint, EarlyStopping
 from tensorflow import keras
@@ -204,7 +205,7 @@ def make_conv_block(nb_filters, input_tensor, block):
         x = Conv3D(nb_filters, (3, 3, 3), activation='relu',
                    padding='same', name=name, data_format="channels_last")(input_tensor)
         name = 'batch_norm_{}_{}'.format(block, stage)
-        x = BatchNormalization(name=name)(x)
+        x = SyncBatchNormalization(name=name)(x)
         x = Activation('relu')(x)
         return x
 
@@ -221,14 +222,14 @@ def make_conv_block_resnet(nb_filters, input_tensor, block):
     name = 'conv_{}_{}'.format(block, stage)
     fx = Conv3D(nb_filters, (3, 3, 3), activation='relu', padding='same', name=name, data_format="channels_last")(input_tensor)
     name = 'batch_norm_{}_{}'.format(block, stage)
-    fx = BatchNormalization(name=name)(fx)
+    fx = SyncBatchNormalization(name=name)(fx)
     fx = Activation('relu')(fx)
 
     stage = 2
     name = 'conv_{}_{}'.format(block, stage)
     fx = Conv3D(nb_filters, (3, 3, 3), padding='same', name=name, data_format="channels_last")(fx)
     name = 'batch_norm_{}_{}'.format(block, stage)
-    fx = BatchNormalization(name=name)(fx)
+    fx = SyncBatchNormalization(name=name)(fx)
 
     out = Add()([res,fx])
     out = ReLU()(out)
@@ -293,17 +294,17 @@ def make_classification_model(input_shape, nb_labels):
 
     x = Conv3D(filters=32, kernel_size=3, activation="relu")(inputs)
     x = MaxPool3D(pool_size=2)(x)
-    #x = BatchNormalization()(x)
+    #x = SyncBatchNormalization()(x)
     #x = Dropout(0.25)(x)
 
     x = Conv3D(filters=64, kernel_size=3, activation="relu")(x)
     x = MaxPool3D(pool_size=2)(x)
-    x = BatchNormalization()(x)
+    x = SyncBatchNormalization()(x)
     #x = Dropout(0.25)(x)
 
     x = Conv3D(filters=256, kernel_size=3, activation="relu")(x)
     x = MaxPool3D(pool_size=2)(x)
-    x = BatchNormalization()(x)
+    x = SyncBatchNormalization()(x)
     #x = Dropout(0.25)(x)
 
     #x = Flatten()(x)
@@ -728,12 +729,8 @@ def train_semantic_segmentation(path_to_img, path_to_labels, path_val_img, path_
             metrics = Metrics(img_val, label_val, position_val, list_IDs_val_fg, (args.z_patch, args.y_patch, args.x_patch), (zsh_val, ysh_val, xsh_val), args.validation_batch_size,
                               args.path_to_model, args.early_stopping, args.validation_freq, nb_labels, args.channels)
 
-    # create a MirroredStrategy
-    if os.name == 'nt':
-        cdo = tf.distribute.HierarchicalCopyAllReduce()
-    else:
-        cdo = tf.distribute.NcclAllReduce()
-    strategy = tf.distribute.MirroredStrategy(cross_device_ops=cdo)
+    # create a strategy
+    strategy = tf.distribute.experimental.CentralStorageStrategy()
     print('Number of devices: {}'.format(strategy.num_replicas_in_sync))
 
     # compile model
@@ -767,6 +764,7 @@ def train_semantic_segmentation(path_to_img, path_to_labels, path_val_img, path_
         else:
             # build model
             model = make_unet(input_shape, nb_labels, args.network_filters, args.resnet)
+            model.summary()
 
             # pretrained model
             if args.pretrained_model:
@@ -912,16 +910,13 @@ def predict_semantic_segmentation(args, img, position, path_to_model,
         # data generator
         predict_generator = PredictDataGenerator(img, position, list_IDs, **params)
 
-        # create a MirroredStrategy
-        if os.name == 'nt':
-            cdo = tf.distribute.HierarchicalCopyAllReduce()
-        else:
-            cdo = tf.distribute.NcclAllReduce()
-        strategy = tf.distribute.MirroredStrategy(cross_device_ops=cdo)
+        # create a strategy
+        strategy = tf.distribute.experimental.CentralStorageStrategy()
 
         # load model
         with strategy.scope():
             model = load_model(str(path_to_model))
+            model.summary()
 
         # predict
         if nb_patches < 400:
