@@ -567,6 +567,7 @@ class Metrics(Callback):
 
             len_IDs = len(self.list_IDs)
             n_batches = int(np.floor(len_IDs / self.batch_size))
+            np.random.shuffle(self.list_IDs)
 
             for batch in range(n_batches):
                 # Generate indexes of the batch
@@ -588,7 +589,7 @@ class Metrics(Callback):
                         X_val[i,:,:,:,1] = self.position[k:k+self.dim_patch[0],l:l+self.dim_patch[1],m:m+self.dim_patch[2]]
 
                 # Prediction segmentation
-                y_predict = np.asarray(self.model.predict(X_val, verbose=0, steps=None))
+                y_predict = np.asarray(self.model.predict(X_val, verbose=0, steps=None, batch_size=self.batch_size))
 
                 for i, ID in enumerate(list_IDs_batch):
 
@@ -698,10 +699,6 @@ def train_semantic_segmentation(path_to_img, path_to_labels, path_val_img, path_
                     for m in range(0, xsh_val-args.x_patch+1, args.validation_stride_size):
                         list_IDs_val_fg.append(k*ysh_val*xsh_val+l*xsh_val+m)
 
-            # make length of list divisible by validation batch size
-            rest = args.validation_batch_size - (len(list_IDs_val_fg) % args.validation_batch_size)
-            list_IDs_val_fg = list_IDs_val_fg + list_IDs_val_fg[:rest % args.validation_batch_size]
-
     # number of labels
     nb_labels = len(allLabels)
 
@@ -716,22 +713,23 @@ def train_semantic_segmentation(path_to_img, path_to_labels, path_val_img, path_
               'n_channels': args.channels,
               'augment': (args.flip_x, args.flip_y, args.flip_z, args.swapaxes, args.rotate)}
 
+    # create a strategy
+    strategy = tf.distribute.experimental.CentralStorageStrategy()
+    ngpus = int(strategy.num_replicas_in_sync)
+    print(f'Number of devices: {ngpus}')
+
     # data generator
     validation_generator = None
     training_generator = DataGenerator(img, label, position, list_IDs_fg, list_IDs_bg, True, False, True, args.classification, **params)
     if img_val is not None:
         if args.val_tf:
-            params['batch_size'] = args.validation_batch_size
+            params['batch_size'] = args.batch_size * ngpus
             params['dim_img'] = (zsh_val, ysh_val, xsh_val)
             params['augment'] = (False, False, False, False, 0)
             validation_generator = DataGenerator(img_val, label_val, position_val, list_IDs_val_fg, list_IDs_val_bg, True, False, False, args.classification, **params)
         else:
-            metrics = Metrics(img_val, label_val, position_val, list_IDs_val_fg, (args.z_patch, args.y_patch, args.x_patch), (zsh_val, ysh_val, xsh_val), args.validation_batch_size,
+            metrics = Metrics(img_val, label_val, position_val, list_IDs_val_fg, (args.z_patch, args.y_patch, args.x_patch), (zsh_val, ysh_val, xsh_val), args.batch_size * ngpus,
                               args.path_to_model, args.early_stopping, args.validation_freq, nb_labels, args.channels)
-
-    # create a strategy
-    strategy = tf.distribute.experimental.CentralStorageStrategy()
-    print('Number of devices: {}'.format(strategy.num_replicas_in_sync))
 
     # compile model
     with strategy.scope():
@@ -910,13 +908,9 @@ def predict_semantic_segmentation(args, img, position, path_to_model,
         # data generator
         predict_generator = PredictDataGenerator(img, position, list_IDs, **params)
 
-        # create a strategy
-        strategy = tf.distribute.experimental.CentralStorageStrategy()
-
         # load model
-        with strategy.scope():
-            model = load_model(str(path_to_model))
-            model.summary()
+        model = load_model(str(path_to_model))
+        model.summary()
 
         # predict
         if nb_patches < 400:
@@ -924,6 +918,7 @@ def predict_semantic_segmentation(args, img, position, path_to_model,
         else:
             X = np.empty((batch_size, z_patch, y_patch, x_patch, channels), dtype=np.float32)
             probabilities = np.zeros((nb_patches, z_patch, y_patch, x_patch, nb_labels), dtype=np.float32)
+
             # get image patches
             for step in range(nb_patches//batch_size):
                 for i, ID in enumerate(list_IDs[step*batch_size:(step+1)*batch_size]):
@@ -938,7 +933,8 @@ def predict_semantic_segmentation(args, img, position, path_to_model,
                     X[i,:,:,:,0] = img[k:k+z_patch,l:l+y_patch,m:m+x_patch]
                     if channels == 2:
                         X[i,:,:,:,1] = position[k:k+z_patch,l:l+y_patch,m:m+x_patch]
-                probabilities[step*batch_size:(step+1)*batch_size] = model.predict(X, verbose=0, steps=None)
+
+                probabilities[step*batch_size:(step+1)*batch_size] = model.predict(X, verbose=0, steps=None, batch_size=batch_size)
 
         # create final
         final = np.zeros((zsh, ysh, xsh, nb_labels), dtype=np.float32)

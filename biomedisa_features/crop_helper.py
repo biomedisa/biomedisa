@@ -427,19 +427,11 @@ def crop_volume(img, path_to_model, path_to_final, z_shape, y_shape, x_shape, ba
     # data generator
     predict_generator = PredictDataGeneratorCrop(img, list_IDs, **params)
 
-    # create a MirroredStrategy
-    if os.name == 'nt':
-        cdo = tf.distribute.HierarchicalCopyAllReduce()
-    else:
-        cdo = tf.distribute.NcclAllReduce()
-    strategy = tf.distribute.MirroredStrategy(cross_device_ops=cdo)
-
     # input shape
     input_shape = (ysh, xsh, channels)
 
     # load model
-    with strategy.scope():
-        model = make_densenet(input_shape)
+    model = make_densenet(input_shape)
 
     # load weights
     hf = h5py.File(path_to_model, 'r')
