@@ -49,7 +49,7 @@ def deep_learning(img_data, label_data=None, path_to_images=None, path_to_labels
     network_filters='32-64-128-256-512', resnet=False, channels=1, debug_cropping=False,
     save_cropped=False, epochs=100, no_normalization=False, rotate=0.0, validation_split=0.0,
     learning_rate=0.01, stride_size=32, validation_stride_size=32, validation_freq=1,
-    batch_size=24, validation_batch_size=24, val_images=None, val_labels=None, clean=None,
+    batch_size=24, val_images=None, val_labels=None, clean=None,
     fill=None, x_scale=256, y_scale=256, z_scale=256, no_scaling=False, early_stopping=0,
     pretrained_model=None, fine_tune=False, classification=False, workers=1, cropping_epochs=50,
     val_img_data=None, val_label_data=None, x_range=None, y_range=None, z_range=None,
@@ -94,19 +94,13 @@ def deep_learning(img_data, label_data=None, path_to_images=None, path_to_labels
     strategy = tf.distribute.MirroredStrategy()
     ngpus = int(strategy.num_replicas_in_sync)
 
-    # batch size must be divisible by the number of GPUs and two
-    rest = args.batch_size % (2*ngpus)
-    if 2*ngpus - rest < rest:
-        args.batch_size = args.batch_size + 2*ngpus - rest
-    else:
-        args.batch_size = args.batch_size - rest
+    # devide batch size by number of GPUs to maintain consistent training behavior as effective batch size does increase with the number of GPUs
+    if args.train:
+        args.batch_size = args.batch_size // ngpus
 
-    # validation batch size must be divisible by the number of GPUs and two
-    rest = args.validation_batch_size % (2*ngpus)
-    if 2*ngpus - rest < rest:
-        args.validation_batch_size = args.validation_batch_size + 2*ngpus - rest
-    else:
-        args.validation_batch_size = args.validation_batch_size - rest
+    # batch size must be divisible by two when balancing foreground and background patches
+    if args.balance and args.train:
+        args.batch_size = args.batch_size + (args.batch_size % 2)
 
     # dimensions of patches for regular training
     args.z_patch, args.y_patch, args.x_patch = 64, 64, 64
@@ -122,7 +116,7 @@ def deep_learning(img_data, label_data=None, path_to_images=None, path_to_labels
         args.cropping_weights, args.cropping_config = None, None
         if args.crop_data:
             args.cropping_weights, args.cropping_config = ch.load_and_train(args.normalize, [args.path_to_images], [args.path_to_labels], args.path_to_model,
-                        args.cropping_epochs, args.batch_size, args.validation_split, args.x_scale, args.y_scale, args.z_scale,
+                        args.cropping_epochs, args.batch_size * ngpus, args.validation_split, args.x_scale, args.y_scale, args.z_scale,
                         args.flip_x, args.flip_y, args.flip_z, args.rotate, args.only, args.ignore,
                         [args.val_images], [args.val_labels],
                         img_data, label_data, None,
@@ -275,8 +269,6 @@ if __name__ == '__main__':
                         help='Epochs performed before validation')
     parser.add_argument('-bs','--batch_size', type=int, default=24,
                         help='batch size')
-    parser.add_argument('-vbs','--validation_batch_size', type=int, default=24,
-                        help='validation batch size')
     parser.add_argument('-vi','--val_images', type=str, metavar='PATH', default=None,
                         help='Location of validation image data (tarball or directory)')
     parser.add_argument('-vl','--val_labels', type=str, metavar='PATH', default=None,

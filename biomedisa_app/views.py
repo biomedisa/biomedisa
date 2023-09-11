@@ -1101,10 +1101,8 @@ def features(request, action):
         # get models
         model, refine = 0, 0
         for img in images:
-            if img.imageType == 4 and str(img.shortfilename[-10:]) != '_refine.h5':
+            if img.imageType == 4:
                 model = img.id
-            elif img.imageType == 4 and str(img.shortfilename[-10:]) == '_refine.h5':
-                refine = img.id
 
         # predict segmentation
         if model > 0:
