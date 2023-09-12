@@ -94,13 +94,12 @@ def deep_learning(img_data, label_data=None, path_to_images=None, path_to_labels
     strategy = tf.distribute.MirroredStrategy()
     ngpus = int(strategy.num_replicas_in_sync)
 
-    # devide batch size by number of GPUs to maintain consistent training behavior as effective batch size does increase with the number of GPUs
-    if args.train:
-        args.batch_size = args.batch_size // ngpus
-
-    # batch size must be divisible by two when balancing foreground and background patches
-    if args.balance and args.train:
-        args.batch_size = args.batch_size + (args.batch_size % 2)
+    # batch size must be divisible by the number of GPUs and two
+    rest = args.batch_size % (2*ngpus)
+    if 2*ngpus - rest < rest:
+        args.batch_size = args.batch_size + 2*ngpus - rest
+    else:
+        args.batch_size = args.batch_size - rest
 
     # dimensions of patches for regular training
     args.z_patch, args.y_patch, args.x_patch = 64, 64, 64
@@ -116,7 +115,7 @@ def deep_learning(img_data, label_data=None, path_to_images=None, path_to_labels
         args.cropping_weights, args.cropping_config = None, None
         if args.crop_data:
             args.cropping_weights, args.cropping_config = ch.load_and_train(args.normalize, [args.path_to_images], [args.path_to_labels], args.path_to_model,
-                        args.cropping_epochs, args.batch_size * ngpus, args.validation_split, args.x_scale, args.y_scale, args.z_scale,
+                        args.cropping_epochs, args.batch_size, args.validation_split, args.x_scale, args.y_scale, args.z_scale,
                         args.flip_x, args.flip_y, args.flip_z, args.rotate, args.only, args.ignore,
                         [args.val_images], [args.val_labels],
                         img_data, label_data, None,

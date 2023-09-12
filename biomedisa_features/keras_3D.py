@@ -59,13 +59,12 @@ def conv_network(train, predict, img_list, label_list, path_to_model,
     strategy = tf.distribute.MirroredStrategy()
     ngpus = int(strategy.num_replicas_in_sync)
 
-    # devide batch size by number of GPUs to maintain consistent training behavior as effective batch size does increase with the number of GPUs
-    if train:
-        batch_size = batch_size // ngpus
-
-    # batch size must be divisible by two when balancing foreground and background patches
-    if balance and train:
-        batch_size = batch_size + (batch_size % 2)
+    # batch size must be divisible by the number of GPUs and two
+    rest = batch_size % (2*ngpus)
+    if 2*ngpus - rest < rest:
+        batch_size = batch_size + 2*ngpus - rest
+    else:
+        batch_size = batch_size - rest
 
     success = False
     path_to_final, path_to_cropped_image = None, None
@@ -86,7 +85,7 @@ def conv_network(train, predict, img_list, label_list, path_to_model,
             cropping_weights, cropping_config = None, None
             if crop_data:
                 cropping_weights, cropping_config = ch.load_and_train(normalize, img_list, label_list, path_to_model,
-                    cropping_epochs, batch_size * ngpus, label.validation_split, x_scale, y_scale, z_scale,
+                    cropping_epochs, batch_size, label.validation_split, x_scale, y_scale, z_scale,
                     label.flip_x, label.flip_y, label.flip_z, label.rotate, label.only, label.ignore)
 
             # train network
