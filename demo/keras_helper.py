@@ -699,23 +699,26 @@ def train_semantic_segmentation(path_to_img, path_to_labels, path_val_img, path_
               'n_channels': args.channels,
               'augment': (args.flip_x, args.flip_y, args.flip_z, args.swapaxes, args.rotate)}
 
-    # create a strategy
-    strategy = tf.distribute.experimental.CentralStorageStrategy()
-    ngpus = int(strategy.num_replicas_in_sync)
-    print(f'Number of devices: {ngpus}')
-
     # data generator
     validation_generator = None
     training_generator = DataGenerator(img, label, position, list_IDs_fg, list_IDs_bg, True, False, True, args.classification, **params)
     if img_val is not None:
         if args.val_tf:
-            params['batch_size'] = args.batch_size * ngpus
             params['dim_img'] = (zsh_val, ysh_val, xsh_val)
             params['augment'] = (False, False, False, False, 0)
             validation_generator = DataGenerator(img_val, label_val, position_val, list_IDs_val_fg, list_IDs_val_bg, True, False, False, args.classification, **params)
         else:
-            metrics = Metrics(img_val, label_val, position_val, list_IDs_val_fg, (args.z_patch, args.y_patch, args.x_patch), (zsh_val, ysh_val, xsh_val), args.batch_size * ngpus,
+            metrics = Metrics(img_val, label_val, position_val, list_IDs_val_fg, (args.z_patch, args.y_patch, args.x_patch), (zsh_val, ysh_val, xsh_val), args.batch_size,
                               args.path_to_model, args.early_stopping, args.validation_freq, nb_labels, args.channels)
+
+    # create a MirroredStrategy
+    if os.name == 'nt':
+        cdo = tf.distribute.HierarchicalCopyAllReduce()
+    else:
+        cdo = tf.distribute.NcclAllReduce()
+    strategy = tf.distribute.MirroredStrategy(cross_device_ops=cdo)
+    ngpus = int(strategy.num_replicas_in_sync)
+    print(f'Number of devices: {ngpus}')
 
     # compile model
     with strategy.scope():
@@ -896,7 +899,7 @@ def predict_semantic_segmentation(args, img, position, path_to_model,
 
         # load model
         model = load_model(str(path_to_model))
-        model.summary()
+        #model.summary()
 
         # predict
         if nb_patches < 400:

@@ -621,26 +621,29 @@ def train_semantic_segmentation(normalize, img_list, label_list, x_scale, y_scal
               'n_channels': channels,
               'augment': (flip_x, flip_y, flip_z, False, rotate)}
 
-    # create a strategy
-    strategy = tf.distribute.experimental.CentralStorageStrategy()
-    ngpus = int(strategy.num_replicas_in_sync)
-    print(f'Number of devices: {ngpus}')
-
     # data generator
     validation_generator = None
     training_generator = DataGenerator(img, label, position, list_IDs, [], True, number_of_images, True, False, **params)
     if validation_split:
         if val_tf:
-            params['batch_size'] = batch_size * ngpus
             params['dim_img'] = (zsh_val, ysh_val, xsh_val)
             params['augment'] = (False, False, False, False, 0)
             validation_generator = DataGenerator(img_val, label_val, position_val, list_IDs_val, [], True, number_of_val_images, False, False, **params)
         else:
-            metrics = Metrics(img_val, label_val, list_IDs_val, (z_patch, y_patch, x_patch), (zsh_val, ysh_val, xsh_val), batch_size * ngpus,
+            metrics = Metrics(img_val, label_val, list_IDs_val, (z_patch, y_patch, x_patch), (zsh_val, ysh_val, xsh_val), batch_size,
                               path_to_model, early_stopping, validation_freq, nb_labels, number_of_val_images)
 
     # optimizer
     sgd = SGD(learning_rate=0.01, decay=1e-6, momentum=0.9, nesterov=True)
+
+    # create a MirroredStrategy
+    if os.name == 'nt':
+        cdo = tf.distribute.HierarchicalCopyAllReduce()
+    else:
+        cdo = tf.distribute.NcclAllReduce()
+    strategy = tf.distribute.MirroredStrategy(cross_device_ops=cdo)
+    ngpus = int(strategy.num_replicas_in_sync)
+    print(f'Number of devices: {ngpus}')
 
     # compile model
     with strategy.scope():
