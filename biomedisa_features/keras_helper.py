@@ -38,7 +38,6 @@ from tensorflow.keras.models import Model, load_model
 from tensorflow.keras.layers import (
     Input, Conv3D, MaxPooling3D, UpSampling3D, Activation, Reshape,
     BatchNormalization, Concatenate, ReLU, Add)
-from tensorflow.keras.layers.experimental import SyncBatchNormalization
 from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.callbacks import Callback, ModelCheckpoint, EarlyStopping
 from biomedisa_features.DataGenerator import DataGenerator
@@ -165,7 +164,10 @@ def make_conv_block(nb_filters, input_tensor, block):
         x = Conv3D(nb_filters, (3, 3, 3), activation='relu',
                    padding='same', name=name, data_format="channels_last")(input_tensor)
         name = 'batch_norm_{}_{}'.format(block, stage)
-        x = SyncBatchNormalization(name=name)(x)
+        try:
+            x = BatchNormalization(name=name, synchronized=True)(x)
+        except:
+            x = BatchNormalization(name=name)(x)
         x = Activation('relu')(x)
         return x
 
@@ -182,14 +184,20 @@ def make_conv_block_resnet(nb_filters, input_tensor, block):
     name = 'conv_{}_{}'.format(block, stage)
     fx = Conv3D(nb_filters, (3, 3, 3), activation='relu', padding='same', name=name, data_format="channels_last")(input_tensor)
     name = 'batch_norm_{}_{}'.format(block, stage)
-    fx = SyncBatchNormalization(name=name)(fx)
+    try:
+        fx = BatchNormalization(name=name, synchronized=True)(fx)
+    except:
+        fx = BatchNormalization(name=name)(fx)
     fx = Activation('relu')(fx)
 
     stage = 2
     name = 'conv_{}_{}'.format(block, stage)
     fx = Conv3D(nb_filters, (3, 3, 3), padding='same', name=name, data_format="channels_last")(fx)
     name = 'batch_norm_{}_{}'.format(block, stage)
-    fx = SyncBatchNormalization(name=name)(fx)
+    try:
+        fx = BatchNormalization(name=name, synchronized=True)(fx)
+    except:
+        fx = BatchNormalization(name=name)(fx)
 
     out = Add()([res,fx])
     out = ReLU()(out)
@@ -637,10 +645,7 @@ def train_semantic_segmentation(normalize, img_list, label_list, x_scale, y_scal
     sgd = SGD(learning_rate=0.01, decay=1e-6, momentum=0.9, nesterov=True)
 
     # create a MirroredStrategy
-    if os.name == 'nt':
-        cdo = tf.distribute.HierarchicalCopyAllReduce()
-    else:
-        cdo = tf.distribute.NcclAllReduce()
+    cdo = tf.distribute.ReductionToOneDevice()
     strategy = tf.distribute.MirroredStrategy(cross_device_ops=cdo)
     ngpus = int(strategy.num_replicas_in_sync)
     print(f'Number of devices: {ngpus}')
