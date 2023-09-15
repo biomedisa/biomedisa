@@ -4,7 +4,8 @@
 - [Hardware Requirements](#hardware-requirements)
 - [Software Requirements](#software-requirements)
 - [Installation (command-line-only)](#installation-command-line-only)
-- [Full Installation (browser based)](#full-installation-browser-based)
+- [Installation (browser based)](#installation-browser-based)
+- [Data](#data)
 - [Smart Interpolation](#smart-interpolation)
 - [Deep Learning](#deep-learning)
 - [Biomedisa Features](#biomedisa-features)
@@ -16,11 +17,11 @@
 - [License](#license)
 
 # Overview
-Biomedisa (https://biomedisa.org) is a free and easy-to-use open-source online platform for segmenting large volumetric images, e.g. CT and MRI scans, at Heidelberg University and the Australian National University. Biomedisa's semi-automated segmentation is based on a smart interpolation of sparsely pre-segmented slices, taking into account the complete underlying image data. In addition, Biomedisa enables deep learning for the fully automated segmentation of series of similar samples. It can be used in combination with segmentation tools such as Amira, ImageJ/Fiji and 3D Slicer. If you are using Biomedisa or the data for your research please cite: Lösel, P.D. et al. [Introducing Biomedisa as an open-source online platform for biomedical image segmentation.](https://www.nature.com/articles/s41467-020-19303-w) *Nat. Commun.* **11**, 5577 (2020).
+Biomedisa (https://biomedisa.org) is a free and easy-to-use open-source online platform for segmenting large volumetric images, e.g. CT and MRI scans, at Heidelberg University and the Australian National University. Biomedisa's semi-automated segmentation is based on a smart interpolation of sparsely pre-segmented slices, taking into account the complete underlying image data. In addition, Biomedisa enables deep learning for the fully automated segmentation of series of similar samples. It can be used in combination with segmentation tools such as Amira/Avizo, ImageJ/Fiji and 3D Slicer. If you are using Biomedisa or the data for your research please cite: Lösel, P.D. et al. [Introducing Biomedisa as an open-source online platform for biomedical image segmentation.](https://www.nature.com/articles/s41467-020-19303-w) *Nat. Commun.* **11**, 5577 (2020).
 
 # Hardware Requirements
 + One or more NVIDIA GPUs with compute capability 3.0 or higher or an Intel CPU.
-+ 32 GB RAM or more (depending on the size of the image data).
++ Ddepending on the size of the image data (e.g. 32 GB).
 
 # Software Requirements
 + [NVIDIA GPU drivers](https://www.nvidia.com/drivers) for GPU support
@@ -40,23 +41,11 @@ Biomedisa (https://biomedisa.org) is a free and easy-to-use open-source online p
 + [Windows 10 (21H2 or higher)](https://github.com/biomedisa/biomedisa/blob/master/README/windows11.md)
 + [Windows 11](https://github.com/biomedisa/biomedisa/blob/master/README/windows11.md)
 
+# Data
++ Download data from the [gallery](https://biomedisa.org/gallery/)
+
 # Smart Interpolation
-
-#### Download examples
-Download data from the [gallery](https://biomedisa.org/gallery/) or directly as follows:
-```
-# Brain tumor (small example, good for testing)
-wget --no-check-certificate https://biomedisa.org/download/demo/?id=tumor.tif -O ~/Downloads/tumor.tif
-wget --no-check-certificate https://biomedisa.org/download/demo/?id=labels.tumor.tif -O ~/Downloads/labels.tumor.tif
-
-# Trigonopterus
-wget --no-check-certificate https://biomedisa.org/download/demo/?id=trigonopterus.tif -O ~/Downloads/trigonopterus.tif
-wget --no-check-certificate https://biomedisa.org/download/demo/?id=labels.trigonopterus_smart.am -O ~/Downloads/labels.trigonopterus_smart.am
-
-# Mineralized wasp
-wget --no-check-certificate https://biomedisa.org/download/demo/?id=NMB_F2875.tif -O ~/Downloads/NMB_F2875.tif
-wget --no-check-certificate https://biomedisa.org/download/demo/?id=labels.NMB_F2875.tif -O ~/Downloads/labels.NMB_F2875.tif
-```
++ [Parameters](https://github.com/biomedisa/biomedisa/blob/master/README/smart_interpolation.md)
 
 #### Python example
 ```
@@ -99,45 +88,6 @@ mpiexec -np 4 python3 ~/git/biomedisa/demo/biomedisa_interpolation.py ~/Download
 mpiexec -np 4 python -u git\biomedisa\demo\biomedisa_interpolation.py Downloads\NMB_F2875.tif Downloads\labels.NMB_F2875.tif
 ```
 
-#### Options
-`--help` or `-h`: show more information and exit
-
-`--version` or `-v`: Biomedisa version
-
-`--nbrw INT`: number of random walks starting at each pre-segmented pixel (default: 10)
-
-`--sorw INT`: steps of a random walk (default: 4000)
-
-`--acwe`: post-processing with active contour (default: False)
-
-`--acwe_alpha FLOAT`: pushing force of active contour (default: 1.0)
-
-`--acwe_smooth INT`: smoothing of active contour (default: 1)
-
-`--acwe_steps INT`: iterations of active contour (default: 3)
-
-`--no_compression` or `-nc`: disable compression of segmentation results (default: False)
-
-`--allaxis` or `-allx`: if pre-segmentation is not exlusively in xy-plane (default: False)
-
-`--denoise` or `-d`: smooth/denoise image data before processing (default: False)
-
-`--uncertainty` or `-u`: return uncertainty of segmentation result (default: False)
-
-`--create_slices` or `-cs`: create slices of segmentation results (default: False)
-
-`--ignore STR`: ignore specific label(s), e.g. "2,5,6" (default: none)
-
-`--only STR`: segment only specific label(s), e.g. "1,3,5" (default: all)
-
-`--smooth INT` or `-s INT`: number of smoothing iterations for segmentation result (default: 0)
-
-`--clean FLOAT` or `-c FLOAT`: remove outliers, e.g. 0.5 means that objects smaller than 50 percent of the size of the largest object will be removed (default: None)
-
-`--fill FLOAT` or `-f FLOAT`: fill holes, e.g. 0.5 means that all holes smaller than 50 percent of the entire label will be filled (default: None)
-
-`--platform STR` or `-p STR`: one of "cuda", "opencl_NVIDIA_GPU", "opencl_Intel_CPU" (default: None)
-
 #### Memory error
 If memory errors (either GPU or host memory) occur, you can start the segmentation as follows:
 ```
@@ -146,25 +96,6 @@ python3 ~/git/biomedisa/demo/split_volume.py 'path_to_image' 'path_to_labels' -n
 Where `-n` is the number of GPUs and each axis (`x`,`y` and `z`) is divided into two overlapping parts. The volume is thus divided into `2*2*2=8` subvolumes. These are segmented separately and then reassembled.
 
 # Deep Learning
-
-#### Download training data, network, and test image
-Download data from the [gallery](https://biomedisa.org/gallery/) or directly as follows:
-```
-# training data
-wget --no-check-certificate https://biomedisa.org/download/demo/?id=training_heart.tar -O ~/Downloads/training_heart.tar
-wget --no-check-certificate https://biomedisa.org/download/demo/?id=training_heart_labels.tar -O ~/Downloads/training_heart_labels.tar
-
-# extract data
-cd ~/Downloads
-tar -xf training_heart.tar
-tar -xf training_heart_labels.tar
-
-# trained network
-wget --no-check-certificate https://biomedisa.org/download/demo/?id=heart.h5 -O ~/Downloads/heart.h5
-
-# test image
-wget --no-check-certificate https://biomedisa.org/download/demo/?id=testing_axial_crop_pat13.nii.gz -O ~/Downloads/testing_axial_crop_pat13.nii.gz
-```
 
 #### Automatic segmentation using a trained network and batch size 6
 ```
