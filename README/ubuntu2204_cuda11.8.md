@@ -141,7 +141,7 @@ sudo apt-get install --no-install-recommends libnvinfer8=8.5.3-1+cuda11.8 \
 sudo apt-mark hold libcudnn8 libcudnn8-dev libnvinfer-dev libnvinfer-plugin8 libnvinfer8 cuda-11-8
 
 # Install TensorFlow
-sudo -H pip3 install tensorflow-gpu==2.10.0
+sudo -H pip3 install tensorflow==2.13.0
 ```
 
 #### Run Biomedisa
@@ -161,3 +161,4 @@ Open Biomedisa in your local browser http://localhost:8080/ and log in as the `s
 
 #### Install Apache Server (optional)
 Follow the [installation instructions](https://github.com/biomedisa/biomedisa/blob/master/README/APACHE_SERVER.md).
+
