@@ -71,7 +71,7 @@ save_data('Downloads/final.trigonopterus.smooth.am', smooth_result, header=heade
 ```
 
 #### Command-line based
-```bash
+```
 # Ubuntu
 python3 ~/git/biomedisa/demo/biomedisa_interpolation.py ~/Downloads/tumor.tif ~/Downloads/labels.tumor.tif
 
