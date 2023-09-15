@@ -1,20 +1,20 @@
-# demo.biomedisa_interpolation.smart_interpolation
+## demo.biomedisa_interpolation.smart_interpolation
 
 ```python
 def demo.biomedisa_interpolation.smart_interpolation(data, labelData, nbrw=10, sorw=4000, acwe=False, acwe_alpha=1.0, acwe_smooth=1, acwe_steps=3, denoise=False, uncertainty=False, create_slices=False, platform=None, allaxis=False, ignore='none', only='all', clean=None, fill=None, smooth=0, no_compression=False):
 ```
-# Parameters (Python only):
+## Parameters (Python only):
 **data : array_like**
 Image data (must be three-dimensional).
 
 **labelData : array_like**
 Pre-segmented slices (must be three dimensional). The non-segmented area has the value 0.
 
-# Returns:
+## Returns:
 **out : dictionary**
 Dictionary containing array-like objects for the results {'regular', 'smooth', 'uncertainty', 'cleaned', 'filled', 'cleaned_filled', 'acwe'} when available.
 
-# Other Parameters (abbreviations for command-line only):
+## Other Parameters (abbreviations for command-line only):
 
 `--help` or `-h`: show more information and exit
 
