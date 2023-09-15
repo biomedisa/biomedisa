@@ -57,3 +57,4 @@ demo.biomedisa_interpolation.smart_interpolation(
 + **clean FLOAT**: Remove outliers, e.g. 0.5 means that objects smaller than 50 percent of the size of the largest object will be removed (default: None).
 + **fill FLOAT**: Fill holes, e.g. 0.5 means that all holes smaller than 50 percent of the entire label will be filled (default: None).
 + **platform STR**: One of "cuda", "opencl_NVIDIA_GPU", "opencl_Intel_CPU" (default: None).
+

@@ -49,8 +49,11 @@ Biomedisa (https://biomedisa.org) is a free and easy-to-use open-source online p
 
 #### Python example
 ```python
+# change this line to your biomedisa directory
+path_to_biomedisa = '/home/<user>/git/biomedisa'
+
 import sys
-sys.path.append(path_to_biomedisa)  # e.g. '/home/<user>/git/biomedisa'
+sys.path.append(path_to_biomedisa)
 from biomedisa_features.biomedisa_helper import load_data, save_data
 from demo.biomedisa_interpolation import smart_interpolation
 
@@ -96,18 +99,7 @@ python3 ~/git/biomedisa/demo/split_volume.py 'path_to_image' 'path_to_labels' -n
 Where `-n` is the number of GPUs and each axis (`x`,`y` and `z`) is divided into two overlapping parts. The volume is thus divided into `2*2*2=8` subvolumes. These are segmented separately and then reassembled.
 
 # Deep Learning
-
-#### Automatic segmentation using a trained network and batch size 6
-```
-# change to the demo directory
-cd ~/git/biomedisa/demo/
-
-# Ubuntu
-python3 biomedisa_deeplearning.py ~/Downloads/testing_axial_crop_pat13.nii.gz ~/Downloads/heart.h5 -p -bs 6
-
-# Windows
-python biomedisa_deeplearning.py Downloads\testing_axial_crop_pat13.nii.gz Downloads\heart.h5 -p -bs 6
-```
++ [Parameters](https://github.com/biomedisa/biomedisa/blob/master/README/deep_learning.md)
 
 #### Train a neural network for automatic segmentation
 ```
@@ -121,80 +113,69 @@ python3 biomedisa_deeplearning.py ~/Downloads/training_heart ~/Downloads/trainin
 python biomedisa_deeplearning.py Downloads\training_heart Downloads\training_heart_labels -t
 ```
 
-#### Options
-`--help` or `-h`: show more information and exit
+#### Python example (training)
+```python
+# change this line to your biomedisa directory
+path_to_biomedisa = '/home/<user>/git/biomedisa'
 
-`--version` or `-v`: Biomedisa version
+# load libraries
+import sys
+sys.path.append(path_to_biomedisa)
+from biomedisa_features.biomedisa_helper import load_data
+from demo.biomedisa_deeplearning import deep_learning
 
-`--predict` or `-p`: automatic/predict segmentation
+# load image data
+img1, _ = load_data('Head1.am')
+img2, _ = load_data('Head2.am')
+img_list = [img1, img2]
 
-`--train` or `-t`: train a neural network
+# load label data
+label1, _ = load_data('Head1.labels.am')
+label2, header, ext = load_data('Head2.labels.am',
+        return_extension=True)
+label_list = [label1, label2]
 
-`--epochs INT` or `-e INT`: number of epochs trained (default: 100)
+# deep learning
+deep_learning(img_list, label_list, train=True, batch_size=12,
+        header=header, extension=ext, path_to_model='honeybees.h5')
+```
 
-`--batch_size INT` or `-bs INT`: batch size (default: 24). If you have a memory error, try reducing to 6, for example.
+#### Automatic segmentation using a trained network and a batch size of 6
+```
+# change to the demo directory
+cd ~/git/biomedisa/demo/
 
-`--val_images PATH` or `-vi PATH`: path to directory with validation images
+# Ubuntu
+python3 biomedisa_deeplearning.py ~/Downloads/testing_axial_crop_pat13.nii.gz ~/Downloads/heart.h5 -p -bs 6
 
-`--val_labels PATH` or `-vl PATH`: path to directory with validation labels
+# Windows
+python biomedisa_deeplearning.py Downloads\testing_axial_crop_pat13.nii.gz Downloads\heart.h5 -p -bs 6
+```
 
-`--validation_split FLOAT` or `-vs FLOAT`: for example, split your data into 80% training data and 20% validation data with `-vs 0.8`
+#### Python example (prediction)
+```python
+# change this line to your biomedisa directory
+path_to_biomedisa = '/home/<user>/git/biomedisa'
 
-`--early_stopping INT` or `-es INT`: stop training if there is no improvement after specified number of epochs
+# load libraries
+import sys
+sys.path.append(path_to_biomedisa)
+from biomedisa_features.biomedisa_helper import load_data, save_data
+from demo.biomedisa_deeplearning import deep_learning
+from demo.keras_helper import get_image_dimensions, get_physical_size
 
-`--no_compression` or `-nc`: disable compression of segmentation results (default: False)
+# load data
+img, img_header, img_ext = load_data('Head3.am',
+        return_extension=True)
 
-`--create_slices` or `-cs`: create slices of segmentation results (default: False)
+# deep learning
+results = deep_learning(img, predict=True, img_header=img_header,
+        path_to_model='honeybees.h5', img_extension=img_ext)
 
-`--ignore STR`: ignore specific label(s), e.g. "2,5,6" (default: none)
-
-`--only STR`: segment only specific label(s), e.g. "1,3,5" (default: all)
-
-`--clean FLOAT` or `-c FLOAT`: remove outliers, e.g. 0.5 means that objects smaller than 50 percent of the size of the largest object will be removed (default: None)
-
-`--fill FLOAT` or `-f FLOAT`: fill holes, e.g. 0.5 means that all holes smaller than 50 percent of the entire label will be filled (default: None)
-
-`--balance` or `-b`: Balance foreground and background training patches (default: False)
-
-`--flip_x`: Randomly flip x-axis during training (default: False)
-
-`--flip_y`: Randomly flip y-axis during training (default: False)
-
-`--flip_z`: Randomly flip z-axis during training (default: False)
-
-`--network_filters STR` or `-nf STR`: Number of filters per layer up to the deepest, e.g. "32-64-128-256-512" (default: "32-64-128-256-512")
-
-`--resnet` or `-rn`: Use U-resnet instead of standard U-net (default: False)
-
-`--no_normalization` or `-nn`: Disable image normalization (default: False)
-
-`--rotate FLOAT` or `-r FLOAT`: Randomly rotate during training (default: 0.0)
-
-`--learning_rate FLOAT` or `-lr`: Learning rate (default: 0.01)
-
-`--stride_size [1-64]` or `-ss [1-64]`: Stride size for patches (default: 32)
-
-`--validation_stride_size [1-64]` or `-vss [1-64]`: Stride size for validation patches (default: 32)
-
-`--validation_freq INT` or `-vf INT`: Epochs performed before validation (default: 1)
-
-`--validation_batch_size INT` or `-vbs INT`: validation batch size (default: 24)
-
-`--x_scale INT` or `-xs INT`: Images and labels are scaled at x-axis to this size before training (default: 256)
-
-`--y_scale INT` or `-ys INT`: Images and labels are scaled at y-axis to this size before training (default: 256)
-
-`--z_scale INT` or `-zs INT`: Images and labels are scaled at z-axis to this size before training (default: 256)
-
-`--no_scaling` or `-ns`: Do not resize image and label data (default: False)
-
-#### Accuracy Assessment: Dice Score vs. Standard Accuracy in Biomedisa
-`--val_tf` or `-vt`: use standard pixelwise accuracy provided by TensorFlow (default: False). When evaluating accuracy, Biomedisa relies on the Dice score rather than the standard accuracy. The Dice score offers a more reliable assessment by measuring the overlap between the segmented regions, whereas the standard accuracy also considers background classification, which can lead to misleading results, especially when dealing with small segments within a much larger volume. Even if half of the segment is mislabeled, the standard accuracy may still yield a remarkably high value. However, if you still prefer to use the standard accuracy, you can enable it by using this option.
-
-#### Automatic cropping
-`--crop_data` or `-cd`: Both the training and inference data should be cropped to the region of interest for best performance. As an alternative to manual cropping, you can use Biomedisa's AI-based automatic cropping. After training, auto cropping is automatically applied to your inference data.
-
-`--save_cropped` or `-sc`: save cropped image (default: False)
+# save result
+save_data('final.Head3.am', results['regular'],
+        header=results['header'])
+```
 
 # Biomedisa Features
 
