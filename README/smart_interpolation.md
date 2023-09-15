@@ -1,7 +1,8 @@
 ## Smart Interpolation
 ```python
 demo.biomedisa_interpolation.smart_interpolation(
-    data, labelData,
+    data,
+    labelData,
     nbrw=10,
     sorw=4000,
     acwe=False,
@@ -37,40 +38,78 @@ demo.biomedisa_interpolation.smart_interpolation(
 
 #### Other Parameters (abbreviations for command-line only):
 
-`--help` or `-h`: show more information and exit
++ **--help or -h** 
 
-`--version` or `-v`: Biomedisa version
+    Show more information and exit (command-line only).
 
-`--nbrw INT`: number of random walks starting at each pre-segmented pixel (default: 10)
++ **--version or -v**
 
-`--sorw INT`: steps of a random walk (default: 4000)
+    Show Biomedisa version (command-line only).
 
-`--acwe`: post-processing with active contour (default: False)
++ **--nbrw INT**
 
-`--acwe_alpha FLOAT`: pushing force of active contour (default: 1.0)
+    Number of random walks starting at each pre-segmented pixel (default: 10).
 
-`--acwe_smooth INT`: smoothing of active contour (default: 1)
++ **--sorw INT**
 
-`--acwe_steps INT`: iterations of active contour (default: 3)
+    Steps of a random walk (default: 4000).
 
-`--no_compression` or `-nc`: disable compression of segmentation results (default: False)
++ **--acwe**
 
-`--allaxis` or `-allx`: if pre-segmentation is not exlusively in xy-plane (default: False)
+    Post-processing result with active contour (default: False).
 
-`--denoise` or `-d`: smooth/denoise image data before processing (default: False)
++ **--acwe_alpha FLOAT**
 
-`--uncertainty` or `-u`: return uncertainty of segmentation result (default: False)
+    Pushing force of active contour (default: 1.0).
 
-`--create_slices` or `-cs`: create slices of segmentation results (default: False)
++ **--acwe_smooth INT**
 
-`--ignore STR`: ignore specific label(s), e.g. "2,5,6" (default: none)
+    Smoothing of active contour (default: 1).
 
-`--only STR`: segment only specific label(s), e.g. "1,3,5" (default: all)
++ **--acwe_steps INT**
 
-`--smooth INT` or `-s INT`: number of smoothing iterations for segmentation result (default: 0)
+    Iterations of active contour (default: 3).
 
-`--clean FLOAT` or `-c FLOAT`: remove outliers, e.g. 0.5 means that objects smaller than 50 percent of the size of the largest object will be removed (default: None)
++ **--no_compression or -nc**
 
-`--fill FLOAT` or `-f FLOAT`: fill holes, e.g. 0.5 means that all holes smaller than 50 percent of the entire label will be filled (default: None)
+    Disable compression of segmentation results (default: False).
 
-`--platform STR` or `-p STR`: one of "cuda", "opencl_NVIDIA_GPU", "opencl_Intel_CPU" (default: None)
++ **--allaxis or -allx**
+
+    If pre-segmentation is not exlusively in xy-plane (default: False).
+
++ **--denoise or -d**
+
+    Smooth/denoise image data before processing (default: False).
+
++ **--uncertainty or -u**
+
+    Return uncertainty of segmentation result (default: False).
+
++ **--create_slices or -cs**
+
+    Create slices of segmentation results (default: False).
+
++ **--ignore STR**
+
+    Ignore specific label(s), e.g. "2,5,6" (default: none).
+
++ **--only STR**
+
+    Segment only specific label(s), e.g. "1,3,5" (default: all).
+
++ **--smooth INT or -s INT**
+
+    Number of smoothing iterations for segmentation result (default: 0).
+
++ **--clean FLOAT or -c FLOAT**
+
+    Remove outliers, e.g. 0.5 means that objects smaller than 50 percent of the size of the largest object will be removed (default: None).
+
++ **--fill FLOAT or -f FLOAT**
+
+    Fill holes, e.g. 0.5 means that all holes smaller than 50 percent of the entire label will be filled (default: None).
+
++ **--platform STR or -p STR**
+
+    One of "cuda", "opencl_NVIDIA_GPU", "opencl_Intel_CPU" (default: None)
