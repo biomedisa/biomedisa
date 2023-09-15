@@ -5,7 +5,7 @@
 - [Software Requirements](#software-requirements)
 - [Installation (command-line-only)](#installation-command-line-only)
 - [Installation (browser based)](#installation-browser-based)
-- [Data](#data)
+- [Download Data](#download-data)
 - [Smart Interpolation](#smart-interpolation)
 - [Deep Learning](#deep-learning)
 - [Biomedisa Features](#biomedisa-features)
@@ -21,7 +21,7 @@ Biomedisa (https://biomedisa.org) is a free and easy-to-use open-source online p
 
 # Hardware Requirements
 + One or more NVIDIA GPUs with compute capability 3.0 or higher or an Intel CPU.
-+ Ddepending on the size of the image data (e.g. 32 GB).
++ Depending on the size of the image data (e.g. 32 GB).
 
 # Software Requirements
 + [NVIDIA GPU drivers](https://www.nvidia.com/drivers) for GPU support
@@ -41,14 +41,14 @@ Biomedisa (https://biomedisa.org) is a free and easy-to-use open-source online p
 + [Windows 10 (21H2 or higher)](https://github.com/biomedisa/biomedisa/blob/master/README/windows11.md)
 + [Windows 11](https://github.com/biomedisa/biomedisa/blob/master/README/windows11.md)
 
-# Data
-+ Download data from the [gallery](https://biomedisa.org/gallery/)
+# Download Data
++ Download the data from our [gallery](https://biomedisa.org/gallery/)
 
 # Smart Interpolation
 + [Parameters](https://github.com/biomedisa/biomedisa/blob/master/README/smart_interpolation.md)
 
 #### Python example
-```
+```python
 import sys
 sys.path.append(path_to_biomedisa)  # e.g. '/home/<user>/git/biomedisa'
 from biomedisa_features.biomedisa_helper import load_data, save_data
@@ -199,7 +199,7 @@ python biomedisa_deeplearning.py Downloads\training_heart Downloads\training_hea
 # Biomedisa Features
 
 #### Load and save data (such as Amira Mesh, TIFF, NRRD, NIfTI or DICOM)
-```
+```python
 import sys
 sys.path.append(path_to_biomedisa)  # e.g. '/home/<user>/git/biomedisa'
 from biomedisa_features.biomedisa_helper import load_data, save_data
@@ -212,7 +212,7 @@ save_data(path_to_data, data, header)
 ```
 
 #### Create STL mesh from segmentation (label values are saved as attributes)
-```
+```python
 import os, sys
 sys.path.append(path_to_biomedisa)  # e.g. '/home/<user>/git/biomedisa'
 from biomedisa_features.biomedisa_helper import load_data, save_data
@@ -247,7 +247,7 @@ python3 git/biomedisa/biomedisa_features/create_mesh.py <path_to_data>
 `--z_res` or `-zres`: Voxel spacing/resolution z-axis (default: None)
 
 #### Resize data
-```
+```python
 import os, sys
 sys.path.append(path_to_biomedisa)  # e.g. '/home/<user>/git/biomedisa'
 from biomedisa_features.biomedisa_helper import img_resize
@@ -262,7 +262,7 @@ label_data = img_resize(label_data, new_zsh, new_ysh, new_xsh, labels=True)
 ```
 
 #### Remove outliers and fill holes
-```
+```python
 from biomedisa_features.biomedisa_helper import clean, fill
 
 # delete outliers smaller than 90% of the segment
@@ -273,7 +273,7 @@ label_data = fill(label_data, 0.9)
 ```
 
 #### Measure accuracy
-```
+```python
 from biomedisa_features.helper import Dice_score, ASSD
 
 dice = Dice_score(ground_truth, result)
