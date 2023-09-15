@@ -18,17 +18,21 @@ demo.biomedisa_interpolation.smart_interpolation(
     clean=None,
     fill=None,
     smooth=0,
-    no_compression=False):
+    no_compression=False
+)
 ```
 #### Parameters (Python only):
-+ data : array_like
++ **data : array_like**
+
     Image data (must be three-dimensional).
 
-+ labelData : array_like
++ **labelData : array_like**
+
     Pre-segmented slices (must be three dimensional). The non-segmented area has the value 0.
 
 #### Returns:
-+ out : dictionary
++ **out : dictionary**
+
     Dictionary containing array-like objects for the results {'regular', 'smooth', 'uncertainty', 'cleaned', 'filled', 'cleaned_filled', 'acwe'} when available.
 
 #### Other Parameters (abbreviations for command-line only):
