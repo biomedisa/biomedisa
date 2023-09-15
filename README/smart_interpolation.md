@@ -36,7 +36,7 @@ demo.biomedisa_interpolation.smart_interpolation(
 
     Dictionary containing array-like objects for the results {'regular', 'smooth', 'uncertainty', 'cleaned', 'filled', 'cleaned_filled', 'acwe'} when available.
 
-#### Other Parameters (use leading `--` for command-line):
+#### Other Parameters (use leading `--` for command-line, e.g. `--help`):
 
 + **help**: Show more information and exit (command-line only).
 + **version**: Show Biomedisa version (command-line only).
