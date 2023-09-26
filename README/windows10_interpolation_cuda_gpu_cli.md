@@ -5,10 +5,10 @@
 - [Install NVIDIA driver](#install-nvidia-driver)
 - [Install CUDA Toolkit](#install-cuda-toolkit)
 - [Install Microsoft MPI](#install-microsoft-mpi)
-- [Install Anaconda3](#install-anaconda3)
-- [Install conda and pip packages](#install-conda-and-pip-packages)
 - [Install Git](#install-git)
 - [Clone Biomedisa](#clone-biomedisa)
+- [Install Anaconda3](#install-anaconda3)
+- [Install conda and pip packages](#install-conda-and-pip-packages)
 - [Biomedisa example](#biomedisa-example)
 
 #### Install Microsoft Visual Studio 2022
