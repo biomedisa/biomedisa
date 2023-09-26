@@ -1,10 +1,10 @@
 # Windows 10 + Deep Learning + CUDA 11.3 (command-line-only)
 
 - [Install NVIDIA driver](#install-nvidia-driver)
-- [Install Anaconda3](#install-anaconda3)
-- [Install conda packages](#install-conda-packages)
 - [Install Git](#install-git)
 - [Clone Biomedisa](#clone-biomedisa)
+- [Install Anaconda3](#install-anaconda3)
+- [Install conda packages](#install-conda-packages)
 - [Biomedisa example](#biomedisa-example)
 
 
