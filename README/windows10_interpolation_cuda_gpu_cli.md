@@ -46,6 +46,13 @@ Select "msmpisetup.exe"
 #### Install Git
 Download and install [Git](https://github.com/git-for-windows/git/releases/download/v2.28.0.windows.1/Git-2.28.0-64-bit.exe).
 
+#### Clone Biomedisa
+```
+mkdir git
+cd git
+git clone https://github.com/biomedisa/biomedisa.git
+```
+
 #### Install Anaconda3
 Download and install [Anaconda3](https://www.anaconda.com/products/individual#windows).
 
@@ -58,13 +65,6 @@ conda install -c conda-forge numpy scipy colorama numba
 conda install -c conda-forge imagecodecs-lite tifffile scikit-image opencv=4.5.1 Pillow
 conda install -c conda-forge nibabel medpy SimpleITK itk vtk numpy-stl matplotlib
 pip install -U pycuda mpi4py
-```
-
-#### Clone Biomedisa
-```
-mkdir git
-cd git
-git clone https://github.com/biomedisa/biomedisa.git
 ```
 
 #### Biomedisa example
