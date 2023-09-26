@@ -14,6 +14,17 @@ Choose *Windows Driver Type:* Standard
 Choose *Recommended/Beta:* Studio Driver
 
 
+#### Install Git
+Download and install [Git](https://github.com/git-for-windows/git/releases/download/v2.28.0.windows.1/Git-2.28.0-64-bit.exe).
+
+
+#### Clone Biomedisa
+```
+mkdir git
+cd git
+git clone https://github.com/biomedisa/biomedisa.git
+```
+
 #### Install Anaconda3
 Download and install [Anaconda3](https://www.anaconda.com/products/individual#windows).
 
@@ -30,16 +41,6 @@ conda install -c conda-forge cudatoolkit=11.3.1
 conda install -c conda-forge cudnn=8.2.1
 conda install -c conda-forge tensorflow-gpu=2.6.0
 conda install -c anaconda h5py=3.7.0
-```
-
-#### Install Git
-Download and install [Git](https://github.com/git-for-windows/git/releases/download/v2.28.0.windows.1/Git-2.28.0-64-bit.exe).
-
-#### Clone Biomedisa
-```
-mkdir git
-cd git
-git clone https://github.com/biomedisa/biomedisa.git
 ```
 
 #### Biomedisa example
