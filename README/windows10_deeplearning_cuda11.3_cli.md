@@ -13,10 +13,8 @@ Download and install [NVIDIA](https://www.nvidia.com/Download/Find.aspx?lang=en-
 Choose *Windows Driver Type:* Standard  
 Choose *Recommended/Beta:* Studio Driver
 
-
 #### Install Git
 Download and install [Git](https://github.com/git-for-windows/git/releases/download/v2.28.0.windows.1/Git-2.28.0-64-bit.exe).
-
 
 #### Clone Biomedisa
 ```
@@ -27,7 +25,6 @@ git clone https://github.com/biomedisa/biomedisa.git
 
 #### Install Anaconda3
 Download and install [Anaconda3](https://www.anaconda.com/products/individual#windows).
-
 
 #### Install conda packages
 Open Anaconda Prompt (e.g. Windows Search `Anaconda Prompt`).
