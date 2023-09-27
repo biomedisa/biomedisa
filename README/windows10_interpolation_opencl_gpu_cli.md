@@ -2,10 +2,10 @@
 
 - [Install NVIDIA driver](#install-nvidia-driver)
 - [Install Microsoft MPI](#install-microsoft-mpi)
-- [Install Anaconda3](#install-anaconda3)
-- [Install conda and pip packages](#install-conda-and-pip-packages)
 - [Install Git](#install-git)
 - [Clone Biomedisa](#clone-biomedisa)
+- [Install Anaconda3](#install-anaconda3)
+- [Install conda and pip packages](#install-conda-and-pip-packages)
 - [Biomedisa example](#biomedisa-example)
 
 #### Install NVIDIA Driver
@@ -17,6 +17,16 @@ Choose *Recommended/Beta:* Studio Driver
 Download and install [Microsoft MPI](https://www.microsoft.com/en-us/download/details.aspx?id=57467).
 ```
 Select "msmpisetup.exe"
+```
+
+#### Install Git
+Download and install [Git](https://github.com/git-for-windows/git/releases/download/v2.28.0.windows.1/Git-2.28.0-64-bit.exe).
+
+#### Clone Biomedisa
+```
+mkdir git
+cd git
+git clone https://github.com/biomedisa/biomedisa.git
 ```
 
 #### Install Anaconda3
@@ -32,16 +42,6 @@ conda install -c conda-forge imagecodecs-lite tifffile scikit-image opencv=4.5.1
 conda install -c conda-forge nibabel medpy SimpleITK itk vtk numpy-stl matplotlib
 conda install -c conda-forge cudatoolkit=11.3.1
 pip install -U pyopencl mpi4py
-```
-
-#### Install Git
-Download and install [Git](https://github.com/git-for-windows/git/releases/download/v2.28.0.windows.1/Git-2.28.0-64-bit.exe).
-
-#### Clone Biomedisa
-```
-mkdir git
-cd git
-git clone https://github.com/biomedisa/biomedisa.git
 ```
 
 #### Biomedisa example
