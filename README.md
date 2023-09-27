@@ -32,7 +32,7 @@ Biomedisa (https://biomedisa.org) is a free and easy-to-use open-source online p
 + [Ubuntu 22.04 + Smart Interpolation + OpenCL + CPU](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu2204_interpolation_opencl_cpu_cli.md)
 + [Ubuntu 22.04 + Deep Learning](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu2204_deeplearning_cuda11.8_cli.md)
 + [Windows 10 + Smart Interpolation + CUDA + GPU (recommended)](https://github.com/biomedisa/biomedisa/blob/master/README/windows10_interpolation_cuda_gpu_cli.md)
-+ [Windows 10 + Smart Interpolation + OpenCL + GPU](https://github.com/biomedisa/biomedisa/blob/master/README/windows10_interpolation_opencl_gpu_cli.md)
++ [Windows 10 + Smart Interpolation + OpenCL + GPU (easy to install but lacks features like allaxis and smoothing](https://github.com/biomedisa/biomedisa/blob/master/README/windows10_interpolation_opencl_gpu_cli.md)
 + [Windows 10 + Smart Interpolation + OpenCL + CPU](https://github.com/biomedisa/biomedisa/blob/master/README/windows10_interpolation_opencl_cpu_cli.md)
 + [Windows 10 + Deep Learning](https://github.com/biomedisa/biomedisa/blob/master/README/windows10_deeplearning_cuda11.3_cli.md)
 
