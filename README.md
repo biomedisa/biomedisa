@@ -28,18 +28,17 @@ Biomedisa (https://biomedisa.org) is a free and easy-to-use open-source online p
 + [CUDA Toolkit](https://developer.nvidia.com/cuda-toolkit-archive) or [Intel Runtime for OpenCL](https://www.intel.com/content/www/us/en/developer/articles/tool/opencl-drivers.html)
 
 # Installation (command-line-only)
-+ [Ubuntu 22.04 + Smart Interpolation + CUDA + GPU](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu2204_interpolation_cuda11.8_gpu_cli.md)
++ [Ubuntu 22.04 + Smart Interpolation + CUDA + GPU (recommended)](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu2204_interpolation_cuda11.8_gpu_cli.md)
 + [Ubuntu 22.04 + Smart Interpolation + OpenCL + CPU](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu2204_interpolation_opencl_cpu_cli.md)
 + [Ubuntu 22.04 + Deep Learning](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu2204_deeplearning_cuda11.8_cli.md)
-+ [Windows 10 + Smart Interpolation + CUDA + GPU](https://github.com/biomedisa/biomedisa/blob/master/README/windows10_interpolation_cuda_gpu_cli.md)
++ [Windows 10 + Smart Interpolation + CUDA + GPU (recommended)](https://github.com/biomedisa/biomedisa/blob/master/README/windows10_interpolation_cuda_gpu_cli.md)
 + [Windows 10 + Smart Interpolation + OpenCL + GPU](https://github.com/biomedisa/biomedisa/blob/master/README/windows10_interpolation_opencl_gpu_cli.md)
 + [Windows 10 + Smart Interpolation + OpenCL + CPU](https://github.com/biomedisa/biomedisa/blob/master/README/windows10_interpolation_opencl_cpu_cli.md)
 + [Windows 10 + Deep Learning](https://github.com/biomedisa/biomedisa/blob/master/README/windows10_deeplearning_cuda11.3_cli.md)
 
 # Installation (browser based)
 + [Ubuntu 22.04](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu2204_cuda11.8.md)
-+ [Windows 10 (21H2 or higher)](https://github.com/biomedisa/biomedisa/blob/master/README/windows11.md)
-+ [Windows 11](https://github.com/biomedisa/biomedisa/blob/master/README/windows11.md)
++ [Windows](https://github.com/biomedisa/biomedisa/blob/master/README/windows11.md)
 
 # Download Data
 + Download the data from our [gallery](https://biomedisa.org/gallery/)
