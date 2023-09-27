@@ -20,7 +20,7 @@ Biomedisa (https://biomedisa.org) is a free and easy-to-use open-source online p
 
 # Hardware Requirements
 + One or more NVIDIA GPUs with compute capability 3.0 or higher or an Intel CPU.
-+ Depending on the size of the image data (e.g. 32 GB).
++ Depending on the size of the image data (32 GB or more).
 
 # Installation (command-line-only)
 + [Ubuntu 22.04 + Smart Interpolation + CUDA + GPU (recommended)](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu2204_interpolation_cuda11.8_gpu_cli.md)
