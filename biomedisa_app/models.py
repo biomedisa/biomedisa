@@ -239,7 +239,7 @@ class SettingsForm(forms.ModelForm):
     class Meta:
         model = Upload
         fields = ('allaxis', 'uncertainty', 'compression', 'normalize',
-                  'automatic_cropping', 'early_stopping', 'position', 'flip_x',
+                  'automatic_cropping', 'early_stopping', 'flip_x',
                   'flip_y', 'flip_z', 'resnet', 'filters', 'rotate', 'epochs', 'batch_size',
                   'x_scale', 'y_scale', 'z_scale', 'stride_size', 'validation_split',
                   'validation_freq', 'smooth', 'delete_outliers', 'fill_holes', 'ignore', 'only')
@@ -247,7 +247,7 @@ class SettingsForm(forms.ModelForm):
 class SettingsPredictionForm(forms.ModelForm):
     class Meta:
         model = Upload
-        fields = ('compression', 'batch_size', 'stride_size', 
+        fields = ('compression', 'batch_size', 'stride_size',
                   'delete_outliers', 'fill_holes')
 
 def repository_directory_path(instance, filename):

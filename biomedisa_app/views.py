@@ -523,12 +523,12 @@ def change_active_final(request, id, val):
             if val in [2,3,7,8]:
                 request.session['state'] = "Still processing. Please wait."
             elif val in [4,5]:
-                request.session['state'] = "Result not available (disabled, GPUs out of memory, or not available for AI segmentation)"
+                request.session['state'] = "Result not available (not available for AI segmentation or GPUs out of memory)"
             elif val==6:
                 if any(Upload.objects.filter(user=request.user, friend=stock_to_change.friend, final=5)):
                     request.session['state'] = "Still processing. Please wait."
                 else:
-                    request.session['state'] = "Result not available (disabled, GPUs out of memory, or not available for AI segmentation)"
+                    request.session['state'] = "Result not available (not available for AI segmentation or GPUs out of memory)"
             elif val==9:
                 request.session['state'] = "Result not available (only available for AI segmentation with auto-cropping)"
     next = request.GET.get('next', '')
@@ -688,6 +688,11 @@ def settings(request, id):
                     image.rotate = min(180, max(0, int(cd['rotate'])))
                     image.validation_split = min(1.0, max(0.0, float(cd['validation_split'])))
                     image.stride_size = max(32, int(cd['stride_size']))
+                    image.x_scale = min(512, int(cd['x_scale']))
+                    image.y_scale = min(512, int(cd['y_scale']))
+                    image.z_scale = min(512, int(cd['z_scale']))
+                    if any([scale > 256 for scale in [image.x_scale, image.y_scale, image.z_scale]]):
+                        image.stride_size = 64
                     if cd['early_stopping'] and image.validation_split == 0.0:
                         image.validation_split = 0.8
                     image.save()
