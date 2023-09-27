@@ -543,7 +543,7 @@ class MetaData(Callback):
         hf.close()
 
 class Metrics(Callback):
-    def __init__(self, img, label, position, list_IDs, dim_patch, dim_img, batch_size, path_to_model, early_stopping, validation_freq, n_classes, n_channels):
+    def __init__(self, img, label, position, list_IDs, dim_patch, dim_img, batch_size, path_to_model, early_stopping, validation_freq, n_classes, n_channels, average_dice):
         self.dim_patch = dim_patch
         self.dim_img = dim_img
         self.list_IDs = list_IDs
@@ -556,6 +556,7 @@ class Metrics(Callback):
         self.validation_freq = validation_freq
         self.n_classes = n_classes
         self.n_channels = n_channels
+        self.average_dice = average_dice
 
     def on_train_begin(self, logs={}):
         self.history = {}
@@ -603,16 +604,22 @@ class Metrics(Callback):
                     m = rest % self.dim_img[2]
                     result[k:k+self.dim_patch[0],l:l+self.dim_patch[1],m:m+self.dim_patch[2]] += y_predict[i]
 
-            # Compute dice score
+            # get result
             result = np.argmax(result, axis=-1)
             result = result.astype(np.uint8)
-            dice = 2 * np.logical_and(self.label==result, (self.label+result)>0).sum() / \
-                   float((self.label>0).sum() + (result>0).sum())
+
+            # Compute dice score
+            if self.average_dice:
+                dice = 0
+                for l in range(1, self.n_classes):
+                    dice += 2 * np.logical_and(self.label==l, result==l).sum() / float((self.label==l).sum() + (result==l).sum())
+                dice /= float(self.n_classes-1)
+            else:
+                dice = 2 * np.logical_and(self.label==result, (self.label+result)>0).sum() / \
+                       float((self.label>0).sum() + (result>0).sum())
 
             # save best model only
-            if epoch == 0:
-                self.model.save(str(self.path_to_model))
-            elif round(dice,5) > max(self.history['val_accuracy']):
+            if epoch == 0 or round(dice,5) > max(self.history['val_accuracy']):
                 self.model.save(str(self.path_to_model))
 
             # add accuracy to history
@@ -726,7 +733,7 @@ def train_semantic_segmentation(path_to_img, path_to_labels, path_val_img, path_
             validation_generator = DataGenerator(img_val, label_val, position_val, list_IDs_val_fg, list_IDs_val_bg, True, False, False, args.classification, **params)
         else:
             metrics = Metrics(img_val, label_val, position_val, list_IDs_val_fg, (args.z_patch, args.y_patch, args.x_patch), (zsh_val, ysh_val, xsh_val), args.batch_size,
-                              args.path_to_model, args.early_stopping, args.validation_freq, nb_labels, args.channels)
+                              args.path_to_model, args.early_stopping, args.validation_freq, nb_labels, args.channels, args.average_dice)
 
     # create a MirroredStrategy
     cdo = tf.distribute.ReductionToOneDevice()

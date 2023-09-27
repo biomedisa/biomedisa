@@ -326,10 +326,7 @@ def train_cropping(img, label, path_to_model, epochs, batch_size,
         validation_generator = None
 
     # create a MirroredStrategy
-    if os.name == 'nt':
-        cdo = tf.distribute.HierarchicalCopyAllReduce()
-    else:
-        cdo = tf.distribute.NcclAllReduce()
+    cdo = tf.distribute.ReductionToOneDevice()
     strategy = tf.distribute.MirroredStrategy(cross_device_ops=cdo)
     print('Number of devices: {}'.format(strategy.num_replicas_in_sync))
 
