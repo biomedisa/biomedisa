@@ -1,4 +1,4 @@
-# Windows 10 + Smart Interpolation + OpenCL + GPU (command-line-only)
+# Windows 10 + OpenCL + GPU (command-line-only)
 
 - [Install NVIDIA driver](#install-nvidia-driver)
 - [Install Microsoft MPI](#install-microsoft-mpi)
