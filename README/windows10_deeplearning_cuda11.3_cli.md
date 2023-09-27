@@ -39,6 +39,6 @@ conda activate biomedisa
 ```
 Download test files from [Gallery](https://biomedisa.de/gallery/) and run
 ```
-python git\biomedisa\demo\biomedisa_deeplearning.py Downloads\testing_axial_crop_pat13.nii.gz Downloads\heart.h5 -p
+python git\biomedisa\demo\biomedisa_deeplearning.py Downloads\testing_axial_crop_pat13.nii.gz Downloads\heart.h5 -p -bs 12
 ```
 
