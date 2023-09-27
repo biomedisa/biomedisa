@@ -536,16 +536,16 @@ class Metrics(Callback):
                     m = rest % self.dim_img[2]
                     result[k:k+self.dim_patch[0],l:l+self.dim_patch[1],m:m+self.dim_patch[2]] += y_predict[i]
 
-            # Compute dice score
+            # get result
             result = np.argmax(result, axis=-1)
             result = result.astype(np.uint8)
+
+            # Compute dice score
             dice = 2 * np.logical_and(self.label==result, (self.label+result)>0).sum() / \
                    float((self.label>0).sum() + (result>0).sum())
 
             # save best model only
-            if epoch == 0:
-                self.model.save(str(self.path_to_model))
-            elif round(dice,5) > max(self.history['val_accuracy']):
+            if epoch == 0 or round(dice,5) > max(self.history['val_accuracy']):
                 self.model.save(str(self.path_to_model))
 
             # add accuracy to history

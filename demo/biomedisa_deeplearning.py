@@ -53,7 +53,7 @@ def deep_learning(img_data, label_data=None, path_to_images=None, path_to_labels
     fill=None, x_scale=256, y_scale=256, z_scale=256, no_scaling=False, early_stopping=0,
     pretrained_model=None, fine_tune=False, classification=False, workers=1, cropping_epochs=50,
     val_img_data=None, val_label_data=None, x_range=None, y_range=None, z_range=None,
-    header=None, extension='.tif', img_header=None, img_extension='.tif'):
+    header=None, extension='.tif', img_header=None, img_extension='.tif', average_dice=False):
 
     # time
     TIC = time.time()
@@ -230,6 +230,8 @@ if __name__ == '__main__':
                         help='Randomly swap two axes during training')
     parser.add_argument('-vt','--val_tf', action='store_true', default=False,
                         help='Use tensorflow standard accuracy on validation data')
+    parser.add_argument('-ad','--average_dice', action='store_true', default=False,
+                        help='Use averaged dice score of each label')
     parser.add_argument('-nc', '--no_compression', action='store_true', default=False,
                         help='Disable compression of segmentation results')
     parser.add_argument('-cs','--create_slices', action='store_true', default=False,
