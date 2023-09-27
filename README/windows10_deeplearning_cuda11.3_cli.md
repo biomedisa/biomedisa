@@ -4,7 +4,7 @@
 - [Install Git](#install-git)
 - [Clone Biomedisa](#clone-biomedisa)
 - [Install Anaconda3](#install-anaconda3)
-- [Install conda packages](#install-conda-packages)
+- [Install conda environment](#install-conda-environment)
 - [Biomedisa example](#biomedisa-example)
 
 
