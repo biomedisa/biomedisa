@@ -38,13 +38,17 @@ Open Anaconda Prompt (e.g. Windows Search `Anaconda Prompt`).
 conda env create -f git\biomedisa\conda_environment.yml
 ```
 
-#### Biomedisa example
+#### Biomedisa examples
 Activate conda environment.
 ```
 conda activate biomedisa
 ```
 Download test files from [Gallery](https://biomedisa.de/gallery/) and run
 ```
+# smart interpolation
 python git\biomedisa\demo\biomedisa_interpolation.py Downloads\tumor.tif Downloads\labels.tumor.tif --platform opencl_NVIDIA_GPU
+
+# deep learning
+python git\biomedisa\demo\biomedisa_deeplearning.py Downloads\testing_axial_crop_pat13.nii.gz Downloads\heart.h5 -p -bs 12
 ```
 
