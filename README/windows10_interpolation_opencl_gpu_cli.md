@@ -5,7 +5,7 @@
 - [Install Git](#install-git)
 - [Clone Biomedisa](#clone-biomedisa)
 - [Install Anaconda3](#install-anaconda3)
-- [Install conda and pip packages](#install-conda-and-pip-packages)
+- [Install conda environment](#install-conda-environment)
 - [Biomedisa example](#biomedisa-example)
 
 #### Install NVIDIA Driver
@@ -32,16 +32,10 @@ git clone https://github.com/biomedisa/biomedisa.git
 #### Install Anaconda3
 Download and install [Anaconda3](https://www.anaconda.com/products/individual#windows).
 
-#### Install conda and pip packages
+#### Install conda environment
 Open Anaconda Prompt (e.g. Windows Search `Anaconda Prompt`).
 ```
-conda create -n biomedisa python=3.9
-conda activate biomedisa
-conda install -c conda-forge numpy scipy colorama numba
-conda install -c conda-forge imagecodecs-lite tifffile scikit-image opencv=4.5.1 Pillow
-conda install -c conda-forge nibabel medpy SimpleITK itk vtk numpy-stl matplotlib
-conda install -c conda-forge cudatoolkit=11.3.1
-pip install -U pyopencl mpi4py
+conda env create -f git\biomedisa\conda_environment.yml
 ```
 
 #### Biomedisa example
