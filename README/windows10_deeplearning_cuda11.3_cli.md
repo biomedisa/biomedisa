@@ -1,4 +1,4 @@
-# Windows 10 + Deep Learning + CUDA 11.3 (command-line-only)
+# Windows 10 + Deep Learning (command-line-only)
 
 - [Install NVIDIA driver](#install-nvidia-driver)
 - [Install Git](#install-git)
