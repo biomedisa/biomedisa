@@ -114,8 +114,9 @@ def deep_learning(img_data, label_data=None, path_to_images=None, path_to_labels
         # train automatic cropping
         args.cropping_weights, args.cropping_config = None, None
         if args.crop_data:
-            args.cropping_weights, args.cropping_config = ch.load_and_train(args.normalize, [args.path_to_images], [args.path_to_labels], args.path_to_model,
-                        args.cropping_epochs, args.batch_size, args.validation_split, args.x_scale, args.y_scale, args.z_scale,
+            args.cropping_weights, args.cropping_config = ch.load_and_train(
+                        args.normalize, [args.path_to_images], [args.path_to_labels], args.path_to_model,
+                        args.cropping_epochs, args.batch_size, args.validation_split,
                         args.flip_x, args.flip_y, args.flip_z, args.rotate, args.only, args.ignore,
                         [args.val_images], [args.val_labels],
                         img_data, label_data, None,

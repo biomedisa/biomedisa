@@ -211,6 +211,7 @@ def _diffusion_child(comm, bm=None):
 
         # acwe
         q = Queue('acwe', connection=Redis())
+        job = q.enqueue_call(active_contour, args=(bm.image.id, tmp.id, bm.label.id, True,), timeout=-1)
         job = q.enqueue_call(active_contour, args=(bm.image.id, tmp.id, bm.label.id,), timeout=-1)
 
         # cleanup

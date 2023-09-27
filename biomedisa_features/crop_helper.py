@@ -519,12 +519,12 @@ def crop_volume(img, path_to_model, path_to_final, z_shape, y_shape, x_shape, ba
 #=====================
 
 def load_and_train(normalize,path_to_img,path_to_labels,path_to_model,
-                epochs,batch_size,validation_split,x_scale,y_scale,z_scale,
+                epochs,batch_size,validation_split,
                 flip_x,flip_y,flip_z,rotate,labels_to_compute,labels_to_remove,
                 path_val_img=[None],path_val_labels=[None],
                 img=None, label=None, position=None,
                 img_val=None, label_val=None, position_val=None,
-                demo=False):
+                demo=False, x_scale=256, y_scale=256, z_scale=256):
 
     # load training data
     img, label, position, mu, sig, number_of_images = load_cropping_training_data(normalize,

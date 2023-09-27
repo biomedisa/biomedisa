@@ -133,8 +133,6 @@ class DataGenerator(tf.keras.utils.Sequence):
         else:
             len_IDs = len(self.list_IDs_fg)
         n_batches = int(np.floor(len_IDs / self.batch_size))
-        if self.number_of_images:
-            n_batches = min((512 * self.number_of_images) // self.batch_size, n_batches)
         return n_batches
 
     def __getitem__(self, index):

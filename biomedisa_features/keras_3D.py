@@ -84,9 +84,11 @@ def conv_network(train, predict, img_list, label_list, path_to_model,
             # train automatic cropping
             cropping_weights, cropping_config = None, None
             if crop_data:
-                cropping_weights, cropping_config = ch.load_and_train(normalize, img_list, label_list, path_to_model,
-                    cropping_epochs, batch_size, label.validation_split, x_scale, y_scale, z_scale,
-                    label.flip_x, label.flip_y, label.flip_z, label.rotate, label.only, label.ignore)
+                cropping_weights, cropping_config = ch.load_and_train(
+                    normalize, img_list, label_list, path_to_model,
+                    cropping_epochs, batch_size, label.validation_split,
+                    label.flip_x, label.flip_y, label.flip_z,
+                    label.rotate, label.only, label.ignore)
 
             # train network
             train_semantic_segmentation(normalize, img_list, label_list, x_scale, y_scale,
@@ -304,6 +306,7 @@ if __name__ == '__main__':
                 q = Queue('slices', connection=Redis())
                 job = q.enqueue_call(create_slices, args=(path_to_img, path_to_final,), timeout=-1)
                 q = Queue('acwe', connection=Redis())
+                job = q.enqueue_call(active_contour, args=(image.id, tmp.id, model.id, True,), timeout=-1)
                 job = q.enqueue_call(active_contour, args=(image.id, tmp.id, model.id,), timeout=-1)
                 q = Queue('cleanup', connection=Redis())
                 job = q.enqueue_call(remove_outlier, args=(image.id, tmp.id, tmp.id, model.id,), timeout=-1)
