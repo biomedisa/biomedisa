@@ -1995,7 +1995,7 @@ def init_random_walk(image, label):
                     ngpus = str(bm.available_devices)
 
         # command
-        cmd = ['mpiexec', '-np', ngpus, 'python3', 'rw_main.py', str(image.id), str(label.id)]
+        cmd = ['mpiexec', '-np', ngpus, 'python3', 'biomedisa_interpolation.py', str(image.id), str(label.id), '-de']
 
         # specifiy platform
         if bm.platform:
@@ -2005,7 +2005,7 @@ def init_random_walk(image, label):
                 cmd = cmd[3:]
 
         # change working directory
-        cwd = BASE_DIR + '/biomedisa_features/random_walk/'
+        cwd = BASE_DIR + '/biomedisa_features/'
         workers_host = BASE_DIR + '/log/workers_host'
 
         # run
@@ -2015,7 +2015,7 @@ def init_random_walk(image, label):
         if host:
             cmd.insert(0, 'ssh')
             cmd.insert(1, host)
-            cmd[cmd.index('rw_main.py')] = cwd+'rw_main.py'
+            cmd[cmd.index('biomedisa_interpolation.py')] = cwd+'biomedisa_interpolation.py'
             p = subprocess.Popen(cmd)
         else:
             p = subprocess.Popen(cmd, cwd=cwd, env=my_env)

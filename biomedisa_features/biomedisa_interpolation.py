@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 ##########################################################################
 ##                                                                      ##
 ##  Copyright (c) 2023 Philipp Lösel. All rights reserved.              ##
@@ -27,23 +28,31 @@
 ##########################################################################
 
 import sys, os
-import django
-django.setup()
-from biomedisa_app.config import config
-from biomedisa_app.models import Upload, Profile
-#from biomedisa_app.views import send_start_notification
-from biomedisa.settings import BASE_DIR, WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT
-from biomedisa_features.biomedisa_helper import (_get_platform, pre_processing, _error_,
-    read_labeled_slices, read_labeled_slices_allx, read_indices_allx, predict_blocksize)
-from django.contrib.auth.models import User
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(BASE_DIR)
+import biomedisa
+from biomedisa_features.biomedisa_helper import (_get_platform, smooth_img_3x3,
+    pre_processing, _error_, read_labeled_slices, read_labeled_slices_allx,
+    read_indices_allx, predict_blocksize)
 from multiprocessing import freeze_support
 import numpy as np
+import argparse
 import time
 
 class Biomedisa(object):
      pass
 
-if __name__ == '__main__':
+class build_label(object):
+     pass
+
+class build_image(object):
+    class user(object):
+        pass
+
+def smart_interpolation(data, labelData, nbrw=10, sorw=4000, django_env=False,
+    path_to_data=None, path_to_labels=None, denoise=False, uncertainty=False, platform=None,
+    allaxis=False, ignore='none', only='all', smooth=0, no_compression=False):
+
     freeze_support()
 
     from mpi4py import MPI
@@ -55,21 +64,44 @@ if __name__ == '__main__':
 
         # create biomedisa
         bm = Biomedisa()
-        bm.django_env = True
-        bm.process = 'first_queue'
-        bm.data = None
-        bm.labelData = None
+        bm.image = build_image()
+        bm.label = build_label()
+        bm.process = 'smart_interpolation'
+        bm.success = True
 
         # time
         bm.TIC = time.time()
 
-        # get objects
-        try:
-            bm.image = Upload.objects.get(pk=sys.argv[1])
-            bm.label = Upload.objects.get(pk=sys.argv[2])
-            bm.success = True
-        except Upload.DoesNotExist:
-            bm = _error_(bm, 'Files have been removed.')
+        # transfer arguments
+        for arg in ['nbrw','sorw','allaxis','uncertainty','ignore','only','smooth']:
+            bm.label.__dict__[arg] = locals()[arg]
+        for arg in ['data','labelData','path_to_data','path_to_labels','denoise','platform','django_env']:
+            bm.__dict__[arg] = locals()[arg]
+
+        # compression
+        if no_compression:
+            bm.label.compression = False
+        else:
+            bm.label.compression = True
+
+        # disable file saving when called as a function
+        if bm.data is not None:
+            bm.path_to_data = None
+            bm.path_to_labels = None
+
+        # environment
+        if bm.django_env:
+            import django
+            django.setup()
+            from biomedisa_app.models import Upload
+            from biomedisa.settings import WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT
+            try:
+                bm.image = Upload.objects.get(pk=path_to_data)
+                bm.label = Upload.objects.get(pk=path_to_labels)
+            except Upload.DoesNotExist:
+                bm = _error_(bm, 'Files have been removed.')
+        else:
+            bm.image.status = 1
 
         # check if aborted
         if bm.image.status == 0 or bm.success == False:
@@ -80,37 +112,31 @@ if __name__ == '__main__':
 
         else:
 
-            # get pid
-            bm.image.pid = os.getpid()
-            bm.image.save()
+            if bm.django_env:
 
-            # path to data
-            bm.path_to_data = bm.image.pic.path.replace(WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT)
-            bm.path_to_labels = bm.label.pic.path.replace(WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT)
+                # get pid
+                bm.image.pid = os.getpid()
+                bm.image.save()
 
-            # path to logfiles
-            bm.path_to_time = BASE_DIR + '/log/time.txt'
-            bm.path_to_logfile = BASE_DIR + '/log/logfile.txt'
+                # path to data
+                bm.path_to_data = bm.image.pic.path.replace(WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT)
+                bm.path_to_labels = bm.label.pic.path.replace(WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT)
 
-            # send notification
-            #send_start_notification(bm.image)
+                # path to logfiles
+                bm.path_to_time = BASE_DIR + '/log/time.txt'
+                bm.path_to_logfile = BASE_DIR + '/log/logfile.txt'
 
-            # write in logfile
-            with open(bm.path_to_logfile, 'a') as logfile:
-                print('%s %s %s %s' %(time.ctime(), bm.image.user.username, bm.image.shortfilename, 'Process was started.'), file=logfile)
+                # write in logfile
+                with open(bm.path_to_logfile, 'a') as logfile:
+                    print('%s %s %s %s' %(time.ctime(), bm.image.user.username, bm.image.shortfilename, 'Process was started.'), file=logfile)
 
             # pre-processing
             bm = pre_processing(bm)
 
             # get platform
-            if bm.success:
-                bm.platform = None
-                for i, val in enumerate(sys.argv):
-                    if val in ['--platform','-p']:
-                        bm.platform = str(sys.argv[i+1])
-                bm = _get_platform(bm)
-                if bm.success == False:
-                    bm = _error_(bm, f'No {bm.platform} device found.')
+            bm = _get_platform(bm)
+            if bm.success == False:
+                bm = _error_(bm, f'No {bm.platform} device found.')
 
             # smooth, uncertainty and allx are not supported for opencl
             if bm.success and bm.platform.split('_')[0] == 'opencl':
@@ -132,20 +158,29 @@ if __name__ == '__main__':
             else:
 
                 # create path_to_final
-                filename, extension = os.path.splitext(bm.image.shortfilename)
-                if extension == '.gz':
-                    filename = filename[:-4]
-                filename = 'final.' + filename
-                dir_path = BASE_DIR + '/private_storage/'
-                pic_path = 'images/%s/%s' %(bm.image.user, filename)
-                bm.path_to_final = dir_path + pic_path + bm.final_image_type
+                if bm.django_env:
+                    filename, extension = os.path.splitext(bm.image.shortfilename)
+                    if extension == '.gz':
+                        filename = filename[:-4]
+                    filename = 'final.' + filename
+                    dir_path = BASE_DIR + '/private_storage/'
+                    pic_path = 'images/%s/%s' %(bm.image.user, filename)
+                    bm.path_to_final = dir_path + pic_path + bm.final_image_type
 
-                # path_to_uq and path_to_smooth
-                filename, extension = os.path.splitext(bm.path_to_final)
-                if extension == '.gz':
-                    filename = filename[:-4]
-                bm.path_to_smooth = filename + '.smooth' + bm.final_image_type
-                bm.path_to_uq = filename + '.uncertainty.tif'
+                elif bm.path_to_data:
+                    filename, extension = os.path.splitext(os.path.basename(bm.path_to_data))
+                    if extension == '.gz':
+                        filename = filename[:-4]
+                    filename = 'final.' + filename
+                    bm.path_to_final = bm.path_to_data.replace(os.path.basename(bm.path_to_data), filename + bm.final_image_type)
+
+                # path to optional results
+                if bm.path_to_data:
+                    filename, extension = os.path.splitext(bm.path_to_final)
+                    if extension == '.gz':
+                        filename = filename[:-4]
+                    bm.path_to_smooth = filename + '.smooth' + bm.final_image_type
+                    bm.path_to_uq = filename + '.uncertainty.tif'
 
                 # data type
                 if bm.data.dtype == 'uint8':
@@ -160,6 +195,10 @@ if __name__ == '__main__':
                     bm.data /= np.amax(bm.data)
                     bm.data *= 255.0
                     bm.data = bm.data.astype(np.float32)
+
+                # denoise image data
+                if bm.denoise:
+                    bm.data = smooth_img_3x3(bm.data)
 
                 # image size
                 bm.imageSize = int(bm.data.nbytes * 10e-7)
@@ -248,8 +287,8 @@ if __name__ == '__main__':
                         # create subcommunicator
                         sub_comm = MPI.Comm.Split(comm, 1, rank)
 
-                        from rw_small import _diffusion_child
-                        _diffusion_child(sub_comm, bm)
+                        from biomedisa_features.random_walk.rw_small import _diffusion_child
+                        results = _diffusion_child(sub_comm, bm)
 
                     else:
 
@@ -268,8 +307,10 @@ if __name__ == '__main__':
                         # create subcommunicator
                         sub_comm = MPI.Comm.Split(comm, 1, rank)
 
-                        from rw_large import _diffusion_child
-                        _diffusion_child(sub_comm, bm)
+                        from biomedisa_features.random_walk.rw_large import _diffusion_child
+                        results = _diffusion_child(sub_comm, bm)
+
+                return results
 
     else:
 
@@ -291,9 +332,51 @@ if __name__ == '__main__':
                 sub_comm = MPI.Comm.Split(comm, 1, rank)
 
                 if small:
-                    from rw_small import _diffusion_child
+                    from biomedisa_features.random_walk.rw_small import _diffusion_child
                     _diffusion_child(sub_comm)
                 else:
-                    from rw_large import _diffusion_child
+                    from biomedisa_features.random_walk.rw_large import _diffusion_child
                     _diffusion_child(sub_comm)
+
+if __name__ == '__main__':
+
+    # initialize arguments
+    parser = argparse.ArgumentParser(description='Biomedisa interpolation.',
+             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+    # required arguments
+    parser.add_argument('path_to_data', type=str, metavar='PATH_TO_IMAGE',
+                        help='Location of image data')
+    parser.add_argument('path_to_labels', type=str, metavar='PATH_TO_LABELS',
+                        help='Location of label data')
+
+    # optional arguments
+    parser.add_argument('-v', '--version', action='version', version=f'{biomedisa.__version__}',
+                        help='Biomedisa version')
+    parser.add_argument('--nbrw', type=int, default=10,
+                        help='Number of random walks starting at each pre-segmented pixel')
+    parser.add_argument('--sorw', type=int, default=4000,
+                        help='Steps of a random walk')
+    parser.add_argument('-nc', '--no_compression', action='store_true', default=False,
+                        help='Disable compression of segmentation results')
+    parser.add_argument('-allx', '--allaxis', action='store_true', default=False,
+                        help='If pre-segmentation is not exlusively in xy-plane')
+    parser.add_argument('-d', '--denoise', action='store_true', default=False,
+                        help='Smooth/denoise image data before processing')
+    parser.add_argument('-u', '--uncertainty', action='store_true', default=False,
+                        help='Return uncertainty of segmentation result')
+    parser.add_argument('-i', '--ignore', type=str, default='none',
+                        help='Ignore specific label(s), e.g. 2,5,6')
+    parser.add_argument('-o', '--only', type=str, default='all',
+                        help='Segment only specific label(s), e.g. 1,3,5')
+    parser.add_argument('-s', '--smooth', nargs='?', type=int, const=100, default=0,
+                        help='Number of smoothing iterations for segmentation result')
+    parser.add_argument('-p', '--platform', default=None,
+                        help='One of "cuda", "opencl_NVIDIA_GPU", "opencl_Intel_CPU"')
+    parser.add_argument('-de', '--django_env', action='store_true', default=False,
+                        help='Activate django environment when starting browser based version')
+    kwargs = vars(parser.parse_args())
+
+    # run interpolation
+    smart_interpolation(None, None, **kwargs)
 

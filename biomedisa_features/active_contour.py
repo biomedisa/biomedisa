@@ -26,22 +26,8 @@
 ##                                                                      ##
 ##########################################################################
 
-try:
-    import django
-    django.setup()
-    from biomedisa_app.models import Upload
-    from biomedisa_app.config import config
-    from redis import Redis
-    from rq import Queue
-except:
-    from biomedisa_app.config_example import config
-
 import os
-from biomedisa.settings import BASE_DIR, WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT
 from biomedisa_features.curvop_numba import curvop, evolution
-from biomedisa_features.create_slices import create_slices
-from biomedisa_features.biomedisa_helper import (unique_file_path,
-    load_data, save_data, pre_processing, img_to_uint8)
 import numpy as np
 import numba
 
@@ -168,6 +154,16 @@ class Biomedisa(object):
      pass
 
 def active_contour(image_id, friend_id, label_id, simple=False):
+
+    import django
+    django.setup()
+    from biomedisa_app.models import Upload
+    from biomedisa.settings import BASE_DIR, WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT
+    from biomedisa_features.create_slices import create_slices
+    from biomedisa_features.biomedisa_helper import (unique_file_path,
+        save_data, pre_processing, img_to_uint8)
+    from redis import Redis
+    from rq import Queue
 
     # create biomedisa
     bm = Biomedisa()

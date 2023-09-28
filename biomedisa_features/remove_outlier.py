@@ -26,21 +26,7 @@
 ##                                                                      ##
 ##########################################################################
 
-try:
-    import django
-    django.setup()
-    from biomedisa_app.models import Upload
-    from biomedisa_app.config import config
-    from redis import Redis
-    from rq import Queue
-except:
-    from biomedisa_app.config_example import config
-
 import os
-from biomedisa.settings import WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT
-from biomedisa_features.create_slices import create_slices
-from biomedisa_features.biomedisa_helper import load_data, save_data, unique_file_path
-from multiprocessing import Process
 import numpy as np
 from scipy import ndimage
 
@@ -150,6 +136,15 @@ def fill(image, threshold=0.9):
     return image_i
 
 def remove_outlier(image_id, final_id, friend_id, label_id, fill_holes=True):
+
+    import django
+    django.setup()
+    from biomedisa_app.models import Upload
+    from biomedisa.settings import WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT
+    from biomedisa_features.create_slices import create_slices
+    from biomedisa_features.biomedisa_helper import load_data, save_data, unique_file_path
+    from redis import Redis
+    from rq import Queue
 
     # get objects
     try:
