@@ -26,7 +26,7 @@ Biomedisa (https://biomedisa.org) is a free and easy-to-use open-source online p
 + [Ubuntu 22.04 + CUDA + GPU (recommended)](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu2204_cuda11.8_gpu_cli.md)
 + [Ubuntu 22.04 + OpenCL + CPU (smart interpolation only)](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu2204_opencl_cpu_cli.md)
 + [Windows 10 + CUDA + GPU (recommended)](https://github.com/biomedisa/biomedisa/blob/master/README/windows10_cuda_gpu_cli.md)
-+ [Windows 10 + OpenCL + GPU (easy to install but lacks features like allaxis, smoothing, GPU memory optimization)](https://github.com/biomedisa/biomedisa/blob/master/README/windows10_opencl_gpu_cli.md)
++ [Windows 10 + OpenCL + GPU (easy install but lacks features like allaxis, smoothing, GPU memory optimization)](https://github.com/biomedisa/biomedisa/blob/master/README/windows10_opencl_gpu_cli.md)
 + [Windows 10 + OpenCL + CPU](https://github.com/biomedisa/biomedisa/blob/master/README/windows10_opencl_cpu_cli.md)
 
 # Installation (browser based)
