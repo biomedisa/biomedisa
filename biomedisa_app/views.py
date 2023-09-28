@@ -520,7 +520,7 @@ def change_active_final(request, id, val):
                 img.save()
                 changed = True
         if not changed:
-            if val in [2,3,7,8]:
+            if val in [2,3,7,8,10]:
                 request.session['state'] = "Still processing. Please wait."
             elif val in [4,5]:
                 request.session['state'] = "Result not available (not available for AI segmentation or GPUs out of memory)"

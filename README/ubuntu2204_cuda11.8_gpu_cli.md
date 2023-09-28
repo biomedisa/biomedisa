@@ -1,11 +1,12 @@
-# Ubuntu 22.04 LTS + Smart Interpolation + CUDA 11.8 + GPU (command-line-only)
+# Ubuntu 22.04 LTS + CUDA 11.8 + GPU (command-line-only)
 
 - [Install Python and pip](#install-python-and-pip)
 - [Install software dependencies](#install-software-dependencies)
 - [Install pip packages](#install-pip-packages)
 - [Clone Biomedisa](#clone-biomedisa)
 - [Install CUDA 11.8](#install-cuda-11.8)
-- [Biomedisa example](#biomedisa-example)
+- [Install TensorFlow (optional)](#install-tensorflow-optional)
+- [Biomedisa examples](#biomedisa-examples)
 
 #### Install Python and pip
 ```
@@ -69,9 +70,33 @@ sudo -H "PATH=/usr/local/cuda-11.8/bin:${PATH}" pip3 install --upgrade pycuda
 python3 ~/git/biomedisa/biomedisa_features/pycuda_test.py
 ```
 
-#### Biomedisa example
+#### Install TensorFlow (optional)
+Only required if you want to use Deep Learning
+```
+# Install development and runtime libraries.
+sudo apt-get install --no-install-recommends \
+    libcudnn8=8.8.0.121-1+cuda11.8 \
+    libcudnn8-dev=8.8.0.121-1+cuda11.8
+
+# Install TensorRT. Requires that libcudnn8 is installed above.
+sudo apt-get install --no-install-recommends libnvinfer8=8.5.3-1+cuda11.8 \
+    libnvinfer-dev=8.5.3-1+cuda11.8 \
+    libnvinfer-plugin8=8.5.3-1+cuda11.8
+
+# OPTIONAL: hold packages to avoid crash after system update
+sudo apt-mark hold libcudnn8 libcudnn8-dev libnvinfer-dev libnvinfer-plugin8 libnvinfer8 cuda-11-8
+
+# Install TensorFlow
+sudo -H pip3 install tensorflow==2.13.0
+```
+
+#### Biomedisa examples
 Download test files from [Gallery](https://biomedisa.de/gallery/).
 ```
+# smart interpolation
 python3 git/biomedisa/demo/biomedisa_interpolation.py Downloads/tumor.tif Downloads/labels.tumor.tif
+
+# deep learning
+python3 git/biomedisa/demo/biomedisa_deeplearning.py Downloads/testing_axial_crop_pat13.nii.gz Downloads/heart.h5 -p -bs 12
 ```
 
