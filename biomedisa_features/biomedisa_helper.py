@@ -693,8 +693,13 @@ def _get_platform(bm):
             import pycuda.driver as cuda
             cuda.init()
             bm.available_devices = cuda.Device.count()
-            bm.platform = 'cuda'
-            return bm
+            if bm.available_devices > 0:
+                bm.platform = 'cuda'
+                return bm
+            elif bm.platform == 'cuda':
+                print('Error: No CUDA device found.')
+                bm.success = False
+                return bm
         except:
             pass
 
