@@ -23,12 +23,11 @@ Biomedisa (https://biomedisa.org) is a free and easy-to-use open-source online p
 + Depending on the size of the image data (32 GB or more).
 
 # Installation (command-line-only)
-+ [Ubuntu 22.04 + Smart Interpolation + CUDA + GPU (recommended)](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu2204_interpolation_cuda11.8_gpu_cli.md)
-+ [Ubuntu 22.04 + Smart Interpolation + OpenCL + CPU](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu2204_interpolation_opencl_cpu_cli.md)
-+ [Ubuntu 22.04 + Deep Learning](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu2204_deeplearning_cuda11.8_cli.md)
-+ [Windows 10 + CUDA + GPU (recommended)](https://github.com/biomedisa/biomedisa/blob/master/README/windows10_interpolation_cuda_gpu_cli.md)
-+ [Windows 10 + OpenCL + GPU (easy to install but lacks features like allaxis, smoothing and GPU memory optimization)](https://github.com/biomedisa/biomedisa/blob/master/README/windows10_interpolation_opencl_gpu_cli.md)
-+ [Windows 10 + OpenCL + CPU](https://github.com/biomedisa/biomedisa/blob/master/README/windows10_interpolation_opencl_cpu_cli.md)
++ [Ubuntu 22.04 + CUDA + GPU (recommended)](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu2204_cuda11.8_gpu_cli.md)
++ [Ubuntu 22.04 + OpenCL + CPU (smart interpolation only)](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu2204_opencl_cpu_cli.md)
++ [Windows 10 + CUDA + GPU (recommended)](https://github.com/biomedisa/biomedisa/blob/master/README/windows10_cuda_gpu_cli.md)
++ [Windows 10 + OpenCL + GPU (easy to install but lacks features like allaxis, smoothing, GPU memory optimization)](https://github.com/biomedisa/biomedisa/blob/master/README/windows10_opencl_gpu_cli.md)
++ [Windows 10 + OpenCL + CPU](https://github.com/biomedisa/biomedisa/blob/master/README/windows10_opencl_cpu_cli.md)
 
 # Installation (browser based)
 + [Ubuntu 22.04](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu2204_cuda11.8.md)
