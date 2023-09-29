@@ -690,7 +690,11 @@ def _get_platform(bm):
     # import PyCUDA
     if bm.platform in ['cuda', None]:
         try:
+            import pycuda.gpuarray as gpuarray
             import pycuda.driver as cuda
+            import pycuda.autoinit
+            a_gpu = gpuarray.to_gpu(np.random.randn(4,4).astype(np.float32))
+            a_doubled = (2*a_gpu).get()
             cuda.init()
             bm.available_devices = cuda.Device.count()
             if bm.available_devices > 0:
