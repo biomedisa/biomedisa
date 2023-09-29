@@ -260,6 +260,10 @@ def smart_interpolation(data, labelData, nbrw=10, sorw=4000, acwe=False, acwe_al
                     from demo.biomedisa_large import _diffusion_child
                     results = _diffusion_child(sub_comm, bm)
 
+                print('------------------------------------------------------------')
+                print('Warning: This is deprecated and will be removed in the future')
+                print('please use `biomedisa_features.biomedisa_interpolation` instead')
+                print('------------------------------------------------------------')
                 return results
 
     else:
