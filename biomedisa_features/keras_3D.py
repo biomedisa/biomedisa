@@ -100,16 +100,16 @@ def conv_network(train, predict, img_list, label_list, path_to_model,
                     label.filters, label.resnet)
 
         except InputError:
-            return success, InputError.message, None, None, None
+            return success, InputError.message, None, None
         except MemoryError:
             print('MemoryError')
-            return success, 'MemoryError', None, None, None
+            return success, 'MemoryError', None, None
         except ResourceExhaustedError:
             print('GPU out of memory')
-            return success, 'GPU out of memory', None, None, None
+            return success, 'GPU out of memory', None, None
         except Exception as e:
             print('Error:', e)
-            return success, e, None, None, None
+            return success, e, None, None
 
     if predict:
 
@@ -131,7 +131,7 @@ def conv_network(train, predict, img_list, label_list, path_to_model,
             hf.close()
         except Exception as e:
             print('Error:', e)
-            return success, 'Invalid Biomedisa Network', None
+            return success, 'Invalid Biomedisa Network', None, None
 
         # if header is not Amira falling back to Multi-TIFF
         if extension != '.am':
@@ -170,16 +170,16 @@ def conv_network(train, predict, img_list, label_list, path_to_model,
                 img_header, channels, stride_size, allLabels, batch_size, region_of_interest)
 
         except InputError:
-            return success, InputError.message, None, None, None
+            return success, InputError.message, None, None
         except MemoryError:
             print('MemoryError')
-            return success, 'MemoryError', None, None, None
+            return success, 'MemoryError', None, None
         except ResourceExhaustedError:
             print('GPU out of memory')
-            return success, 'GPU out of memory', None, None, None
+            return success, 'GPU out of memory', None, None
         except Exception as e:
             print('Error:', e)
-            return success, e, None, None, None
+            return success, e, None, None
 
     success = True
     return success, None, path_to_final, path_to_cropped_image
