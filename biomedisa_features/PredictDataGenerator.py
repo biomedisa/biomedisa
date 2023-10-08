@@ -1,6 +1,6 @@
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2022 Philipp Lösel. All rights reserved.              ##
+##  Copyright (c) 2023 Philipp Lösel. All rights reserved.              ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -30,7 +30,7 @@ import numpy as np
 import tensorflow as tf
 
 class PredictDataGenerator(tf.keras.utils.Sequence):
-    def __init__(self, img, position, list_IDs, batch_size=32, dim=(32,32,32),
+    def __init__(self, img, list_IDs, batch_size=32, dim=(32,32,32),
                  dim_img=(32,32,32), n_channels=1):
         'Initialization'
         self.dim = dim
@@ -38,7 +38,6 @@ class PredictDataGenerator(tf.keras.utils.Sequence):
         self.list_IDs = list_IDs
         self.batch_size = batch_size
         self.img = img
-        self.position = position
         self.n_channels = n_channels
         self.indexes = np.arange(len(self.list_IDs))
 
@@ -76,7 +75,6 @@ class PredictDataGenerator(tf.keras.utils.Sequence):
 
             # get patch
             X[i,:,:,:,0] = self.img[k:k+self.dim[0],l:l+self.dim[1],m:m+self.dim[2]]
-            if self.n_channels == 2:
-                X[i,:,:,:,1] = self.position[k:k+self.dim[0],l:l+self.dim[1],m:m+self.dim[2]]
 
         return X
+
