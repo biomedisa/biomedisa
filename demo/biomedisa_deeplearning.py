@@ -120,7 +120,7 @@ def deep_learning(img_data, label_data=None, path_to_images=None, path_to_labels
                         args.flip_x, args.flip_y, args.flip_z, args.rotate, args.only, args.ignore,
                         [args.val_images], [args.val_labels],
                         img_data, label_data, None,
-                        val_img_data, val_label_data, None, True)
+                        val_img_data, val_label_data, None)
 
         # train automatic segmentation
         train_semantic_segmentation([args.path_to_images], [args.path_to_labels],

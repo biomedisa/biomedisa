@@ -524,7 +524,7 @@ def load_and_train(normalize,path_to_img,path_to_labels,path_to_model,
                 path_val_img=[None],path_val_labels=[None],
                 img=None, label=None, position=None,
                 img_val=None, label_val=None, position_val=None,
-                demo=False, x_scale=256, y_scale=256, z_scale=256):
+                x_scale=256, y_scale=256, z_scale=256):
 
     # load training data
     img, label, position, mu, sig, number_of_images = load_cropping_training_data(normalize,
@@ -537,11 +537,6 @@ def load_and_train(normalize,path_to_img,path_to_labels,path_to_model,
                             path_val_img, path_val_labels, x_scale, y_scale, z_scale,
                             labels_to_compute, labels_to_remove,
                             img_val, label_val, position_val, mu, sig)
-
-    # force validation_split for large number of training images
-    if number_of_images > 20 and not demo:
-        if validation_split == 0:
-            validation_split = 0.8
 
     # train cropping
     train_cropping(img, label, path_to_model, epochs,

@@ -977,7 +977,7 @@ def rename_file(request):
     return JsonResponse(results)
 
 # init_keras_3D
-def init_keras_3D(image, label, model, refine, predict, img_list, label_list):
+def init_keras_3D(image, label, predict, img_list=None, label_list=None):
 
     # get objects
     try:
@@ -1046,13 +1046,18 @@ def init_keras_3D(image, label, model, refine, predict, img_list, label_list):
         # change working directory
         cwd = BASE_DIR + '/biomedisa_features/'
 
-        # run keras
-        if host:
-            p = subprocess.Popen(['ssh', host, 'python3', cwd+'keras_3D.py',\
-                str(image.id), str(label.id), str(model), str(refine), str(predict), str(img_list), str(label_list)])
+        # command
+        if predict:
+            cmd = ['python3','biomedisa_deeplearning.py',str(image.id),str(label.id),'-p','-de','-sc']
         else:
-            p = subprocess.Popen(['python3', 'keras_3D.py', str(image.id), str(label.id),\
-                str(model), str(refine), str(predict), str(img_list), str(label_list)], cwd=cwd, env=my_env)
+            cmd = ['python3','biomedisa_deeplearning.py',str(image.id),str(label.id),'-t','-de',
+                   '-il',str(img_list),'-ll',str(label_list),'-sc']
+        if host:
+            cmd[1] = cwd+'biomedisa_deeplearning.py'
+            cmd = ['ssh', host] + cmd
+            p = subprocess.Popen(cmd)
+        else:
+            p = subprocess.Popen(cmd, cwd=cwd, env=my_env)
 
         # wait for process to finish
         p.wait()
@@ -1104,7 +1109,7 @@ def features(request, action):
         images = Upload.objects.filter(pk__in=todo)
 
         # get models
-        model, refine = 0, 0
+        model = 0
         for img in images:
             if img.imageType == 4:
                 model = img.id
@@ -1127,12 +1132,12 @@ def features(request, action):
 
                         if lenq1 > lenq2 or (lenq1==lenq2 and w1.state=='busy' and w2.state=='idle'):
                             queue_short = 'B'
-                            job = q2.enqueue_call(init_keras_3D, args=(img.id, img.id, model, refine, 1, [], []), timeout=-1)
+                            job = q2.enqueue_call(init_keras_3D, args=(img.id, model, True), timeout=-1)
                             lenq = len(q2)
                             img.queue = 2
                         else:
                             queue_short = 'A'
-                            job = q1.enqueue_call(init_keras_3D, args=(img.id, img.id, model, refine, 1, [], []), timeout=-1)
+                            job = q1.enqueue_call(init_keras_3D, args=(img.id, model, True), timeout=-1)
                             lenq = len(q1)
                             img.queue = 1
 
@@ -1140,7 +1145,7 @@ def features(request, action):
                     else:
                         queue_short = 'A'
                         q = Queue('first_queue', connection=Redis())
-                        job = q.enqueue_call(init_keras_3D, args=(img.id, img.id, model, refine, 1, [], []), timeout=-1)
+                        job = q.enqueue_call(init_keras_3D, args=(img.id, model, True), timeout=-1)
                         lenq = len(q)
                         img.queue = 1
 
@@ -1162,12 +1167,6 @@ def features(request, action):
 
         todo = request.GET.getlist('selected')
         images = Upload.objects.filter(pk__in=todo)
-
-        # get model
-        model = 0
-        for img in images:
-            if img.imageType == 4:
-                model = img.id
 
         # get list of images and labels
         ref_project = 0
@@ -1202,7 +1201,7 @@ def features(request, action):
                 queue_name, queue_short = 'first_queue', 'A'
                 raw_out.queue = 1
             q = Queue(queue_name, connection=Redis())
-            job = q.enqueue_call(init_keras_3D, args=(raw_out.id, label_out.id, model, 0, 0, raw_list, label_list), timeout=-1)
+            job = q.enqueue_call(init_keras_3D, args=(raw_out.id, label_out.id, False, raw_list, label_list), timeout=-1)
             lenq = len(q)
             raw_out.job_id = job.id
             if lenq == 0:

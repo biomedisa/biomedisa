@@ -725,12 +725,12 @@ def train_semantic_segmentation(path_to_img, path_to_labels, path_val_img, path_
 
     # data generator
     validation_generator = None
-    training_generator = DataGenerator(img, label, position, list_IDs_fg, list_IDs_bg, True, False, True, args.classification, **params)
+    training_generator = DataGenerator(img, label, list_IDs_fg, list_IDs_bg, True, True, args.classification, **params)
     if img_val is not None:
         if args.val_tf:
             params['dim_img'] = (zsh_val, ysh_val, xsh_val)
             params['augment'] = (False, False, False, False, 0)
-            validation_generator = DataGenerator(img_val, label_val, position_val, list_IDs_val_fg, list_IDs_val_bg, True, False, False, args.classification, **params)
+            validation_generator = DataGenerator(img_val, label_val, list_IDs_val_fg, list_IDs_val_bg, True, False, args.classification, **params)
         else:
             metrics = Metrics(img_val, label_val, position_val, list_IDs_val_fg, (args.z_patch, args.y_patch, args.x_patch), (zsh_val, ysh_val, xsh_val), args.batch_size,
                               args.path_to_model, args.early_stopping, args.validation_freq, nb_labels, args.channels, args.average_dice)
@@ -916,7 +916,7 @@ def predict_semantic_segmentation(args, img, position, path_to_model,
                   'n_channels': channels}
 
         # data generator
-        predict_generator = PredictDataGenerator(img, position, list_IDs, **params)
+        predict_generator = PredictDataGenerator(img, list_IDs, **params)
 
         # load model
         model = load_model(str(path_to_model))
