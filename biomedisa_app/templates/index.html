@@ -19,7 +19,7 @@ function toggleAccordion(qsid) {
 {% endblock %}
 
 {% block slideshow %}
-<a href="https://www.nature.com/articles/s41467-020-19303-w"><img src="/static/featured_image_trigonopterus.png" width="960" height="280" alt="" /> </a>
+<a href="https://biomedisa.org/static/featured_image_trigonopterus.png"><img src="/static/featured_image_trigonopterus.png" width="960" height="280" alt="" /> </a>
 {% endblock %}
 
 {% block content %}
@@ -46,7 +46,9 @@ function toggleAccordion(qsid) {
           <p>
               <b>Installation:</b> Please follow the <a href="https://github.com/biomedisa/biomedisa#installation-command-line-only" target="_blank">installation instructions</a>.</br>
               <b>Data:</b> Download the examples from the <a href="https://biomedisa.org/gallery" target="_blank">Gallery</a>.</br>
-              <b>Cite:</b> <a style="font-weight:normal;color:#4c4c4c" href="https://www.nature.com/articles/s41467-020-19303-w" target="_blank">Lösel, P.D. et al.<em> Nat. Commun. </em><strong>11</strong>, 5577 (2020)</a>.</br>
+              <b>[Biomedisa]</b> <a style="font-weight:normal;color:#4c4c4c" href="https://www.nature.com/articles/s41467-020-19303-w" target="_blank">Lösel, P.D. et al.<em> Nat. Commun. </em><strong>11</strong>, 5577 (2020)</a>.</br>
+              <b>[Deep Learning]</b> <a style="font-weight:normal;color:#4c4c4c" href="https://doi.org/10.1371/journal.pcbi.1011529" target="_blank">Lösel, P.D. et al.<em> PLoS Comput. Biol. </em><strong>19</strong>, e1011529 (2023)</a>.</br>
+              <b>[Smart Interpolation]</b> <a style="font-weight:normal;color:#4c4c4c" href="https://doi.org/10.1117/12.2216202" target="_blank">Lösel, P. & Heuveline, V.<em> Proc. SPIE </em><strong>9784</strong>, 97842L (2016)</a>.</br>
           </p>
         </div>
       </div>
@@ -160,6 +162,18 @@ save_data(<span style='color: #f900ff;'>'final.Head3.am'</span>, results[<span s
       </div>
 
       <div class="article">
+        <h2>Large-scale analysis using Biomedisa's Deep Learning</h2>
+        <p class="infopost">Posted on <span class="date">3 oct 2023</span> by Philipp </p>
+        <div class="clr"></div>
+        <div class="img"><a href="https://biomedisa.org/static/honeybee_brain_small.png" target="_blank"><img src="/static/honeybee_brain_small.png" width="640" height="306" title="honeybee brain" /></a></div>
+        <div class="post_content">
+          <p> Large numbers of brain samples can reveal minor but statistically and biologically relevant variations that provide important insights into animal behavior, ecology, and evolution. Here, we used micro-CT imaging and Biomedisa's deep learning feature to perform automated analysis of 187 bee brains (honeybees and bumblebees). In bumblebees, we found a significantly larger right side of the optic and antennal lobes, providing a potential explanation for reported variations in visual and olfactory learning (bees learn better with their right eye and right antenna). Check out the <a href="https://doi.org/10.1371/journal.pcbi.1011529" target="_blank">paper</a>!
+          </p>
+        </div>
+        <div class="clr"></div>
+      </div>
+
+      <div class="article">
         <h2>HEDI: Advancing Incisional Hernia Repair</h2>
         <p class="infopost">Posted on <span class="date">13 jul 2023</span> by Philipp </p>
         <div class="clr"></div>
@@ -172,7 +186,7 @@ save_data(<span style='color: #f900ff;'>'final.Head3.am'</span>, results[<span s
       </div>
 
       <div class="article">
-        <h2>Deep learning closes the gap to interpolation</h2>
+        <h2>Deep learning closes the gap to smart interpolation</h2>
         <p class="infopost">Posted on <span class="date">03 jan 2023</span> by Philipp </p>
         <div class="clr"></div>
         <div class="img"><a href="https://biomedisa.org/static/tasks.png" target="_blank"><img src="/static/tasks.png" width="640" height="320" title="tasks" /></a></div>
@@ -184,24 +198,12 @@ save_data(<span style='color: #f900ff;'>'final.Head3.am'</span>, results[<span s
       </div>
 
       <div class="article">
-        <h2>Large-scale analyses using Biomedisa's deep learning</h2>
-        <p class="infopost">Posted on <span class="date">19 oct 2022</span> by Philipp </p>
-        <div class="clr"></div>
-        <div class="img"><a href="https://biomedisa.org/static/honeybee_brain_small.png" target="_blank"><img src="/static/honeybee_brain_small.png" width="640" height="306" title="honeybee brain" /></a></div>
-        <div class="post_content">
-          <p> Large numbers of brain samples can reveal minor but statistically and biologically relevant variations that provide important insights into animal behavior, ecology, and evolution. We used micro-CT imaging and Biomedisa's deep learning feature to perform automated analyses of 187 bee brains (honeybees and bumblebees). In bumblebees, we found a significantly larger right side of the optic lobes, likely related to reported variations in visual learning (bees learn better with their right eye). Check out the <a href="https://doi.org/10.1101/2022.10.12.511944" target="_blank">preprint</a>!
-          </p>
-        </div>
-        <div class="clr"></div>
-      </div>
-
-      <div class="article">
-        <h2>Biomedisa interpolation on Intel CPUs with OpenCL</h2>
+        <h2>Smart interpolation on Intel CPUs with OpenCL</h2>
         <p class="infopost">Posted on <span class="date">20 sep 2022</span> by Philipp </p>
         <div class="clr"></div>
         <div class="img"><a href="https://biomedisa.org/static/hardware_ctimes.png" target="_blank"><img src="/static/hardware_ctimes.png" width="640" height="320" title="opencl" /></a></div>
         <div class="post_content">
-          <p> Biomedisa interpolation runs on both NVIDIA GPUs and Intel CPUs with OpenCL. Follow the <a href="https://github.com/biomedisa/biomedisa#installation-command-line-only" target="_blank">installation instructions</a>. The best available platform is selected automatically. You can manually select a specific platform by calling one of the options: <i>--platform cuda</i>, <i>opencl_NVIDIA_GPU</i> or <i>opencl_Intel_CPU</i>. If you are using Biomedisa via web browser, select the platform on the <a href="https://biomedisa.org/profile/" target="_blank">Profile tab</a>. Performance tests were run on examples from the <a href="https://biomedisa.org/gallery/">gallery</a>. Mineralized wasp: (1077, 992, 2553), every 20th slice pre-segmented. <i>Trigonopterus:</i> (1497, 734, 1117). Mouse molar: (413, 553, 413).
+          <p> Biomedisa's smart interpolation runs on both NVIDIA GPUs and Intel CPUs with OpenCL. Follow the <a href="https://github.com/biomedisa/biomedisa#installation-command-line-only" target="_blank">installation instructions</a>. The best available platform is selected automatically. You can manually select a specific platform by calling one of the options: <i>--platform cuda</i>, <i>opencl_NVIDIA_GPU</i> or <i>opencl_Intel_CPU</i>. If you are using Biomedisa via web browser, select the platform on the <a href="https://biomedisa.org/profile/" target="_blank">Profile tab</a>. Performance tests were run on examples from the <a href="https://biomedisa.org/gallery/">gallery</a>. Mineralized wasp: (1077, 992, 2553), every 20th slice pre-segmented. <i>Trigonopterus:</i> (1497, 734, 1117). Mouse molar: (413, 553, 413).
           </p>
         </div>
         <div class="clr"></div>
@@ -220,24 +222,12 @@ save_data(<span style='color: #f900ff;'>'final.Head3.am'</span>, results[<span s
       </div>
 
       <div class="article">
-        <h2>Biomedisa has been published in Nature Communications</h2>
-        <p class="infopost">Posted on <span class="date">04 nov 2020</span> by Philipp </p>
-        <div class="clr"></div>
-        <div class="img"><a href="https://biomedisa.org/static/biomedisa_examples.png"><img style="padding-right: 15px" src="/static/biomedisa_examples.png" width="180" height="132" title="biomedisa examples" /></a></div>
-        <div class="post_content">
-          <p> Biomedisa has been published as an open-source project in <a href="https://www.nature.com/articles/s41467-020-19303-w" target="_blank"><i>Nature Communications</i></a>. The paper demonstrates that Biomedisa can drastically reduce both the time and human effort required to segment large images when compared to the conventional approach of densely pre-segmented slices, as well as when compared to other segmentation tools. Follow us on <a href="https://twitter.com/biomedisa" target="_blank">Twitter</a> and <a href="https://www.youtube.com/channel/UCTNOthYVKyIWVvYYZSU_mfQ/" target="_blank">YouTube</a> for updated news and content.
-          </p>
-        </div>
-        <div class="clr"></div>
-      </div>
-
-      <div class="article">
         <h2>Biomedisa uses ParaView Glance for visualization</h2>
         <p class="infopost">Posted on <span class="date">22 nov 2020</span> by Philipp </p>
         <div class="clr"></div>
-        <div class="img"><a href="/visualization_demo/?id=final.bull_ant_queen_head.stl" target="_blank"><img style="padding-right: 15px" src="/static/paraview_bull_ant.jpeg" width="167" height="100" title="lego"  /></a></div>
+        <div class="img"><a href="https://biomedisa.org/static/paraview_bull_ant.jpeg" target="_blank"><img style="padding-right: 15px" src="/static/paraview_bull_ant.jpeg" width="167" height="100" title="bull and queen" /></a></div>
         <div class="post_content">
-          <p> Biomedisa enables volume rendering with <a href="https://kitware.github.io/paraview-glance/" target="_blank">ParaView Glance</a>. Use the 3D feature button to render a selection of files. In addition, you can use the newly added mesh generator <img src="/static/mesh.svg" title="mesh" style="width:18px;height:18px;border:0;"> to visualize your segmentation results. Choose "Attribute" for "Color By" to color each segment individually. Check out the head of the<a href="/visualization_demo/?ids=final.bull_ant_queen_head.stl" target="_blank"> bull ant queen</a>.</p>
+          <p> Biomedisa enables volume rendering with <a href="https://kitware.github.io/paraview-glance/" target="_blank">ParaView Glance</a>. Use the 3D feature button to render a selection of files. In addition, you can use the newly added mesh generator <img src="/static/mesh.svg" title="mesh" style="width:18px;height:18px;border:0;"> to visualize your segmentation results. Choose "Attribute" for "Color By" to color each segment individually. Check out the head of the<a href="https://biomedisa.org/visualization_demo/?id=final.bull_ant_queen_head.stl" target="_blank"> bull ant queen</a>.</p>
         </div>
         <div class="clr"></div>
       </div>
@@ -276,6 +266,18 @@ save_data(<span style='color: #f900ff;'>'final.Head3.am'</span>, results[<span s
       </div>
 
       <div class="article">
+        <h2>Biomedisa has been published in Nature Communications</h2>
+        <p class="infopost">Posted on <span class="date">04 nov 2020</span> by Philipp </p>
+        <div class="clr"></div>
+        <div class="img"><a href="https://biomedisa.org/static/biomedisa_examples.png"><img style="padding-right: 15px" src="/static/biomedisa_examples.png" width="180" height="132" title="biomedisa examples" /></a></div>
+        <div class="post_content">
+          <p> Biomedisa has been published as an open-source project in <a href="https://www.nature.com/articles/s41467-020-19303-w" target="_blank"><i>Nature Communications</i></a>. The paper demonstrates that Biomedisa can drastically reduce both the time and human effort required to segment large images when compared to the conventional approach of densely pre-segmented slices, as well as when compared to other segmentation tools. Follow us on <a href="https://twitter.com/biomedisa" target="_blank">Twitter</a> and <a href="https://www.youtube.com/channel/UCTNOthYVKyIWVvYYZSU_mfQ/" target="_blank">YouTube</a> for updated news and content.
+          </p>
+        </div>
+        <div class="clr"></div>
+      </div>
+
+      <div class="article">
         <h2>Segmentation of teeth and mandibular bone of the Ocelot (Leopardus pardalis)</h2>
         <p class="infopost">Posted on <span class="date">11 feb 2020</span> by Philipp </p>
         <div class="clr"></div>
@@ -305,7 +307,7 @@ save_data(<span style='color: #f900ff;'>'final.Head3.am'</span>, results[<span s
         <h2>From high-resolution μCT to the analysis of 3D reconstructions using Biomedisa</h2>
         <p class="infopost">Posted on <span class="date">12 mar 2019</span> by Philipp </p>
         <div class="clr"></div>
-        <div class="img"><a><img style="padding-right: 15px" src="/static/mouse_molar_tooth.png" width="78" height="100" title="mouse molar" /></a></div>
+        <div class="img"><a href="https://biomedisa.org/static/mouse_molar_tooth.png"><img style="padding-right: 15px" src="/static/mouse_molar_tooth.png" width="78" height="100" title="mouse molar" /></a></div>
         <div class="post_content">
           <p> Julián Balanta-Melo et al. studied the effect of masticatory function on tooth enamel and dentin in adult mouse molars after segmentation of three separate materials (enamel, dentin, and alveolar bone). Left: 3D reconstruction with enamel (white) and dentin (yellow) without surrounding alveolar bone tissue. Their results were published in <a href=http://estomatologia.univalle.edu.co/index.php/revista_estomatologia/%20article%20/view%20/7634><i>Revista Estomatología</i></a>.</p>
         </div>
@@ -316,7 +318,7 @@ save_data(<span style='color: #f900ff;'>'final.Head3.am'</span>, results[<span s
         <h2>Parasites discovered in fossil fly pupae</h2>
         <p class="infopost">Posted on <span class="date">28 aug 2018</span> by Philipp </p>
         <div class="clr"></div>
-        <div class="img"><a><img src="/static/Abb_1.png" width="181" height="160" title="wasp" /></a></div>
+        <div class="img"><a href="https://biomedisa.org/static/Abb_1.png"><img src="/static/Abb_1.png" width="181" height="160" title="wasp" /></a></div>
         <div class="post_content">
           <p> <strong>Wasps in several-million-year-old fly pupae studied with synchrotron X-ray micro tomography and analysed with Biomedisa.</strong>
 
@@ -409,10 +411,10 @@ save_data(<span style='color: #f900ff;'>'final.Head3.am'</span>, results[<span s
         <h2>3D reconstructions come to life </h2>
         <p class="infopost">Posted on <span class="date">30 jan 2017</span> by Philipp </p>
         <div class="clr"></div>
-        <div class="img"><a href="/download/demo/7"><img src="/static/eucrib2_small.png" width="200" height="114" alt="" class="fl" /></a></div>
+        <div class="img"><a href="https://biomedisa.org/static/eucrib2_small.png"><img src="/static/eucrib2_small.png" width="200" height="114" alt="" class="fl" /></a></div>
         <div class="post_content">
-          <p> Instead of the use of static images or movies, complex morphological 3D models based on segmented datasets have been published in the last years as 3D PDF files. 3D PDF files allow the user to handle and examine relevant structures interactively. As an example, you can download a 3D model of <i>Euphthiracarus reticulatus</i> by Sebastian Schmelzle <a href="/static/Euphthiracarus_reticulatus.pdf" download>here</a> and open it with Adobe Reader. If you want to find out more, download more examples or even read about animated 3D PDF files, we strongly recommend you to read "Three-Dimensional Reconstructions Come to Life – Interactive 3D PDF Animations in Functional Morphology" by Thomas van de Kamp et al. </p>
-          <p class="spec"><a href="https://dx.doi.org/10.1371/journal.pone.0102355" class="rm">Read more &raquo;</a></p>
+          <p> Instead of using static images or movies, complex morphological 3D models based on segmented datasets have been published in the last years as 3D PDF files. 3D PDF files allow the user to handle and examine relevant structures interactively. As an example, you can download a 3D model of <i>Euphthiracarus reticulatus</i> by Sebastian Schmelzle <a href="https://biomedisa.org/static/Euphthiracarus_reticulatus.pdf" download>here</a> and open it with Adobe Reader. If you want to find out more, download more examples or even read about animated 3D PDF files, we strongly recommend you to read "Three-Dimensional Reconstructions Come to Life – Interactive 3D PDF Animations in Functional Morphology" by Thomas van de Kamp et al. </p>
+          <p class="spec"><a href="https://doi.org/10.1371/journal.pone.0102355" class="rm">Read more &raquo;</a></p>
         </div>
         <div class="clr"></div>
       </div>
@@ -424,7 +426,6 @@ save_data(<span style='color: #f900ff;'>'final.Head3.am'</span>, results[<span s
         <div class="img"><a href="https://www.mathcomp.uni-heidelberg.de/"><img src="/static/HGS-Logo-web_180px_alpha.png" width="200" height="119" title="modellierungstag" class="fl" /></a></div>
         <div class="post_content">
           <p> On <strong>8 December 2016 </strong> the 12th Modellierungstag Rhein-Neckar will focus on data visualization. The event aims to enable an exchange between scientists, developers, theorists, and industry. We will present Biomedisa and its recent developments.  </p>
-          <p class="spec"><a href="http://www.modellierungstag.de/" class="rm">Read more &raquo;</a></p>
         </div>
         <div class="clr"></div>
       </div>
@@ -455,7 +456,7 @@ save_data(<span style='color: #f900ff;'>'final.Head3.am'</span>, results[<span s
         <h2>Biomedisa has been launched</h2>
         <p class="infopost">Posted on <span class="date">5 okt 2016</span> by Philipp </p>
         <div class="clr"></div>
-        <div class="img"><img src="/static/firework2.png" width="650" height="200" alt="" class="fl" /></div>
+        <div class="img"><a href="https://biomedisa.org/static/firework2.png"><img src="/static/firework2.png" width="650" height="200" alt="" class="fl" /></a></div>
         <div class="post_content">
         </div>
         <div class="clr"></div>
@@ -468,7 +469,7 @@ save_data(<span style='color: #f900ff;'>'final.Head3.am'</span>, results[<span s
         <div class="img"><a href="https://spie.org/"><img src="/static/spie.png" width="185" height="100" title="spie" class="fl" /></a></div>
         <div class="post_content">
           <p> From <strong>27 February to 3 March 2016 </strong> the SPIE Medical Imaging Conference 2016 took place in San Diego, California, USA. More than 1,000 presentations were given on the latest research in the area of medical imaging covering various topics such as Physics of Medical Imaging, Image Processing, Computer-Aided Diagnosis as well as Image-Guided Procedures, Robotic Interventions, and Modeling. Biomedisa presented its diffusion algorithm based on their research „Enhancing a Diffusion Algorithm for 4D Image Segmentation Using Local Information" within the BMBF Project ASTOR. </p>
-          <p class="spec"><a href="https://dx.doi.org/10.1117/12.2216202" class="rm">Read more &raquo;</a></p>
+          <p class="spec"><a href="https://doi.org/10.1117/12.2216202" class="rm">Read more &raquo;</a></p>
         </div>
         <div class="clr"></div>
       </div>

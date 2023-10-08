@@ -37,18 +37,6 @@ import socket
 
 def _diffusion_child(comm, bm=None):
 
-    if bm.django_env:
-        import django
-        django.setup()
-        from biomedisa_app.models import Upload
-        from biomedisa_app.views import send_notification
-        from biomedisa_features.active_contour import active_contour
-        from biomedisa_features.remove_outlier import remove_outlier
-        from biomedisa_features.create_slices import create_slices
-        from biomedisa_app.config import config
-        from redis import Redis
-        from rq import Queue
-
     rank = comm.Get_rank()
     ngpus = comm.Get_size()
 
@@ -58,6 +46,20 @@ def _diffusion_child(comm, bm=None):
 
     if rank == 0:
 
+        # django environment
+        if bm.django_env:
+            import django
+            django.setup()
+            from biomedisa_app.models import Upload
+            from biomedisa_app.views import send_notification
+            from biomedisa_features.active_contour import active_contour
+            from biomedisa_features.remove_outlier import remove_outlier
+            from biomedisa_features.create_slices import create_slices
+            from biomedisa_app.config import config
+            from redis import Redis
+            from rq import Queue
+
+        # initialize results
         results = {}
 
         # reduce blocksize
