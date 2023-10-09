@@ -763,7 +763,7 @@ def train_semantic_segmentation(bm,
     strategy = tf.distribute.MirroredStrategy(cross_device_ops=cdo)
     ngpus = int(strategy.num_replicas_in_sync)
     print(f'Number of devices: {ngpus}')
-    if ngpus == 1:
+    if ngpus == 1 and os.name == 'nt':
         atexit.register(strategy._extended._collective_ops._pool.close)
 
     # compile model
