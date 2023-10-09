@@ -61,6 +61,7 @@ import re
 import os
 import time
 import h5py
+import atexit
 
 class InputError(Exception):
     def __init__(self, message=None):
@@ -411,8 +412,9 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
         label = img_resize(label, z_scale, y_scale, x_scale, labels=True)
 
     # if header is not single data stream Amira Mesh falling back to Multi-TIFF
-    if extension != '.am' and extension != '.tif':
-        print(f'Warning! {extension} not supported. Falling back to TIFF.')
+    if extension != '.am':
+        if extension != '.tif':
+            print(f'Warning! {extension} not supported. Falling back to TIFF.')
         extension, header = '.tif', None
     elif len(header) > 1:
         print('Warning! Multiple data streams are not supported. Falling back to TIFF.')
@@ -761,6 +763,8 @@ def train_semantic_segmentation(bm,
     strategy = tf.distribute.MirroredStrategy(cross_device_ops=cdo)
     ngpus = int(strategy.num_replicas_in_sync)
     print(f'Number of devices: {ngpus}')
+    if ngpus == 1:
+        atexit.register(strategy._extended._collective_ops._pool.close)
 
     # compile model
     with strategy.scope():
