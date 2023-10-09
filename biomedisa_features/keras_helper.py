@@ -946,6 +946,7 @@ def predict_semantic_segmentation(bm, img, path_to_model,
 
     # return probabilities
     if bm.return_probs:
+        counter[counter==0] = 1
         results['probs'] = final / counter
 
     # get final
