@@ -178,6 +178,13 @@ def _diffusion_child(comm, bm=None):
             ctx.pop()
             del ctx
 
+        # return hits
+        if bm.return_hits:
+            hits = np.zeros((bm.nol, bm.zsh, bm.ysh, bm.xsh), dtype=np.float32)
+            hits[:, bm.argmin_z:bm.argmax_z, bm.argmin_y:bm.argmax_y, bm.argmin_x:bm.argmax_x] = final_zero
+            hits = hits[:,1:-1,1:-1,1:-1]
+            results['hits'] = hits
+
         # argmax
         final_zero = np.argmax(final_zero, axis=0).astype(np.uint8)
 
@@ -185,7 +192,7 @@ def _diffusion_child(comm, bm=None):
         final_zero = get_labels(final_zero, bm.allLabels)
         final_result = np.zeros((bm.zsh, bm.ysh, bm.xsh), dtype=np.uint8)
         final_result[bm.argmin_z:bm.argmax_z, bm.argmin_y:bm.argmax_y, bm.argmin_x:bm.argmax_x] = final_zero
-        final_result = final_result[1:-1, 1:-1, 1:-1]
+        final_result = final_result[1:-1,1:-1,1:-1]
         results['regular'] = final_result
         if bm.django_env:
             bm.path_to_final = unique_file_path(bm.path_to_final, bm.image.user.username)

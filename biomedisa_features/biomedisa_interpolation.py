@@ -51,7 +51,7 @@ class build_image(object):
 
 def smart_interpolation(data, labelData, nbrw=10, sorw=4000, django_env=False,
     path_to_data=None, path_to_labels=None, denoise=False, uncertainty=False, platform=None,
-    allaxis=False, ignore='none', only='all', smooth=0, no_compression=False):
+    allaxis=False, ignore='none', only='all', smooth=0, no_compression=False, return_hits=False):
 
     freeze_support()
 
@@ -75,7 +75,8 @@ def smart_interpolation(data, labelData, nbrw=10, sorw=4000, django_env=False,
         # transfer arguments
         for arg in ['nbrw','sorw','allaxis','uncertainty','ignore','only','smooth']:
             bm.label.__dict__[arg] = locals()[arg]
-        for arg in ['data','labelData','path_to_data','path_to_labels','denoise','platform','django_env']:
+        for arg in ['data','labelData','path_to_data','path_to_labels','denoise',
+                    'platform','django_env','return_hits']:
             bm.__dict__[arg] = locals()[arg]
 
         # compression
@@ -376,6 +377,8 @@ if __name__ == '__main__':
                         help='One of "cuda", "opencl_NVIDIA_GPU", "opencl_Intel_CPU"')
     parser.add_argument('-de', '--django_env', action='store_true', default=False,
                         help='Activate django environment when starting browser based version')
+    parser.add_argument('-rh','--return_hits', action='store_true', default=False,
+                        help='Return hits from each label')
     kwargs = vars(parser.parse_args())
 
     # run interpolation

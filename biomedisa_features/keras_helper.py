@@ -871,7 +871,8 @@ def load_prediction_data(path_to_img, channels, x_scale, y_scale, z_scale,
 
 def predict_semantic_segmentation(bm, img, path_to_model,
     z_patch, y_patch, x_patch, z_shape, y_shape, x_shape, compress, header,
-    img_header, channels, stride_size, allLabels, batch_size, region_of_interest):
+    img_header, channels, stride_size, allLabels, batch_size, region_of_interest,
+    no_scaling):
 
     results = {}
 
@@ -947,24 +948,35 @@ def predict_semantic_segmentation(bm, img, path_to_model,
     # return probabilities
     if bm.return_probs:
         counter[counter==0] = 1
-        results['probs'] = final / counter
+        probabilities = final / counter
+        if not no_scaling:
+            probs = np.zeros((z_shape, y_shape, x_shape, nb_labels), dtype=np.float32)
+            for k in range(nb_labels):
+                probs[:,:,:,k] = img_resize(probabilities[:,:,:,k], z_shape, y_shape, x_shape)
+            probabilities = probs
+        if np.any(region_of_interest):
+            min_z,max_z,min_y,max_y,min_x,max_x,original_zsh,original_ysh,original_xsh = region_of_interest[:]
+            tmp = np.zeros((original_zsh, original_ysh, original_xsh, nb_labels), dtype=np.float32)
+            tmp[min_z:max_z,min_y:max_y,min_x:max_x] = probabilities
+            probabilities = np.copy(tmp)
+        results['probs'] = probabilities
 
     # get final
-    out = np.argmax(final, axis=3)
-    out = out.astype(np.uint8)
+    label = np.argmax(final, axis=3)
+    label = label.astype(np.uint8)
 
     # rescale final to input size
-    label = img_resize(out, z_shape, y_shape, x_shape, labels=True)
+    if not no_scaling:
+        label = img_resize(label, z_shape, y_shape, x_shape, labels=True)
 
     # revert automatic cropping
     if np.any(region_of_interest):
-        min_z,max_z,min_y,max_y,min_x,max_x,z_shape,y_shape,x_shape = region_of_interest[:]
-        tmp = np.zeros((z_shape, y_shape, x_shape), dtype=out.dtype)
+        min_z,max_z,min_y,max_y,min_x,max_x,original_zsh,original_ysh,original_xsh = region_of_interest[:]
+        tmp = np.zeros((original_zsh, original_ysh, original_xsh), dtype=np.uint8)
         tmp[min_z:max_z,min_y:max_y,min_x:max_x] = label
         label = np.copy(tmp)
 
     # get result
-    label = label.astype(np.uint8)
     label = get_labels(label, allLabels)
     results['regular'] = label
 
