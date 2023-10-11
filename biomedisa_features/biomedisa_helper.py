@@ -57,9 +57,16 @@ from multiprocessing import Process
 import re
 import math
 
-def Dice_score(ground_truth, result):
-    dice = 2 * np.logical_and(ground_truth==result, (ground_truth+result)>0).sum() / \
-    float((ground_truth>0).sum() + (result>0).sum())
+def Dice_score(ground_truth, result, average_dice=False):
+    if average_dice:
+        dice = 0
+        allLabels = np.unique(ground_truth)
+        for l in allLabels[1:]:
+            dice += 2 * np.logical_and(ground_truth==l, result==l).sum() / float((ground_truth==l).sum() + (result==l).sum())
+        dice /= float(len(allLabels)-1)
+    else:
+        dice = 2 * np.logical_and(ground_truth==result, (ground_truth+result)>0).sum() / \
+        float((ground_truth>0).sum() + (result>0).sum())
     return dice
 
 def ASSD(ground_truth, result):
