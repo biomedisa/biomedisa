@@ -164,18 +164,7 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
         bm.path_to_images = None
         bm.path_to_cropped_image = None
 
-    # get number of GPUs
-    strategy = tf.distribute.MirroredStrategy()
-    ngpus = int(strategy.num_replicas_in_sync)
-
-    # batch size must be divisible by the number of GPUs and two
-    rest = bm.batch_size % (2*ngpus)
-    if 2*ngpus - rest < rest:
-        bm.batch_size = bm.batch_size + 2*ngpus - rest
-    else:
-        bm.batch_size = bm.batch_size - rest
-
-    # dimensions of patches for regular training
+    # dimensions of patches
     bm.z_patch, bm.y_patch, bm.x_patch = 64, 64, 64
 
     # adapt scaling to stridesize and patchsize
@@ -185,6 +174,17 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
     bm.z_scale = bm.z_scale - (bm.z_scale - 64) % bm.stride_size
 
     if bm.train:
+
+        # get number of GPUs
+        strategy = tf.distribute.MirroredStrategy()
+        ngpus = int(strategy.num_replicas_in_sync)
+
+        # batch size must be divisible by the number of GPUs and two
+        rest = bm.batch_size % (2*ngpus)
+        if 2*ngpus - rest < rest:
+            bm.batch_size = bm.batch_size + 2*ngpus - rest
+        else:
+            bm.batch_size = bm.batch_size - rest
 
         if not bm.django_env:
             bm.path_to_images, bm.path_to_labels = [bm.path_to_images], [bm.path_to_labels]
@@ -259,7 +259,8 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
         # make prediction
         results = predict_semantic_segmentation(bm, img, bm.path_to_model,
             bm.z_patch, bm.y_patch, bm.x_patch, z_shape, y_shape, x_shape, bm.compression, header,
-            img_header, channels, bm.stride_size, allLabels, bm.batch_size, region_of_interest)
+            img_header, channels, bm.stride_size, allLabels, bm.batch_size, region_of_interest,
+            bm.no_scaling)
 
         # results
         if cropped_volume is not None:
