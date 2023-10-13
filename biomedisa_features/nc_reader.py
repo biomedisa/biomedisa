@@ -88,6 +88,7 @@ def nc_to_np(base_dir, start=0, stop=None, file=False, show_keys=False, compress
         # read volume by volume
         extension='.nc'
         if compressed:
+            import bz2
             extension='.nc.bz2'
         if not stop:
             stop = len(glob.glob(base_dir+'/*'+extension))
