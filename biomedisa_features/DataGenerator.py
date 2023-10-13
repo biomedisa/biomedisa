@@ -107,7 +107,7 @@ def random_rotation_3d(image, max_angle=180):
 class DataGenerator(tf.keras.utils.Sequence):
     'Generates data for Keras'
     def __init__(self, img, label, list_IDs_fg, list_IDs_bg, shuffle, train, classification, batch_size=32, dim=(32,32,32),
-                 dim_img=(32,32,32), n_classes=10, n_channels=1, augment=(False,False,False,False,0)):
+                 dim_img=(32,32,32), n_classes=10, n_channels=1, augment=(False,False,False,False,0), patch_normalization=False):
         'Initialization'
         self.dim = dim
         self.dim_img = dim_img
@@ -123,6 +123,7 @@ class DataGenerator(tf.keras.utils.Sequence):
         self.train = train
         self.classification = classification
         self.on_epoch_end()
+        self.patch_normalization = patch_normalization
 
     def __len__(self):
         'Denotes the number of batches per epoch'
@@ -280,6 +281,11 @@ class DataGenerator(tf.keras.utils.Sequence):
                         elif v==3:
                             tmp_X = np.swapaxes(tmp_X,1,2)
                             tmp_y = np.swapaxes(tmp_y,1,2)
+
+                if self.patch_normalization:
+                    tmp_X = np.copy(tmp_X)
+                    tmp_X -= np.mean(tmp_X)
+                    tmp_X /= max(np.std(tmp_X), 1e-6)
 
                 # assign to batch
                 X[i,:,:,:,0] = tmp_X

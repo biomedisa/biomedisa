@@ -567,20 +567,21 @@ class MetaData(Callback):
         hf.close()
 
 class Metrics(Callback):
-    def __init__(self, img, label, list_IDs, dim_patch, dim_img, batch_size, path_to_model, early_stopping, validation_freq, n_classes, n_channels, average_dice, django_env):
+    def __init__(self, bm, img, label, list_IDs, dim_patch, dim_img, n_classes):
         self.dim_patch = dim_patch
         self.dim_img = dim_img
         self.list_IDs = list_IDs
-        self.batch_size = batch_size
+        self.batch_size = bm.batch_size
         self.label = label
         self.img = img
-        self.path_to_model = path_to_model
-        self.early_stopping = early_stopping
-        self.validation_freq = validation_freq
+        self.path_to_model = bm.path_to_model
+        self.early_stopping = bm.early_stopping
+        self.validation_freq = bm.validation_freq
         self.n_classes = n_classes
-        self.n_channels = n_channels
-        self.average_dice = average_dice
-        self.django_env = django_env
+        self.n_channels = bm.channels
+        self.average_dice = bm.average_dice
+        self.django_env = bm.django_env
+        self.patch_normalization = bm.patch_normalization
 
     def on_train_begin(self, logs={}):
         self.history = {}
@@ -612,7 +613,12 @@ class Metrics(Callback):
                     rest = ID % (self.dim_img[1]*self.dim_img[2])
                     l = rest // self.dim_img[2]
                     m = rest % self.dim_img[2]
-                    X_val[i,:,:,:,0] = self.img[k:k+self.dim_patch[0],l:l+self.dim_patch[1],m:m+self.dim_patch[2]]
+                    tmp_X = self.img[k:k+self.dim_patch[0],l:l+self.dim_patch[1],m:m+self.dim_patch[2]]
+                    if self.patch_normalization:
+                        tmp_X = np.copy(tmp_X)
+                        tmp_X -= np.mean(tmp_X)
+                        tmp_X /= max(np.std(tmp_X), 1e-6)
+                    X_val[i,:,:,:,0] = tmp_X
 
                 # Prediction segmentation
                 y_predict = np.asarray(self.model.predict(X_val, verbose=0, steps=None, batch_size=self.batch_size))
@@ -744,7 +750,8 @@ def train_semantic_segmentation(bm,
               'dim_img': (zsh, ysh, xsh),
               'n_classes': nb_labels,
               'n_channels': bm.channels,
-              'augment': (bm.flip_x, bm.flip_y, bm.flip_z, bm.swapaxes, bm.rotate)}
+              'augment': (bm.flip_x, bm.flip_y, bm.flip_z, bm.swapaxes, bm.rotate),
+              'patch_normalization': bm.patch_normalization}
 
     # data generator
     validation_generator = None
@@ -755,8 +762,7 @@ def train_semantic_segmentation(bm,
             params['augment'] = (False, False, False, False, 0)
             validation_generator = DataGenerator(img_val, label_val, list_IDs_val_fg, list_IDs_val_bg, True, False, False, **params)
         else:
-            metrics = Metrics(img_val, label_val, list_IDs_val_fg, (bm.z_patch, bm.y_patch, bm.x_patch), (zsh_val, ysh_val, xsh_val), bm.batch_size,
-                              bm.path_to_model, bm.early_stopping, bm.validation_freq, nb_labels, bm.channels, bm.average_dice, bm.django_env)
+            metrics = Metrics(bm, img_val, label_val, list_IDs_val_fg, (bm.z_patch, bm.y_patch, bm.x_patch), (zsh_val, ysh_val, xsh_val), nb_labels)
 
     # create a MirroredStrategy
     cdo = tf.distribute.ReductionToOneDevice()
@@ -902,7 +908,8 @@ def predict_semantic_segmentation(bm, img, path_to_model,
     params = {'dim': (z_patch, y_patch, x_patch),
               'dim_img': (zsh, ysh, xsh),
               'batch_size': batch_size,
-              'n_channels': channels}
+              'n_channels': channels,
+              'patch_normalization': bm.patch_normalization}
 
     # data generator
     predict_generator = PredictDataGenerator(img, list_IDs, **params)

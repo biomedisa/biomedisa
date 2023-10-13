@@ -57,7 +57,7 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
     pretrained_model=None, fine_tune=False, classification=False, workers=1, cropping_epochs=50,
     x_range=None, y_range=None, z_range=None, header=None, extension='.tif',
     img_header=None, img_extension='.tif', average_dice=False, django_env=False,
-    path=None, image=None, label=None, success=True, return_probs=False):
+    path=None, image=None, label=None, success=True, return_probs=False, patch_normalization=False):
 
     # time
     TIC = time.time()
@@ -434,6 +434,8 @@ if __name__ == '__main__':
                         help='List of label files used in browser based version')
     parser.add_argument('-rp','--return_probs', action='store_true', default=False,
                         help='Return prediction probabilities for each label')
+    parser.add_argument('-pn','--patch_normalization', action='store_true', default=False,
+                        help='Scale each patch to mean zero and standard deviation')
     bm = parser.parse_args()
 
     bm.success = True
