@@ -31,7 +31,7 @@ import tensorflow as tf
 
 class PredictDataGenerator(tf.keras.utils.Sequence):
     def __init__(self, img, list_IDs, batch_size=32, dim=(32,32,32),
-                 dim_img=(32,32,32), n_channels=1):
+                 dim_img=(32,32,32), n_channels=1, patch_normalization=False):
         'Initialization'
         self.dim = dim
         self.dim_img = dim_img
@@ -40,6 +40,7 @@ class PredictDataGenerator(tf.keras.utils.Sequence):
         self.img = img
         self.n_channels = n_channels
         self.indexes = np.arange(len(self.list_IDs))
+        self.patch_normalization = patch_normalization
 
     def __len__(self):
         'Denotes the number of batches per epoch'
@@ -74,7 +75,12 @@ class PredictDataGenerator(tf.keras.utils.Sequence):
             m = rest % self.dim_img[2]
 
             # get patch
-            X[i,:,:,:,0] = self.img[k:k+self.dim[0],l:l+self.dim[1],m:m+self.dim[2]]
+            tmp_X = self.img[k:k+self.dim[0],l:l+self.dim[1],m:m+self.dim[2]]
+            if self.patch_normalization:
+                tmp_X = np.copy(tmp_X)
+                tmp_X -= np.mean(tmp_X)
+                tmp_X /= max(np.std(tmp_X), 1e-6)
+            X[i,:,:,:,0] = tmp_X
 
         return X
 
