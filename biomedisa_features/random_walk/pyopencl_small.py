@@ -1,6 +1,6 @@
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2022 Philipp Lösel. All rights reserved.              ##
+##  Copyright (c) 2023 Philipp Lösel. All rights reserved.              ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -36,6 +36,12 @@ def walk(data, slices, indices, indices_child, nbrw, sorw, name, ctx, queue):
     slicesChunk = _extract_slices(slices, indices, indices_child)
     labelsChunk = np.unique(slicesChunk)
 
+    # remove negative labels from list
+    index = np.argwhere(labels<0)
+    labels = np.delete(labels, index)
+    index = np.argwhere(labelsChunk<0)
+    labelsChunk = np.delete(labelsChunk, index)
+
     walkmapChunk = _walk_on_current_gpu(data, slicesChunk, labelsChunk, indices_child, nbrw, sorw, name, ctx, queue)
 
     if walkmapChunk.shape[0] != len(labels):
@@ -49,7 +55,7 @@ def walk(data, slices, indices, indices_child, nbrw, sorw, name, ctx, queue):
     return walkmap
  
 def _extract_slices(slices, indices, indicesChunk):
-    extracted = np.zeros((0, slices.shape[1], slices.shape[2]), dtype=np.uint8)
+    extracted = np.zeros((0, slices.shape[1], slices.shape[2]), dtype=np.int32)
     slicesIndicesToExtract = np.nonzero(np.in1d(indices, indicesChunk))[0]
     for arraySliceIndex in slicesIndicesToExtract:
         extracted = np.append(extracted, [slices[arraySliceIndex]], axis=0)
