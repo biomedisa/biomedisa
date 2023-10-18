@@ -224,6 +224,7 @@ class Upload(models.Model):
     validation_freq = models.IntegerField("Validation frequency (AI)", default=1)
     filters = models.CharField("Network architecture (AI)", default='32-64-128-256-512', max_length=30)
     resnet = models.BooleanField("ResNet convolutional blocks (AI)", default=False)
+    validation_data = models.BooleanField('Validation data (AI)', default=False)
 
 class UploadForm(forms.ModelForm):
     class Meta:
@@ -239,7 +240,7 @@ class SettingsForm(forms.ModelForm):
     class Meta:
         model = Upload
         fields = ('allaxis', 'uncertainty', 'compression', 'normalize',
-                  'automatic_cropping', 'early_stopping', 'flip_x',
+                  'automatic_cropping', 'validation_data', 'early_stopping', 'flip_x',
                   'flip_y', 'flip_z', 'resnet', 'filters', 'rotate', 'epochs', 'batch_size',
                   'x_scale', 'y_scale', 'z_scale', 'stride_size', 'validation_split',
                   'validation_freq', 'smooth', 'delete_outliers', 'fill_holes', 'ignore', 'only')

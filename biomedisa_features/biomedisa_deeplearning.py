@@ -57,7 +57,8 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
     pretrained_model=None, fine_tune=False, classification=False, workers=1, cropping_epochs=50,
     x_range=None, y_range=None, z_range=None, header=None, extension='.tif',
     img_header=None, img_extension='.tif', average_dice=False, django_env=False,
-    path=None, image=None, label=None, success=True, return_probs=False, patch_normalization=False):
+    path=None, image=None, label=None, success=True, return_probs=False, patch_normalization=False,
+    z_patch=64, y_patch=64, x_patch=64):
 
     # time
     TIC = time.time()
@@ -164,14 +165,11 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
         bm.path_to_images = None
         bm.path_to_cropped_image = None
 
-    # dimensions of patches
-    bm.z_patch, bm.y_patch, bm.x_patch = 64, 64, 64
-
-    # adapt scaling to stridesize and patchsize
+    # adapt scaling to stride size and patch size
     bm.stride_size = max(1, min(bm.stride_size, 64))
-    bm.x_scale = bm.x_scale - (bm.x_scale - 64) % bm.stride_size
-    bm.y_scale = bm.y_scale - (bm.y_scale - 64) % bm.stride_size
-    bm.z_scale = bm.z_scale - (bm.z_scale - 64) % bm.stride_size
+    bm.x_scale = bm.x_scale - (bm.x_scale - bm.x_patch) % bm.stride_size
+    bm.y_scale = bm.y_scale - (bm.y_scale - bm.y_patch) % bm.stride_size
+    bm.z_scale = bm.z_scale - (bm.z_scale - bm.z_patch) % bm.stride_size
 
     if bm.train:
 
@@ -436,6 +434,12 @@ if __name__ == '__main__':
                         help='Return prediction probabilities for each label')
     parser.add_argument('-pn','--patch_normalization', action='store_true', default=False,
                         help='Scale each patch to mean zero and standard deviation')
+    parser.add_argument('-xp','--x_patch', type=int, default=64,
+                        help='X-dimension of patch')
+    parser.add_argument('-yp','--y_patch', type=int, default=64,
+                        help='Y-dimension of patch')
+    parser.add_argument('-zp','--z_patch', type=int, default=64,
+                        help='Z-dimension of patch')
     bm = parser.parse_args()
 
     bm.success = True
