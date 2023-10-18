@@ -64,7 +64,7 @@ def np_to_nc(results_dir, labeled_array, reference_dir, start=0, stop=None):
         raise Exception("netCDF4 not found. please use `pip install netCDF4`")
     offset = 0
     if not stop:
-        stop = len(glob.glob(reference_dir+'/*.nc'))
+        stop = len(glob.glob(reference_dir+'/*.nc'))-1
     for i in range(start, stop+1):
         filepath = reference_dir+f'/block{str(i).zfill(8)}.nc'
         offset = save_nc_block(results_dir+f'/block{str(i).zfill(8)}.nc', labeled_array, filepath, offset)
@@ -91,7 +91,7 @@ def nc_to_np(base_dir, start=0, stop=None, file=False, show_keys=False, compress
             import bz2
             extension='.nc.bz2'
         if not stop:
-            stop = len(glob.glob(base_dir+'/*'+extension))
+            stop = len(glob.glob(base_dir+'/*'+extension))-1
         for i in range(start, stop+1):
             filepath = base_dir+f'/block{str(i).zfill(8)}'+extension
 
