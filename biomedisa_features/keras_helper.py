@@ -940,8 +940,6 @@ def predict_semantic_segmentation(bm, img, path_to_model,
                     tmp_X = np.copy(tmp_X)
                     tmp_X -= np.mean(tmp_X)
                     tmp_X /= max(np.std(tmp_X), 1e-6)
-
-                # get patch
                 X[i,:,:,:,0] = tmp_X
 
             probabilities[step*batch_size:(step+1)*batch_size] = model.predict(X, verbose=0, steps=None, batch_size=batch_size)
