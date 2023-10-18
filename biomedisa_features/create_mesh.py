@@ -169,20 +169,24 @@ def get_voxel_spacing(header, data, extension):
     if extension == '.am':
         # read header as string
         b = header[0].tobytes()
-        s = b.decode("utf-8")
+        try:
+            s = b.decode("utf-8")
+        except:
+            s = b.decode("latin1")
 
         # get physical size from image header
-        lattice = re.search('BoundingBox (.*),\n', s)
-        lattice = lattice.group(1)
-        i0, i1, i2, i3, i4, i5 = lattice.split(' ')
-        #bounding_box_i = re.search('&BoundingBox (.*),\n', s)
-        #bounding_box_i = bounding_box_i.group(1)
+        bounding_box = re.search('BoundingBox (.*),\n', s)
+        if bounding_box:
+            bounding_box = bounding_box.group(1)
+            i0, i1, i2, i3, i4, i5 = bounding_box.split(' ')
 
-        # voxel spacing
-        zsh, ysh, xsh = data.shape
-        xres = (float(i1)-float(i0)) / xsh
-        yres = (float(i3)-float(i2)) / ysh
-        zres = (float(i5)-float(i4)) / zsh
+            # voxel spacing
+            zsh, ysh, xsh = data.shape
+            xres = (float(i1)-float(i0)) / xsh
+            yres = (float(i3)-float(i2)) / ysh
+            zres = (float(i5)-float(i4)) / zsh
+        else:
+            xres, yres, zres = 1, 1, 1
 
     elif extension in ['.hdr', '.mhd', '.mha', '.nrrd', '.nii', '.nii.gz']:
         xres, yres, zres = header.get_voxel_spacing()

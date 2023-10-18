@@ -153,27 +153,27 @@ def get_physical_size(header, img_header):
         s = b.decode("latin1")
 
     # get physical size from image header
-    lattice = re.search('BoundingBox (.*),\n', s)
-    lattice = lattice.group(1)
-    i0, i1, i2, i3, i4, i5 = lattice.split(' ')
+    bounding_box = re.search('BoundingBox (.*),\n', s)
+    bounding_box = bounding_box.group(1)
+    i0, i1, i2, i3, i4, i5 = bounding_box.split(' ')
     bounding_box_i = re.search('&BoundingBox (.*),\n', s)
     bounding_box_i = bounding_box_i.group(1)
 
-    # read header as string
+    # read label header as string
     b = header.tobytes()
     try:
         s = b.decode("utf-8")
     except:
         s = b.decode("latin1")
 
-    # get physical size from header
-    lattice = re.search('BoundingBox (.*),\n', s)
-    lattice = lattice.group(1)
-    l0, l1, l2, l3, l4, l5 = lattice.split(' ')
+    # get physical size from label header
+    bounding_box = re.search('BoundingBox (.*),\n', s)
+    bounding_box = bounding_box.group(1)
+    l0, l1, l2, l3, l4, l5 = bounding_box.split(' ')
     bounding_box_l = re.search('&BoundingBox (.*),\n', s)
     bounding_box_l = bounding_box_l.group(1)
 
-    # change physical size in header
+    # change physical size in label header
     s = s.replace('%s %s %s %s %s %s' %(l0,l1,l2,l3,l4,l5),'%s %s %s %s %s %s' %(i0,i1,i2,i3,i4,i5),1)
     s = s.replace(bounding_box_l,bounding_box_i,1)
 
