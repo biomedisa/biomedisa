@@ -977,7 +977,8 @@ def rename_file(request):
     return JsonResponse(results)
 
 # init_keras_3D
-def init_keras_3D(image, label, predict, img_list=None, label_list=None):
+def init_keras_3D(image, label, predict, img_list=None, label_list=None,
+    val_img_list=None, val_label_list=None):
 
     # get objects
     try:
@@ -1052,6 +1053,9 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None):
         else:
             cmd = ['python3','biomedisa_deeplearning.py',str(image.id),str(label.id),'-t','-de',
                    '-il',str(img_list),'-ll',str(label_list),'-sc']
+            if val_img_list and val_label_list:
+                cmd = cmd + ['-vi',val_img_list,'-vl',val_label_list]
+
         if host:
             cmd[1] = cwd+'biomedisa_deeplearning.py'
             cmd = ['ssh', host] + cmd
@@ -1169,9 +1173,8 @@ def features(request, action):
         images = Upload.objects.filter(pk__in=todo)
 
         # get list of images and labels
-        ref_project = 0
-        raw_list = ''
-        label_list = ''
+        img_list, label_list = '', ''
+        val_img_list, val_label_list = '', ''
         for project in range(1, 10):
             raw, label = None, None
             for img in images:
@@ -1182,14 +1185,17 @@ def features(request, action):
                 elif img.imageType == 3 and img.project == project:
                     label = img
             if raw is not None and label is not None:
-                raw_out = raw
-                label_out = label
-                ref_project = project
-                raw_list += raw.pic.path + ';'
-                label_list += label.pic.path + ';'
+                if label.validation_data:
+                    val_img_list += raw.pic.path + ';'
+                    val_label_list += label.pic.path + ';'
+                else:
+                    raw_out = raw
+                    label_out = label
+                    img_list += raw.pic.path + ';'
+                    label_list += label.pic.path + ';'
 
         # train neural network
-        if not raw_list:
+        if not img_list:
             request.session['state'] = 'No usable image and label combination selected.'
         elif raw_out.status > 0:
             request.session['state'] = 'Image is already being processed.'
@@ -1201,7 +1207,8 @@ def features(request, action):
                 queue_name, queue_short = 'first_queue', 'A'
                 raw_out.queue = 1
             q = Queue(queue_name, connection=Redis())
-            job = q.enqueue_call(init_keras_3D, args=(raw_out.id, label_out.id, False, raw_list, label_list), timeout=-1)
+            job = q.enqueue_call(init_keras_3D, args=(raw_out.id, label_out.id, False,
+                                 img_list, label_list, val_img_list, val_label_list), timeout=-1)
             lenq = len(q)
             raw_out.job_id = job.id
             if lenq == 0:
