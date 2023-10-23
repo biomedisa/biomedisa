@@ -49,7 +49,7 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
     path_to_images=None, path_to_labels=None, val_images=None, val_labels=None,
     img_list=None, label_list=None, path_to_model=None, predict=False, train=False,
     balance=False, crop_data=False, flip_x=False, flip_y=False, flip_z=False,
-    swapaxes=False, val_tf=False, no_compression=False, ignore='none', only='all',
+    swapaxes=False, val_tf=False, train_tf=False, no_compression=False, ignore='none', only='all',
     network_filters='32-64-128-256-512', resnet=False, channels=1, debug_cropping=False,
     save_cropped=False, epochs=100, no_normalization=False, rotate=0.0, validation_split=0.0,
     learning_rate=0.01, stride_size=32, validation_stride_size=32, validation_freq=1,
@@ -358,6 +358,8 @@ if __name__ == '__main__':
                         help='Randomly swap two axes during training')
     parser.add_argument('-vt','--val_tf', action='store_true', default=False,
                         help='Use tensorflow standard accuracy on validation data')
+    parser.add_argument('-tt','--train_tf', action='store_true', default=False,
+                        help='Use tensorflow standard accuracy on training data')
     parser.add_argument('-ad','--average_dice', action='store_true', default=False,
                         help='Use averaged dice score of each label')
     parser.add_argument('-nc', '--no_compression', action='store_true', default=False,

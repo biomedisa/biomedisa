@@ -1052,7 +1052,7 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
             cmd = ['python3','biomedisa_deeplearning.py',str(image.id),str(label.id),'-p','-de','-sc']
         else:
             cmd = ['python3','biomedisa_deeplearning.py',str(image.id),str(label.id),'-t','-de',
-                   '-il',str(img_list),'-ll',str(label_list),'-sc']
+                   '-il',str(img_list),'-ll',str(label_list),'-sc','-tt']
             if val_img_list and val_label_list:
                 cmd = cmd + ['-vi',val_img_list,'-vl',val_label_list]
 
