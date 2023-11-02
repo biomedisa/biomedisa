@@ -119,16 +119,25 @@ from demo.biomedisa_deeplearning import deep_learning
 # load image data
 img1, _ = load_data('Head1.am')
 img2, _ = load_data('Head2.am')
-img_list = [img1, img2]
+img_data = [img1, img2]
 
 # load label data
 label1, _ = load_data('Head1.labels.am')
 label2, header, ext = load_data('Head2.labels.am',
         return_extension=True)
-label_list = [label1, label2]
+label_data = [label1, label2]
+
+# load validation data (optional)
+img3, _ = load_data('Head3.am')
+img4, _ = load_data('Head4.am')
+label3, _ = load_data('Head3.labels.am')
+label4, _ = load_data('Head4.labels.am')
+val_img_data = [img3, img4]
+val_label_data = [label3, label4]
 
 # deep learning
-deep_learning(img_list, label_list, train=True, batch_size=12,
+deep_learning(img_data, label_data, train=True, batch_size=12,
+        val_img_data=val_img_data, val_label_data=val_label_data,
         header=header, extension=ext, path_to_model='honeybees.h5')
 ```
 
