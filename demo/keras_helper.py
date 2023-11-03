@@ -827,6 +827,11 @@ def train_semantic_segmentation(path_to_img, path_to_labels, path_val_img, path_
     if img_val is not None and args.val_tf:
         save_history(history.history, args.path_to_model)
 
+    print('------------------------------------------------------------')
+    print('Warning: This is deprecated and will be removed in the future')
+    print('please use `biomedisa_features.biomedisa_deeplearning` instead')
+    print('------------------------------------------------------------')
+
 def load_prediction_data(path_to_img, channels, x_scale, y_scale, z_scale,
                         no_scaling, normalize, mu, sig, region_of_interest,
                         img, img_header, img_extension):
@@ -1010,6 +1015,11 @@ def predict_semantic_segmentation(args, img, position, path_to_model,
                 save_data(args.path_to_cleaned_filled, final_cleaned_filled, header, compress)
             if args.create_slices:
                 create_slices(args.path_to_images, args.path_to_cleaned_filled, True)
+
+        print('------------------------------------------------------------')
+        print('Warning: This is deprecated and will be removed in the future')
+        print('please use `biomedisa_features.biomedisa_deeplearning` instead')
+        print('------------------------------------------------------------')
 
         return results
 
