@@ -1,6 +1,6 @@
 ## Smart Interpolation
 ```python
-demo.biomedisa_interpolation.smart_interpolation(
+biomedisa_features.biomedisa_interpolation.smart_interpolation(
     data,
     labelData,
     nbrw=10,
