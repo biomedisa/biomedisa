@@ -119,7 +119,7 @@ save_data('segmentation.am', results['regular'],
         header=results['header'])
 ```
 
-#### Python example NRRD (prediction)
+#### Python example NRRD
 Label header information different from AMIRA/AVIZO are not saved during training. Load a reference label and pass the header to the result. 
 ```python
 # load header from existing label file
