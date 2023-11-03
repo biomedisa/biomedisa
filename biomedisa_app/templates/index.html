@@ -70,7 +70,8 @@ path_to_biomedisa = <span style='color: #f900ff;'>'/home/philipp/git/biomedisa'<
 <span style='color: #7f03be;'>import</span> sys
 sys.path.append(path_to_biomedisa)
 <span style='color: #7f03be;'>from</span> <span style='color: #43cbaf;'>biomedisa_features.biomedisa_helper</span> <span style='color: #7f03be;'>import</span> load_data, save_data
-<span style='color: #7f03be;'>from</span> <span style='color: #43cbaf;'>demo.biomedisa_interpolation</span> <span style='color: #7f03be;'>import</span> smart_interpolation
+<span style='color: #7f03be;'>from</span> <span style='color: #43cbaf;'>biomedisa_features.biomedisa_interpolation</span> <span style='color: #7f03be;'>import</span> (
+smart_interpolation)
 
 <span style='color: #0051b8;'># load data</span>
 img, _ = load_data(<span style='color: #f900ff;'>'trigonopterus.tif'</span>)
@@ -103,21 +104,30 @@ path_to_biomedisa = <span style='color: #f900ff;'>'/home/philipp/git/biomedisa'<
 <span style='color: #7f03be;'>import</span> sys
 sys.path.append(path_to_biomedisa)
 <span style='color: #7f03be;'>from</span> <span style='color: #43cbaf;'>biomedisa_features.biomedisa_helper</span> <span style='color: #7f03be;'>import</span> load_data
-<span style='color: #7f03be;'>from</span> <span style='color: #43cbaf;'>demo.biomedisa_deeplearning</span> <span style='color: #7f03be;'>import</span> deep_learning
+<span style='color: #7f03be;'>from</span> <span style='color: #43cbaf;'>biomedisa_features.biomedisa_deeplearning</span> <span style='color: #7f03be;'>import</span> deep_learning
 
 <span style='color: #0051b8;'># load image data</span>
 img1, _ = load_data(<span style='color: #f900ff;'>'Head1.am'</span>)
 img2, _ = load_data(<span style='color: #f900ff;'>'Head2.am'</span>)
-img_list = [img1, img2]
+img_data = [img1, img2]
 
 <span style='color: #0051b8;'># load label data</span>
 label1, _ = load_data(<span style='color: #f900ff;'>'Head1.labels.am'</span>)
 label2, header, ext = load_data(<span style='color: #f900ff;'>'Head2.labels.am'</span>,
         return_extension=<span style='color: #f900ff;'>True</span>)
-label_list = [label1, label2]
+label_data = [label1, label2]
+
+<span style='color: #0051b8;'># load validation data (optional)</span>
+img3, _ = load_data(<span style='color: #f900ff;'>'Head3.am'</span>)
+img4, _ = load_data(<span style='color: #f900ff;'>'Head4.am'</span>)
+label3, _ = load_data(<span style='color: #f900ff;'>'Head3.labels.am'</span>)
+label4, _ = load_data(<span style='color: #f900ff;'>'Head4.labels.am'</span>)
+val_img_data = [img3, img4]
+val_label_data = [label3, label4]
 
 <span style='color: #0051b8;'># deep learning</span>
-deep_learning(img_list, label_list, train=<span style='color: #f900ff;'>True</span>, batch_size=<span style='color: #f900ff;'>12</span>,
+deep_learning(img_data, label_data, train=<span style='color: #f900ff;'>True</span>, batch_size=<span style='color: #f900ff;'>12</span>,
+        val_img_data=val_img_data, val_label_data=val_label_data,
         header=header, extension=ext, path_to_model=<span style='color: #f900ff;'>'honeybees.h5'</span>)
 </code>
 </pre>
@@ -136,20 +146,17 @@ path_to_biomedisa = <span style='color: #f900ff;'>'/home/philipp/git/biomedisa'<
 <span style='color: #7f03be;'>import</span> sys
 sys.path.append(path_to_biomedisa)
 <span style='color: #7f03be;'>from</span> <span style='color: #43cbaf;'>biomedisa_features.biomedisa_helper</span> <span style='color: #7f03be;'>import</span> load_data, save_data
-<span style='color: #7f03be;'>from</span> <span style='color: #43cbaf;'>demo.biomedisa_deeplearning</span> <span style='color: #7f03be;'>import</span> deep_learning
-<span style='color: #7f03be;'>from</span> <span style='color: #43cbaf;'>demo.keras_helper</span> <span style='color: #7f03be;'>import</span> get_image_dimensions, get_physical_size
+<span style='color: #7f03be;'>from</span> <span style='color: #43cbaf;'>biomedisa_features.biomedisa_deeplearning</span> <span style='color: #7f03be;'>import</span> deep_learning
 
 <span style='color: #0051b8;'># load data</span>
-img, img_header, img_ext = load_data(<span style='color: #f900ff;'>'Head3.am'</span>,
-        return_extension=<span style='color: #f900ff;'>True</span>)
+img, _ = load_data(<span style='color: #f900ff;'>'Head5.am'</span>)
 
 <span style='color: #0051b8;'># deep learning</span>
-results = deep_learning(img, predict=<span style='color: #f900ff;'>True</span>, img_header=img_header,
-        path_to_model=<span style='color: #f900ff;'>'honeybees.h5'</span>, img_extension=img_ext)
+results = deep_learning(img, predict=<span style='color: #f900ff;'>True</span>,
+        path_to_model=<span style='color: #f900ff;'>'honeybees.h5'</span>, batch_size=<span style='color: #f900ff;'>6</span>)
 
 <span style='color: #0051b8;'># save result</span>
-save_data(<span style='color: #f900ff;'>'final.Head3.am'</span>, results[<span style='color: #f900ff;'>'regular'</span>],
-        header=results[<span style='color: #f900ff;'>'header'</span>])
+save_data(<span style='color: #f900ff;'>'final.Head5.am'</span>, results[<span style='color: #f900ff;'>'regular'</span>])
 </code>
 </pre>
           </div>
