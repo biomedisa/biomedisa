@@ -37,7 +37,7 @@ Biomedisa (https://biomedisa.org) is a free and easy-to-use open-source online p
 + Download the data from our [gallery](https://biomedisa.org/gallery/)
 
 # Smart Interpolation
-+ [Parameters](https://github.com/biomedisa/biomedisa/blob/master/README/smart_interpolation.md)
++ [Parameters and Examples](https://github.com/biomedisa/biomedisa/blob/master/README/smart_interpolation.md)
 
 #### Python example
 ```python
@@ -77,24 +77,8 @@ python3 biomedisa_interpolation.py ~/Downloads/tumor.tif ~/Downloads/labels.tumo
 python biomedisa_interpolation.py Downloads\tumor.tif Downloads\labels.tumor.tif
 ```
 
-#### Multi-GPU (e.g. 4 GPUs)
-```
-# Ubuntu
-mpiexec -np 4 python3 biomedisa_interpolation.py ~/Downloads/NMB_F2875.tif ~/Downloads/labels.NMB_F2875.tif
-
-# Windows
-mpiexec -np 4 python -u biomedisa_interpolation.py Downloads\NMB_F2875.tif Downloads\labels.NMB_F2875.tif
-```
-
-#### Memory error
-If memory errors (either GPU or host memory) occur, you can start the segmentation as follows:
-```
-python3 split_volume.py 'path_to_image' 'path_to_labels' -np 4 -sz 2 -sy 2 -sx 2
-```
-Where `-n` is the number of GPUs and each axis (`x`,`y` and `z`) is divided into two overlapping parts. The volume is thus divided into `2*2*2=8` subvolumes. These are segmented separately and then reassembled.
-
 # Deep Learning
-+ [Parameters](https://github.com/biomedisa/biomedisa/blob/master/README/deep_learning.md)
++ [Parameters and Examples](https://github.com/biomedisa/biomedisa/blob/master/README/deep_learning.md)
 
 #### Train a neural network for automatic segmentation
 ```
