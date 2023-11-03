@@ -70,6 +70,6 @@ mpiexec -np 4 python -u biomedisa_interpolation.py Downloads\NMB_F2875.tif Downl
 #### Memory error
 If memory errors (either GPU or host memory) occur, you can start the segmentation as follows:
 ```
-python3 split_volume.py 'path_to_image' 'path_to_labels' -np 4 -sz 2 -sy 2 -sx 2
+python3 git/biomedisa/biomedisa_features/split_volume.py 'path_to_image' 'path_to_labels' -np 4 -sz 2 -sy 2 -sx 2
 ```
 Where `-n` is the number of GPUs and each axis (`x`,`y` and `z`) is divided into two overlapping parts. The volume is thus divided into `2*2*2=8` subvolumes. These are segmented separately and then reassembled.
