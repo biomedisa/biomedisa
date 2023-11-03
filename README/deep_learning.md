@@ -42,12 +42,12 @@ biomedisa_features.deep_learning(
     save_cropped=False
 )
 ```
-#### Parameters (Python only):
+#### Parameters:
 + **img_data : list**
 
     List of array-like objects (each image volume must be three-dimensional).
 
-+ **label_data : list (training only)**
++ **label_data : list (training)**
 
     List of fully segmented array-like label data (each label volume must be three dimensional). The background area has the value 0.
 
@@ -59,7 +59,7 @@ biomedisa_features.deep_learning(
 
     List of fully segmented array-like label data for validation (each label volume must be three dimensional). The background area has the value 0.
 
-#### Returns (prediction only):
+#### Returns:
 + **out : dictionary**
 
     Dictionary containing array-like objects for the results {'regular', 'cleaned', 'filled', 'cleaned_filled', 'cropped_volume'} when available.
