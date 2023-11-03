@@ -103,3 +103,34 @@ biomedisa_features.deep_learning(
 + **crop_data**: Both the training and inference data should be cropped to the region of interest for best performance. As an alternative to manual cropping, you can use Biomedisa's AI-based automatic cropping. After training, auto cropping is automatically applied to your inference data.
 + **save_cropped**: Save cropped image (default: False).
 
+#### Pass AMIRA/AVIZO header from image data to result
+Label header information from AMIRA/AVIZO files are automatically saved during training. In addition, you can pass image header information to your result, e.g. to preserve information about voxel size. 
+```python
+# load image data
+img, img_header, img_ext = load_data('image_data.am',
+        return_extension=True)
+
+# deep learning
+results = deep_learning(img, predict=True, img_header=img_header,
+        path_to_model='my_model.h5', img_extension=img_ext)
+
+# save result
+save_data('segmentation.am', results['regular'],
+        header=results['header'])
+```
+
+#### Python example NRRD (prediction)
+Label header information different from AMIRA/AVIZO are not saved during training. Load a reference label and pass the header to the result. 
+```python
+# load header from existing label file
+_, header = load_data('reference_label.nrrd')
+
+# load image data to predict
+img, _ = load_data('image_data.tif')
+
+# deep learning
+results = deep_learning(img, predict=True, path_to_model='my_model.h5')
+
+# save result
+save_data('segmentation.nrrd', results['regular'], header=header)
+```
