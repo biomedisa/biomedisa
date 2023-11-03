@@ -1,6 +1,6 @@
 ## Deep Learning
 ```python
-demo.deep_learning(
+biomedisa_features.deep_learning(
     img_data,
     label_data=None,
     val_img_data=None,
