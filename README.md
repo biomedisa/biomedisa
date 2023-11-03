@@ -103,6 +103,9 @@ python3 biomedisa_deeplearning.py ~/Downloads/training_heart ~/Downloads/trainin
 
 # Windows
 python biomedisa_deeplearning.py Downloads\training_heart Downloads\training_heart_labels -t
+
+# Validation (optional)
+python biomedisa_deeplearning.py Downloads\training_heart Downloads\training_heart_labels -t -vi Downloads\val_img -vl Downloads\val_labels
 ```
 
 #### Python example (training)
