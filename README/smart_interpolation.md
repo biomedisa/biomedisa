@@ -22,7 +22,7 @@ biomedisa_features.biomedisa_interpolation.smart_interpolation(
     platform=None
 )
 ```
-#### Parameters (Python only):
+#### Parameters:
 + **data : array_like**
 
     Image data (must be three-dimensional).
