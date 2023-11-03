@@ -37,7 +37,7 @@ Biomedisa (https://biomedisa.org) is a free and easy-to-use open-source online p
 + Download the data from our [gallery](https://biomedisa.org/gallery/)
 
 # Smart Interpolation
-+ [Parameters](https://github.com/biomedisa/biomedisa/blob/master/README/smart_interpolation.md)
++ [Parameters and Examples](https://github.com/biomedisa/biomedisa/blob/master/README/smart_interpolation.md)
 
 #### Python example
 ```python
@@ -47,7 +47,7 @@ path_to_biomedisa = '/home/<user>/git/biomedisa'
 import sys
 sys.path.append(path_to_biomedisa)
 from biomedisa_features.biomedisa_helper import load_data, save_data
-from demo.biomedisa_interpolation import smart_interpolation
+from biomedisa_features.biomedisa_interpolation import smart_interpolation
 
 # load data
 img, _ = load_data('Downloads/trigonopterus.tif')
@@ -67,43 +67,18 @@ save_data('Downloads/final.trigonopterus.smooth.am', smooth_result, header=heade
 
 #### Command-line based
 ```
+# change to the features directory
+cd ~/git/biomedisa/biomedisa_features/
+
 # Ubuntu
-python3 ~/git/biomedisa/demo/biomedisa_interpolation.py ~/Downloads/tumor.tif ~/Downloads/labels.tumor.tif
+python3 biomedisa_interpolation.py ~/Downloads/tumor.tif ~/Downloads/labels.tumor.tif
 
 # Windows
-python git\biomedisa\demo\biomedisa_interpolation.py Downloads\tumor.tif Downloads\labels.tumor.tif
+python biomedisa_interpolation.py Downloads\tumor.tif Downloads\labels.tumor.tif
 ```
-
-#### Multi-GPU (e.g. 4 GPUs)
-```
-# Ubuntu
-mpiexec -np 4 python3 ~/git/biomedisa/demo/biomedisa_interpolation.py ~/Downloads/NMB_F2875.tif ~/Downloads/labels.NMB_F2875.tif
-
-# Windows
-mpiexec -np 4 python -u git\biomedisa\demo\biomedisa_interpolation.py Downloads\NMB_F2875.tif Downloads\labels.NMB_F2875.tif
-```
-
-#### Memory error
-If memory errors (either GPU or host memory) occur, you can start the segmentation as follows:
-```
-python3 ~/git/biomedisa/demo/split_volume.py 'path_to_image' 'path_to_labels' -np 4 -sz 2 -sy 2 -sx 2
-```
-Where `-n` is the number of GPUs and each axis (`x`,`y` and `z`) is divided into two overlapping parts. The volume is thus divided into `2*2*2=8` subvolumes. These are segmented separately and then reassembled.
 
 # Deep Learning
-+ [Parameters](https://github.com/biomedisa/biomedisa/blob/master/README/deep_learning.md)
-
-#### Train a neural network for automatic segmentation
-```
-# change to the demo directory
-cd ~/git/biomedisa/demo/
-
-# Ubuntu
-python3 biomedisa_deeplearning.py ~/Downloads/training_heart ~/Downloads/training_heart_labels -t
-
-# Windows
-python biomedisa_deeplearning.py Downloads\training_heart Downloads\training_heart_labels -t
-```
++ [Parameters and Examples](https://github.com/biomedisa/biomedisa/blob/master/README/deep_learning.md)
 
 #### Python example (training)
 ```python
@@ -114,34 +89,47 @@ path_to_biomedisa = '/home/<user>/git/biomedisa'
 import sys
 sys.path.append(path_to_biomedisa)
 from biomedisa_features.biomedisa_helper import load_data
-from demo.biomedisa_deeplearning import deep_learning
+from biomedisa_features.biomedisa_deeplearning import deep_learning
 
 # load image data
 img1, _ = load_data('Head1.am')
 img2, _ = load_data('Head2.am')
-img_list = [img1, img2]
+img_data = [img1, img2]
 
 # load label data
 label1, _ = load_data('Head1.labels.am')
 label2, header, ext = load_data('Head2.labels.am',
         return_extension=True)
-label_list = [label1, label2]
+label_data = [label1, label2]
 
-# deep learning
-deep_learning(img_list, label_list, train=True, batch_size=12,
+# load validation data (optional)
+img3, _ = load_data('Head3.am')
+img4, _ = load_data('Head4.am')
+label3, _ = load_data('Head3.labels.am')
+label4, _ = load_data('Head4.labels.am')
+val_img_data = [img3, img4]
+val_label_data = [label3, label4]
+
+# deep learning 
+deep_learning(img_data, label_data, train=True, batch_size=12,
+        val_img_data=val_img_data, val_label_data=val_label_data,
         header=header, extension=ext, path_to_model='honeybees.h5')
 ```
+If running into ResourceExhaustedError due to out of memory (OOM), try to use smaller batch size.
 
-#### Automatic segmentation using a trained network and a batch size of 6
+#### Command-line based (training)
 ```
-# change to the demo directory
-cd ~/git/biomedisa/demo/
+# change to the features directory
+cd ~/git/biomedisa/biomedisa_features/
 
 # Ubuntu
-python3 biomedisa_deeplearning.py ~/Downloads/testing_axial_crop_pat13.nii.gz ~/Downloads/heart.h5 -p -bs 6
+python3 biomedisa_deeplearning.py ~/Downloads/training_heart ~/Downloads/training_heart_labels -t
 
 # Windows
-python biomedisa_deeplearning.py Downloads\testing_axial_crop_pat13.nii.gz Downloads\heart.h5 -p -bs 6
+python biomedisa_deeplearning.py Downloads\training_heart Downloads\training_heart_labels -t
+
+# Validation (optional)
+python biomedisa_deeplearning.py Downloads\training_heart Downloads\training_heart_labels -t -vi Downloads\val_img -vl Downloads\val_labels
 ```
 
 #### Python example (prediction)
@@ -153,20 +141,29 @@ path_to_biomedisa = '/home/<user>/git/biomedisa'
 import sys
 sys.path.append(path_to_biomedisa)
 from biomedisa_features.biomedisa_helper import load_data, save_data
-from demo.biomedisa_deeplearning import deep_learning
-from demo.keras_helper import get_image_dimensions, get_physical_size
+from biomedisa_features.biomedisa_deeplearning import deep_learning
 
 # load data
-img, img_header, img_ext = load_data('Head3.am',
-        return_extension=True)
+img, _ = load_data('Head5.am')
 
 # deep learning
-results = deep_learning(img, predict=True, img_header=img_header,
-        path_to_model='honeybees.h5', img_extension=img_ext)
+results = deep_learning(img, predict=True,
+        path_to_model='honeybees.h5', batch_size=6)
 
 # save result
-save_data('final.Head3.am', results['regular'],
-        header=results['header'])
+save_data('final.Head5.am', results['regular'])
+```
+
+#### Command-line based (prediction)
+```
+# change to the features directory
+cd ~/git/biomedisa/biomedisa_features/
+
+# Ubuntu
+python3 biomedisa_deeplearning.py ~/Downloads/testing_axial_crop_pat13.nii.gz ~/Downloads/heart.h5 -p -bs 6
+
+# Windows
+python biomedisa_deeplearning.py Downloads\testing_axial_crop_pat13.nii.gz Downloads\heart.h5 -p -bs 6
 ```
 
 # Biomedisa Features
