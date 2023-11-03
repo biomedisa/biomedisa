@@ -47,7 +47,7 @@ path_to_biomedisa = '/home/<user>/git/biomedisa'
 import sys
 sys.path.append(path_to_biomedisa)
 from biomedisa_features.biomedisa_helper import load_data, save_data
-from demo.biomedisa_interpolation import smart_interpolation
+from biomedisa_features.biomedisa_interpolation import smart_interpolation
 
 # load data
 img, _ = load_data('Downloads/trigonopterus.tif')
@@ -67,20 +67,23 @@ save_data('Downloads/final.trigonopterus.smooth.am', smooth_result, header=heade
 
 #### Command-line based
 ```
+# change to the demo directory
+cd ~/git/biomedisa/biomedisa_features/
+
 # Ubuntu
-python3 ~/git/biomedisa/demo/biomedisa_interpolation.py ~/Downloads/tumor.tif ~/Downloads/labels.tumor.tif
+python3 biomedisa_features/biomedisa_interpolation.py ~/Downloads/tumor.tif ~/Downloads/labels.tumor.tif
 
 # Windows
-python git\biomedisa\demo\biomedisa_interpolation.py Downloads\tumor.tif Downloads\labels.tumor.tif
+python biomedisa_features\biomedisa_interpolation.py Downloads\tumor.tif Downloads\labels.tumor.tif
 ```
 
 #### Multi-GPU (e.g. 4 GPUs)
 ```
 # Ubuntu
-mpiexec -np 4 python3 ~/git/biomedisa/demo/biomedisa_interpolation.py ~/Downloads/NMB_F2875.tif ~/Downloads/labels.NMB_F2875.tif
+mpiexec -np 4 python3 biomedisa_features/biomedisa_interpolation.py ~/Downloads/NMB_F2875.tif ~/Downloads/labels.NMB_F2875.tif
 
 # Windows
-mpiexec -np 4 python -u git\biomedisa\demo\biomedisa_interpolation.py Downloads\NMB_F2875.tif Downloads\labels.NMB_F2875.tif
+mpiexec -np 4 python -u biomedisa_features\biomedisa_interpolation.py Downloads\NMB_F2875.tif Downloads\labels.NMB_F2875.tif
 ```
 
 #### Memory error
@@ -96,7 +99,7 @@ Where `-n` is the number of GPUs and each axis (`x`,`y` and `z`) is divided into
 #### Train a neural network for automatic segmentation
 ```
 # change to the demo directory
-cd ~/git/biomedisa/demo/
+cd ~/git/biomedisa/biomedisa_features/
 
 # Ubuntu
 python3 biomedisa_deeplearning.py ~/Downloads/training_heart ~/Downloads/training_heart_labels -t
@@ -117,7 +120,7 @@ path_to_biomedisa = '/home/<user>/git/biomedisa'
 import sys
 sys.path.append(path_to_biomedisa)
 from biomedisa_features.biomedisa_helper import load_data
-from demo.biomedisa_deeplearning import deep_learning
+from biomedisa_features.biomedisa_deeplearning import deep_learning
 
 # load image data
 img1, _ = load_data('Head1.am')
@@ -147,7 +150,7 @@ deep_learning(img_data, label_data, train=True, batch_size=12,
 #### Automatic segmentation using a trained network and a batch size of 6
 ```
 # change to the demo directory
-cd ~/git/biomedisa/demo/
+cd ~/git/biomedisa/biomedisa_features/
 
 # Ubuntu
 python3 biomedisa_deeplearning.py ~/Downloads/testing_axial_crop_pat13.nii.gz ~/Downloads/heart.h5 -p -bs 6
@@ -165,8 +168,8 @@ path_to_biomedisa = '/home/<user>/git/biomedisa'
 import sys
 sys.path.append(path_to_biomedisa)
 from biomedisa_features.biomedisa_helper import load_data, save_data
-from demo.biomedisa_deeplearning import deep_learning
-from demo.keras_helper import get_image_dimensions, get_physical_size
+from biomedisa_features.biomedisa_deeplearning import deep_learning
+from biomedisa_features.keras_helper import get_image_dimensions, get_physical_size
 
 # load data
 img, img_header, img_ext = load_data('Head3.am',
