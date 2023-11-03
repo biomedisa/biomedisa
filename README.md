@@ -171,7 +171,7 @@ from biomedisa_features.biomedisa_helper import load_data, save_data
 from biomedisa_features.biomedisa_deeplearning import deep_learning
 
 # load data
-img, _ = load_data('Head3.am')
+img, _ = load_data('Head5.am')
 
 # deep learning
 results = deep_learning(img, predict=True, path_to_model='honeybees.h5')
