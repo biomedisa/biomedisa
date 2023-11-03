@@ -80,21 +80,6 @@ python biomedisa_interpolation.py Downloads\tumor.tif Downloads\labels.tumor.tif
 # Deep Learning
 + [Parameters and Examples](https://github.com/biomedisa/biomedisa/blob/master/README/deep_learning.md)
 
-#### Train a neural network for automatic segmentation
-```
-# change to the features directory
-cd ~/git/biomedisa/biomedisa_features/
-
-# Ubuntu
-python3 biomedisa_deeplearning.py ~/Downloads/training_heart ~/Downloads/training_heart_labels -t
-
-# Windows
-python biomedisa_deeplearning.py Downloads\training_heart Downloads\training_heart_labels -t
-
-# Validation (optional)
-python biomedisa_deeplearning.py Downloads\training_heart Downloads\training_heart_labels -t -vi Downloads\val_img -vl Downloads\val_labels
-```
-
 #### Python example (training)
 ```python
 # change this line to your biomedisa directory
@@ -131,19 +116,22 @@ deep_learning(img_data, label_data, train=True, batch_size=12,
         header=header, extension=ext, path_to_model='honeybees.h5')
 ```
 
-#### Automatic segmentation using a trained network and a batch size of 6
+#### Command-line based (training)
 ```
 # change to the features directory
 cd ~/git/biomedisa/biomedisa_features/
 
 # Ubuntu
-python3 biomedisa_deeplearning.py ~/Downloads/testing_axial_crop_pat13.nii.gz ~/Downloads/heart.h5 -p -bs 6
+python3 biomedisa_deeplearning.py ~/Downloads/training_heart ~/Downloads/training_heart_labels -t
 
 # Windows
-python biomedisa_deeplearning.py Downloads\testing_axial_crop_pat13.nii.gz Downloads\heart.h5 -p -bs 6
+python biomedisa_deeplearning.py Downloads\training_heart Downloads\training_heart_labels -t
+
+# Validation (optional)
+python biomedisa_deeplearning.py Downloads\training_heart Downloads\training_heart_labels -t -vi Downloads\val_img -vl Downloads\val_labels
 ```
 
-#### Python example (prediction)
+#### Python example (prediction and batch size of 6)
 ```python
 # change this line to your biomedisa directory
 path_to_biomedisa = '/home/<user>/git/biomedisa'
@@ -158,10 +146,23 @@ from biomedisa_features.biomedisa_deeplearning import deep_learning
 img, _ = load_data('Head5.am')
 
 # deep learning
-results = deep_learning(img, predict=True, path_to_model='honeybees.h5')
+results = deep_learning(img, predict=True,
+        path_to_model='honeybees.h5', batch_size=6)
 
 # save result
 save_data('final.Head3.am', results['regular'])
+```
+
+#### Command-line based (prediction and batch size of 6)
+```
+# change to the features directory
+cd ~/git/biomedisa/biomedisa_features/
+
+# Ubuntu
+python3 biomedisa_deeplearning.py ~/Downloads/testing_axial_crop_pat13.nii.gz ~/Downloads/heart.h5 -p -bs 6
+
+# Windows
+python biomedisa_deeplearning.py Downloads\testing_axial_crop_pat13.nii.gz Downloads\heart.h5 -p -bs 6
 ```
 
 # Biomedisa Features
