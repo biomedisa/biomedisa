@@ -172,16 +172,13 @@ from biomedisa_features.biomedisa_deeplearning import deep_learning
 from biomedisa_features.keras_helper import get_image_dimensions, get_physical_size
 
 # load data
-img, img_header, img_ext = load_data('Head3.am',
-        return_extension=True)
+img, _ = load_data('Head3.am')
 
 # deep learning
-results = deep_learning(img, predict=True, img_header=img_header,
-        path_to_model='honeybees.h5', img_extension=img_ext)
+results = deep_learning(img, predict=True, path_to_model='honeybees.h5')
 
 # save result
-save_data('final.Head3.am', results['regular'],
-        header=results['header'])
+save_data('final.Head3.am', results['regular'])
 ```
 
 # Biomedisa Features
