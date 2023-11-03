@@ -115,7 +115,7 @@ deep_learning(img_data, label_data, train=True, batch_size=12,
         val_img_data=val_img_data, val_label_data=val_label_data,
         header=header, extension=ext, path_to_model='honeybees.h5')
 ```
-If running into ResourceExhaustedError due to out of memory (OOM), try to use smaller batch size or reduce dimension size of model weights.
+If running into ResourceExhaustedError due to out of memory (OOM), try to use smaller batch size.
 
 #### Command-line based (training)
 ```
