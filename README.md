@@ -169,7 +169,6 @@ import sys
 sys.path.append(path_to_biomedisa)
 from biomedisa_features.biomedisa_helper import load_data, save_data
 from biomedisa_features.biomedisa_deeplearning import deep_learning
-from biomedisa_features.keras_helper import get_image_dimensions, get_physical_size
 
 # load data
 img, _ = load_data('Head3.am')
