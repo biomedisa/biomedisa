@@ -110,11 +110,12 @@ label4, _ = load_data('Head4.labels.am')
 val_img_data = [img3, img4]
 val_label_data = [label3, label4]
 
-# deep learning
+# deep learning 
 deep_learning(img_data, label_data, train=True, batch_size=12,
         val_img_data=val_img_data, val_label_data=val_label_data,
         header=header, extension=ext, path_to_model='honeybees.h5')
 ```
+If running into ResourceExhaustedError due to out of memory (OOM), try to use smaller batch size or reduce dimension size of model weights.
 
 #### Command-line based (training)
 ```
@@ -131,7 +132,7 @@ python biomedisa_deeplearning.py Downloads\training_heart Downloads\training_hea
 python biomedisa_deeplearning.py Downloads\training_heart Downloads\training_heart_labels -t -vi Downloads\val_img -vl Downloads\val_labels
 ```
 
-#### Python example (prediction and batch size of 6)
+#### Python example (prediction)
 ```python
 # change this line to your biomedisa directory
 path_to_biomedisa = '/home/<user>/git/biomedisa'
@@ -153,7 +154,7 @@ results = deep_learning(img, predict=True,
 save_data('final.Head3.am', results['regular'])
 ```
 
-#### Command-line based (prediction and batch size of 6)
+#### Command-line based (prediction)
 ```
 # change to the features directory
 cd ~/git/biomedisa/biomedisa_features/
