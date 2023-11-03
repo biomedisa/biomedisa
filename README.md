@@ -67,29 +67,29 @@ save_data('Downloads/final.trigonopterus.smooth.am', smooth_result, header=heade
 
 #### Command-line based
 ```
-# change to the demo directory
+# change to the features directory
 cd ~/git/biomedisa/biomedisa_features/
 
 # Ubuntu
-python3 biomedisa_features/biomedisa_interpolation.py ~/Downloads/tumor.tif ~/Downloads/labels.tumor.tif
+python3 biomedisa_interpolation.py ~/Downloads/tumor.tif ~/Downloads/labels.tumor.tif
 
 # Windows
-python biomedisa_features\biomedisa_interpolation.py Downloads\tumor.tif Downloads\labels.tumor.tif
+python biomedisa_interpolation.py Downloads\tumor.tif Downloads\labels.tumor.tif
 ```
 
 #### Multi-GPU (e.g. 4 GPUs)
 ```
 # Ubuntu
-mpiexec -np 4 python3 biomedisa_features/biomedisa_interpolation.py ~/Downloads/NMB_F2875.tif ~/Downloads/labels.NMB_F2875.tif
+mpiexec -np 4 python3 biomedisa_interpolation.py ~/Downloads/NMB_F2875.tif ~/Downloads/labels.NMB_F2875.tif
 
 # Windows
-mpiexec -np 4 python -u biomedisa_features\biomedisa_interpolation.py Downloads\NMB_F2875.tif Downloads\labels.NMB_F2875.tif
+mpiexec -np 4 python -u biomedisa_interpolation.py Downloads\NMB_F2875.tif Downloads\labels.NMB_F2875.tif
 ```
 
 #### Memory error
 If memory errors (either GPU or host memory) occur, you can start the segmentation as follows:
 ```
-python3 ~/git/biomedisa/demo/split_volume.py 'path_to_image' 'path_to_labels' -np 4 -sz 2 -sy 2 -sx 2
+python3 split_volume.py 'path_to_image' 'path_to_labels' -np 4 -sz 2 -sy 2 -sx 2
 ```
 Where `-n` is the number of GPUs and each axis (`x`,`y` and `z`) is divided into two overlapping parts. The volume is thus divided into `2*2*2=8` subvolumes. These are segmented separately and then reassembled.
 
@@ -98,7 +98,7 @@ Where `-n` is the number of GPUs and each axis (`x`,`y` and `z`) is divided into
 
 #### Train a neural network for automatic segmentation
 ```
-# change to the demo directory
+# change to the features directory
 cd ~/git/biomedisa/biomedisa_features/
 
 # Ubuntu
@@ -149,7 +149,7 @@ deep_learning(img_data, label_data, train=True, batch_size=12,
 
 #### Automatic segmentation using a trained network and a batch size of 6
 ```
-# change to the demo directory
+# change to the features directory
 cd ~/git/biomedisa/biomedisa_features/
 
 # Ubuntu
