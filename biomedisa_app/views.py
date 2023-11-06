@@ -544,29 +544,40 @@ def sliceviewer(request, id):
     id = int(id)
     stock_to_show = get_object_or_404(Upload, pk=id)
     if stock_to_show.user == request.user:
+        src = stock_to_show.pic.path.replace("images", "sliceviewer", 1)
 
-        prefix = generate_activation_key()
-        path_to_slices = '/media/' + prefix
-        src = WWW_DATA_ROOT + '/sliceviewer/%s/%s' %(request.user, stock_to_show.shortfilename)
-        dest = BASE_DIR + path_to_slices
-        os.symlink(src, dest)
-        path_to_slices += '/'
+        if os.path.isdir(src):
+            # link data from stoarge to media
+            prefix = generate_activation_key()
+            path_to_slices = '/media/' + prefix
+            dest = BASE_DIR + path_to_slices
+            os.symlink(src, dest)
+            path_to_slices += '/'
 
-        # create symlinks wich are removed when "app" is called or user loggs out
-        try:
-            symlinks = request.session["symlinks"]
-            symlinks.append(dest)
-            request.session["symlinks"] = symlinks
-        except:
-            request.session["symlinks"] = [dest]
+            # create symlinks wich are removed when "app" is called or user loggs out
+            try:
+                symlinks = request.session["symlinks"]
+                symlinks.append(dest)
+                request.session["symlinks"] = symlinks
+            except:
+                request.session["symlinks"] = [dest]
 
-        if os.path.isdir(dest):
             nos = len(os.listdir(dest)) - 1
             im = Image.open(dest + '/0.png')
             imshape = np.asarray(im).shape
             return render(request, 'sliceviewer.html', {'path_to_slices':path_to_slices, 'nos':nos, 'imshape_x':imshape[1], 'imshape_y':imshape[0]})
+
         else:
-            request.session['state'] = 'Slices are not yet available.'
+            # create slices
+            q = Queue('slices', connection=Redis())
+            if stock_to_show.imageType == 1:
+                job = q.enqueue_call(create_slices, args=(stock_to_show.pic.path, None,), timeout=-1)
+            elif stock_to_show.imageType in [2,3]:
+                images = Upload.objects.filter(user=request.user, project=stock_to_show.project, imageType=1)
+                if len(images)>0:
+                    job = q.enqueue_call(create_slices, args=(images[0].pic.path, stock_to_show.pic.path,), timeout=-1)
+
+            request.session['state'] = 'The slice preview is calculated. Please wait.'
             next = request.GET.get('next', '')
             next = str(next)
             if next == 'storage':
