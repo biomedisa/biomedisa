@@ -1,6 +1,6 @@
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2022 Philipp Lösel. All rights reserved.              ##
+##  Copyright (c) 2023 Philipp Lösel. All rights reserved.              ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -75,19 +75,17 @@ def create_slices(path_to_data, path_to_label, on_site=False):
     try:
 
         if on_site:
-            if path_to_data:
-                path_to_slices = os.path.dirname(path_to_data) + '/' + os.path.splitext(os.path.basename(path_to_data))[0]
+            path_to_slices = os.path.dirname(path_to_data) + '/' + os.path.splitext(os.path.basename(path_to_data))[0]
             if path_to_label:
                 path_to_label_slices = os.path.dirname(path_to_label) + '/' + os.path.splitext(os.path.basename(path_to_label))[0]
         else:
-            if path_to_data:
-                path_to_data = path_to_data.replace(WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT)
-                path_to_slices = path_to_data.replace('images', 'sliceviewer', 1)
+            path_to_data = path_to_data.replace(WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT)
+            path_to_slices = path_to_data.replace('images', 'sliceviewer', 1)
             if path_to_label:
                 path_to_label = path_to_label.replace(WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT)
                 path_to_label_slices = path_to_label.replace('images', 'sliceviewer', 1)
 
-        if path_to_data:
+        if not os.path.isdir(path_to_slices) or (path_to_label and not os.path.isdir(path_to_label_slices)):
 
             # load data
             path_to_dir, extension = os.path.splitext(path_to_data)
@@ -121,7 +119,7 @@ def create_slices(path_to_data, path_to_label, on_site=False):
             zsh, ysh, xsh = raw.shape
 
             # create slices for slice viewer
-            if not path_to_label:
+            if not os.path.isdir(path_to_slices):
 
                 # make directory
                 if not os.path.isdir(path_to_slices):
@@ -134,7 +132,7 @@ def create_slices(path_to_data, path_to_label, on_site=False):
 
                 # reduce image size
                 m = min(ysh, xsh)
-                if m > 400:
+                if m > 400 and not on_site:
                     scale = float(400) / float(m)
                     y_shape = int(ysh * scale)
                     x_shape = int(xsh * scale)
@@ -148,7 +146,7 @@ def create_slices(path_to_data, path_to_label, on_site=False):
                         im = Image.fromarray(raw[k])
                         im.save(path_to_slices + '/%s.png' %(k))
 
-        if path_to_label:
+        if path_to_label and not os.path.isdir(path_to_label_slices):
 
             # load data
             path_to_dir, extension = os.path.splitext(path_to_label)
@@ -201,7 +199,7 @@ def create_slices(path_to_data, path_to_label, on_site=False):
 
                 # reduce image size
                 m = min(ysh, xsh)
-                if m > 400:
+                if m > 400 and not on_site:
                     scale = float(400) / float(m)
                     ysh = int(ysh * scale)
                     xsh = int(xsh * scale)
@@ -213,7 +211,7 @@ def create_slices(path_to_data, path_to_label, on_site=False):
                 for k in range(zsh):
 
                     # resize slice
-                    if m > 400:
+                    if m > 400 and not on_site:
                         raw_tmp = cv2.resize(raw[k], (xsh, ysh), interpolation=cv2.INTER_AREA)
                         mask_tmp = np.zeros((ysh, xsh), dtype=mask.dtype)
                         for l in labels:
