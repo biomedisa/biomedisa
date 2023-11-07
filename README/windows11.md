@@ -14,11 +14,11 @@ With this you set up an already configured version of Biomedisa in a virtual mac
 #### Install NVIDIA driver (required for NVIDIA GPU support)
 Download and install [NVIDIA](https://www.nvidia.com/Download/Find.aspx?lang=en-us) driver.
 
-#### Enable "Virtualization" in the BIOS
+#### Enable "Virtualization" in the BIOS (for new systems this may not be necessary)
 At Intel it is typically called "Intel Virtualization Technology" and can be found under "CPU configuration". You may arrive at this menu by clicking on “Advanced” or “Advanced Mode”. Depending upon your PC, look for any of these or similar names such as Hyber-V, Vanderpool, SVM, AMD-V, Intel Virtualization Technology or VT-X.
 
 #### Install WSL 2 with administrative privileges
-Open command prompt with administrative privileges
+Open command prompt with administrative privileges and run
 ```
 wsl --install
 ```
