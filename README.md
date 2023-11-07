@@ -2,7 +2,7 @@
 
 - [Overview](#overview)
 - [Hardware Requirements](#hardware-requirements)
-- [Installation (command-line-only)](#installation-command-line-only)
+- [Installation (command-line based](#installation-command-line-based)
 - [Installation (browser based)](#installation-browser-based)
 - [Download Data](#download-data)
 - [Smart Interpolation](#smart-interpolation)
