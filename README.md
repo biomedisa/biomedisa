@@ -68,13 +68,10 @@ save_data('Downloads/final.trigonopterus.smooth.am', smooth_result, header=heade
 #### Command-line based
 ```
 # change to the features directory
-cd ~/git/biomedisa/biomedisa_features/
+cd git/biomedisa/biomedisa_features/
 
-# Ubuntu
-python3 biomedisa_interpolation.py ~/Downloads/tumor.tif ~/Downloads/labels.tumor.tif
-
-# Windows
-python biomedisa_interpolation.py Downloads\tumor.tif Downloads\labels.tumor.tif
+# start smart interpolation
+python biomedisa_interpolation.py C:\Users\%USERNAME%\Downloads\tumor.tif C:\Users\%USERNAME%\Downloads\labels.tumor.tif
 ```
 
 # Deep Learning
@@ -120,16 +117,13 @@ If running into ResourceExhaustedError due to out of memory (OOM), try to use sm
 #### Command-line based (training)
 ```
 # change to the features directory
-cd ~/git/biomedisa/biomedisa_features/
+cd git/biomedisa/biomedisa_features/
 
-# Ubuntu
-python3 biomedisa_deeplearning.py ~/Downloads/training_heart ~/Downloads/training_heart_labels -t
+# start training
+python biomedisa_deeplearning.py C:\Users\%USERNAME%\Downloads\training_heart C:\Users\%USERNAME%\Downloads\training_heart_labels -t
 
-# Windows
-python biomedisa_deeplearning.py Downloads\training_heart Downloads\training_heart_labels -t
-
-# Validation (optional)
-python biomedisa_deeplearning.py Downloads\training_heart Downloads\training_heart_labels -t -vi Downloads\val_img -vl Downloads\val_labels
+# validation (optional)
+python biomedisa_deeplearning.py C:\Users\%USERNAME%\Downloads\training_heart C:\Users\%USERNAME%\Downloads\training_heart_labels -t -vi C:\Users\%USERNAME%\Downloads\val_img -vl C:\Users\%USERNAME%\Downloads\val_labels
 ```
 
 #### Python example (prediction)
@@ -157,13 +151,10 @@ save_data('final.Head5.am', results['regular'])
 #### Command-line based (prediction)
 ```
 # change to the features directory
-cd ~/git/biomedisa/biomedisa_features/
+cd git/biomedisa/biomedisa_features/
 
-# Ubuntu
-python3 biomedisa_deeplearning.py ~/Downloads/testing_axial_crop_pat13.nii.gz ~/Downloads/heart.h5 -p -bs 6
-
-# Windows
-python biomedisa_deeplearning.py Downloads\testing_axial_crop_pat13.nii.gz Downloads\heart.h5 -p -bs 6
+# start prediction with a batch size of 6
+python biomedisa_deeplearning.py C:\Users\%USERNAME%\Downloads\testing_axial_crop_pat13.nii.gz C:\Users\%USERNAME%\Downloads\heart.h5 -p -bs 6
 ```
 
 # Biomedisa Features
@@ -202,7 +193,7 @@ save_mesh(path_to_data, data, x_res, y_res, z_res, poly_reduction=0.9, smoothing
 
 #### Create mesh directly
 ```
-python3 git/biomedisa/biomedisa_features/create_mesh.py <path_to_data>
+python git/biomedisa/biomedisa_features/create_mesh.py <path_to_data>
 ```
 
 #### Options
@@ -259,7 +250,7 @@ git pull
 
 If you have installed the full version of Biomedisa (including MySQL database), you also need to update the database.
 ```
-python3 manage.py migrate
+python manage.py migrate
 ```
 
 If you have installed an [Apache Server](https://github.com/biomedisa/biomedisa/blob/master/README/APACHE_SERVER.md), you need to restart the server.
