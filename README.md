@@ -22,7 +22,7 @@ Biomedisa (https://biomedisa.org) is a free and easy-to-use open-source online p
 + One or more NVIDIA GPUs with compute capability 3.0 or higher or an Intel CPU.
 + Depending on the size of the image data (32 GB or more).
 
-# Installation (command-line-only)
+# Installation (command-line based)
 + [Ubuntu 22.04 + CUDA + GPU (recommended)](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu2204_cuda11.8_gpu_cli.md)
 + [Ubuntu 22.04 + OpenCL + CPU (smart interpolation only and very slow)](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu2204_opencl_cpu_cli.md)
 + [Windows 10 + CUDA + GPU (recommended)](https://github.com/biomedisa/biomedisa/blob/master/README/windows10_cuda_gpu_cli.md)
