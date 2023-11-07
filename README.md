@@ -112,19 +112,19 @@ deep_learning(img_data, label_data, train=True, batch_size=12,
         val_img_data=val_img_data, val_label_data=val_label_data,
         header=header, extension=ext, path_to_model='honeybees.h5')
 ```
-If running into ResourceExhaustedError due to out of memory (OOM), try to use smaller batch size.
 
 #### Command-line based (training)
 ```
 # change to the features directory
 cd git/biomedisa/biomedisa_features/
 
-# start training
-python biomedisa_deeplearning.py C:\Users\%USERNAME%\Downloads\training_heart C:\Users\%USERNAME%\Downloads\training_heart_labels -t
+# start training with a batch size of 12
+python biomedisa_deeplearning.py C:\Users\%USERNAME%\Downloads\training_heart C:\Users\%USERNAME%\Downloads\training_heart_labels -t -bs 12
 
 # validation (optional)
 python biomedisa_deeplearning.py C:\Users\%USERNAME%\Downloads\training_heart C:\Users\%USERNAME%\Downloads\training_heart_labels -t -vi C:\Users\%USERNAME%\Downloads\val_img -vl C:\Users\%USERNAME%\Downloads\val_labels
 ```
+If running into ResourceExhaustedError due to out of memory (OOM), try to use smaller batch size.
 
 #### Python example (prediction)
 ```python
