@@ -31,7 +31,6 @@ Biomedisa (https://biomedisa.org) is a free and easy-to-use open-source online p
 
 # Installation (browser based)
 + [Ubuntu 22.04](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu2204_cuda11.8.md)
-+ [Windows](https://github.com/biomedisa/biomedisa/blob/master/README/windows11.md)
 
 # Download Data
 + Download the data from our [gallery](https://biomedisa.org/gallery/)
