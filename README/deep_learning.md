@@ -9,6 +9,8 @@ biomedisa_features.deep_learning(
     val_labels=None,
     validation_split=0.0,
     val_tf=False,
+    train_tf=False,
+    average_dice=False,
     path_to_model=None,
     predict=False,
     train=False,
@@ -26,43 +28,48 @@ biomedisa_features.deep_learning(
     flip_y=False,
     flip_z=False,
     rotate=0.0,
+    swapaxes=False,
     no_compression=False,
-    create_slices=False,
     ignore='none',
     only='all',
     no_normalization=False,
-    clean=None,
-    fill=None,
     x_scale=256,
     y_scale=256,
     z_scale=256,
     no_scaling=False,
     crop_data=False,
     cropping_epochs=50,
-    save_cropped=False
+    save_cropped=False,
+    pretrained_model=None,
+    fine_tune=False,
+    return_probs=False,
+    patch_normalization=False,
+    z_patch=64,
+    y_patch=64,
+    x_patch=64
 )
 ```
 #### Parameters:
-+ **img_data : list**
++ **img_data : array_like or list**
 
-    List of array-like objects (each image volume must be three-dimensional).
+    Array_like or list of array-like objects (each image volume must be three-dimensional).
 
 + **label_data : list (training)**
 
-    List of fully segmented array-like label data (each label volume must be three dimensional). The background area has the value 0.
+    Array_like or list of fully segmented array-like label data (each label volume must be three dimensional). The background area has the value 0.
 
 + **val_img_data : list (optional)**
 
-    List of array-like objects for validation (each image volume must be three-dimensional).
+    Array_like or list of array-like objects for validation (each image volume must be three-dimensional).
 
 + **val_label_data : list (optional)**
 
-    List of fully segmented array-like label data for validation (each label volume must be three dimensional). The background area has the value 0.
+    Array_like or list of fully segmented array-like label data for validation (each label volume must be three dimensional). The background area has the value 0.
 
 #### Returns:
 + **out : dictionary**
 
-    Dictionary containing array-like objects for the results {'regular', 'cleaned', 'filled', 'cleaned_filled', 'cropped_volume'} when available.
+    Dictionary containing array-like objects for the results {'regular', 'cropped_volume', 'probs', 'header'} when available.
 
 #### Other Parameters (use leading `--` for command-line, e.g. `--help`):
 
@@ -71,7 +78,9 @@ biomedisa_features.deep_learning(
 + **val_images PATH**: Path to directory with validation images (command-line only).
 + **val_labels PATH**: Path to directory with validation labels (command-line only).
 + **validation_split FLOAT**: For example, split your data into 80% training data and 20% validation data with `-vs 0.8`.
-+ **val_tf**: Use standard pixelwise accuracy provided by TensorFlow (default: False). When evaluating accuracy, Biomedisa relies on the Dice score rather than the standard accuracy. The Dice score offers a more reliable assessment by measuring the overlap between the segmented regions, whereas the standard accuracy also considers background classification, which can lead to misleading results, especially when dealing with small segments within a much larger volume. Even if half of the segment is mislabeled, the standard accuracy may still yield a remarkably high value. However, if you still prefer to use the standard accuracy, you can enable it by using this option.
++ **val_tf**: Use standard pixelwise accuracy provided by TensorFlow on validation data (default: False). When evaluating accuracy, Biomedisa relies on the Dice score rather than the standard accuracy. The Dice score offers a more reliable assessment by measuring the overlap between the segmented regions, whereas the standard accuracy also considers background classification, which can lead to misleading results, especially when dealing with small segments within a much larger volume. Even if half of the segment is mislabeled, the standard accuracy may still yield a remarkably high value. However, if you still prefer to use the standard accuracy, you can enable it by using this option.
++ **train_tf**: Use standard pixelwise accuracy provided by TensorFlow on training data (default: False).
++ **average_dice**: Use averaged dice score of each label (default: False).
 + **path_to_model PATH**: Path to model.
 + **predict**: Automatic/predict segmentation.
 + **train**: Train a neural network.
@@ -89,19 +98,25 @@ biomedisa_features.deep_learning(
 + **flip_y**: Randomly flip y-axis during training (default: False).
 + **flip_z**: Randomly flip z-axis during training (default: False).
 + **rotate FLOAT**: Randomly rotate during training (default: 0.0).
++ **swapaxes**: Randomly swap two axes during training (default: False).
 + **no_compression**: Disable compression of segmentation results (default: False).
-+ **create_slices**: Create slices of segmentation results (default: False).
 + **ignore STR**: Ignore specific label(s), e.g. "2,5,6" (default: none).
 + **only STR**: Segment only specific label(s), e.g. "1,3,5" (default: all).
 + **no_normalization**: Disable image normalization (default: False).
-+ **clean FLOAT**: Remove outliers, e.g. 0.5 means that objects smaller than 50 percent of the size of the largest object will be removed (default: None).
-+ **fill FLOAT**: Fill holes, e.g. 0.5 means that all holes smaller than 50 percent of the entire label will be filled (default: None).
 + **x_scale INT**: Images and labels are scaled at x-axis to this size before training (default: 256).
 + **y_scale INT**: Images and labels are scaled at y-axis to this size before training (default: 256).
 + **z_scale INT**: Images and labels are scaled at z-axis to this size before training (default: 256).
 + **no_scaling**: Do not resize image and label data (default: False).
 + **crop_data**: Both the training and inference data should be cropped to the region of interest for best performance. As an alternative to manual cropping, you can use Biomedisa's AI-based automatic cropping. After training, auto cropping is automatically applied to your inference data.
-+ **save_cropped**: Save cropped image (default: False).
++ **cropping_epochs INT**: Epochs the network for auto-cropping is trained (default: 50).
++ **save_cropped**: Save automatically cropped image (default: False).
++ **pretrained_model PATH**: Location of pretrained model (only encoder will be trained if specified) (default: None).
++ **fine_tune**: Fine-tune the entire pretrained model. Choose a smaller learning rate, e.g. 0.0001' (default: False).
++ **return_probs**: Return prediction probabilities for each label (default: False).
++ **patch_normalization**: Scale each patch to mean zero and standard deviation (default: False).
++ **x_patch INT**: X-dimension of patch (default: 64).
++ **y_patch INT**: Y-dimension of patch (default: 64).
++ **z_patch INT**: Z-dimension of patch (default: 64).
 
 #### Pass AMIRA/AVIZO header from image data to result
 Label header information from AMIRA/AVIZO files are automatically saved during training. In addition, you can pass image header information to your result, e.g. to preserve information about voxel size. 
@@ -134,3 +149,4 @@ results = deep_learning(img, predict=True, path_to_model='my_model.h5')
 # save result
 save_data('segmentation.nrrd', results['regular'], header=header)
 ```
+

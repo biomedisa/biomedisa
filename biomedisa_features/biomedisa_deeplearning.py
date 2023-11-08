@@ -377,7 +377,7 @@ if __name__ == '__main__':
     parser.add_argument('-dc','--debug_cropping', action='store_true', default=False,
                         help='Debug cropping')
     parser.add_argument('-sc','--save_cropped', action='store_true', default=False,
-                        help='Save cropped image')
+                        help='Save automatically cropped image')
     parser.add_argument('-e','--epochs', type=int, default=100,
                         help='Epochs the network is trained')
     parser.add_argument('-ce','--cropping_epochs', type=int, default=50,
@@ -415,7 +415,7 @@ if __name__ == '__main__':
     parser.add_argument('-pm','--pretrained_model', type=str, metavar='PATH', default=None,
                         help='Location of pretrained model (only encoder will be trained if specified)')
     parser.add_argument('-ft','--fine_tune', action='store_true', default=False,
-                        help='Fine-tune a pretrained model. Choose a smaller learning rate, e.g. 0.0001')
+                        help='Fine-tune the entire pretrained model. Choose a smaller learning rate, e.g. 0.0001')
     parser.add_argument('-cl','--classification', action='store_true', default=False,
                         help='Train a model for image classification. Validation works only with `-vt` option')
     parser.add_argument('-w','--workers', type=int, default=1,
