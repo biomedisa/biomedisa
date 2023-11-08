@@ -406,7 +406,6 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
         label = label_in[0]
     else:
         label = label_in
-    label = label.astype(np.uint8)
     label = set_labels_to_zero(label, labels_to_compute, labels_to_remove)
     if crop_data:
         argmin_z,argmax_z,argmin_y,argmax_y,argmin_x,argmax_x = predict_blocksize(label, x_puffer, y_puffer, z_puffer)
@@ -464,7 +463,6 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
                     raise InputError()
             else:
                 a = label_in[k]
-            a = a.astype(np.uint8)
             a = set_labels_to_zero(a, labels_to_compute, labels_to_remove)
             if crop_data:
                 argmin_z,argmax_z,argmin_y,argmax_y,argmin_x,argmax_x = predict_blocksize(a, x_puffer, y_puffer, z_puffer)
