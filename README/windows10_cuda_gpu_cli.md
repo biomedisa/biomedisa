@@ -30,7 +30,7 @@ Note: The output should look like `C:\Program Files\Microsoft Visual Studio\2022
 Open Windows Search  
 Type `View advanced system settings`  
 Click `Environment Variables...`  
-Add the output to the **System variable** `Path`
+Add the path from the output to the **System variable** `Path`
 
 #### Set Path Variable using PowerShell
 Skip this step if you did it manually.
