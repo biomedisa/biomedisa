@@ -26,10 +26,11 @@ Open PowerShell (e.g. Windows Search `PowerShell`)
 Resolve-Path -Path "C:\Program Files\Microsoft Visual Studio\*\Community\VC\Tools\MSVC\*\bin\Hostx64\x64" | select -ExpandProperty Path
 ```
 Note: The output should look like `C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.37.32822\bin\Hostx64\x64` but year `2022` and version number `14.37.32822` can be different.
+
 Open Windows Search  
 Type `View advanced system settings`  
 Click `Environment Variables...`  
-Add the Microsoft Visual Studio Path from the previous step to the **System variable** `Path`
+Add the output to the **System variable** `Path`
 
 #### Set Path Variable using PowerShell
 Skip this step if you did it manually.
