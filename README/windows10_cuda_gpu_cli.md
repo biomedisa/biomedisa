@@ -11,6 +11,7 @@
 - [Install Anaconda3](#install-anaconda3)
 - [Install conda environment](#install-conda-environment)
 - [Biomedisa examples](#biomedisa-examples)
+- [Remove Biomedisa environment](#remove-biomedisa-environment)
 
 #### Install Microsoft Visual Studio 2022
 Download and install [MS Visual Studio](https://visualstudio.microsoft.com/de/thank-you-downloading-visual-studio/?sku=Community&channel=Release&version=VS2022&source=VSLandingPage&passive=false&cid=2030).
@@ -96,7 +97,7 @@ Deactivate Biomedisa environment.
 ```
 conda deactivate
 ```
-Remove the biomedisa environment
+Remove the Biomedisa environment.
 ```
 conda remove --name biomedisa --all
 ```
