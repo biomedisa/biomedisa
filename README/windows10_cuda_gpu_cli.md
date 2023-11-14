@@ -2,7 +2,8 @@
 
 - [Install Microsoft Visual Studio 2022](#install-microsoft-visual-studio-2022)
 - [Get Microsoft Visual Studio Path](#get-microsoft-visual-studio-path)
-- [Set Path Variables](#set-path-variables)
+- [Set Path Variable manually](#set-path-variable-manually)
+- [Set Path Variable using PowerShell](#set-path-variable-using-powershell)
 - [Install NVIDIA driver](#install-nvidia-driver)
 - [Install CUDA Toolkit](#install-cuda-toolkit)
 - [Install Microsoft MPI](#install-microsoft-mpi)
@@ -27,14 +28,13 @@ Resolve-Path -Path "C:\Program Files\Microsoft Visual Studio\*\Community\VC\Tool
 ```
 Note: The output should look like `C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.37.32822\bin\Hostx64\x64` but year `2022` and version number `14.37.32822` can be different.
 
-#### Set Path Variable
-##### Manually
+#### Set Path Variable manually
 Open Windows Search  
 Type `View advanced system settings`  
 Click `Environment Variables...`  
 Add the Microsoft Visual Studio Path from the previous step to the **System variable** `Path`
 
-##### Using PowerShell
+#### Set Path Variable using PowerShell
 Skip this step if you did it manually.
 ```
 $currentPath = [System.Environment]::GetEnvironmentVariable('PATH', [System.EnvironmentVariableTarget]::Machine)
