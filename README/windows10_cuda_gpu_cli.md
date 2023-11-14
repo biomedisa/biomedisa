@@ -21,7 +21,7 @@ Restart Windows
 ```
 
 #### Set Path Variable manually
-Open PowerShell (e.g. Windows Search `PowerShell`)
+Open PowerShell (e.g. Windows Search `PowerShell`).
 ```
 Resolve-Path -Path "C:\Program Files\Microsoft Visual Studio\*\Community\VC\Tools\MSVC\*\bin\Hostx64\x64" | select -ExpandProperty Path
 ```
