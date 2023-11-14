@@ -23,6 +23,7 @@ Select "msmpisetup.exe"
 Download and install [Git](https://github.com/git-for-windows/git/releases/download/v2.28.0.windows.1/Git-2.28.0-64-bit.exe).
 
 #### Clone Biomedisa
+Open Command Prompt (e.g. Windows Search `Command Prompt`).
 ```
 mkdir git
 cd git
@@ -37,6 +38,7 @@ Open Anaconda Prompt (e.g. Windows Search `Anaconda Prompt`).
 ```
 conda env create -f git\biomedisa\conda_environment.yml
 ```
+Note: If your computer didn't find the path `git\biomedisa\conda_environment.yml` the easiest way is to locate the file and drag and drop it onto the Anaconda Prompt.
 
 #### Biomedisa examples
 Activate conda environment.
@@ -46,9 +48,9 @@ conda activate biomedisa
 Download test files from [Gallery](https://biomedisa.de/gallery/) and run
 ```
 # smart interpolation
-python git\biomedisa\demo\biomedisa_interpolation.py Downloads\tumor.tif Downloads\labels.tumor.tif --platform opencl_NVIDIA_GPU
+python git\biomedisa\biomedisa_features\biomedisa_interpolation.py Downloads\tumor.tif Downloads\labels.tumor.tif --platform opencl_NVIDIA_GPU
 
 # deep learning
-python git\biomedisa\demo\biomedisa_deeplearning.py Downloads\testing_axial_crop_pat13.nii.gz Downloads\heart.h5 -p -bs 12
+python git\biomedisa\biomedisa_features\biomedisa_deeplearning.py Downloads\testing_axial_crop_pat13.nii.gz Downloads\heart.h5 -p -bs 12
 ```
 
