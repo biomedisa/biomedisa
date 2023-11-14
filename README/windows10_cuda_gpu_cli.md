@@ -91,3 +91,12 @@ python git\biomedisa\biomedisa_features\biomedisa_interpolation.py Downloads\tum
 python git\biomedisa\biomedisa_features\biomedisa_deeplearning.py Downloads\testing_axial_crop_pat13.nii.gz Downloads\heart.h5 -p -bs 12
 ```
 
+#### Remove Biomedisa environment
+Deactivate Biomedisa environment.
+```
+conda deactivate
+```
+Remove the biomedisa environment
+```
+conda remove --name biomedisa --all
+```
