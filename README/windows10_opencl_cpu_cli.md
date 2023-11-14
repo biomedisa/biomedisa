@@ -7,6 +7,7 @@
 - [Install Anaconda3](#install-anaconda3)
 - [Install conda environment](#install-conda-environment)
 - [Biomedisa examples](#biomedisa-examples)
+- [Remove Biomedisa environment](#remove-biomedisa-environment)
 
 #### Install Microsoft MPI
 Download and install [Microsoft MPI](https://www.microsoft.com/en-us/download/details.aspx?id=57467).
@@ -52,3 +53,12 @@ python git\biomedisa\biomedisa_features\biomedisa_interpolation.py Downloads\tum
 python git\biomedisa\biomedisa_features\biomedisa_deeplearning.py Downloads\testing_axial_crop_pat13.nii.gz Downloads\heart.h5 -p -bs 12
 ```
 
+#### Remove Biomedisa environment
+Deactivate Biomedisa environment.
+```
+conda deactivate
+```
+Remove the Biomedisa environment.
+```
+conda remove --name biomedisa --all
+```
