@@ -5,7 +5,7 @@
 - [Install Git](#install-git)
 - [Clone Biomedisa](#clone-biomedisa)
 - [Install Anaconda3](#install-anaconda3)
-- [Install conda environment](#install-conda-environment)
+- [Install Biomedisa environment](#install-biomedisa-environment)
 - [Biomedisa examples](#biomedisa-examples)
 - [Remove Biomedisa environment](#remove-biomedisa-environment)
 
@@ -34,7 +34,7 @@ git clone https://github.com/biomedisa/biomedisa.git
 #### Install Anaconda3
 Download and install [Anaconda3](https://www.anaconda.com/products/individual#windows).
 
-#### Install conda environment
+#### Install Biomedisa environment
 Open Anaconda Prompt (e.g. Windows Search `Anaconda Prompt`).
 ```
 conda env create -f git\biomedisa\conda_environment.yml
