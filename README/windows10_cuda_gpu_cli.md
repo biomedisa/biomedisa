@@ -21,19 +21,19 @@ Install
 Restart Windows
 ```
 
-#### Set Path Variable manually
+#### Option 1: Set Path Variable manually
 Open PowerShell (e.g. Windows Search `PowerShell`) and get the Microsoft Visual Studio path using the following command:
 ```
 Resolve-Path -Path "C:\Program Files\Microsoft Visual Studio\*\Community\VC\Tools\MSVC\*\bin\Hostx64\x64" | select -ExpandProperty Path
 ```
-Note: The output should look like `C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.37.32822\bin\Hostx64\x64` but year `2022` and version number `14.37.32822` can be different.
+Note: The output should look like `C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.37.32822\bin\Hostx64\x64` but year `2022` and version number `14.37.32822` can be different in your case. Please use the exact path from the output.
 
 Open Windows Search  
 Type `View advanced system settings`  
 Click `Environment Variables...`  
 Add the path from the output to the **System variable** `Path`
 
-#### Set Path Variable using PowerShell
+#### Option 2: Set Path Variable using PowerShell
 Skip this step if you did it manually.
 Open PowerShell as administrator (e.g. Windows Search `PowerShell`).
 ```
@@ -76,7 +76,7 @@ Open Anaconda Prompt (e.g. Windows Search `Anaconda Prompt`).
 ```
 conda env create -f git\biomedisa\conda_environment.yml
 ```
-Note: If your computer didn't find the path `git\biomedisa\conda_environment.yml` the easiest way is to locate the file and drag and drop it onto the Anaconda Prompt.
+Note: If your computer didn't find the path `git\biomedisa\conda_environment.yml` the easiest way is to locate the file in the Biomedisa Git Repository and drag and drop it onto the Anaconda Prompt after typing `conda env create -f`.
 
 #### Biomedisa examples
 Activate conda environment.
