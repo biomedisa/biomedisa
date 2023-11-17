@@ -1,8 +1,8 @@
 # Windows 10 + CUDA + GPU (command-line-only)
 
 - [Install Microsoft Visual Studio 2022](#install-microsoft-visual-studio-2022)
-- [Set Path Variable manually](#set-path-variable-manually)
-- [Set Path Variable using PowerShell](#set-path-variable-using-powershell)
+- [Option 1: Set Path Variable manually](#option-1-set-path-variable-manually)
+- [Option 2: Set Path Variable using PowerShell](#option-2-set-path-variable-using-powershell)
 - [Install NVIDIA driver](#install-nvidia-driver)
 - [Install CUDA Toolkit](#install-cuda-toolkit)
 - [Install Microsoft MPI](#install-microsoft-mpi)
