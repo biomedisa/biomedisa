@@ -39,7 +39,7 @@ Open Anaconda Prompt (e.g. Windows Search `Anaconda Prompt`).
 ```
 conda env create -f git\biomedisa\conda_environment.yml
 ```
-Note: If your computer didn't find the path `git\biomedisa\conda_environment.yml` the easiest way is to locate the file and drag and drop it onto the Anaconda Prompt.
+Note: If your computer didn't find the path `git\biomedisa\conda_environment.yml` the easiest way is to locate the file in the Biomedisa Git Repository and drag and drop it onto the Anaconda Prompt after typing `conda env create -f`.
 
 #### Biomedisa examples
 Activate conda environment.
