@@ -17,7 +17,7 @@ sudo apt-get install python3 python3-dev python3-pip
 
 #### Install software dependencies
 ```
-sudo apt-get install libsm6 libxrender-dev libmysqlclient-dev \
+sudo apt-get install libsm6 libxrender-dev libmysqlclient-dev pkg-config \
     libboost-python-dev build-essential screen libssl-dev cmake \
     openmpi-bin openmpi-doc libopenmpi-dev redis-server git libgl1
 ```
