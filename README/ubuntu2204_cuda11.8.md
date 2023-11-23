@@ -23,7 +23,7 @@ sudo apt-get install libsm6 libxrender-dev libmysqlclient-dev pkg-config \
 ```
 
 #### Install pip packages
-Note: If you are not installing an Apache Server, you may only use `pip3 install --upgrade <package>` and add `export PATH=/home/$USER/.local/bin:${PATH}` to `~/.bashrc` if you only install Biomedisa for your user and do not have sudo rights, for example like on a supercomputer
+Note: If you are not installing an Apache Server, you may only use `pip3 install --upgrade <package>` and add `export PATH=/home/$USER/.local/bin:${PATH}` to `~/.bashrc`.
 ```
 sudo -H pip3 install --upgrade pip setuptools testresources scikit-build
 sudo -H pip3 install --upgrade numpy scipy h5py colorama wget numpy-stl \
