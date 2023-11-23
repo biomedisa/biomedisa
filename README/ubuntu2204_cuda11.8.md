@@ -32,25 +32,6 @@ sudo -H pip3 install --upgrade numpy scipy h5py colorama wget numpy-stl \
 sudo -H pip3 install django==3.2.6
 ```
 
-#### Clone Biomedisa
-```
-mkdir ~/git
-cd ~/git
-git clone https://github.com/biomedisa/biomedisa.git
-```
-
-#### Adapt Biomedisa config
-Make `config.py` as a copy of `config_example.py`
-```
-cp biomedisa/biomedisa_app/config_example.py biomedisa/biomedisa_app/config.py
-```
-In particular, adapt the following lines in `biomedisa/biomedisa_app/config.py`
-```
-'SECRET_KEY' : 'vl[cihu8uN!FrJoDbEqUymgMR()n}y7744$2;YLDm3Q8;MMX-g', # some random string
-'DJANGO_DATABASE' : 'biomedisa_user_password', # password for the user 'biomedisa' of your biomedisa_database (set up in the next step)
-'ALLOWED_HOSTS' : ['localhost', '0.0.0.0'], # you must tell django explicitly which hosts are allowed (e.g. your IP and/or the URL of your homepage when running an APACHE server)
-```
-
 #### Install MySQL database
 ```
 # Install MySQL
@@ -89,6 +70,25 @@ wait_timeout = 604800
 cd ~/git/biomedisa
 python3 manage.py migrate
 python3 manage.py createsuperuser
+```
+
+#### Clone Biomedisa
+```
+mkdir ~/git
+cd ~/git
+git clone https://github.com/biomedisa/biomedisa.git
+```
+
+#### Adapt Biomedisa config
+Make `config.py` as a copy of `config_example.py`
+```
+cp biomedisa/biomedisa_app/config_example.py biomedisa/biomedisa_app/config.py
+```
+In particular, adapt the following lines in `biomedisa/biomedisa_app/config.py`
+```
+'SECRET_KEY' : 'vl[cihu8uN!FrJoDbEqUymgMR()n}y7744$2;YLDm3Q8;MMX-g', # some random string
+'DJANGO_DATABASE' : 'biomedisa_user_password', # password for the user 'biomedisa' that you created in the previous step
+'ALLOWED_HOSTS' : ['localhost', '0.0.0.0'], # you must tell django explicitly which hosts are allowed (e.g. your IP and/or the URL of your homepage when running an APACHE server)
 ```
 
 #### Install CUDA 11.8
