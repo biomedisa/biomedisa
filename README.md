@@ -16,7 +16,7 @@
 - [License](#license)
 
 # Overview
-Biomedisa (https://biomedisa.org) is a free and easy-to-use open-source online platform for segmenting large volumetric images, e.g. CT and MRI scans, at Heidelberg University and the Australian National University. Biomedisa's semi-automated segmentation is based on a smart interpolation of sparsely pre-segmented slices, taking into account the complete underlying image data. In addition, Biomedisa enables deep learning for the fully automated segmentation of series of similar samples. It can be used in combination with segmentation tools such as Amira/Avizo, ImageJ/Fiji and 3D Slicer. If you are using Biomedisa or the data for your research please cite: Lösel, P.D. et al. [Introducing Biomedisa as an open-source online platform for biomedical image segmentation.](https://www.nature.com/articles/s41467-020-19303-w) *Nat. Commun.* **11**, 5577 (2020).
+Biomedisa (https://biomedisa.info) is a free and easy-to-use open-source application for segmenting large volumetric images, e.g. CT and MRI scans, developed in the CTLab at The Australian National University. Biomedisa's semi-automated segmentation is based on a smart interpolation of sparsely pre-segmented slices, taking into account the complete underlying image data. In addition, Biomedisa enables deep learning for the fully automated segmentation of series of similar samples. It can be used in combination with segmentation tools such as Amira/Avizo, ImageJ/Fiji and 3D Slicer. If you are using Biomedisa or the data for your research please cite: Lösel, P.D. et al. [Introducing Biomedisa as an open-source online platform for biomedical image segmentation.](https://www.nature.com/articles/s41467-020-19303-w) *Nat. Commun.* **11**, 5577 (2020).
 
 # Hardware Requirements
 + One or more NVIDIA GPUs with compute capability 3.0 or higher or an Intel CPU.
@@ -33,7 +33,7 @@ Biomedisa (https://biomedisa.org) is a free and easy-to-use open-source online p
 + [Ubuntu 22.04](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu2204_cuda11.8.md)
 
 # Download Data
-+ Download the data from our [gallery](https://biomedisa.org/gallery/)
++ Download the data from our [gallery](https://biomedisa.info/gallery/)
 
 # Smart Interpolation
 + [Parameters and Examples](https://github.com/biomedisa/biomedisa/blob/master/README/smart_interpolation.md)
@@ -268,7 +268,7 @@ For the versions available, see the [list of releases](https://github.com/biomed
 See also the list of [contributors](https://github.com/biomedisa/biomedisa/blob/master/credits.md) who participated in this project.
 
 # FAQ
-Frequently asked questions can be found at: https://biomedisa.org/faq/.
+Frequently asked questions can be found at: https://biomedisa.info/faq/.
 
 # Citation
 
