@@ -29,7 +29,7 @@ wsl --install
 wsl --unregister Ubuntu
 ```
 #### Download Biomedisa installer
-Download and extract [Biomedisa](https://biomedisa.org/media/biomedisa_windows.zip).
+Download and extract [Biomedisa](https://biomedisa.info/media/biomedisa_windows.zip).
 
 #### Run installation script
 ```
