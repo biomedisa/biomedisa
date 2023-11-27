@@ -592,7 +592,7 @@ def visualization(request):
 
         # download paraview
         if not os.path.exists(BASE_DIR + '/biomedisa_app/paraview'):
-            wget.download('https://biomedisa.org/media/paraview.zip', out=BASE_DIR + '/biomedisa_app/paraview.zip')
+            wget.download('https://biomedisa.info/media/paraview.zip', out=BASE_DIR + '/biomedisa_app/paraview.zip')
             zip_ref = zipfile.ZipFile(BASE_DIR + '/biomedisa_app/paraview.zip', 'r')
             zip_ref.extractall(path=BASE_DIR + '/biomedisa_app')
             zip_ref.close()

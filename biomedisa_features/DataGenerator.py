@@ -90,7 +90,7 @@ def random_rotation_3d(image, max_angle=180):
     batch of rotated 3D images
     """
 
-    # rotate along z-axis
+    # rotate along x-axis
     angle = random.uniform(-max_angle, max_angle)
     image2 = scipy.ndimage.rotate(image, angle, mode='nearest', axes=(0, 1), reshape=False)
 
@@ -98,7 +98,7 @@ def random_rotation_3d(image, max_angle=180):
     angle = random.uniform(-max_angle, max_angle)
     image3 = scipy.ndimage.rotate(image2, angle, mode='nearest', axes=(0, 2), reshape=False)
 
-    # rotate along x-axis
+    # rotate along z-axis
     angle = random.uniform(-max_angle, max_angle)
     image_rot = scipy.ndimage.rotate(image3, angle, mode='nearest', axes=(1, 2), reshape=False)
 

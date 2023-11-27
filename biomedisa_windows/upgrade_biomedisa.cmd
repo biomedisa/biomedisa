@@ -4,7 +4,7 @@ REM get current Biomedisa version
 FOR /F "tokens=* delims=" %%v in (version.txt) DO (set OLD_VERSION=%%v)
 
 REM get latest Biomedisa version
-curl https://biomedisa.org/media/latest_version.txt --output latest_version.txt
+curl https://biomedisa.info/media/latest_version.txt --output latest_version.txt
 FOR /F "tokens=* delims=" %%v in (latest_version.txt) DO (set VERSION=%%v)
 
 REM get current date
@@ -34,7 +34,7 @@ echo Installing %VERSION%
 
 REM download biomedisa engine
 echo Downloading Biomedisa...
-curl https://biomedisa.org/media/%VERSION%.tar -C - --output %VERSION%.tar
+curl https://biomedisa.info/media/%VERSION%.tar -C - --output %VERSION%.tar
 
 REM make application directory
 mkdir "%USERPROFILE%\AppData\%VERSION%"

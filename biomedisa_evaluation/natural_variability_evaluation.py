@@ -110,14 +110,14 @@ if __name__ == "__main__":
 
         # download and extract image data
         if not os.path.isdir(path_to_images):
-            os.system(f'wget -nc --no-check-certificate https://biomedisa.org/download/demo/?id={dataset}_test_images.tar -O {path_to_images}.tar')
+            os.system(f'wget -nc --no-check-certificate https://biomedisa.info/download/demo/?id={dataset}_test_images.tar -O {path_to_images}.tar')
             tar = tarfile.open(f'{path_to_images}.tar')
             tar.extractall(path=path_to_images)
             tar.close()
 
         # download trained network
         if not os.path.exists(path_to_model):
-            os.system(f'wget -nc --no-check-certificate https://biomedisa.org/download/demo/?id={dataset}_network.h5 -O {path_to_model}')
+            os.system(f'wget -nc --no-check-certificate https://biomedisa.info/download/demo/?id={dataset}_network.h5 -O {path_to_model}')
 
         # create directory for results
         if not os.path.exists(path_to_results):
@@ -149,14 +149,14 @@ if __name__ == "__main__":
 
         # download and extract reference data
         if not os.path.isdir(path_to_refs):
-            os.system(f'wget -nc --no-check-certificate https://biomedisa.org/download/demo/?id={dataset}_test_labels.tar -O {path_to_refs}.tar')
+            os.system(f'wget -nc --no-check-certificate https://biomedisa.info/download/demo/?id={dataset}_test_labels.tar -O {path_to_refs}.tar')
             tar = tarfile.open(f'{path_to_refs}.tar')
             tar.extractall(path=path_to_refs)
             tar.close()
 
         # download and extract segmentation results (if not created)
         if not os.path.isdir(path_to_results):
-            os.system(f'wget -nc --no-check-certificate https://biomedisa.org/download/demo/?id={dataset}_test_results.tar -O {path_to_results}.tar')
+            os.system(f'wget -nc --no-check-certificate https://biomedisa.info/download/demo/?id={dataset}_test_results.tar -O {path_to_results}.tar')
             tar = tarfile.open(f'{path_to_results}.tar')
             tar.extractall(path=path_to_results)
             tar.close()
@@ -247,22 +247,22 @@ if __name__ == "__main__":
 
         # download and extract data
         if not os.path.isdir(training_images):
-            os.system(f'wget -nc --no-check-certificate https://biomedisa.org/download/demo/?id={dataset}_training_images.tar -O {training_images}.tar')
+            os.system(f'wget -nc --no-check-certificate https://biomedisa.info/download/demo/?id={dataset}_training_images.tar -O {training_images}.tar')
             tar = tarfile.open(f'{training_images}.tar')
             tar.extractall(path=training_images)
             tar.close()
         if not os.path.isdir(training_labels):
-            os.system(f'wget -nc --no-check-certificate https://biomedisa.org/download/demo/?id={dataset}_training_labels.tar -O {training_labels}.tar')
+            os.system(f'wget -nc --no-check-certificate https://biomedisa.info/download/demo/?id={dataset}_training_labels.tar -O {training_labels}.tar')
             tar = tarfile.open(f'{training_labels}.tar')
             tar.extractall(path=training_labels)
             tar.close()
         if not os.path.isdir(test_images):
-            os.system(f'wget -nc --no-check-certificate https://biomedisa.org/download/demo/?id={dataset}_test_images.tar -O {test_images}.tar')
+            os.system(f'wget -nc --no-check-certificate https://biomedisa.info/download/demo/?id={dataset}_test_images.tar -O {test_images}.tar')
             tar = tarfile.open(f'{test_images}.tar')
             tar.extractall(path=test_images)
             tar.close()
         if not os.path.isdir(test_labels):
-            os.system(f'wget -nc --no-check-certificate https://biomedisa.org/download/demo/?id={dataset}_test_labels.tar -O {test_labels}.tar')
+            os.system(f'wget -nc --no-check-certificate https://biomedisa.info/download/demo/?id={dataset}_test_labels.tar -O {test_labels}.tar')
             tar = tarfile.open(f'{test_labels}.tar')
             tar.extractall(path=test_labels)
             tar.close()
