@@ -4,8 +4,8 @@
 - [Install software dependencies](#install-software-dependencies)
 - [Install pip packages](#install-pip-packages)
 - [Install MySQL database](#install-mysql-database)
-- [Install CUDA 11.8](#install-cuda-11.8)
 - [Clone Biomedisa](#clone-biomedisa)
+- [Install CUDA 11.8](#install-cuda-11.8)
 - [Install TensorFlow](#install-tensorflow)
 - [Run Biomedisa](#run-biomedisa)
 - [Install Apache Server (optional)](#install-apache-server-optional)
@@ -65,11 +65,6 @@ exit;
 
 # Add the following line to /etc/mysql/mysql.conf.d/mysqld.cnf
 wait_timeout = 604800
-
-# Migrate database and create superuser
-cd ~/git/biomedisa
-python3 manage.py migrate
-python3 manage.py createsuperuser
 ```
 
 #### Clone Biomedisa
@@ -89,6 +84,13 @@ In particular, adapt the following lines in `biomedisa/biomedisa_app/config.py`
 'SECRET_KEY' : 'vl[cihu8uN!FrJoDbEqUymgMR()n}y7744$2;YLDm3Q8;MMX-g', # some random string
 'DJANGO_DATABASE' : 'biomedisa_user_password', # password for the user 'biomedisa' that you created in the previous step
 'ALLOWED_HOSTS' : ['localhost', '0.0.0.0'], # you must tell django explicitly which hosts are allowed (e.g. your IP and/or the URL of your homepage when running an APACHE server)
+```
+
+#### Migrate database and create superuser
+```
+cd ~/git/biomedisa
+python3 manage.py migrate
+python3 manage.py createsuperuser
 ```
 
 #### Install CUDA 11.8
