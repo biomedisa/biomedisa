@@ -5,6 +5,7 @@
 - [Install pip packages](#install-pip-packages)
 - [Install MySQL database](#install-mysql-database)
 - [Clone Biomedisa](#clone-biomedisa)
+- [Config Biomedisa](#config-biomedisa)
 - [Install CUDA 11.8](#install-cuda-11.8)
 - [Install TensorFlow](#install-tensorflow)
 - [Run Biomedisa](#run-biomedisa)
@@ -74,19 +75,18 @@ cd ~/git
 git clone https://github.com/biomedisa/biomedisa.git
 ```
 
-#### Adapt Biomedisa config
+#### Config Biomedisa
 Make `config.py` as a copy of `config_example.py`
 ```
 cp biomedisa/biomedisa_app/config_example.py biomedisa/biomedisa_app/config.py
 ```
-In particular, adapt the following lines in `biomedisa/biomedisa_app/config.py`
+Adapt the following lines in `biomedisa/biomedisa_app/config.py`
 ```
 'SECRET_KEY' : 'vl[cihu8uN!FrJoDbEqUymgMR()n}y7744$2;YLDm3Q8;MMX-g', # some random string
 'DJANGO_DATABASE' : 'biomedisa_user_password', # password for the user 'biomedisa' that you created in the previous step
 'ALLOWED_HOSTS' : ['localhost', '0.0.0.0'], # you must tell django explicitly which hosts are allowed (e.g. your IP and/or the URL of your homepage when running an APACHE server)
 ```
-
-#### Migrate database and create superuser
+Migrate database and create superuser
 ```
 cd ~/git/biomedisa
 python3 manage.py migrate
