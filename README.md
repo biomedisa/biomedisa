@@ -1,4 +1,5 @@
 # Biomedisa
+Biomedisa has moved to https://biomedisa.info
 
 - [Overview](#overview)
 - [Hardware Requirements](#hardware-requirements)
