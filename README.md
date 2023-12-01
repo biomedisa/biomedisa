@@ -1,4 +1,4 @@
-[![biomedisa](https://biomedisa.info/static/biomedisa_logo.svg)](https://biomedisa.info)
+[![biomedisa](biomedisa_app/static/biomedisa_logo.svg)](https://biomedisa.info) has moved to https://biomedisa.info
 -----------
 # Biomedisa has moved to https://biomedisa.info
 - [Overview](#overview)
