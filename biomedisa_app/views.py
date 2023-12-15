@@ -2191,14 +2191,15 @@ def delete_account(request):
     content = {}
     try:
         user_id = User.objects.get(username=request.user)
-        profile = Profile.objects.get(user=request.user)
-        images = Upload.objects.filter(user=request.user)
+        profile = Profile.objects.get(user=user_id)
+        images = Upload.objects.filter(user=user_id)
         for img in images:
             img.delete()
         # delete user directories
         for directory in ['images', 'sliceviewer']:
-            path_to_data = WWW_DATA_ROOT + '/' + directory + '/' + request.user.username
-            shutil.rmtree(path_to_data)
+            path_to_data = WWW_DATA_ROOT + '/' + directory + '/' + user_id.username
+            if os.path.exists(path_to_data):
+                shutil.rmtree(path_to_data)
         profile.delete()
         user_id.delete()
         logout(request)
