@@ -40,6 +40,7 @@ except:
 from biomedisa.settings import BASE_DIR, WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT
 from biomedisa_features.create_mesh import save_mesh, get_voxel_spacing
 from biomedisa_features.amira_to_np.amira_helper import amira_to_np, np_to_amira
+from biomedisa_features.nc_reader import nc_to_np, np_to_nc
 from tifffile import imread, imwrite
 from medpy.io import load, save
 import SimpleITK as sitk
@@ -240,6 +241,13 @@ def load_data_(path_to_data, process):
             print(e)
             data, header = None, None
 
+    elif extension == '.nc':
+        try:
+            data, header = nc_to_np(path_to_data)
+        except Exception as e:
+            print(e)
+            data, header = None, None
+
     elif extension in ['.hdr', '.mhd', '.mha', '.nrrd', '.nii', '.nii.gz']:
         try:
             data, header = load(path_to_data)
@@ -256,36 +264,50 @@ def load_data_(path_to_data, process):
                 zip_ref = zipfile.ZipFile(path_to_data, 'r')
                 zip_ref.extractall(path=path_to_data[:-4])
                 zip_ref.close()
-
-            files = glob.glob(path_to_data[:-4]+'/**/*', recursive=True)
-            for name in files:
-                if os.path.isfile(name):
-                    try:
-                        img, _ = load(name)
-                    except:
-                        files.remove(name)
-                else:
-                    files.remove(name)
-            files.sort()
-
-            img, _ = load(files[0])
-            data = np.zeros((len(files), img.shape[0], img.shape[1]), dtype=img.dtype)
-            header, image_data_shape = [], []
-            for k, file_name in enumerate(files):
-                img, img_header = load(file_name)
-                if len(img.shape) == 3 and img.shape[2] == 3:
-                    img = rgb2gray(img)
-                    extension = '.tif'
-                elif len(img.shape) == 3 and img.shape[2] == 1:
-                    img = img[:,:,0]
-                data[k] = img
-                header.append(img_header)
-            header = [header, files, data.dtype]
-            data = np.swapaxes(data, 1, 2)
-            data = np.copy(data, order='C')
         except Exception as e:
             print(e)
             data, header = None, None
+
+        # list of files
+        files = glob.glob(path_to_data[:-4]+'/**/*', recursive=True)
+        if os.path.splitext(files[0])[1] in ['.nc', '.nc.bz2']:
+            try:
+                data, header = nc_to_np(path_to_data[:-4])
+            except Exception as e:
+                print(e)
+                data, header = None, None
+        else:
+            try:
+                # remove unreadable files or directories
+                for name in files:
+                    if os.path.isfile(name):
+                        try:
+                            img, _ = load(name)
+                        except:
+                            files.remove(name)
+                    else:
+                        files.remove(name)
+                files.sort()
+
+                # load data slice by slice
+                img, _ = load(files[0])
+                data = np.zeros((len(files), img.shape[0], img.shape[1]), dtype=img.dtype)
+                header, image_data_shape = [], []
+                for k, file_name in enumerate(files):
+                    img, img_header = load(file_name)
+                    if len(img.shape) == 3 and img.shape[2] == 3:
+                        img = rgb2gray(img)
+                        extension = '.tif'
+                    elif len(img.shape) == 3 and img.shape[2] == 1:
+                        img = img[:,:,0]
+                    data[k] = img
+                    header.append(img_header)
+                header = [header, files, data.dtype]
+                data = np.swapaxes(data, 1, 2)
+                data = np.copy(data, order='C')
+            except Exception as e:
+                print(e)
+                data, header = None, None
 
     elif extension == '.mrc':
         try:
@@ -450,6 +472,8 @@ def save_data(path_to_final, final, header=None, final_image_type=None, compress
                 final.append(arr)
         header = header[0]
         np_to_amira(path_to_final, final, header)
+    elif final_image_type == '.nc':
+        np_to_nc(path_to_final, final, header)
     elif final_image_type in ['.hdr', '.mhd', '.mha', '.nrrd', '.nii', '.nii.gz']:
         final = np.swapaxes(final, 0, 2)
         save(final, path_to_final, header)
@@ -457,19 +481,27 @@ def save_data(path_to_final, final, header=None, final_image_type=None, compress
             simg = sitk.ReadImage(path_to_final)
             sitk.WriteImage(simg, path_to_final, useCompression=True)
     elif final_image_type in ['.zip', 'directory', '']:
-        header, file_names, final_dtype = header[0], header[1], header[2]
-        final = final.astype(final_dtype)
-        final = np.swapaxes(final, 2, 1)
-        filename, _ = os.path.splitext(path_to_final)
-        if not os.path.isdir(filename):
-            os.makedirs(filename)
-            os.chmod(filename, 0o777)
-        for k, file in enumerate(file_names):
-            save(final[k], filename + '/' + os.path.basename(file), header[k])
+        # make results directory
+        results_dir = os.path.splitext(path_to_final)[0]
+        if not os.path.isdir(results_dir):
+            os.makedirs(results_dir)
+            os.chmod(results_dir, 0o777)
+        # save data as NC blocks
+        if os.path.splitext(header[1][0])[1] == '.nc':
+            np_to_nc(results_dir, final, header)
+            file_names = header[1]
+        # save data as PNG, TIF, DICOM slices
+        else:
+            header, file_names, final_dtype = header[0], header[1], header[2]
+            final = final.astype(final_dtype)
+            final = np.swapaxes(final, 2, 1)
+            for k, file in enumerate(file_names):
+                save(final[k], results_dir + '/' + os.path.basename(file), header[k])
+        # zip data
         if final_image_type == '.zip':
             with zipfile.ZipFile(path_to_final, 'w') as zip:
                 for file in file_names:
-                    zip.write(filename + '/' + os.path.basename(file), os.path.basename(file))
+                    zip.write(results_dir + '/' + os.path.basename(file), os.path.basename(file))
     else:
         imageSize = int(final.nbytes * 10e-7)
         bigtiff = True if imageSize > 2000 else False
