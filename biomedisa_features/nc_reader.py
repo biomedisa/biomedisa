@@ -45,36 +45,68 @@ def save_nc_block(path_to_dst, arr, path_to_src, offset):
                     name, (len(dimension) if not dimension.isunlimited() else None))
             # copy all file data
             for name, variable in src.variables.items():
-                if name != 'labels':
-                    x = dst.createVariable(name, variable.datatype, variable.dimensions)
-                    dst[name][:] = src[name][:]
-                else:
+                if name == 'labels':
                     srcarr = src[name][:]
                     zsh, ysh, xsh = srcarr.shape
                     x = dst.createVariable(name, variable.datatype, variable.dimensions, compression='zlib')
                     dst[name][:] = arr[offset:offset+zsh]
+                elif name == 'tomo':
+                    srcarr = src[name][:]
+                    zsh, ysh, xsh = srcarr.shape
+                    x = dst.createVariable(name, variable.datatype, variable.dimensions)
+                    dst[name][:] = arr[offset:offset+zsh]
+                else:
+                    x = dst.createVariable(name, variable.datatype, variable.dimensions)
+                    dst[name][:] = src[name][:]
                 # copy variable attributes all at once via dictionary
                 dst[name].setncatts(src[name].__dict__)
     return offset+zsh
 
-def np_to_nc(results_dir, labeled_array, reference_dir, start=0, stop=None):
+def np_to_nc(results_dir, labeled_array, header=None, reference_dir=None, reference_file=None, start=0, stop=None):
     try:
         import netCDF4
     except:
         raise Exception("netCDF4 not found. please use `pip install netCDF4`")
-    offset = 0
-    if not stop:
-        stop = len(glob.glob(reference_dir+'/*.nc'))-1
-    for i in range(start, stop+1):
-        filepath = reference_dir+f'/block{str(i).zfill(8)}.nc'
-        offset = save_nc_block(results_dir+f'/block{str(i).zfill(8)}.nc', labeled_array, filepath, offset)
 
-def nc_to_np(base_dir, start=0, stop=None, file=False, show_keys=False, compressed=False):
+    # save as file or directory
+    is_file = False
+    if os.path.splitext(results_dir)[1] == '.nc':
+        is_file = True
+
+    # get reference information
+    if reference_dir:
+        ref_files = glob.glob(reference_dir+'/*.nc')
+        ref_files.sort()
+    elif header:
+        ref_files = header[1]
+        reference_dir = os.path.dirname(ref_files[0])
+    elif reference_file:
+        ref_files = [reference_file]
+    else:
+        raise Exception("reference file(s) required")
+
+    if is_file and len(ref_files) > 1:
+        raise Exception("reference needs to be a file")
+
+    if not stop:
+        stop = len(ref_files)-1
+
+    # save volume by volume
+    offset = 0
+    for path_to_src in ref_files[start:stop+1]:
+        if is_file:
+            path_to_dst = results_dir
+        else:
+            path_to_dst = results_dir + '/' + os.path.basename(path_to_src)
+        offset = save_nc_block(path_to_dst, labeled_array, path_to_src, offset)
+
+def nc_to_np(base_dir, start=0, stop=None, show_keys=False):
     try:
         import netCDF4
     except:
         raise Exception("netCDF4 not found. please use `pip install netCDF4`")
-    if file:
+
+    if os.path.isfile(base_dir):
         # read nc object
         f = netCDF4.Dataset(base_dir,'r')
         if show_keys:
@@ -84,16 +116,24 @@ def nc_to_np(base_dir, start=0, stop=None, file=False, show_keys=False, compress
                 name = n
         output = f.variables[name]
         output = np.copy(output)
-    else:
+        header = [name, [base_dir], output.dtype]
+
+    elif os.path.isdir(base_dir):
         # read volume by volume
-        extension='.nc'
-        if compressed:
+        files = glob.glob(base_dir+'/*')
+        files.sort()
+
+        # check for compression
+        extension = os.path.splitext(files[0])[1]
+        if extension=='.bz2':
             import bz2
             extension='.nc.bz2'
+
         if not stop:
-            stop = len(glob.glob(base_dir+'/*'+extension))-1
-        for i in range(start, stop+1):
-            filepath = base_dir+f'/block{str(i).zfill(8)}'+extension
+            stop = len(files)-1
+
+        output = None
+        for filepath in files[start:stop+1]:
 
             # decompress bz2 files
             if '.bz2' in filepath:
@@ -114,14 +154,17 @@ def nc_to_np(base_dir, start=0, stop=None, file=False, show_keys=False, compress
             a = f.variables[name]
             a = np.copy(a)
 
+            # remove tmp file
             if '.bz2' in filepath:
                 os.remove(newfilepath)
 
             # append output array
-            if i==start:
+            if not output:
                 output = a
             else:
                 output = np.append(output, a, axis=0)
 
-    return output, name
+        header = [name, files[start:stop+1], a.dtype]
+
+    return output, header
 
