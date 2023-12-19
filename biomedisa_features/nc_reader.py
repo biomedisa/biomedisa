@@ -45,7 +45,7 @@ def save_nc_block(path_to_dst, arr, path_to_src, offset):
                     name, (len(dimension) if not dimension.isunlimited() else None))
             # copy all file data
             for name, variable in src.variables.items():
-                if name == 'labels':
+                if name in ['labels','segmented']:
                     srcarr = src[name][:]
                     zsh, ysh, xsh = srcarr.shape
                     x = dst.createVariable(name, variable.datatype, variable.dimensions, compression='zlib')
@@ -124,16 +124,13 @@ def nc_to_np(base_dir, start=0, stop=None, show_keys=False):
         files.sort()
 
         # check for compression
-        extension = os.path.splitext(files[0])[1]
-        if extension=='.bz2':
+        if os.path.splitext(files[0])[1]=='.bz2':
             import bz2
-            extension='.nc.bz2'
 
         if not stop:
             stop = len(files)-1
 
-        output = None
-        for filepath in files[start:stop+1]:
+        for i,filepath in enumerate(files[start:stop+1]):
 
             # decompress bz2 files
             if '.bz2' in filepath:
@@ -159,7 +156,7 @@ def nc_to_np(base_dir, start=0, stop=None, show_keys=False):
                 os.remove(newfilepath)
 
             # append output array
-            if not output:
+            if i==0:
                 output = a
             else:
                 output = np.append(output, a, axis=0)
