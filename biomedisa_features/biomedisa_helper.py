@@ -746,7 +746,7 @@ def _get_platform(bm):
         cl = None
 
     # select the first detected device
-    if bm.platform is None and cl:
+    if cl and bm.platform is None:
         for vendor in ['NVIDIA', 'Intel', 'AMD', 'Apple']:
             for dev, device_type in [('CPU',cl.device_type.CPU), ('GPU',cl.device_type.GPU)]:
                 all_platforms = cl.get_platforms()
@@ -767,7 +767,7 @@ def _get_platform(bm):
                         return bm
 
     # explicitly select the OpenCL device
-    elif len(bm.platform.split('_')) == 3 and cl:
+    elif cl and len(bm.platform.split('_')) == 3:
         plat, vendor, dev = bm.platform.split('_')
         device_type=cl.device_type.GPU if dev=='GPU' else cl.device_type.CPU
         all_platforms = cl.get_platforms()
