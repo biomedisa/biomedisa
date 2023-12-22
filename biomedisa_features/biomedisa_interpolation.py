@@ -136,9 +136,12 @@ def smart_interpolation(data, labelData, nbrw=10, sorw=4000, django_env=False,
 
             # get platform
             if bm.success:
-                bm = _get_platform(bm)
-                if bm.success == False:
-                    bm = _error_(bm, f'No {bm.platform} device found.')
+                if bm.platform == 'cuda_force':
+                    bm.platform = 'cuda'
+                else:
+                    bm = _get_platform(bm)
+                    if bm.success == False:
+                        bm = _error_(bm, f'No {bm.platform} device found.')
 
             # smooth, uncertainty and allx are not supported for opencl
             if bm.success and bm.platform.split('_')[0] == 'opencl':
