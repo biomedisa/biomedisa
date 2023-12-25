@@ -156,9 +156,9 @@ def set_labels_to_zero(label, labels_to_compute, labels_to_remove):
 
     return label
 
-def img_to_uint8(img):
+def img_to_uint8(img, dtype=np.float32):
     if img.dtype != 'uint8':
-        img = img.astype(np.float32)
+        img = img.astype(dtype)
         img -= np.amin(img)
         img /= np.amax(img)
         img *= 255.0
@@ -514,7 +514,7 @@ def save_data(path_to_final, final, header=None, final_image_type=None, compress
 
 def color_to_gray(labelData):
     if len(labelData.shape) == 4 and labelData.shape[1] == 3:
-        labelData = labelData.astype(np.float32)
+        labelData = labelData.astype(np.float16)
         labelData -= np.amin(labelData)
         labelData /= np.amax(labelData)
         labelData = 0.299 * labelData[:,0] + 0.587 * labelData[:,1] + 0.114 * labelData[:,2]
@@ -522,7 +522,7 @@ def color_to_gray(labelData):
         labelData = labelData.astype(np.uint8)
         labelData = delbackground(labelData)
     elif len(labelData.shape) == 4 and labelData.shape[3] == 3:
-        labelData = labelData.astype(np.float32)
+        labelData = labelData.astype(np.float16)
         labelData -= np.amin(labelData)
         labelData /= np.amax(labelData)
         labelData = 0.299 * labelData[:,:,:,0] + 0.587 * labelData[:,:,:,1] + 0.114 * labelData[:,:,:,2]
