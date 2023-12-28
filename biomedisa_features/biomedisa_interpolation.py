@@ -45,13 +45,10 @@ class Biomedisa(object):
 class build_label(object):
      pass
 
-class build_image(object):
-    class user(object):
-        pass
-
-def smart_interpolation(data, labelData, nbrw=10, sorw=4000, django_env=False,
+def smart_interpolation(data, labelData, nbrw=10, sorw=4000,
     path_to_data=None, path_to_labels=None, denoise=False, uncertainty=False, platform=None,
-    allaxis=False, ignore='none', only='all', smooth=0, no_compression=False, return_hits=False):
+    allaxis=False, ignore='none', only='all', smooth=0, no_compression=False, return_hits=False,
+    img_id=None, label_id=None):
 
     freeze_support()
 
@@ -64,7 +61,6 @@ def smart_interpolation(data, labelData, nbrw=10, sorw=4000, django_env=False,
 
         # create biomedisa
         bm = Biomedisa()
-        bm.image = build_image()
         bm.label = build_label()
         bm.process = 'smart_interpolation'
         bm.success = True
@@ -76,8 +72,14 @@ def smart_interpolation(data, labelData, nbrw=10, sorw=4000, django_env=False,
         for arg in ['nbrw','sorw','allaxis','uncertainty','ignore','only','smooth']:
             bm.label.__dict__[arg] = locals()[arg]
         for arg in ['data','labelData','path_to_data','path_to_labels','denoise',
-                    'platform','django_env','return_hits']:
+                    'platform','return_hits','img_id','label_id']:
             bm.__dict__[arg] = locals()[arg]
+
+        # django environment
+        if bm.img_id is not None:
+            bm.django_env = True
+        else:
+            bm.django_env = False
 
         # compression
         if no_compression:
@@ -90,46 +92,20 @@ def smart_interpolation(data, labelData, nbrw=10, sorw=4000, django_env=False,
             bm.path_to_data = None
             bm.path_to_labels = None
 
-        # environment
-        if bm.django_env:
-            import django
-            django.setup()
-            from biomedisa_app.models import Upload
-            from biomedisa.settings import WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT
-            try:
-                bm.image = Upload.objects.get(pk=path_to_data)
-                bm.label = Upload.objects.get(pk=path_to_labels)
-            except Upload.DoesNotExist:
-                bm = _error_(bm, 'Files have been removed.')
-        else:
-            bm.image.status = 1
+        if 1:
 
-        # check if aborted
-        if bm.image.status == 0 or bm.success == False:
-
-            # send not executable
-            for dest in range(1, size):
-                comm.send(False, dest=dest, tag=0)
-
-        else:
-
+            # set pid and write in logfile
             if bm.django_env:
-
-                # get pid
-                bm.image.pid = os.getpid()
-                bm.image.save()
-
-                # path to data
-                bm.path_to_data = bm.image.pic.path.replace(WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT)
-                bm.path_to_labels = bm.label.pic.path.replace(WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT)
-
-                # path to logfiles
-                bm.path_to_time = BASE_DIR + '/log/time.txt'
-                bm.path_to_logfile = BASE_DIR + '/log/logfile.txt'
+                from biomedisa_features.django_env import create_pid_object
+                create_pid_object(bm.img_id, os.getpid())
 
                 # write in logfile
+                bm.username = os.path.basename(os.path.dirname(bm.path_to_data))
+                bm.shortfilename = os.path.basename(bm.path_to_data)
+                bm.path_to_logfile = BASE_DIR + '/log/logfile.txt'
+                bm.path_to_time = BASE_DIR + '/log/time.txt'
                 with open(bm.path_to_logfile, 'a') as logfile:
-                    print('%s %s %s %s' %(time.ctime(), bm.image.user.username, bm.image.shortfilename, 'Process was started.'), file=logfile)
+                    print('%s %s %s %s' %(time.ctime(), bm.username, bm.shortfilename, 'Process was started.'), file=logfile)
 
             # pre-processing
             bm = pre_processing(bm)
@@ -160,24 +136,14 @@ def smart_interpolation(data, labelData, nbrw=10, sorw=4000, django_env=False,
             else:
 
                 # create path_to_final
-                if bm.django_env:
-                    filename, extension = os.path.splitext(bm.image.shortfilename)
-                    if extension == '.gz':
-                        filename = filename[:-4]
-                    filename = 'final.' + filename
-                    dir_path = BASE_DIR + '/private_storage/'
-                    pic_path = 'images/%s/%s' %(bm.image.user, filename)
-                    bm.path_to_final = dir_path + pic_path + bm.final_image_type
-
-                elif bm.path_to_data:
+                if bm.path_to_data:
                     filename, extension = os.path.splitext(os.path.basename(bm.path_to_data))
                     if extension == '.gz':
                         filename = filename[:-4]
                     filename = 'final.' + filename
                     bm.path_to_final = bm.path_to_data.replace(os.path.basename(bm.path_to_data), filename + bm.final_image_type)
 
-                # path to optional results
-                if bm.path_to_data:
+                    # path to optional results
                     filename, extension = os.path.splitext(bm.path_to_final)
                     if extension == '.gz':
                         filename = filename[:-4]
@@ -375,10 +341,12 @@ if __name__ == '__main__':
                         help='Number of smoothing iterations for segmentation result')
     parser.add_argument('-p', '--platform', default=None,
                         help='One of "cuda", "opencl_NVIDIA_GPU", "opencl_Intel_CPU"')
-    parser.add_argument('-de', '--django_env', action='store_true', default=False,
-                        help='Activate django environment when starting browser based version')
     parser.add_argument('-rh','--return_hits', action='store_true', default=False,
                         help='Return hits from each label')
+    parser.add_argument('-iid','--img_id', type=str, default=None,
+                        help='Image ID within django environment/browser version')
+    parser.add_argument('-lid','--label_id', type=str, default=None,
+                        help='Label ID within django environment/browser version')
     kwargs = vars(parser.parse_args())
 
     # run interpolation

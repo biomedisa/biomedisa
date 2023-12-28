@@ -28,12 +28,12 @@
 
 from biomedisa_features.biomedisa_helper import (_get_device, save_data, unique_file_path,
     sendToChild, _split_indices, get_labels)
-from multiprocessing import Process
+from biomedisa_app.config import config
 from mpi4py import MPI
-import os, sys
 import numpy as np
 import time
 import socket
+import os
 
 def _diffusion_child(comm, bm=None):
 
@@ -45,19 +45,6 @@ def _diffusion_child(comm, bm=None):
     print(name)
 
     if rank == 0:
-
-        # django environment
-        if bm.django_env:
-            import django
-            django.setup()
-            from biomedisa_app.models import Upload
-            from biomedisa_app.views import send_notification
-            from biomedisa_features.active_contour import active_contour
-            from biomedisa_features.remove_outlier import remove_outlier
-            from biomedisa_features.create_slices import create_slices
-            from biomedisa_app.config import config
-            from redis import Redis
-            from rq import Queue
 
         # initialize results
         results = {}
@@ -124,28 +111,26 @@ def _diffusion_child(comm, bm=None):
                 curvature_gpu = _build_curvature_gpu()
                 a_gpu = gpuarray.empty((zsh_tmp, ysh_tmp, xsh_tmp), dtype=np.float32)
                 b_gpu = gpuarray.zeros((zsh_tmp, ysh_tmp, xsh_tmp), dtype=np.float32)
+                final_smooth = np.copy(final_zero)
+                for k in range(bm.nol):
+                    a_gpu = gpuarray.to_gpu(final_smooth[k])
+                    for l in range(bm.label.smooth):
+                        curvature_gpu(a_gpu, b_gpu, xsh_gpu, ysh_gpu, block=block, grid=grid)
+                        update_gpu(a_gpu, b_gpu, xsh_gpu, ysh_gpu, block=block, grid=grid)
+                    final_smooth[k] = a_gpu.get()
+                final_smooth = np.argmax(final_smooth, axis=0).astype(np.uint8)
+                final_smooth = get_labels(final_smooth, bm.allLabels)
+                smooth_result = np.zeros((bm.zsh, bm.ysh, bm.xsh), dtype=np.uint8)
+                smooth_result[bm.argmin_z:bm.argmax_z, bm.argmin_y:bm.argmax_y, bm.argmin_x:bm.argmax_x] = final_smooth
+                smooth_result = smooth_result[1:-1, 1:-1, 1:-1]
+                results['smooth'] = smooth_result
+                if bm.django_env:
+                    bm.path_to_smooth = unique_file_path(bm.path_to_smooth)
+                if bm.path_to_data:
+                    save_data(bm.path_to_smooth, smooth_result, bm.header, bm.final_image_type, bm.label.compression)
             except Exception as e:
                 print('Warning: GPU out of memory to allocate smooth array. Process starts without smoothing.')
                 bm.label.smooth = 0
-
-        if bm.label.smooth:
-            final_smooth = np.copy(final_zero)
-            for k in range(bm.nol):
-                a_gpu = gpuarray.to_gpu(final_smooth[k])
-                for l in range(bm.label.smooth):
-                    curvature_gpu(a_gpu, b_gpu, xsh_gpu, ysh_gpu, block=block, grid=grid)
-                    update_gpu(a_gpu, b_gpu, xsh_gpu, ysh_gpu, block=block, grid=grid)
-                final_smooth[k] = a_gpu.get()
-            final_smooth = np.argmax(final_smooth, axis=0).astype(np.uint8)
-            final_smooth = get_labels(final_smooth, bm.allLabels)
-            smooth_result = np.zeros((bm.zsh, bm.ysh, bm.xsh), dtype=np.uint8)
-            smooth_result[bm.argmin_z:bm.argmax_z, bm.argmin_y:bm.argmax_y, bm.argmin_x:bm.argmax_x] = final_smooth
-            smooth_result = smooth_result[1:-1, 1:-1, 1:-1]
-            results['smooth'] = smooth_result
-            if bm.django_env:
-                bm.path_to_smooth = unique_file_path(bm.path_to_smooth, bm.image.user.username)
-            if bm.path_to_data:
-                save_data(bm.path_to_smooth, smooth_result, bm.header, bm.final_image_type, bm.label.compression)
 
         # uncertainty
         if bm.label.uncertainty:
@@ -166,7 +151,7 @@ def _diffusion_child(comm, bm=None):
                 uncertainty_result = uncertainty_result[1:-1, 1:-1, 1:-1]
                 results['uncertainty'] = uncertainty_result
                 if bm.django_env:
-                    bm.path_to_uq = unique_file_path(bm.path_to_uq, bm.image.user.username)
+                    bm.path_to_uq = unique_file_path(bm.path_to_uq)
                 if bm.path_to_data:
                     save_data(bm.path_to_uq, uncertainty_result, compress=bm.label.compression)
             except Exception as e:
@@ -195,7 +180,7 @@ def _diffusion_child(comm, bm=None):
         final_result = final_result[1:-1,1:-1,1:-1]
         results['regular'] = final_result
         if bm.django_env:
-            bm.path_to_final = unique_file_path(bm.path_to_final, bm.image.user.username)
+            bm.path_to_final = unique_file_path(bm.path_to_final)
         if bm.path_to_data:
             save_data(bm.path_to_final, final_result, bm.header, bm.final_image_type, bm.label.compression)
 
@@ -209,48 +194,16 @@ def _diffusion_child(comm, bm=None):
             time_str = str(t // 3600) + ' h ' + str((t % 3600) // 60) + ' min ' + str(t % 60) + ' sec'
         print('Computation time:', time_str)
 
+        # post processing
         if bm.django_env:
-
-            # create final objects
-            shortfilename = os.path.basename(bm.path_to_final)
-            filename = 'images/' + bm.image.user.username + '/' + shortfilename
-            tmp = Upload.objects.create(pic=filename, user=bm.image.user, project=bm.image.project, final=1, active=1, imageType=3, shortfilename=shortfilename)
-            tmp.friend = tmp.id
-            tmp.save()
-            if bm.label.uncertainty:
-                shortfilename = os.path.basename(bm.path_to_uq)
-                filename = 'images/' + bm.image.user.username + '/' + shortfilename
-                Upload.objects.create(pic=filename, user=bm.image.user, project=bm.image.project, final=4, imageType=3, shortfilename=shortfilename, friend=tmp.id)
-            if bm.label.smooth:
-                shortfilename = os.path.basename(bm.path_to_smooth)
-                filename = 'images/' + bm.image.user.username + '/' + shortfilename
-                smooth = Upload.objects.create(pic=filename, user=bm.image.user, project=bm.image.project, final=5, imageType=3, shortfilename=shortfilename, friend=tmp.id)
+            from biomedisa_features.django_env import post_processing
+            post_processing(bm.img_id, bm.label_id, os.path.basename(bm.path_to_final), os.path.basename(bm.path_to_uq), os.path.basename(bm.path_to_smooth),
+                bm.label.uncertainty, bm.label.smooth, time_str, config['SERVER_ALIAS'], bm.username)
 
             # write in logfile
+            shortfilename = os.path.basename(bm.path_to_final)
             with open(bm.path_to_time, 'a') as timefile:
-                print('%s %s %s %s MB %s on %s' %(time.ctime(), bm.image.user.username, bm.image.shortfilename, bm.imageSize, time_str, config['SERVER_ALIAS']), file=timefile)
-
-            # send notification
-            send_notification(bm.image.user.username, bm.image.shortfilename, time_str, config['SERVER_ALIAS'])
-
-            # acwe
-            q = Queue('acwe', connection=Redis())
-            job = q.enqueue_call(active_contour, args=(bm.image.id, tmp.id, bm.label.id, True,), timeout=-1)
-            job = q.enqueue_call(active_contour, args=(bm.image.id, tmp.id, bm.label.id,), timeout=-1)
-
-            # cleanup
-            q = Queue('cleanup', connection=Redis())
-            job = q.enqueue_call(remove_outlier, args=(bm.image.id, tmp.id, tmp.id, bm.label.id,), timeout=-1)
-            if bm.label.smooth:
-                job = q.enqueue_call(remove_outlier, args=(bm.image.id, smooth.id, tmp.id, bm.label.id, False,), timeout=-1)
-
-            # create slices
-            q = Queue('slices', connection=Redis())
-            job = q.enqueue_call(create_slices, args=(bm.path_to_data, bm.path_to_final,), timeout=-1)
-            if bm.label.smooth:
-                job = q.enqueue_call(create_slices, args=(bm.path_to_data, bm.path_to_smooth,), timeout=-1)
-            if bm.label.uncertainty:
-                job = q.enqueue_call(create_slices, args=(bm.path_to_uq, None,), timeout=-1)
+                print('%s %s %s %s MB %s on %s' %(time.ctime(), bm.username, shortfilename, bm.imageSize, time_str, config['SERVER_ALIAS']), file=timefile)
 
         # return results
         return results

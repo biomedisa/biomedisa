@@ -189,6 +189,9 @@ def active_contour(image_id, friend_id, label_id, simple=False):
     if bm.success:
         bm.path_to_data = bm.image.pic.path.replace(WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT)
         bm.path_to_labels = friend.pic.path.replace(WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT)
+        bm.img_id = image_id
+        bm.username = bm.image.user.username
+        bm.shortfilename = bm.image.shortfilename
         bm = pre_processing(bm)
 
     if bm.success:
