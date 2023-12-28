@@ -165,9 +165,10 @@ def img_to_uint8(img):
         img = img.astype(np.uint8)
     return img
 
-def unique_file_path(path, username, dir_path=PRIVATE_STORAGE_ROOT+'/'):
+def unique_file_path(path, username=None, dir_path=PRIVATE_STORAGE_ROOT+'/'):
 
     # get extension
+    username = os.path.basename(os.path.dirname(path))
     filename = os.path.basename(path)
     filename, extension = os.path.splitext(filename)
     if extension == '.gz':
@@ -377,14 +378,12 @@ def load_data(path_to_data, process='None', return_extension=False):
         return data, header
 
 def _error_(bm, message):
-    print('Error:', message)
     if bm.django_env:
-        Upload.objects.create(user=bm.image.user, project=bm.image.project, log=1, imageType=None, shortfilename=message)
-        bm.path_to_logfile = BASE_DIR + '/log/logfile.txt'
+        from biomedisa_features.django_env import create_error_object
+        create_error_object(bm.img_id, message)
         with open(bm.path_to_logfile, 'a') as logfile:
-            print('%s %s %s %s' %(time.ctime(), bm.image.user.username, bm.image.shortfilename, message), file=logfile)
-        from biomedisa_app.views import send_error_message
-        send_error_message(bm.image.user.username, bm.image.shortfilename, message)
+            print('%s %s %s %s' %(time.ctime(), bm.username, bm.shortfilename, message), file=logfile)
+    print('Error:', message)
     bm.success = False
     return bm
 

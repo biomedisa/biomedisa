@@ -2011,28 +2011,53 @@ def init_random_walk(image, label):
                 else:
                     ngpus = str(bm.available_devices)
 
-        # command
-        cmd = ['mpiexec', '-np', ngpus, 'python3', 'biomedisa_interpolation.py', str(image.id), str(label.id), '-de']
-
-        # specifiy platform
-        if bm.platform:
-            cmd.append('-p')
-            cmd.append(bm.platform)
-            if bm.platform.split('_')[-1] == 'CPU':
-                cmd = cmd[3:]
-
         # change working directory
         cwd = BASE_DIR + '/biomedisa_features/'
         workers_host = BASE_DIR + '/log/workers_host'
+
+        # sync user data
+        host_base = BASE_DIR
+        if host:
+            if f'{QUEUE}_QUEUE_BASE_DIR' in config:
+                host_base = config[f'{QUEUE}_QUEUE_BASE_DIR']
+            p = subprocess.Popen(['rsync', '-avP', image.pic.path, image.pic.path.replace(BASE_DIR,host_base)])
+            p.wait()
+            p = subprocess.Popen(['rsync', '-avP', label.pic.path, label.pic.path.replace(BASE_DIR,host_base)])
+            p.wait()
+
+        # command
+        cmd = ['mpiexec', '-np', ngpus, 'python3', 'biomedisa_interpolation.py']
+        cmd += [image.pic.path.replace(BASE_DIR,host_base), label.pic.path.replace(BASE_DIR,host_base), f'-iid={image.id}', f'-lid={label.id}']
+
+        # command (append only on demand)
+        if not label.compression:
+            cmd += ['-nc']
+        if label.ignore != 'none':
+            cmd += [f'-i={label.ignore}']
+        if label.only != 'all':
+            cmd += [f'-o={label.only}']
+        if label.allaxis:
+            cmd += ['-allx']
+        if label.uncertainty:
+            cmd += ['-u']
+        if label.smooth:
+            cmd += [f'-s={label.smooth}']
+        if bm.platform:
+            cmd += [f'-p={bm.platform}']
+            if bm.platform.split('_')[-1] == 'CPU':
+                cmd = cmd[3:]
 
         # run
         if cluster and 'mpiexec' in cmd:
             cmd.insert(3, '--hostfile')
             cmd.insert(4, workers_host)
         if host:
-            cmd.insert(0, 'ssh')
-            cmd.insert(1, host)
-            cmd[cmd.index('biomedisa_interpolation.py')] = cwd+'biomedisa_interpolation.py'
+            if f'{QUEUE}_QUEUE_HOST2' in config:
+                cmd = ['ssh', '-t', host, 'ssh', config[f'{QUEUE}_QUEUE_HOST2']] + cmd
+            else:
+                cmd = ['ssh', host] + cmd
+            cmd[cmd.index('biomedisa_interpolation.py')] = host_base + '/biomedisa_features/biomedisa_interpolation.py'
+            print(cmd)
             p = subprocess.Popen(cmd)
         else:
             p = subprocess.Popen(cmd, cwd=cwd, env=my_env)

@@ -468,6 +468,10 @@ if __name__ == '__main__':
         try:
             bm.image = Upload.objects.get(pk=bm.path_to_images)
             bm.label = Upload.objects.get(pk=bm.path)
+            bm.path_to_logfile = BASE_DIR + '/log/logfile.txt'
+            bm.img_id = bm.path_to_images
+            bm.username = bm.image.user.username
+            bm.shortfilename = bm.image.shortfilename
             if bm.image.status == 0:
                 bm.success = False
         except Upload.DoesNotExist:
