@@ -124,7 +124,7 @@ def _diffusion_child(comm, bm=None):
                 smooth_result[bm.argmin_z:bm.argmax_z, bm.argmin_y:bm.argmax_y, bm.argmin_x:bm.argmax_x] = final_smooth
                 smooth_result = smooth_result[1:-1, 1:-1, 1:-1]
                 results['smooth'] = smooth_result
-                if bm.django_env:
+                if bm.django_env and not bm.remote:
                     bm.path_to_smooth = unique_file_path(bm.path_to_smooth)
                 if bm.path_to_data:
                     save_data(bm.path_to_smooth, smooth_result, bm.header, bm.final_image_type, bm.label.compression)
@@ -150,7 +150,7 @@ def _diffusion_child(comm, bm=None):
                 uncertainty_result[bm.argmin_z:bm.argmax_z, bm.argmin_y:bm.argmax_y, bm.argmin_x:bm.argmax_x] = uq
                 uncertainty_result = uncertainty_result[1:-1, 1:-1, 1:-1]
                 results['uncertainty'] = uncertainty_result
-                if bm.django_env:
+                if bm.django_env and not bm.remote:
                     bm.path_to_uq = unique_file_path(bm.path_to_uq)
                 if bm.path_to_data:
                     save_data(bm.path_to_uq, uncertainty_result, compress=bm.label.compression)
@@ -179,7 +179,7 @@ def _diffusion_child(comm, bm=None):
         final_result[bm.argmin_z:bm.argmax_z, bm.argmin_y:bm.argmax_y, bm.argmin_x:bm.argmax_x] = final_zero
         final_result = final_result[1:-1,1:-1,1:-1]
         results['regular'] = final_result
-        if bm.django_env:
+        if bm.django_env and not bm.remote:
             bm.path_to_final = unique_file_path(bm.path_to_final)
         if bm.path_to_data:
             save_data(bm.path_to_final, final_result, bm.header, bm.final_image_type, bm.label.compression)
