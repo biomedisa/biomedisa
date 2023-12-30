@@ -2051,8 +2051,8 @@ def init_random_walk(image, label):
         if host:
 
             # send data to host
-            subprocess.Popen(['rsync', '-avP', image.pic.path, image.pic.path.replace(BASE_DIR,host_base)]).wait()
-            subprocess.Popen(['rsync', '-avP', label.pic.path, label.pic.path.replace(BASE_DIR,host_base)]).wait()
+            subprocess.Popen(['rsync', '-avP', image.pic.path, host+':'+image.pic.path.replace(BASE_DIR,host_base)]).wait()
+            subprocess.Popen(['rsync', '-avP', label.pic.path, host+':'+label.pic.path.replace(BASE_DIR,host_base)]).wait()
 
             # run interpolation
             if f'{QUEUE}_QUEUE_SUBHOST' in config:
@@ -2084,6 +2084,7 @@ def init_random_walk(image, label):
             elif not stopped:
 
                 # config
+                subprocess.Popen(['scp', host + ':' + host_base + f'/log/config_{queue_id}', BASE_DIR + f'/log/config_{queue_id}']).wait()
                 with open(BASE_DIR + f'/log/config_{queue_id}', 'r') as configfile:
                     final_on_host, uncertainty_on_host, smooth_on_host, uncertainty, smooth, time_str, server_name = configfile.read().split()
                 uncertainty=True if uncertainty=='True' else False
@@ -2096,11 +2097,11 @@ def init_random_walk(image, label):
                 path_to_uq = unique_file_path(uncertainty_on_host.replace(host_base,BASE_DIR))
 
                 # get results
-                subprocess.Popen(['scp', host + ':' + final_on_host, path_to_final]).wait()
+                subprocess.Popen(['scp', host+':'+final_on_host, path_to_final]).wait()
                 if smooth:
-                    subprocess.Popen(['scp', host + ':' + smooth_on_host, path_to_smooth]).wait()
+                    subprocess.Popen(['scp', host+':'+smooth_on_host, path_to_smooth]).wait()
                 if uncertainty:
-                    subprocess.Popen(['scp', host + ':' + uncertainty_on_host, path_to_uq]).wait()
+                    subprocess.Popen(['scp', host+':'+uncertainty_on_host, path_to_uq]).wait()
 
                 # post processing
                 post_processing(path_to_final, path_to_uq, path_to_smooth, uncertainty, smooth, time_str, server_name, img_id=image.id, label_id=label.id)
