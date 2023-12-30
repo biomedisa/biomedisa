@@ -380,7 +380,7 @@ def load_data(path_to_data, process='None', return_extension=False):
 def _error_(bm, message):
     if bm.django_env:
         from biomedisa_features.django_env import create_error_object
-        create_error_object(bm.img_id, message)
+        create_error_object(message, bm.remote, bm.queue, bm.img_id)
         with open(bm.path_to_logfile, 'a') as logfile:
             print('%s %s %s %s' %(time.ctime(), bm.username, bm.shortfilename, message), file=logfile)
     print('Error:', message)

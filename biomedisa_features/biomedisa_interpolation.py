@@ -48,7 +48,7 @@ class build_label(object):
 def smart_interpolation(data, labelData, nbrw=10, sorw=4000,
     path_to_data=None, path_to_labels=None, denoise=False, uncertainty=False, platform=None,
     allaxis=False, ignore='none', only='all', smooth=0, no_compression=False, return_hits=False,
-    img_id=None, label_id=None):
+    img_id=None, label_id=None, remote=False, queue=0):
 
     freeze_support()
 
@@ -72,7 +72,7 @@ def smart_interpolation(data, labelData, nbrw=10, sorw=4000,
         for arg in ['nbrw','sorw','allaxis','uncertainty','ignore','only','smooth']:
             bm.label.__dict__[arg] = locals()[arg]
         for arg in ['data','labelData','path_to_data','path_to_labels','denoise',
-                    'platform','return_hits','img_id','label_id']:
+                    'platform','return_hits','img_id','label_id','remote','queue']:
             bm.__dict__[arg] = locals()[arg]
 
         # django environment
@@ -97,7 +97,7 @@ def smart_interpolation(data, labelData, nbrw=10, sorw=4000,
             # set pid and write in logfile
             if bm.django_env:
                 from biomedisa_features.django_env import create_pid_object
-                create_pid_object(bm.img_id, os.getpid())
+                create_pid_object(os.getpid(), bm.remote, bm.queue, bm.img_id)
 
                 # write in logfile
                 bm.username = os.path.basename(os.path.dirname(bm.path_to_data))
@@ -347,6 +347,10 @@ if __name__ == '__main__':
                         help='Image ID within django environment/browser version')
     parser.add_argument('-lid','--label_id', type=str, default=None,
                         help='Label ID within django environment/browser version')
+    parser.add_argument('-r','--remote', action='store_true', default=False,
+                        help='The interpolation is carried out on a remote server. Must be set up in config.py')
+    parser.add_argument('-q','--queue', type=int, default=0,
+                        help='Processing queue when using a remote server')
     kwargs = vars(parser.parse_args())
 
     # run interpolation
