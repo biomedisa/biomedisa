@@ -26,19 +26,15 @@
 ##                                                                      ##
 ##########################################################################
 
-import os
-from biomedisa.settings import BASE_DIR
+import sys, os
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 from biomedisa_app.config import config
+import subprocess
 
-def create_error_object(img_id, message, host=False):
-    if host:
-        host = config['FIRST_QUEUE_HOST']
-        host_base = BASE_DIR
-        if 'FIRST_QUEUE_BASE_DIR' in config:
-            host_base = config['FIRST_QUEUE_BASE_DIR']
-        cmd = ['ssh', f'{host}:{host_base}/biomedisa_features/django_env.py', '-ceo', img_id, message]
-        p = subprocess.Popen(cmd)
-        p.wait()
+def create_error_object(message, remote=False, queue=None, img_id=None):
+    if remote:
+        with open(BASE_DIR + f'/log/error_{queue}', 'w') as errorfile:
+            print(message, file=errorfile)
     else:
         import django
         django.setup()
@@ -48,15 +44,10 @@ def create_error_object(img_id, message, host=False):
         Upload.objects.create(user=image.user, project=image.project, log=1, imageType=None, shortfilename=message)
         send_error_message(image.user.username, image.shortfilename, message)
 
-def create_pid_object(img_id, pid, host=False):
-    if host:
-        host = config['FIRST_QUEUE_HOST']
-        host_base = BASE_DIR
-        if 'FIRST_QUEUE_BASE_DIR' in config:
-            host_base = config['FIRST_QUEUE_BASE_DIR']
-        cmd = ['ssh', f'{host}:{host_base}/biomedisa_features/django_env.py', '-cpo', img_id, pid]
-        p = subprocess.Popen(cmd)
-        p.wait()
+def create_pid_object(pid, remote=False, queue=None, img_id=None):
+    if remote:
+        with open(BASE_DIR + f'/log/pid_{queue}', 'w') as pidfile:
+            print(pid, file=pidfile)
     else:
         import django
         django.setup()
@@ -65,39 +56,11 @@ def create_pid_object(img_id, pid, host=False):
         image.pid = pid
         image.save()
 
-def post_processing(img_id, label_id, path_to_final, path_to_uq, path_to_smooth, uncertainty, smooth, time_str, server_name, username, host=False):
-
-    if host:
-
-        # get host info
-        host = config['FIRST_QUEUE_HOST']
-        host_base = BASE_DIR
-        if 'FIRST_QUEUE_BASE_DIR' in config:
-            host_base = config['FIRST_QUEUE_BASE_DIR']
-        src_dir = BASE_DIR + f'/private_storage/images/{username}/'
-        dst_dir = f'{host}:{host_base}/private_storage/images/{username}/'
-
-        # sync results
-        sync_cmd = ['rsync', '-avP', src_dir+path_to_final, dst_dir]
-        p = subprocess.Popen(sync_cmd)
-        p.wait()
-        if uncertainty:
-            sync_cmd = ['rsync', '-avP', src_dir+path_to_uq, dst_dir]
-            p = subprocess.Popen(sync_cmd)
-            p.wait()
-        if smooth:
-            sync_cmd = ['rsync', '-avP', src_dir+path_to_smooth, dst_dir]
-            p = subprocess.Popen(sync_cmd)
-            p.wait()
-
-        # post processing
-        cmd = ['ssh', f'{host}:{host_base}/biomedisa_features/django_env.py', '-pp']
-        cmd += [img_id, label_id, path_to_final, path_to_uq, path_to_smooth, uncertainty, smooth, time_str, server_name, username]
-        p = subprocess.Popen(cmd)
-        p.wait()
-
+def post_processing(path_to_final, path_to_uq, path_to_smooth, uncertainty, smooth, time_str, server_name, remote=False, queue=None, img_id=None, label_id=None):
+    if remote:
+        with open(BASE_DIR + f'/log/config_{queue}', 'w') as configfile:
+            print(path_to_final, path_to_uq, path_to_smooth, uncertainty, smooth, str(time_str).replace(' ','-'), server_name, file=configfile)
     else:
-
         import django
         django.setup()
         from biomedisa_app.models import Upload
@@ -112,19 +75,22 @@ def post_processing(img_id, label_id, path_to_final, path_to_uq, path_to_smooth,
         image = Upload.objects.get(pk=img_id)
 
         # create final objects
-        filename = 'images/' + username + '/' + path_to_final
-        final = Upload.objects.create(pic=filename, user=image.user, project=image.project, final=1, active=1, imageType=3, shortfilename=path_to_final)
+        shortfilename = os.path.basename(path_to_final)
+        filename = 'images/' + image.user.username + '/' + shortfilename
+        final = Upload.objects.create(pic=filename, user=image.user, project=image.project, final=1, active=1, imageType=3, shortfilename=shortfilename)
         final.friend = final.id
         final.save()
         if uncertainty:
-            filename = 'images/' + username + '/' + path_to_uq
-            uncertainty_obj = Upload.objects.create(pic=filename, user=image.user, project=image.project, final=4, imageType=3, shortfilename=path_to_uq, friend=final.id)
+            shortfilename = os.path.basename(path_to_uq)
+            filename = 'images/' + image.user.username + '/' + shortfilename
+            uncertainty_obj = Upload.objects.create(pic=filename, user=image.user, project=image.project, final=4, imageType=3, shortfilename=shortfilename, friend=final.id)
         if smooth:
-            filename = 'images/' + username + '/' + path_to_smooth
-            smooth_obj = Upload.objects.create(pic=filename, user=image.user, project=image.project, final=5, imageType=3, shortfilename=path_to_smooth, friend=final.id)
+            shortfilename = os.path.basename(path_to_smooth)
+            filename = 'images/' + image.user.username + '/' + shortfilename
+            smooth_obj = Upload.objects.create(pic=filename, user=image.user, project=image.project, final=5, imageType=3, shortfilename=shortfilename, friend=final.id)
 
         # send notification
-        send_notification(username, image.shortfilename, time_str, server_name)
+        send_notification(image.user.username, image.shortfilename, time_str, server_name)
 
         # acwe
         q = Queue('acwe', connection=Redis())
@@ -144,16 +110,4 @@ def post_processing(img_id, label_id, path_to_final, path_to_uq, path_to_smooth,
             job = q.enqueue_call(create_slices, args=(image.pic.path, smooth_obj.pic.path,), timeout=-1)
         if uncertainty:
             job = q.enqueue_call(create_slices, args=(uncertainty_obj.pic.path, None,), timeout=-1)
-
-if __name__ == '__main__':
-
-    if sys.argv[1] == '-pp':
-        img_id, label_id, path_to_final, path_to_uq, path_to_smooth, uncertainty, smooth, time_str, server_name = sys.argv[2:]
-        post_processing(img_id, label_id, path_to_final, path_to_uq, path_to_smooth, uncertainty, smooth, time_str, server_name, username, True)
-    elif sys.argv[1] == '-cpo':
-        img_id, pid = sys.argv[2:]
-        create_pid_object(img_id, pid, True)
-    elif sys.argv[1] == '-ceo':
-        img_id, message = sys.argv[2:]
-        create_error_object(img_id, message, True)
 

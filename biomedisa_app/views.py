@@ -51,6 +51,7 @@ from biomedisa_app.models import (UploadForm, Upload, StorageForm, Profile,
 from biomedisa_features.create_slices import create_slices
 from biomedisa_features.biomedisa_helper import (load_data, save_data, img_to_uint8, id_generator,
     convert_image, smooth_image, convert_to_stl, unique_file_path, _get_platform)
+from biomedisa_features.django_env import post_processing, create_error_object
 from django.utils.crypto import get_random_string
 from biomedisa_app.config import config
 from biomedisa.settings import BASE_DIR, WWW_DATA_ROOT
@@ -1986,8 +1987,6 @@ def init_random_walk(image, label):
         # check if platform is available
         if not host:
             bm = _get_platform(bm)
-
-            # stop process
             if bm.success == False:
                 return_error(image, f'No {bm.platform} device found.')
                 raise Exception(f'No {bm.platform} device found.')
@@ -2015,19 +2014,15 @@ def init_random_walk(image, label):
         cwd = BASE_DIR + '/biomedisa_features/'
         workers_host = BASE_DIR + '/log/workers_host'
 
-        # sync user data
+        # host base directory
         host_base = BASE_DIR
-        if host:
-            if f'{QUEUE}_QUEUE_BASE_DIR' in config:
-                host_base = config[f'{QUEUE}_QUEUE_BASE_DIR']
-            p = subprocess.Popen(['rsync', '-avP', image.pic.path, image.pic.path.replace(BASE_DIR,host_base)])
-            p.wait()
-            p = subprocess.Popen(['rsync', '-avP', label.pic.path, label.pic.path.replace(BASE_DIR,host_base)])
-            p.wait()
+        if host and f'{QUEUE}_QUEUE_BASE_DIR' in config:
+            host_base = config[f'{QUEUE}_QUEUE_BASE_DIR']
 
         # command
         cmd = ['mpiexec', '-np', ngpus, 'python3', 'biomedisa_interpolation.py']
-        cmd += [image.pic.path.replace(BASE_DIR,host_base), label.pic.path.replace(BASE_DIR,host_base), f'-iid={image.id}', f'-lid={label.id}']
+        cmd += [image.pic.path.replace(BASE_DIR,host_base), label.pic.path.replace(BASE_DIR,host_base)]
+        cmd += [f'-iid={image.id}', f'-lid={label.id}']
 
         # command (append only on demand)
         if not label.compression:
@@ -2047,23 +2042,75 @@ def init_random_walk(image, label):
             if bm.platform.split('_')[-1] == 'CPU':
                 cmd = cmd[3:]
 
-        # run
+        # cluster
         if cluster and 'mpiexec' in cmd:
             cmd.insert(3, '--hostfile')
             cmd.insert(4, workers_host)
+
+        # remote server
         if host:
-            if f'{QUEUE}_QUEUE_HOST2' in config:
-                cmd = ['ssh', '-t', host, 'ssh', config[f'{QUEUE}_QUEUE_HOST2']] + cmd
+
+            # send data to host
+            subprocess.Popen(['rsync', '-avP', image.pic.path, image.pic.path.replace(BASE_DIR,host_base)]).wait()
+            subprocess.Popen(['rsync', '-avP', label.pic.path, label.pic.path.replace(BASE_DIR,host_base)]).wait()
+
+            # run interpolation
+            if f'{QUEUE}_QUEUE_SUBHOST' in config:
+                cmd = ['ssh', '-t', host, 'ssh', config[f'{QUEUE}_QUEUE_SUBHOST']] + cmd
             else:
                 cmd = ['ssh', host] + cmd
+            cmd += ['-r', f'-q={queue_id}']
             cmd[cmd.index('biomedisa_interpolation.py')] = host_base + '/biomedisa_features/biomedisa_interpolation.py'
-            print(cmd)
-            p = subprocess.Popen(cmd)
-        else:
-            p = subprocess.Popen(cmd, cwd=cwd, env=my_env)
+            subprocess.Popen(cmd).wait()
 
-        # wait for process to finish
-        p.wait()
+            # get error or stopped
+            path_to_error = BASE_DIR + f'/log/error_{queue_id}'
+            error = subprocess.Popen(['scp', host + ':' + host_base + f'/log/error_{queue_id}', path_to_error]).wait()
+            stopped = subprocess.Popen(['scp', host + ':' + host_base + f'/log/pid_{queue_id}', BASE_DIR + f'/log/pid_{queue_id}']).wait()
+            error = True if error == 0 else False
+            stopped = False if stopped == 0 else True
+
+            if error:
+
+                # create error object
+                with open(path_to_error, 'r') as errorfile:
+                    message = errorfile.read()
+                create_error_object(message, img_id=image.id)
+
+                # remove error file
+                subprocess.Popen(['ssh', host, 'rm', host_base + f'/log/error_{queue_id}']).wait()
+                subprocess.Popen(['ssh', host, 'rm', host_base + f'/log/pid_{queue_id}']).wait()
+
+            elif not stopped:
+
+                # config
+                with open(BASE_DIR + f'/log/config_{queue_id}', 'r') as configfile:
+                    final_on_host, uncertainty_on_host, smooth_on_host, uncertainty, smooth, time_str, server_name = configfile.read().split()
+                uncertainty=True if uncertainty=='True' else False
+                smooth=False if smooth=='0' else True
+                time_str = time_str.replace('-',' ')
+
+                # local file names
+                path_to_final = unique_file_path(final_on_host.replace(host_base,BASE_DIR))
+                path_to_smooth = unique_file_path(smooth_on_host.replace(host_base,BASE_DIR))
+                path_to_uq = unique_file_path(uncertainty_on_host.replace(host_base,BASE_DIR))
+
+                # get results
+                subprocess.Popen(['scp', host + ':' + final_on_host, path_to_final]).wait()
+                if smooth:
+                    subprocess.Popen(['scp', host + ':' + smooth_on_host, path_to_smooth]).wait()
+                if uncertainty:
+                    subprocess.Popen(['scp', host + ':' + uncertainty_on_host, path_to_uq]).wait()
+
+                # post processing
+                post_processing(path_to_final, path_to_uq, path_to_smooth, uncertainty, smooth, time_str, server_name, img_id=image.id, label_id=label.id)
+
+                # remove pid file
+                subprocess.Popen(['ssh', host, 'rm', host_base + f'/log/pid_{queue_id}']).wait()
+
+        # standard
+        else:
+            subprocess.Popen(cmd, cwd=cwd, env=my_env).wait()
 
         # stop processing
         image.status = 0
@@ -2132,18 +2179,25 @@ def stop_running_job(id, queue):
 
     # get configuration
     if queue == 1:
-        host = config['FIRST_QUEUE_HOST']
+        QUEUE, host = 'FIRST', config['FIRST_QUEUE_HOST']
     elif queue == 2:
-        host = config['SECOND_QUEUE_HOST']
+        QUEUE, host = 'SECOND', config['SECOND_QUEUE_HOST']
     elif queue == 3:
-        host = config['THIRD_QUEUE_HOST']
+        QUEUE, host = 'THIRD', config['THIRD_QUEUE_HOST']
     elif queue in [4,5]:
         host = ''
 
     # kill process
     try:
         if host:
-            subprocess.Popen(['ssh', host, 'kill', str(id)])
+            host_base = BASE_DIR
+            if host and f'{QUEUE}_QUEUE_BASE_DIR' in config:
+                host_base = config[f'{QUEUE}_QUEUE_BASE_DIR']
+            if f'{QUEUE}_QUEUE_SUBHOST' in config:
+                cmd = ['ssh', '-t', host, 'ssh', config[f'{QUEUE}_QUEUE_SUBHOST'], 'python3', host_base+f'/biomedisa_features/pid.py', str(queue)]
+            else:
+                cmd = ['ssh', host, 'python3', host_base+f'/biomedisa_features/pid.py', str(queue)]
+            subprocess.Popen(cmd)
         else:
             subprocess.Popen(['kill', str(id)])
     except:
@@ -2173,15 +2227,15 @@ def remove_from_queue(request):
 
                 # remove from queue
                 if image_to_stop.queue == 1:
-                    queue_name = 'first_queue'
+                    queue_name, host = 'first_queue', config['FIRST_QUEUE_HOST']
                 elif image_to_stop.queue == 2:
-                    queue_name = 'second_queue'
+                    queue_name, host = 'second_queue', config['SECOND_QUEUE_HOST']
                 elif image_to_stop.queue == 3:
-                    queue_name = 'third_queue'
+                    queue_name, host = 'third_queue', config['THIRD_QUEUE_HOST']
                 elif image_to_stop.queue == 4:
-                    queue_name = 'acwe'
+                    queue_name, host = 'acwe', ''
                 elif image_to_stop.queue == 5:
-                    queue_name = 'process_image'
+                    queue_name, host = 'process_image', ''
                 q = Queue(queue_name, connection=Redis())
                 id_to_check = image_to_stop.job_id
                 if id_to_check in q.job_ids:
@@ -2189,7 +2243,7 @@ def remove_from_queue(request):
                     job.delete()
 
                 # kill running process
-                if image_to_stop.status in [2,3] and image_to_stop.pid > 0:
+                if image_to_stop.status in [2,3] and (image_to_stop.pid>0 or host):
                     q = Queue('stop_job', connection=Redis())
                     job = q.enqueue_call(stop_running_job, args=(image_to_stop.pid, image_to_stop.queue), timeout=-1)
                     image_to_stop.pid = 0

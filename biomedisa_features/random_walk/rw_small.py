@@ -197,8 +197,9 @@ def _diffusion_child(comm, bm=None):
         # post processing
         if bm.django_env:
             from biomedisa_features.django_env import post_processing
-            post_processing(bm.img_id, bm.label_id, os.path.basename(bm.path_to_final), os.path.basename(bm.path_to_uq), os.path.basename(bm.path_to_smooth),
-                bm.label.uncertainty, bm.label.smooth, time_str, config['SERVER_ALIAS'], bm.username)
+            post_processing(bm.path_to_final, bm.path_to_uq, bm.path_to_smooth,
+                bm.label.uncertainty, bm.label.smooth, t, config['SERVER_ALIAS'],
+                bm.remote, bm.queue, bm.img_id, bm.label_id)
 
             # write in logfile
             shortfilename = os.path.basename(bm.path_to_final)
