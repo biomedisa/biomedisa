@@ -573,12 +573,14 @@ def sliceviewer(request, id):
             q = Queue('slices', connection=Redis())
             if stock_to_show.imageType == 1:
                 job = q.enqueue_call(create_slices, args=(stock_to_show.pic.path, None,), timeout=-1)
-            elif stock_to_show.imageType in [2,3]:
+                request.session['state'] = 'The slice preview is calculated. Please wait.'
+            elif stock_to_show.imageType in [2,3] and stock_to_show.project > 0:
                 images = Upload.objects.filter(user=request.user, project=stock_to_show.project, imageType=1)
                 if len(images)>0:
                     job = q.enqueue_call(create_slices, args=(images[0].pic.path, stock_to_show.pic.path,), timeout=-1)
-
-            request.session['state'] = 'The slice preview is calculated. Please wait.'
+                    request.session['state'] = 'The slice preview is calculated. Please wait.'
+                else:
+                    request.session['state'] = 'Unable to create slice preview. No matching image data.'
             next = request.GET.get('next', '')
             next = str(next)
             if next == 'storage':
