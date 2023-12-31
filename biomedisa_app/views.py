@@ -2051,6 +2051,7 @@ def init_random_walk(image, label):
         if host:
 
             # send data to host
+            subprocess.Popen(['ssh', host, 'mkdir', '-p', host_base+'/private_storage/images/'+image.user.username]).wait()
             subprocess.Popen(['rsync', '-avP', image.pic.path, host+':'+image.pic.path.replace(BASE_DIR,host_base)]).wait()
             subprocess.Popen(['rsync', '-avP', label.pic.path, host+':'+label.pic.path.replace(BASE_DIR,host_base)]).wait()
 
