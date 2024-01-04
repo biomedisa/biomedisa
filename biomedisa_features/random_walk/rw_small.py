@@ -1,6 +1,6 @@
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2023 Philipp Lösel. All rights reserved.              ##
+##  Copyright (c) 2024 Philipp Lösel. All rights reserved.              ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -28,7 +28,6 @@
 
 from biomedisa_features.biomedisa_helper import (_get_device, save_data, unique_file_path,
     sendToChild, _split_indices, get_labels)
-from biomedisa_app.config import config
 from mpi4py import MPI
 import numpy as np
 import time
@@ -196,10 +195,12 @@ def _diffusion_child(comm, bm=None):
 
         # post processing
         if bm.django_env:
+            from biomedisa_app.config import config
             from biomedisa_features.django_env import post_processing
-            post_processing(bm.path_to_final, bm.path_to_uq, bm.path_to_smooth,
-                bm.label.uncertainty, bm.label.smooth, t, config['SERVER_ALIAS'],
-                bm.remote, bm.queue, bm.img_id, bm.label_id)
+            post_processing(bm.path_to_final, time_str, config['SERVER_ALIAS'], bm.remote, bm.queue,
+                uncertainty=bm.label.uncertainty, smooth=bm.label.smooth,
+                path_to_uq=bm.path_to_uq, path_to_smooth=bm.path_to_smooth,
+                img_id=bm.img_id, label_id=bm.label_id)
 
             # write in logfile
             shortfilename = os.path.basename(bm.path_to_final)

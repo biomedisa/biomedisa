@@ -26,13 +26,6 @@
 ##                                                                      ##
 ##########################################################################
 
-try:
-    import django
-    django.setup()
-    from biomedisa_app.models import Upload
-except:
-    pass
-
 from biomedisa_features.biomedisa_helper import img_resize, load_data, save_data, set_labels_to_zero
 try:
     from tensorflow.keras.optimizers.legacy import SGD
@@ -518,6 +511,9 @@ class CustomCallback(Callback):
         self.epoch_time_start = time.time()
 
     def on_epoch_end(self, epoch, logs=None):
+        import django
+        django.setup()
+        from biomedisa_app.models import Upload
         image = Upload.objects.get(pk=self.id)
         if image.status == 3:
             self.model.stop_training = True
@@ -843,8 +839,8 @@ def train_semantic_segmentation(bm,
         callbacks = [train_metrics] + callbacks
 
     # custom callback
-    if bm.django_env:
-        callbacks.insert(-1, CustomCallback(bm.image.id, bm.epochs))
+    if bm.django_env and not bm.remote:
+        callbacks.insert(-1, CustomCallback(bm.img_id, bm.epochs))
 
     # train model
     history = model.fit(training_generator,

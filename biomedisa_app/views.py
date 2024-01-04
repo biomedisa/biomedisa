@@ -1,6 +1,6 @@
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2023 Philipp Lösel. All rights reserved.              ##
+##  Copyright (c) 2024 Philipp Lösel. All rights reserved.              ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -49,7 +49,7 @@ from biomedisa_app.models import (UploadForm, Upload, StorageForm, Profile,
     Repository, Specimen, SpecimenForm, TomographicData, TomographicDataForm,
     ProcessedData)
 from biomedisa_features.create_slices import create_slices
-from biomedisa_features.biomedisa_helper import (load_data, save_data, img_to_uint8, id_generator,
+from biomedisa_features.biomedisa_helper import (load_data, save_data, id_generator,
     convert_image, smooth_image, convert_to_stl, unique_file_path, _get_platform)
 from biomedisa_features.django_env import post_processing, create_error_object
 from django.utils.crypto import get_random_string
@@ -1038,7 +1038,11 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
             image.message = 'Train automatic cropping'
         else:
             image.message = 'Progress 0%'
+        image.path_to_model = ''
         image.save()
+
+        # send start notification
+        send_start_notification(image)
 
         # number of gpus or list of gpu ids
         if type(config[f'{QUEUE}_QUEUE_NGPUS'])==list:
@@ -1058,22 +1062,59 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
             my_env = os.environ.copy()
             my_env['CUDA_VISIBLE_DEVICES'] = gpu_ids
 
-        # change working directory
-        cwd = BASE_DIR + '/biomedisa_features/'
+        # host base directory
+        host_base = BASE_DIR
+        if host and f'{QUEUE}_QUEUE_BASE_DIR' in config:
+            host_base = config[f'{QUEUE}_QUEUE_BASE_DIR']
 
         # command
         if predict:
-            cmd = ['python3','biomedisa_deeplearning.py',str(image.id),str(label.id),'-p','-de','-sc']
+            cmd = ['python3','biomedisa_deeplearning.py',
+                   image.pic.path.replace(BASE_DIR,host_base), label.pic.path.replace(BASE_DIR,host_base),'-p']
         else:
-            cmd = ['python3','biomedisa_deeplearning.py',str(image.id),str(label.id),'-t','-de',
-                   '-il',str(img_list),'-ll',str(label_list),'-sc','-tt']
+            cmd = ['python3','biomedisa_deeplearning.py',str(img_list),str(label_list),'-t','-tt']
             if val_img_list and val_label_list:
-                cmd = cmd + ['-vi',val_img_list,'-vl',val_label_list]
+                cmd += ['-vi',val_img_list,'-vl',val_label_list]
 
+        cmd += ['-sc',f'-iid={image.id}', f'-lid={label.id}']
+
+        # command (append only on demand)
+        if not label.normalize:
+            cmd += ['-nn']
+        if not label.compression:
+            cmd += ['-nc']
+        if label.ignore != 'none':
+            cmd += [f'-i={label.ignore}']
+        if label.only != 'all':
+            cmd += [f'-o={label.only}']
+        if label.early_stopping:
+            cmd += [f'-es=10']
+        if label.automatic_cropping:
+            cmd += ['-cd']
+        if label.filters != '32-64-128-256-512':
+            cmd += [f'-nf={label.filters}']
+        if label.epochs != 100:
+            cmd += [f'-e={label.epochs}']
+        if label.resnet:
+            cmd += ['-rn']
+        if label.batch_size != 24:
+            cmd += [f'-bs={label.batch_size}']
+
+        #['x_scale','y_scale','z_scale',
+        #'validation_split','stride_size',
+        #'flip_x','flip_y','flip_z',
+        #'rotate','batch_size','validation_freq']:
+
+        # change working directory
+        cwd = BASE_DIR + '/biomedisa_features/'
+
+        # remote server
         if host:
             cmd[1] = cwd+'biomedisa_deeplearning.py'
             cmd = ['ssh', host] + cmd
             p = subprocess.Popen(cmd)
+
+        # local server
         else:
             p = subprocess.Popen(cmd, cwd=cwd, env=my_env)
 
@@ -2089,7 +2130,7 @@ def init_random_walk(image, label):
                 # config
                 subprocess.Popen(['scp', host + ':' + host_base + f'/log/config_{queue_id}', BASE_DIR + f'/log/config_{queue_id}']).wait()
                 with open(BASE_DIR + f'/log/config_{queue_id}', 'r') as configfile:
-                    final_on_host, uncertainty_on_host, smooth_on_host, uncertainty, smooth, time_str, server_name = configfile.read().split()
+                    final_on_host, uncertainty_on_host, smooth_on_host, uncertainty, smooth, time_str, server_name, _, _ = configfile.read().split()
                 uncertainty=True if uncertainty=='True' else False
                 smooth=False if smooth=='0' else True
                 time_str = time_str.replace('-',' ')
@@ -2107,12 +2148,15 @@ def init_random_walk(image, label):
                     subprocess.Popen(['scp', host+':'+uncertainty_on_host, path_to_uq]).wait()
 
                 # post processing
-                post_processing(path_to_final, path_to_uq, path_to_smooth, uncertainty, smooth, time_str, server_name, img_id=image.id, label_id=label.id)
+                post_processing(path_to_final, time_str, server_name, False, None,
+                    path_to_uq=path_to_uq, path_to_smooth=path_to_smooth,
+                    uncertainty=uncertainty, smooth=smooth,
+                    img_id=image.id, label_id=label.id)
 
                 # remove pid file
                 subprocess.Popen(['ssh', host, 'rm', host_base + f'/log/pid_{queue_id}']).wait()
 
-        # standard
+        # local server
         else:
             subprocess.Popen(cmd, cwd=cwd, env=my_env).wait()
 

@@ -28,13 +28,16 @@
 
 import sys, os
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-from biomedisa_app.config import config
 import subprocess
 
 def create_error_object(message, remote=False, queue=None, img_id=None):
+
+    # remote server
     if remote:
         with open(BASE_DIR + f'/log/error_{queue}', 'w') as errorfile:
             print(message, file=errorfile)
+
+    # local server
     else:
         import django
         django.setup()
@@ -44,22 +47,31 @@ def create_error_object(message, remote=False, queue=None, img_id=None):
         Upload.objects.create(user=image.user, project=image.project, log=1, imageType=None, shortfilename=message)
         send_error_message(image.user.username, image.shortfilename, message)
 
-def create_pid_object(pid, remote=False, queue=None, img_id=None):
+def create_pid_object(pid, remote=False, queue=None, img_id=None, path_to_model=''):
+
+    # remote server
     if remote:
         with open(BASE_DIR + f'/log/pid_{queue}', 'w') as pidfile:
             print(pid, file=pidfile)
+
+    # local server
     else:
         import django
         django.setup()
         from biomedisa_app.models import Upload
         image = Upload.objects.get(pk=img_id)
+        image.path_to_model = path_to_model
         image.pid = pid
         image.save()
 
-def post_processing(path_to_final, path_to_uq, path_to_smooth, uncertainty, smooth, time_str, server_name, remote=False, queue=None, img_id=None, label_id=None):
+def post_processing(path_to_final, time_str, server_name, remote, queue, path_to_model=None, path_to_uq=None, path_to_smooth=None, path_to_cropped_image=None, uncertainty=False, smooth=False, img_id=None, label_id=None, train=False, predict=False):
+
+    # remote server
     if remote:
         with open(BASE_DIR + f'/log/config_{queue}', 'w') as configfile:
-            print(path_to_final, path_to_uq, path_to_smooth, uncertainty, smooth, str(time_str).replace(' ','-'), server_name, file=configfile)
+            print(path_to_final, path_to_uq, path_to_smooth, uncertainty, smooth, str(time_str).replace(' ','-'), server_name, path_to_model, path_to_cropped_image, file=configfile)
+
+    # local server
     else:
         import django
         django.setup()
@@ -74,40 +86,57 @@ def post_processing(path_to_final, path_to_uq, path_to_smooth, uncertainty, smoo
         # get object
         image = Upload.objects.get(pk=img_id)
 
-        # create final objects
-        shortfilename = os.path.basename(path_to_final)
-        filename = 'images/' + image.user.username + '/' + shortfilename
-        final = Upload.objects.create(pic=filename, user=image.user, project=image.project, final=1, active=1, imageType=3, shortfilename=shortfilename)
-        final.friend = final.id
-        final.save()
-        if uncertainty:
-            shortfilename = os.path.basename(path_to_uq)
+        if train:
+            # create model object
+            shortfilename = os.path.basename(path_to_model)
             filename = 'images/' + image.user.username + '/' + shortfilename
-            uncertainty_obj = Upload.objects.create(pic=filename, user=image.user, project=image.project, final=4, imageType=3, shortfilename=shortfilename, friend=final.id)
-        if smooth:
-            shortfilename = os.path.basename(path_to_smooth)
+            Upload.objects.create(pic=filename, user=image.user, project=image.project, imageType=4, shortfilename=shortfilename)
+
+        else:
+            # create final objects
+            shortfilename = os.path.basename(path_to_final)
             filename = 'images/' + image.user.username + '/' + shortfilename
-            smooth_obj = Upload.objects.create(pic=filename, user=image.user, project=image.project, final=5, imageType=3, shortfilename=shortfilename, friend=final.id)
+            final = Upload.objects.create(pic=filename, user=image.user, project=image.project, final=1, active=1, imageType=3, shortfilename=shortfilename)
+            final.friend = final.id
+            final.save()
+
+            if path_to_cropped_image:
+                shortfilename = os.path.basename(path_to_cropped_image)
+                filename = 'images/' + image.user.username + '/' + shortfilename
+                Upload.objects.create(pic=filename, user=image.user, project=image.project, final=9, active=0, imageType=3, shortfilename=shortfilename, friend=final.id)
+
+            if uncertainty:
+                shortfilename = os.path.basename(path_to_uq)
+                filename = 'images/' + image.user.username + '/' + shortfilename
+                uncertainty_obj = Upload.objects.create(pic=filename, user=image.user, project=image.project, final=4, imageType=3, shortfilename=shortfilename, friend=final.id)
+
+            if smooth:
+                shortfilename = os.path.basename(path_to_smooth)
+                filename = 'images/' + image.user.username + '/' + shortfilename
+                smooth_obj = Upload.objects.create(pic=filename, user=image.user, project=image.project, final=5, imageType=3, shortfilename=shortfilename, friend=final.id)
+
+            # acwe
+            q = Queue('acwe', connection=Redis())
+            job = q.enqueue_call(active_contour, args=(img_id, final.id, label_id, True,), timeout=-1)
+            job = q.enqueue_call(active_contour, args=(img_id, final.id, label_id,), timeout=-1)
+
+            # cleanup
+            q = Queue('cleanup', connection=Redis())
+            job = q.enqueue_call(remove_outlier, args=(img_id, final.id, final.id, label_id,), timeout=-1)
+            if smooth:
+                job = q.enqueue_call(remove_outlier, args=(img_id, smooth_obj.id, final.id, label_id, False,), timeout=-1)
+
+            # create slices
+            q = Queue('slices', connection=Redis())
+            job = q.enqueue_call(create_slices, args=(image.pic.path, final.pic.path,), timeout=-1)
+            if path_to_cropped_image:
+                q = Queue('slices', connection=Redis())
+                job = q.enqueue_call(create_slices, args=(path_to_cropped_image, None,), timeout=-1)
+            if smooth:
+                job = q.enqueue_call(create_slices, args=(image.pic.path, smooth_obj.pic.path,), timeout=-1)
+            if uncertainty:
+                job = q.enqueue_call(create_slices, args=(uncertainty_obj.pic.path, None,), timeout=-1)
 
         # send notification
-        send_notification(image.user.username, image.shortfilename, time_str, server_name)
-
-        # acwe
-        q = Queue('acwe', connection=Redis())
-        job = q.enqueue_call(active_contour, args=(img_id, final.id, label_id, True,), timeout=-1)
-        job = q.enqueue_call(active_contour, args=(img_id, final.id, label_id,), timeout=-1)
-
-        # cleanup
-        q = Queue('cleanup', connection=Redis())
-        job = q.enqueue_call(remove_outlier, args=(img_id, final.id, final.id, label_id,), timeout=-1)
-        if smooth:
-            job = q.enqueue_call(remove_outlier, args=(img_id, smooth_obj.id, final.id, label_id, False,), timeout=-1)
-
-        # create slices
-        q = Queue('slices', connection=Redis())
-        job = q.enqueue_call(create_slices, args=(image.pic.path, final.pic.path,), timeout=-1)
-        if smooth:
-            job = q.enqueue_call(create_slices, args=(image.pic.path, smooth_obj.pic.path,), timeout=-1)
-        if uncertainty:
-            job = q.enqueue_call(create_slices, args=(uncertainty_obj.pic.path, None,), timeout=-1)
+        send_notification(image.user.username, image.shortfilename, time_str, server_name, train, predict)
 

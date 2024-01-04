@@ -156,9 +156,9 @@ def set_labels_to_zero(label, labels_to_compute, labels_to_remove):
 
     return label
 
-def img_to_uint8(img, dtype=np.float32):
+def img_to_uint8(img):
     if img.dtype != 'uint8':
-        img = img.astype(dtype)
+        img = img.astype(np.float32)
         img -= np.amin(img)
         img /= np.amax(img)
         img *= 255.0
