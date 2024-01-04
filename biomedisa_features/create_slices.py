@@ -1,6 +1,7 @@
+#!/usr/bin/python3
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2023 Philipp Lösel. All rights reserved.              ##
+##  Copyright (c) 2024 Philipp Lösel. All rights reserved.              ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -26,14 +27,16 @@
 ##                                                                      ##
 ##########################################################################
 
+import sys, os
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(BASE_DIR)
 from biomedisa_features.biomedisa_helper import load_data, color_to_gray, img_to_uint8, img_resize
-from biomedisa.settings import WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT
 from PIL import Image
 import numpy as np
-import os, sys
-import cv2
 from glob import glob
 import numba
+import shutil
+import cv2
 
 def unique(arr):
     arr = arr.astype(np.uint8)
@@ -90,13 +93,16 @@ def create_slices(path_to_data, path_to_label, on_site=False):
     try:
         if on_site:
             path_to_slices = os.path.dirname(path_to_data) + '/' + os.path.splitext(os.path.basename(path_to_data))[0]
+            if os.path.isdir(path_to_slices):
+                shutil.rmtree(path_to_slices)
             if path_to_label:
                 path_to_label_slices = os.path.dirname(path_to_label) + '/' + os.path.splitext(os.path.basename(path_to_label))[0]
+                if os.path.isdir(path_to_label_slices):
+                    shutil.rmtree(path_to_label_slices)
+
         else:
-            path_to_data = path_to_data.replace(WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT)
             path_to_slices = path_to_data.replace('images', 'sliceviewer', 1)
             if path_to_label:
-                path_to_label = path_to_label.replace(WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT)
                 path_to_label_slices = path_to_label.replace('images', 'sliceviewer', 1)
 
         if not os.path.isdir(path_to_slices) or (path_to_label and not os.path.isdir(path_to_label_slices)):
@@ -135,7 +141,7 @@ def create_slices(path_to_data, path_to_label, on_site=False):
                     raw = tmp
 
             # increase contrast
-            raw = img_to_uint8(raw, np.float16)
+            raw = img_to_uint8(raw)
             raw = contrast(raw)
 
             # create slices for slice viewer
@@ -240,5 +246,9 @@ def create_slices(path_to_data, path_to_label, on_site=False):
         print(e)
 
 if __name__ == "__main__":
-    create_slices(sys.argv[1], sys.argv[2], True)
+    if len(sys.argv)==2:
+        path_to_labels = None
+    else:
+        path_to_labels = sys.argv[2]
+    create_slices(sys.argv[1], path_to_labels, True)
 
