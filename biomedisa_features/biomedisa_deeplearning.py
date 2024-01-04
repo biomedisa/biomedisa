@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2023 Philipp Lösel. All rights reserved.              ##
+##  Copyright (c) 2024 Philipp Lösel. All rights reserved.              ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -47,7 +47,7 @@ class Biomedisa(object):
 
 def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=None,
     path_to_images=None, path_to_labels=None, val_images=None, val_labels=None,
-    img_list=None, label_list=None, path_to_model=None, predict=False, train=False,
+    path_to_model=None, predict=False, train=False,
     balance=False, crop_data=False, flip_x=False, flip_y=False, flip_z=False,
     swapaxes=False, val_tf=False, train_tf=False, no_compression=False, ignore='none', only='all',
     network_filters='32-64-128-256-512', resnet=False, channels=1, debug_cropping=False,
@@ -57,16 +57,17 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
     pretrained_model=None, fine_tune=False, classification=False, workers=1, cropping_epochs=50,
     x_range=None, y_range=None, z_range=None, header=None, extension='.tif',
     img_header=None, img_extension='.tif', average_dice=False, django_env=False,
-    path=None, image=None, label=None, success=True, return_probs=False, patch_normalization=False,
-    z_patch=64, y_patch=64, x_patch=64):
+    path=None, success=True, return_probs=False, patch_normalization=False,
+    z_patch=64, y_patch=64, x_patch=64, path_to_logfile=None, img_id=None, label_id=None,
+    remote=False, queue=0, username=None, shortfilename=None):
 
-    # time
-    TIC = time.time()
-
-    # build biomedisa objects
+    # create biomedisa
     bm = Biomedisa()
     bm.process = 'deep_learning'
     results = None
+
+    # time
+    TIC = time.time()
 
     # transfer arguments
     key_copy = tuple(locals().keys())
@@ -88,70 +89,40 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
     # django environment
     if bm.django_env:
 
-        # set PID
-        image.pid = int(os.getpid())
-        image.path_to_model = ''
-        image.save()
-
         # path to image data
         if bm.train:
 
             # training files
-            bm.path_to_images = bm.img_list.split(';')[:-1]
-            bm.path_to_labels = bm.label_list.split(';')[:-1]
-            for k in range(len(bm.path_to_images)):
-                bm.path_to_images[k] = bm.path_to_images[k].replace(WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT)
-                bm.path_to_labels[k] = bm.path_to_labels[k].replace(WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT)
+            bm.path_to_images = bm.path_to_images.split(';')[:-1]
+            bm.path_to_labels = bm.path_to_labels.split(';')[:-1]
 
             # validation files
             if bm.val_images is not None:
                 bm.val_images = bm.val_images.split(';')[:-1]
                 bm.val_labels = bm.val_labels.split(';')[:-1]
-                for k in range(len(bm.path_to_images)):
-                    bm.val_images[k] = bm.val_images[k].replace(WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT)
-                    bm.val_labels[k] = bm.val_labels[k].replace(WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT)
             else:
                 bm.val_images = [None]
                 bm.val_labels = [None]
 
             # project name
-            project = os.path.splitext(image.shortfilename)[0]
-            biomedisa_app.views.send_start_notification(bm.image)
+            project = os.path.splitext(bm.shortfilename)[0]
 
             # path to model
-            dir_path = BASE_DIR + '/private_storage/'
-            model_path = 'images/%s/%s' %(image.user.username, project)
-            bm.path_to_model = dir_path + model_path + '.h5'
-            bm.path_to_model = unique_file_path(bm.path_to_model, image.user.username)
-            image.path_to_model = bm.path_to_model.replace(PRIVATE_STORAGE_ROOT, WWW_DATA_ROOT)
-            image.save()
+            bm.path_to_model = BASE_DIR + f'/private_storage/images/{bm.username}/{project}.h5'
+            if not bm.remote:
+                bm.path_to_model = unique_file_path(bm.path_to_model)
 
         if bm.predict:
-            bm.path_to_images = image.pic.path.replace(WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT)
-            bm.path_to_model = label.pic.path.replace(WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT)
-            project = os.path.splitext(label.shortfilename)[0]
+            project = os.path.splitext(os.path.basename(bm.path_to_model))[0]
 
-        # path to files
-        path_to_time = BASE_DIR + '/log/time.txt'
-        path_to_logfile = BASE_DIR + '/log/logfile.txt'
+        from biomedisa_features.django_env import create_pid_object
+        create_pid_object(os.getpid(), bm.remote, bm.queue, bm.img_id, (bm.path_to_model if bm.train else ''))
 
         # write in log file
-        with open(path_to_logfile, 'a') as logfile:
-            print('%s %s %s %s' %(time.ctime(), image.user.username, image.shortfilename, 'Process was started.'), file=logfile)
-            print('PROJECT:%s PREDICT:%s IMG:%s LABEL:%s IMG_LIST:%s LABEL_LIST:%s'
-                 %(project, bm.predict, image.shortfilename, label.shortfilename, bm.path_to_images, bm.path_to_labels), file=logfile)
-
-        # transfer arguments
-        for arg in ['epochs','normalize','x_scale','y_scale','z_scale',
-                    'validation_split','stride_size', 'compression',
-                    'flip_x','flip_y','flip_z','resnet',
-                    'rotate','batch_size','validation_freq']:
-            bm.__dict__[arg] = label.__dict__[arg]
-        bm.network_filters = label.filters
-        if label.early_stopping:
-            bm.early_stopping = 10
-        if label.automatic_cropping:
-            bm.crop_data = True
+        with open(bm.path_to_logfile, 'a') as logfile:
+            print('%s %s %s %s' %(time.ctime(), bm.username, bm.shortfilename, 'Process was started.'), file=logfile)
+            print('PROJECT:%s PREDICT:%s IMG:%s IMG_LIST:%s LABEL_LIST:%s'
+                 %(project, bm.predict, bm.shortfilename, bm.path_to_images, bm.path_to_labels), file=logfile)
 
     # path to model
     if bm.train and not bm.path_to_model:
@@ -172,6 +143,10 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
     bm.z_scale = bm.z_scale - (bm.z_scale - bm.z_patch) % bm.stride_size
 
     if bm.train:
+
+        # path to results
+        bm.path_to_final = None
+        bm.path_to_cropped_image = None
 
         # get number of GPUs
         strategy = tf.distribute.MirroredStrategy()
@@ -236,12 +211,12 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
             if filename[-4:] in ['.nii','.tar']:
                 filename = filename[:-4]
             bm.path_to_cropped_image = os.path.dirname(bm.path_to_images) + '/' + filename + '.cropped.tif'
-            if bm.django_env:
-                bm.path_to_cropped_image = unique_file_path(bm.path_to_cropped_image, image.user.username)
+            if bm.django_env and not bm.remote:
+                bm.path_to_cropped_image = unique_file_path(bm.path_to_cropped_image)
             filename = 'final.' + filename
             bm.path_to_final = os.path.dirname(bm.path_to_images) + '/' + filename + extension
-            if bm.django_env:
-                bm.path_to_final = unique_file_path(bm.path_to_final, image.user.username)
+            if bm.django_env and not bm.remote:
+                bm.path_to_final = unique_file_path(bm.path_to_final)
 
         # crop data
         region_of_interest, cropped_volume = None, None
@@ -276,49 +251,21 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
 
     # django environment
     if bm.django_env:
-
-        if bm.train:
-            # create model object
-            shortfilename = os.path.basename(bm.path_to_model)
-            pic_path = 'images/' + image.user.username + '/' + shortfilename
-            Upload.objects.create(pic=pic_path, user=image.user, project=image.project, imageType=4, shortfilename=shortfilename)
-
-        if bm.predict:
-            # create final object
-            shortfilename = os.path.basename(bm.path_to_final)
-            pic_path = 'images/' + image.user.username + '/' + shortfilename
-            tmp = Upload.objects.create(pic=pic_path, user=image.user, project=image.project, final=1, active=1, imageType=3, shortfilename=shortfilename)
-            tmp.friend = tmp.id
-            tmp.save()
-
-            # save cropped image object
-            if bm.path_to_cropped_image:
-                shortfilename = os.path.basename(bm.path_to_cropped_image)
-                pic_path = 'images/' + image.user.username + '/' + shortfilename
-                Upload.objects.create(pic=pic_path, user=image.user, project=image.project, final=9, active=0, imageType=3, shortfilename=shortfilename, friend=tmp.id)
-
-            # create slices, cleanup and acwe
-            q = Queue('slices', connection=Redis())
-            job = q.enqueue_call(create_slices, args=(bm.path_to_images, bm.path_to_final,), timeout=-1)
-            q = Queue('acwe', connection=Redis())
-            job = q.enqueue_call(active_contour, args=(image.id, tmp.id, label.id, True,), timeout=-1)
-            job = q.enqueue_call(active_contour, args=(image.id, tmp.id, label.id,), timeout=-1)
-            q = Queue('cleanup', connection=Redis())
-            job = q.enqueue_call(remove_outlier, args=(image.id, tmp.id, tmp.id, label.id,), timeout=-1)
-            if bm.path_to_cropped_image:
-                q = Queue('slices', connection=Redis())
-                job = q.enqueue_call(create_slices, args=(bm.path_to_cropped_image, None,), timeout=-1)
+        from biomedisa_app.config import config
+        from biomedisa_features.django_env import post_processing
+        post_processing(bm.path_to_final, time_str, config['SERVER_ALIAS'], bm.remote, bm.queue,
+            img_id=bm.img_id, label_id=bm.label_id, path_to_model=bm.path_to_model,
+            path_to_cropped_image=(bm.path_to_cropped_image if crop_data else None),
+            train=bm.train, predict=bm.predict)
 
         # write in log file
+        path_to_time = BASE_DIR + '/log/time.txt'
         with open(path_to_time, 'a') as timefile:
             if predict:
-                message = 'Successfully segmented ' + image.shortfilename
+                message = 'Successfully segmented ' + bm.shortfilename
             else:
                 message = 'Successfully trained ' + project
-            print('%s %s %s %s on %s' %(time.ctime(), image.user.username, message, time_str, config['SERVER_ALIAS']), file=timefile)
-
-        # send notification
-        biomedisa_app.views.send_notification(image.user.username, image.shortfilename, time_str, config['SERVER_ALIAS'], train, predict)
+            print('%s %s %s %s on %s' %(time.ctime(), bm.username, message, time_str, config['SERVER_ALIAS']), file=timefile)
 
     return results
 
@@ -426,12 +373,6 @@ if __name__ == '__main__':
                         help='Manually crop y-axis of image data for prediction, e.g. -xr 100 200')
     parser.add_argument('-zr','--z_range', nargs="+", type=int, default=None,
                         help='Manually crop z-axis of image data for prediction, e.g. -xr 100 200')
-    parser.add_argument('-de', '--django_env', action='store_true', default=False,
-                        help='Activate django environment when starting browser based version')
-    parser.add_argument('-il','--img_list', type=str, metavar='PATH', default=None,
-                        help='List of image files used in browser based version')
-    parser.add_argument('-ll','--label_list', type=str, metavar='PATH', default=None,
-                        help='List of label files used in browser based version')
     parser.add_argument('-rp','--return_probs', action='store_true', default=False,
                         help='Return prediction probabilities for each label')
     parser.add_argument('-pn','--patch_normalization', action='store_true', default=False,
@@ -442,6 +383,14 @@ if __name__ == '__main__':
                         help='Y-dimension of patch')
     parser.add_argument('-zp','--z_patch', type=int, default=64,
                         help='Z-dimension of patch')
+    parser.add_argument('-iid','--img_id', type=str, default=None,
+                        help='Image ID within django environment/browser version')
+    parser.add_argument('-lid','--label_id', type=str, default=None,
+                        help='Label ID within django environment/browser version')
+    parser.add_argument('-re','--remote', action='store_true', default=False,
+                        help='The interpolation is carried out on a remote server. Must be set up in config.py')
+    parser.add_argument('-q','--queue', type=int, default=0,
+                        help='Processing queue when using a remote server')
     bm = parser.parse_args()
 
     bm.success = True
@@ -453,46 +402,29 @@ if __name__ == '__main__':
         bm.path_to_model = bm.path_to_images + '.h5'
 
     # django environment
-    if bm.django_env:
-        import django
-        django.setup()
-        import biomedisa_app.views
-        from biomedisa_app.models import Upload
-        from biomedisa.settings import WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT
-        from biomedisa_features.active_contour import active_contour
-        from biomedisa_features.remove_outlier import remove_outlier
-        from biomedisa_features.create_slices import create_slices
-        from biomedisa_app.config import config
-        from redis import Redis
-        from rq import Queue
-        try:
-            bm.image = Upload.objects.get(pk=bm.path_to_images)
-            bm.label = Upload.objects.get(pk=bm.path)
-            bm.path_to_logfile = BASE_DIR + '/log/logfile.txt'
-            bm.img_id = bm.path_to_images
-            bm.username = bm.image.user.username
-            bm.shortfilename = bm.image.shortfilename
-            if bm.image.status == 0:
-                bm.success = False
-        except Upload.DoesNotExist:
-            bm = _error_(bm, 'Files have been removed.')
+    if bm.img_id is not None:
+        bm.django_env = True
+        bm.username = os.path.basename(os.path.dirname(bm.path_to_images))
+        bm.shortfilename = os.path.basename(bm.path_to_images)
+        bm.path_to_logfile = BASE_DIR + '/log/logfile.txt'
+    else:
+        bm.django_env = False
 
     kwargs = vars(bm)
 
     # train or predict segmentation
-    if bm.success:
-        try:
-            deep_learning(None, **kwargs)
-        except InputError:
-            print(traceback.format_exc())
-            bm = _error_(bm, f'{InputError.message}')
-        except MemoryError:
-            print(traceback.format_exc())
-            bm = _error_(bm, 'MemoryError')
-        except ResourceExhaustedError:
-            print(traceback.format_exc())
-            bm = _error_(bm, 'GPU out of memory')
-        except Exception as e:
-            print(traceback.format_exc())
-            bm = _error_(bm, e)
+    try:
+        deep_learning(None, **kwargs)
+    except InputError:
+        print(traceback.format_exc())
+        bm = _error_(bm, f'{InputError.message}')
+    except MemoryError:
+        print(traceback.format_exc())
+        bm = _error_(bm, 'MemoryError')
+    except ResourceExhaustedError:
+        print(traceback.format_exc())
+        bm = _error_(bm, 'GPU out of memory')
+    except Exception as e:
+        print(traceback.format_exc())
+        bm = _error_(bm, e)
 
