@@ -55,7 +55,6 @@ from biomedisa_features.django_env import post_processing, create_error_object
 from django.utils.crypto import get_random_string
 from biomedisa_app.config import config
 from biomedisa.settings import BASE_DIR, WWW_DATA_ROOT
-from multiprocessing import Process
 
 from wsgiref.util import FileWrapper
 import numpy as np
@@ -908,25 +907,21 @@ def move(request):
                         q = Queue('slices', connection=Redis())
                         job = q.enqueue_call(create_slices, args=(stock_to_move.pic.path, None,), timeout=-1)
 
-                    try:
-                        image_tmp = Upload.objects.get(user=request.user, project=stock_to_move.project, imageType=2)
-                        path_to_slices = image_tmp.pic.path.replace("images", "sliceviewer", 1)
+                    labels = Upload.objects.filter(user=request.user, project=stock_to_move.project, imageType=2)
+                    if len(labels)>0:
+                        path_to_slices = labels[0].pic.path.replace("images", "sliceviewer", 1)
                         if not os.path.exists(path_to_slices):
                             q = Queue('slices', connection=Redis())
-                            job = q.enqueue_call(create_slices, args=(stock_to_move.pic.path, image_tmp.pic.path,), timeout=-1)
-                    except:
-                        pass
+                            job = q.enqueue_call(create_slices, args=(stock_to_move.pic.path, labels[0].pic.path,), timeout=-1)
 
                 elif stock_to_move.imageType == 2:
 
-                    try:
-                        image_tmp = Upload.objects.get(user=request.user, project=stock_to_move.project, imageType=1)
+                    images = Upload.objects.filter(user=request.user, project=stock_to_move.project, imageType=1)
+                    if len(images)>0:
                         path_to_slices = stock_to_move.pic.path.replace("images", "sliceviewer", 1)
                         if not os.path.exists(path_to_slices):
                             q = Queue('slices', connection=Redis())
-                            job = q.enqueue_call(create_slices, args=(image_tmp.pic.path, stock_to_move.pic.path,), timeout=-1)
-                    except:
-                        pass
+                            job = q.enqueue_call(create_slices, args=(images[0].pic.path, stock_to_move.pic.path,), timeout=-1)
 
                 results = {'success':True}
 
@@ -1016,23 +1011,26 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
         # get queue configuration
         my_env = None
         if 'first_worker' in worker_name:
-            QUEUE, worker_id = 'FIRST', 1
+            QUEUE, queue_id = 'FIRST', 1
         elif 'second_worker' in worker_name:
-            QUEUE, worker_id = 'SECOND', 2
+            QUEUE, queue_id = 'SECOND', 2
         elif 'third_worker' in worker_name:
-            QUEUE, worker_id = 'THIRD', 3
+            QUEUE, queue_id = 'THIRD', 3
             if image.queue == 1:
                 image.queue = 3
                 image.save()
+
+        # get host information
         host = config[f'{QUEUE}_QUEUE_HOST']
 
         # search for failed jobs in queue
         q = Queue('check_queue', connection=Redis())
-        job = q.enqueue_call(init_check_queue, args=(image.id, worker_id,), timeout=-1)
+        job = q.enqueue_call(init_check_queue, args=(image.id, queue_id,), timeout=-1)
 
         # set status to processing
+        train = False if predict else True
         image.status = 2
-        if predict:
+        if predict or host:
             image.message = 'Processing'
         elif label.automatic_cropping:
             image.message = 'Train automatic cropping'
@@ -1044,7 +1042,7 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
         # send start notification
         send_start_notification(image)
 
-        # number of gpus or list of gpu ids
+        # number of gpus or list of gpu ids (works only locally)
         if type(config[f'{QUEUE}_QUEUE_NGPUS'])==list:
             list_of_ids = config[f'{QUEUE}_QUEUE_NGPUS']
             gpu_ids = ''
@@ -1068,14 +1066,15 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
             host_base = config[f'{QUEUE}_QUEUE_BASE_DIR']
 
         # command
+        cmd = ['python3','biomedisa_deeplearning.py']
         if predict:
-            cmd = ['python3','biomedisa_deeplearning.py',
-                   image.pic.path.replace(BASE_DIR,host_base), label.pic.path.replace(BASE_DIR,host_base),'-p']
+            cmd += [image.pic.path.replace(BASE_DIR,host_base),
+                    label.pic.path.replace(BASE_DIR,host_base),'-p']
         else:
-            cmd = ['python3','biomedisa_deeplearning.py',str(img_list),str(label_list),'-t','-tt']
+            cmd += [str(img_list.replace(BASE_DIR,host_base)),
+                    str(label_list.replace(BASE_DIR,host_base)),'-t','-tt']
             if val_img_list and val_label_list:
-                cmd += ['-vi',val_img_list,'-vl',val_label_list]
-
+                cmd += ['-vi',val_img_list.replace(BASE_DIR,host_base),'-vl',val_label_list.replace(BASE_DIR,host_base)]
         cmd += ['-sc',f'-iid={image.id}', f'-lid={label.id}']
 
         # command (append only on demand)
@@ -1099,27 +1098,96 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
             cmd += ['-rn']
         if label.batch_size != 24:
             cmd += [f'-bs={label.batch_size}']
-
-        #['x_scale','y_scale','z_scale',
-        #'validation_split','stride_size',
-        #'flip_x','flip_y','flip_z',
-        #'rotate','batch_size','validation_freq']:
+        if label.x_scale != 256:
+            cmd += [f'-xs={label.x_scale}']
+        if label.y_scale != 256:
+            cmd += [f'-ys={label.y_scale}']
+        if label.z_scale != 256:
+            cmd += [f'-zs={label.z_scale}']
+        if label.flip_x:
+            cmd += ['--flip_x']
+        if label.flip_y:
+            cmd += ['--flip_y']
+        if label.flip_z:
+            cmd += ['--flip_z']
+        if label.validation_freq != 1:
+            cmd += [f'-vf={label.validation_freq}']
+        if label.validation_split > 0:
+            cmd += [f'-vs={label.validation_split}']
+        if label.stride_size != 32:
+            cmd += [f'-ss={label.stride_size}']
+        if label.rotate > 0:
+            cmd += [f'-r={label.rotate}']
 
         # change working directory
-        cwd = BASE_DIR + '/biomedisa_features/'
+        cwd = host_base + '/biomedisa_features/'
 
         # remote server
         if host:
+
+            # run deep learning
             cmd[1] = cwd+'biomedisa_deeplearning.py'
-            cmd = ['ssh', host] + cmd
-            p = subprocess.Popen(cmd)
+            if f'{QUEUE}_QUEUE_SUBHOST' in config:
+                cmd = ['ssh', '-t', host, 'ssh', config[f'{QUEUE}_QUEUE_SUBHOST']] + cmd
+            else:
+                cmd = ['ssh', host] + cmd
+            cmd += ['-re', f'-q={queue_id}']
+            subprocess.Popen(cmd).wait()
+
+            # get error or stopped
+            path_to_error = BASE_DIR + f'/log/error_{queue_id}'
+            error = subprocess.Popen(['scp', host + ':' + host_base + f'/log/error_{queue_id}', path_to_error]).wait()
+            stopped = subprocess.Popen(['scp', host + ':' + host_base + f'/log/pid_{queue_id}', BASE_DIR + f'/log/pid_{queue_id}']).wait()
+            error = True if error == 0 else False
+            stopped = False if stopped == 0 else True
+
+            if error:
+
+                # create error object
+                with open(path_to_error, 'r') as errorfile:
+                    message = errorfile.read()
+                create_error_object(message, img_id=image.id)
+
+                # remove error file
+                subprocess.Popen(['ssh', host, 'rm', host_base + f'/log/error_{queue_id}']).wait()
+                subprocess.Popen(['ssh', host, 'rm', host_base + f'/log/pid_{queue_id}']).wait()
+
+            elif not stopped:
+
+                # config
+                subprocess.Popen(['scp', host + ':' + host_base + f'/log/config_{queue_id}', BASE_DIR + f'/log/config_{queue_id}']).wait()
+                with open(BASE_DIR + f'/log/config_{queue_id}', 'r') as configfile:
+                    final_on_host, _, _, _, _, time_str, server_name, model_on_host, cropped_on_host = configfile.read().split()
+                time_str = time_str.replace('-',' ')
+
+                # local file names
+                if predict:
+                    path_to_model = None
+                    path_to_final = unique_file_path(final_on_host.replace(host_base,BASE_DIR))
+                    path_to_cropped_image = unique_file_path(cropped_on_host.replace(host_base,BASE_DIR))
+                else:
+                    path_to_final, path_to_cropped_image = None, None
+                    path_to_model = unique_file_path(model_on_host.replace(host_base,BASE_DIR))
+
+                # get results
+                if predict:
+                    subprocess.Popen(['scp', host+':'+final_on_host, path_to_final]).wait()
+                    subprocess.Popen(['scp', host+':'+path_to_cropped_image, path_to_cropped_image]).wait()
+                else:
+                    subprocess.Popen(['scp', host+':'+model_on_host, path_to_model]).wait()
+
+                # post processing
+                post_processing(path_to_final, time_str, server_name, False, None,
+                    path_to_cropped_image=path_to_cropped_image, path_to_model=path_to_model,
+                    predict=predict, train=train,
+                    img_id=image.id, label_id=label.id)
+
+                # remove pid file
+                subprocess.Popen(['ssh', host, 'rm', host_base + f'/log/pid_{queue_id}']).wait()
 
         # local server
         else:
-            p = subprocess.Popen(cmd, cwd=cwd, env=my_env)
-
-        # wait for process to finish
-        p.wait()
+            subprocess.Popen(cmd, cwd=cwd, env=my_env).wait()
 
         # stop processing
         image.path_to_model = ''
@@ -1479,25 +1547,21 @@ def app(request):
                     q = Queue('slices', connection=Redis())
                     job = q.enqueue_call(create_slices, args=(newimg.pic.path, None,), timeout=-1)
 
-                try:
-                    tmp = Upload.objects.get(user=request.user, project=newimg.project, imageType=2)
-                    path_to_slices = tmp.pic.path.replace("images", "sliceviewer", 1)
+                labels = Upload.objects.filter(user=request.user, project=newimg.project, imageType=2)
+                if len(labels)>0:
+                    path_to_slices = labels[0].pic.path.replace("images", "sliceviewer", 1)
                     if not os.path.exists(path_to_slices):
                         q = Queue('slices', connection=Redis())
-                        job = q.enqueue_call(create_slices, args=(newimg.pic.path, tmp.pic.path,), timeout=-1)
-                except:
-                    pass
+                        job = q.enqueue_call(create_slices, args=(newimg.pic.path, labels[0].pic.path,), timeout=-1)
 
             elif newimg.imageType == 2:
 
-                try:
-                    tmp = Upload.objects.get(user=request.user, project=newimg.project, imageType=1)
+                images = Upload.objects.filter(user=request.user, project=newimg.project, imageType=1)
+                if len(images)>0:
                     path_to_slices = newimg.pic.path.replace("images", "sliceviewer", 1)
                     if not os.path.exists(path_to_slices):
                         q = Queue('slices', connection=Redis())
-                        job = q.enqueue_call(create_slices, args=(tmp.pic.path, newimg.pic.path,), timeout=-1)
-                except:
-                    pass
+                        job = q.enqueue_call(create_slices, args=(images[0].pic.path, newimg.pic.path,), timeout=-1)
 
             nextType = 2 if newimg.imageType == 1 else 1
             return redirect(reverse('app') + "?project=%s" %(newimg.project) + "&type=%s" %(nextType))
@@ -2007,7 +2071,11 @@ def init_random_walk(image, label):
             if image.queue == 1:
                 image.queue = 3
                 image.save()
+
+        # get host information
         host = config[f'{QUEUE}_QUEUE_HOST']
+
+        # get cluster information
         cluster = False
         if f'{QUEUE}_QUEUE_CLUSTER' in config:
             cluster = config[f'{QUEUE}_QUEUE_CLUSTER']
@@ -2034,7 +2102,7 @@ def init_random_walk(image, label):
                 return_error(image, f'No {bm.platform} device found.')
                 raise Exception(f'No {bm.platform} device found.')
 
-        # number of gpus or list of gpu ids
+        # number of gpus or list of gpu ids (list and all works only locally)
         if type(config[f'{QUEUE}_QUEUE_NGPUS'])==list:
             list_of_ids = config[f'{QUEUE}_QUEUE_NGPUS']
             ngpus = str(len(list_of_ids))
@@ -2052,10 +2120,6 @@ def init_random_walk(image, label):
                     raise Exception('Number of GPUs must be given if running on a remote host.')
                 else:
                     ngpus = str(bm.available_devices)
-
-        # change working directory
-        cwd = BASE_DIR + '/biomedisa_features/'
-        workers_host = BASE_DIR + '/log/workers_host'
 
         # host base directory
         host_base = BASE_DIR
@@ -2085,6 +2149,10 @@ def init_random_walk(image, label):
             if bm.platform.split('_')[-1] == 'CPU':
                 cmd = cmd[3:]
 
+        # change working directory
+        cwd = host_base + '/biomedisa_features/'
+        workers_host = host_base + '/log/workers_host'
+
         # cluster
         if cluster and 'mpiexec' in cmd:
             cmd.insert(3, '--hostfile')
@@ -2104,7 +2172,7 @@ def init_random_walk(image, label):
             else:
                 cmd = ['ssh', host] + cmd
             cmd += ['-r', f'-q={queue_id}']
-            cmd[cmd.index('biomedisa_interpolation.py')] = host_base + '/biomedisa_features/biomedisa_interpolation.py'
+            cmd[cmd.index('biomedisa_interpolation.py')] = cwd + 'biomedisa_interpolation.py'
             subprocess.Popen(cmd).wait()
 
             # get error or stopped
