@@ -1069,13 +1069,13 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
         cmd = ['python3','biomedisa_deeplearning.py']
         if predict:
             cmd += [image.pic.path.replace(BASE_DIR,host_base),
-                    label.pic.path.replace(BASE_DIR,host_base),'-p']
+                    label.pic.path.replace(BASE_DIR,host_base),'-p','-sc']
         else:
             cmd += [img_list.replace(BASE_DIR,host_base),
                     label_list.replace(BASE_DIR,host_base),'-t','-tt']
             if val_img_list and val_label_list:
                 cmd += ['-vi',val_img_list.replace(BASE_DIR,host_base),'-vl',val_label_list.replace(BASE_DIR,host_base)]
-        cmd += ['-sc',f'-iid={image.id}', f'-lid={label.id}']
+        cmd += [f'-iid={image.id}', f'-lid={label.id}']
 
         # command (append only on demand)
         if not label.normalize:
@@ -1131,14 +1131,14 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
                 subprocess.Popen(['rsync', '-avP', image.pic.path, host+':'+image.pic.path.replace(BASE_DIR,host_base)]).wait()
                 subprocess.Popen(['rsync', '-avP', label.pic.path, host+':'+label.pic.path.replace(BASE_DIR,host_base)]).wait()
             else:
-                for path in img_list.split(';')[:-1]:
+                for path in img_list.split(',')[:-1]:
                     subprocess.Popen(['rsync', '-avP', path, host+':'+path.replace(BASE_DIR,host_base)]).wait()
-                for path in label_list.split(';')[:-1]:
+                for path in label_list.split(',')[:-1]:
                     subprocess.Popen(['rsync', '-avP', path, host+':'+path.replace(BASE_DIR,host_base)]).wait()
                 if val_img_list and val_label_list:
-                    for path in val_img_list.split(';')[:-1]:
+                    for path in val_img_list.split(',')[:-1]:
                         subprocess.Popen(['rsync', '-avP', path, host+':'+path.replace(BASE_DIR,host_base)]).wait()
-                    for path in val_label_list.split(';')[:-1]:
+                    for path in val_label_list.split(',')[:-1]:
                         subprocess.Popen(['rsync', '-avP', path, host+':'+path.replace(BASE_DIR,host_base)]).wait()
 
             # run deep learning
@@ -1188,7 +1188,8 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
                 # get results
                 if predict:
                     subprocess.Popen(['scp', host+':'+final_on_host, path_to_final]).wait()
-                    subprocess.Popen(['scp', host+':'+path_to_cropped_image, path_to_cropped_image]).wait()
+                    if path_to_cropped_image:
+                        subprocess.Popen(['scp', host+':'+path_to_cropped_image, path_to_cropped_image]).wait()
                 else:
                     subprocess.Popen(['scp', host+':'+model_on_host, path_to_model]).wait()
 
@@ -1325,13 +1326,13 @@ def features(request, action):
                     label = img
             if raw is not None and label is not None:
                 if label.validation_data:
-                    val_img_list += raw.pic.path + ';'
-                    val_label_list += label.pic.path + ';'
+                    val_img_list += raw.pic.path + ','
+                    val_label_list += label.pic.path + ','
                 else:
                     raw_out = raw
                     label_out = label
-                    img_list += raw.pic.path + ';'
-                    label_list += label.pic.path + ';'
+                    img_list += raw.pic.path + ','
+                    label_list += label.pic.path + ','
 
         # train neural network
         if not img_list:
