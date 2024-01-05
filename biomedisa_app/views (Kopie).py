@@ -1071,8 +1071,8 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
             cmd += [image.pic.path.replace(BASE_DIR,host_base),
                     label.pic.path.replace(BASE_DIR,host_base),'-p']
         else:
-            cmd += [img_list.replace(BASE_DIR,host_base),
-                    label_list.replace(BASE_DIR,host_base),'-t','-tt']
+            cmd += [str(img_list.replace(BASE_DIR,host_base)),
+                    str(label_list.replace(BASE_DIR,host_base)),'-t','-tt']
             if val_img_list and val_label_list:
                 cmd += ['-vi',val_img_list.replace(BASE_DIR,host_base),'-vl',val_label_list.replace(BASE_DIR,host_base)]
         cmd += ['-sc',f'-iid={image.id}', f'-lid={label.id}']
@@ -1124,22 +1124,6 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
 
         # remote server
         if host:
-
-            # send data to host
-            subprocess.Popen(['ssh', host, 'mkdir', '-p', host_base+'/private_storage/images/'+image.user.username]).wait()
-            if predict:
-                subprocess.Popen(['rsync', '-avP', image.pic.path, host+':'+image.pic.path.replace(BASE_DIR,host_base)]).wait()
-                subprocess.Popen(['rsync', '-avP', label.pic.path, host+':'+label.pic.path.replace(BASE_DIR,host_base)]).wait()
-            else:
-                for path in img_list.split(';')[:-1]:
-                    subprocess.Popen(['rsync', '-avP', path, host+':'+path.replace(BASE_DIR,host_base)]).wait()
-                for path in label_list.split(';')[:-1]:
-                    subprocess.Popen(['rsync', '-avP', path, host+':'+path.replace(BASE_DIR,host_base)]).wait()
-                if val_img_list and val_label_list:
-                    for path in val_img_list.split(';')[:-1]:
-                        subprocess.Popen(['rsync', '-avP', path, host+':'+path.replace(BASE_DIR,host_base)]).wait()
-                    for path in val_label_list.split(';')[:-1]:
-                        subprocess.Popen(['rsync', '-avP', path, host+':'+path.replace(BASE_DIR,host_base)]).wait()
 
             # run deep learning
             cmd[1] = cwd+'biomedisa_deeplearning.py'
