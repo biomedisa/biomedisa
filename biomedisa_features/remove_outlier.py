@@ -1,6 +1,6 @@
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2022 Philipp Lösel. All rights reserved.              ##
+##  Copyright (c) 2024 Philipp Lösel. All rights reserved.              ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -184,7 +184,7 @@ def remove_outlier(image_id, final_id, friend_id, label_id, fill_holes=True):
             friend = Upload.objects.get(pk=friend_id)
 
             # save results
-            path_to_cleaned = unique_file_path(path_to_cleaned, label.user.username)
+            path_to_cleaned = unique_file_path(path_to_cleaned)
             save_data(path_to_cleaned, final_cleaned, header, extension, label.compression)
 
             # save django object
@@ -213,9 +213,9 @@ def remove_outlier(image_id, final_id, friend_id, label_id, fill_holes=True):
                 friend = Upload.objects.get(pk=friend_id)
 
                 # save results
-                path_to_filled = unique_file_path(path_to_filled, label.user.username)
+                path_to_filled = unique_file_path(path_to_filled)
                 save_data(path_to_filled, final_filled, header, extension, label.compression)
-                path_to_cleaned_filled = unique_file_path(path_to_cleaned_filled, label.user.username)
+                path_to_cleaned_filled = unique_file_path(path_to_cleaned_filled)
                 save_data(path_to_cleaned_filled, final_cleaned_filled, header, extension, label.compression)
 
                 # save django object

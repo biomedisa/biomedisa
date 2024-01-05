@@ -1,6 +1,6 @@
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2023 Philipp Lösel. All rights reserved.              ##
+##  Copyright (c) 2024 Philipp Lösel. All rights reserved.              ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -171,6 +171,7 @@ def active_contour(image_id, friend_id, label_id, simple=False):
     bm.django_env = True
     bm.data = None
     bm.labelData = None
+    bm.remote, bm.queue = False, 0
 
     # path to logfiles
     bm.path_to_time = BASE_DIR + '/log/time.txt'
@@ -219,7 +220,7 @@ def active_contour(image_id, friend_id, label_id, simple=False):
             friend = Upload.objects.get(pk=friend_id)
 
             # save result
-            bm.path_to_acwe = unique_file_path(bm.path_to_acwe, bm.image.user.username)
+            bm.path_to_acwe = unique_file_path(bm.path_to_acwe)
             save_data(bm.path_to_acwe, final, bm.header, bm.final_image_type, bm.label.compression)
 
             # save django object
