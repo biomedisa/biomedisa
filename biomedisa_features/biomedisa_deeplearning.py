@@ -93,13 +93,13 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
         if bm.train:
 
             # training files
-            bm.path_to_images = bm.path_to_images.split(';')[:-1]
-            bm.path_to_labels = bm.path_to_labels.split(';')[:-1]
+            bm.path_to_images = bm.path_to_images.split(',')[:-1]
+            bm.path_to_labels = bm.path_to_labels.split(',')[:-1]
 
             # validation files
             if bm.val_images is not None:
-                bm.val_images = bm.val_images.split(';')[:-1]
-                bm.val_labels = bm.val_labels.split(';')[:-1]
+                bm.val_images = bm.val_images.split(',')[:-1]
+                bm.val_labels = bm.val_labels.split(',')[:-1]
             else:
                 bm.val_images = [None]
                 bm.val_labels = [None]
