@@ -355,7 +355,7 @@ def share_repository_data(request):
 
             # rename image if path already exists
             if os.path.exists(WWW_DATA_ROOT + '/' + pic_path):
-                path_to_data = unique_file_path(pic_path, request.user.username, WWW_DATA_ROOT+'/')
+                path_to_data = unique_file_path(pic_path, WWW_DATA_ROOT+'/')
                 pic_path = 'images/' + request.user.username + '/' + os.path.basename(path_to_data)
                 shortfilename = os.path.basename(path_to_data)
 
@@ -1174,22 +1174,24 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
                 subprocess.Popen(['scp', host + ':' + host_base + f'/log/config_{queue_id}', BASE_DIR + f'/log/config_{queue_id}']).wait()
                 with open(BASE_DIR + f'/log/config_{queue_id}', 'r') as configfile:
                     final_on_host, _, _, _, _, time_str, server_name, model_on_host, cropped_on_host = configfile.read().split()
+                if cropped_on_host=='None':
+                    cropped_on_host=None
                 time_str = time_str.replace('-',' ')
 
                 # local file names
+                path_to_model, path_to_final, path_to_cropped_image = None, None, None
                 if predict:
-                    path_to_model = None
                     path_to_final = unique_file_path(final_on_host.replace(host_base,BASE_DIR))
-                    path_to_cropped_image = unique_file_path(cropped_on_host.replace(host_base,BASE_DIR))
+                    if cropped_on_host:
+                        path_to_cropped_image = unique_file_path(cropped_on_host.replace(host_base,BASE_DIR))
                 else:
-                    path_to_final, path_to_cropped_image = None, None
                     path_to_model = unique_file_path(model_on_host.replace(host_base,BASE_DIR))
 
                 # get results
                 if predict:
                     subprocess.Popen(['scp', host+':'+final_on_host, path_to_final]).wait()
-                    if path_to_cropped_image:
-                        subprocess.Popen(['scp', host+':'+path_to_cropped_image, path_to_cropped_image]).wait()
+                    if cropped_on_host:
+                        subprocess.Popen(['scp', host+':'+cropped_on_host, path_to_cropped_image]).wait()
                 else:
                     subprocess.Popen(['scp', host+':'+model_on_host, path_to_model]).wait()
 
@@ -1387,7 +1389,7 @@ def features(request, action):
                             extension = '.tar.gz'
 
                     # create unique filename
-                    path_to_data = unique_file_path(img.pic.path, img.user.username, WWW_DATA_ROOT+'/')
+                    path_to_data = unique_file_path(img.pic.path, WWW_DATA_ROOT+'/')
                     pic_path = 'images/' + img.user.username + '/' + os.path.basename(path_to_data)
                     new_short_name = os.path.basename(path_to_data)
 
@@ -1779,7 +1781,7 @@ def share_data(request):
 
                         # rename image if path already exists
                         if os.path.exists(WWW_DATA_ROOT+'/'+pic_path):
-                            path_to_data = unique_file_path(pic_path, new_user_name, WWW_DATA_ROOT+'/')
+                            path_to_data = unique_file_path(pic_path, WWW_DATA_ROOT+'/')
                             pic_path = 'images/' + new_user_name + '/' + os.path.basename(path_to_data)
 
                         # create object
@@ -1870,7 +1872,7 @@ def accept_shared_data(request):
 
                     # rename image if path already exists
                     if os.path.exists(img.pic.path):
-                        path_to_data = unique_file_path(img.pic.path, img.user.username, WWW_DATA_ROOT+'/')
+                        path_to_data = unique_file_path(img.pic.path, WWW_DATA_ROOT+'/')
                         pic_path = 'images/' + img.user.username + '/' + os.path.basename(path_to_data)
                         img.shortfilename = os.path.basename(path_to_data)
                         img.pic.name = pic_path

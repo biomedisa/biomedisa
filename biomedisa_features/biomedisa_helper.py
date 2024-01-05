@@ -1,6 +1,6 @@
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2023 Philipp Lösel. All rights reserved.              ##
+##  Copyright (c) 2024 Philipp Lösel. All rights reserved.              ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -165,7 +165,7 @@ def img_to_uint8(img):
         img = img.astype(np.uint8)
     return img
 
-def unique_file_path(path, username=None, dir_path=PRIVATE_STORAGE_ROOT+'/'):
+def unique_file_path(path, dir_path=PRIVATE_STORAGE_ROOT+'/'):
 
     # get extension
     username = os.path.basename(os.path.dirname(path))
@@ -571,7 +571,7 @@ def convert_image(id):
         filename, extension = os.path.splitext(img.pic.path.replace(WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT))
         if extension == '.gz':
             filename = filename[:-4]
-        path_to_data = unique_file_path(filename+'.8bit.tif', img.user.username)
+        path_to_data = unique_file_path(filename+'.8bit.tif')
         new_short_name = os.path.basename(path_to_data)
         pic_path = 'images/%s/%s' %(img.user.username, new_short_name)
 
@@ -629,7 +629,7 @@ def smooth_image(id):
         filename, extension = os.path.splitext(img.pic.path.replace(WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT))
         if extension == '.gz':
             filename = filename[:-4]
-        path_to_data = unique_file_path(filename+'.denoised.tif', img.user.username)
+        path_to_data = unique_file_path(filename+'.denoised.tif')
         new_short_name = os.path.basename(path_to_data)
         pic_path = 'images/%s/%s' %(img.user.username, new_short_name)
 
@@ -701,7 +701,7 @@ def convert_to_stl(id):
             filename, extension = os.path.splitext(img.pic.path.replace(WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT))
             if extension == '.gz':
                 filename = filename[:-4]
-            path_to_data = unique_file_path(filename+'.stl', img.user.username)
+            path_to_data = unique_file_path(filename+'.stl')
             new_short_name = os.path.basename(path_to_data)
             pic_path = 'images/%s/%s' %(img.user.username, new_short_name)
 
