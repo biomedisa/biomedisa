@@ -77,7 +77,7 @@ def post_processing(path_to_final, time_str, server_name, remote, queue, path_to
         django.setup()
         from biomedisa_app.models import Upload
         from biomedisa_app.views import send_notification
-        from biomedisa_features.active_contour import active_contour
+        from biomedisa_features.active_contour import init_active_contour
         from biomedisa_features.remove_outlier import remove_outlier
         from biomedisa_features.create_slices import create_slices
         from redis import Redis
@@ -117,8 +117,8 @@ def post_processing(path_to_final, time_str, server_name, remote, queue, path_to
 
             # acwe
             q = Queue('acwe', connection=Redis())
-            job = q.enqueue_call(active_contour, args=(img_id, final.id, label_id, True,), timeout=-1)
-            job = q.enqueue_call(active_contour, args=(img_id, final.id, label_id,), timeout=-1)
+            job = q.enqueue_call(init_active_contour, args=(img_id, final.id, label_id, True,), timeout=-1)
+            job = q.enqueue_call(init_active_contour, args=(img_id, final.id, label_id,), timeout=-1)
 
             # cleanup
             q = Queue('cleanup', connection=Redis())
