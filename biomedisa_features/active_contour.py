@@ -250,18 +250,21 @@ def post_processing(path_to_acwe, image_id=None, friend_id=None, simple=False, p
         from redis import Redis
         from rq import Queue
 
-        # get django objects
-        image = Upload.objects.get(pk=image_id)
-        friend = Upload.objects.get(pk=friend_id)
+        # check if reference data still exists
+        image = Upload.objects.filter(pk=img_id)
+        friend = Upload.objects.filter(pk=friend_id)
+        if len(friend)>0:
+            friend = friend[0]
 
-        # create django object
-        shortfilename = os.path.basename(path_to_acwe)
-        pic_path = 'images/' + image.user.username + '/' + shortfilename
-        Upload.objects.create(pic=pic_path, user=image.user, project=friend.project, final=(10 if simple else 3), imageType=3, shortfilename=shortfilename, friend=friend_id)
+            # create django object
+            shortfilename = os.path.basename(path_to_acwe)
+            pic_path = 'images/' + friend.user.username + '/' + shortfilename
+            Upload.objects.create(pic=pic_path, user=friend.user, project=friend.project, final=(10 if simple else 3), imageType=3, shortfilename=shortfilename, friend=friend_id)
 
-        # create slices
-        q = Queue('slices', connection=Redis())
-        job = q.enqueue_call(create_slices, args=(path_to_data, path_to_acwe,), timeout=-1)
+            # create slices
+            if len(image)>0:
+                q = Queue('slices', connection=Redis())
+                job = q.enqueue_call(create_slices, args=(path_to_data, path_to_acwe,), timeout=-1)
 
 def init_active_contour(image_id, friend_id, label_id, simple=False):
 
@@ -348,8 +351,8 @@ def init_active_contour(image_id, friend_id, label_id, simple=False):
                 # remove config file
                 subprocess.Popen(['ssh', host, 'rm', host_base + '/log/config_4']).wait()
 
+        # local server
         else:
-            # local server
             try:
                 activeContour(None, None, path_to_data=image.pic.path, path_to_labels=friend.pic.path,
                     alpha=label.ac_alpha, smooth=label.ac_smooth, steps=label.ac_steps,
@@ -374,13 +377,13 @@ if __name__ == '__main__':
     parser.add_argument('-v', '--version', action='version', version=f'{biomedisa.__version__}',
                         help='Biomedisa version')
     parser.add_argument('-si','--simple', action='store_true', default=False,
-                        help='Simple active contour')
+                        help='Simplified version of active contour')
     parser.add_argument('-a', '--alpha', type=float, default=1.0,
-                        help='Number of random walks starting at each pre-segmented pixel')
+                        help='Driving force of contour')
     parser.add_argument('-s', '--smooth', type=int, default=1,
-                        help='Steps of a random walk')
+                        help='Number of smoothing steps')
     parser.add_argument('-st', '--steps', type=int, default=3,
-                        help='Steps of a random walk')
+                        help='Number of iterations')
     parser.add_argument('-nc', '--no_compression', action='store_true', default=False,
                         help='Disable compression of segmentation results')
     parser.add_argument('-i', '--ignore', type=str, default='none',
@@ -392,7 +395,7 @@ if __name__ == '__main__':
     parser.add_argument('-fid','--friend_id', type=str, default=None,
                         help='Label ID within django environment/browser version')
     parser.add_argument('-r','--remote', action='store_true', default=False,
-                        help='The interpolation is carried out on a remote server. Must be set up in config.py')
+                        help='Process is carried out on a remote server. Must be set up in config.py')
 
     kwargs = vars(parser.parse_args())
 

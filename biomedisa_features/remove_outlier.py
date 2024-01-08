@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 ##########################################################################
 ##                                                                      ##
 ##  Copyright (c) 2024 Philipp Lösel. All rights reserved.              ##
@@ -26,9 +27,17 @@
 ##                                                                      ##
 ##########################################################################
 
-import os
+import sys, os
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if not BASE_DIR in sys.path:
+    sys.path.append(BASE_DIR)
+import biomedisa
+from biomedisa_features.biomedisa_helper import load_data, save_data, unique_file_path
 import numpy as np
 from scipy import ndimage
+import argparse
+import traceback
+import subprocess
 
 def reduce_blocksize(data):
     zsh, ysh, xsh = data.shape
@@ -135,16 +144,121 @@ def fill(image, threshold=0.9):
 
     return image_i
 
-def remove_outlier(image_id, final_id, friend_id, label_id, fill_holes=True):
+def main_helper(path_to_labels, path_to_reference=None, img_id=None, friend_id=None, fill_holes=True,
+    clean_threshold=0.9, fill_threshold=0.9, remote=False, no_compression=False):
+
+    # compression
+    if no_compression:
+        compression = False
+    else:
+        compression = True
+
+    # final filenames
+    filename, extension = os.path.splitext(path_to_labels)
+    if extension == '.gz':
+        extension = '.nii.gz'
+        filename = filename[:-4]
+    path_to_cleaned = filename + '.cleaned' + extension
+    path_to_filled = filename + '.filled' + extension
+    path_to_cleaned_filled = filename + '.cleaned.filled' + extension
+
+    # load data
+    final, header = load_data(path_to_labels, 'cleanup')
+    if extension not in ['.tif','.am']:
+        _, header = load_data(path_to_reference, 'cleanup')
+
+    # process data
+    final_cleaned = clean(final, clean_threshold)
+    if fill_holes:
+        final_filled = fill(final, fill_threshold)
+        final_cleaned_filled = final_cleaned + (final_filled - final)
+
+    # unique_file_paths
+    if not remote:
+        path_to_cleaned = unique_file_path(path_to_cleaned)
+        path_to_filled = unique_file_path(path_to_filled)
+        path_to_cleaned_filled = unique_file_path(path_to_cleaned_filled)
+
+    # save results
+    save_data(path_to_cleaned, final_cleaned, header, compression)
+    if fill_holes:
+        save_data(path_to_filled, final_filled, header, compression)
+        save_data(path_to_cleaned_filled, final_cleaned_filled, header, compression)
+
+    # post processing
+    post_processing(path_to_cleaned, path_to_filled, path_to_cleaned_filled, img_id, friend_id, fill_holes, remote)
+
+def post_processing(path_to_cleaned, path_to_filled, path_to_cleaned_filled, img_id=None, friend_id=None, fill_holes=False, remote=False):
+    if remote:
+        with open(BASE_DIR + '/log/config_6', 'w') as configfile:
+            print(path_to_cleaned, path_to_filled, path_to_cleaned_filled, file=configfile)
+    else:
+        import django
+        django.setup()
+        from biomedisa_app.models import Upload
+        from biomedisa_features.create_slices import create_slices
+        from redis import Redis
+        from rq import Queue
+
+        # check if reference data still exists
+        image = Upload.objects.filter(pk=img_id)
+        friend = Upload.objects.filter(pk=friend_id)
+        if len(friend)>0:
+            friend = friend[0]
+
+            # save django object
+            shortfilename = os.path.basename(path_to_cleaned)
+            pic_path = 'images/' + friend.user.username + '/' + shortfilename
+            Upload.objects.create(pic=pic_path, user=friend.user, project=friend.project, final=(2 if fill_holes else 6), imageType=3, shortfilename=shortfilename, friend=friend_id)
+
+            # create slices for sliceviewer
+            if len(image)>0:
+                q_slices = Queue('slices', connection=Redis())
+                job = q_slices.enqueue_call(create_slices, args=(image[0].pic.path, path_to_cleaned,), timeout=-1)
+
+            # fill holes
+            if fill_holes:
+                # save django object
+                shortfilename = os.path.basename(path_to_cleaned_filled)
+                pic_path = 'images/' + friend.user.username + '/' + shortfilename
+                Upload.objects.create(pic=pic_path, user=friend.user, project=friend.project, final=8, imageType=3, shortfilename=shortfilename, friend=friend_id)
+                shortfilename = os.path.basename(path_to_filled)
+                pic_path = 'images/' + friend.user.username + '/' + shortfilename
+                Upload.objects.create(pic=pic_path, user=friend.user, project=friend.project, final=7, imageType=3, shortfilename=shortfilename, friend=friend_id)
+
+                # create slices for sliceviewer
+                if len(image)>0:
+                    q_slices = Queue('slices', connection=Redis())
+                    job = q_slices.enqueue_call(create_slices, args=(image[0].pic.path, path_to_filled,), timeout=-1)
+                    job = q_slices.enqueue_call(create_slices, args=(image[0].pic.path, path_to_cleaned_filled,), timeout=-1)
+
+def init_remove_outlier(image_id, final_id, friend_id, label_id, fill_holes=True):
+    '''
+    Runs clean() and fill() within django environment/webbrowser version
+
+    Parameters
+    ---------
+    image_id: int
+        Django id of image data used for creating slice preview
+    final_id: int
+        Django id of result data to be processed
+    friend_id: int
+        Django id of reference object used for assigning result
+    label_id: int
+        Django id of label data used for configuration parameters
+    fill_holes: bool
+        Fill holes and save as an optional result
+
+    Returns
+    -------
+    No returns
+        Fails silently
+    '''
 
     import django
     django.setup()
     from biomedisa_app.models import Upload
-    from biomedisa.settings import WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT
-    from biomedisa_features.create_slices import create_slices
-    from biomedisa_features.biomedisa_helper import load_data, save_data, unique_file_path
-    from redis import Redis
-    from rq import Queue
+    from biomedisa_app.config import config
 
     # get objects
     try:
@@ -158,79 +272,116 @@ def remove_outlier(image_id, final_id, friend_id, label_id, fill_holes=True):
 
     if success:
 
-        # path to data
-        path_to_data = image.pic.path.replace(WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT)
-        path_to_final = final.pic.path.replace(WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT)
+        # get host information
+        host = ''
+        host_base = BASE_DIR
+        if 'CLEAN_QUEUE_HOST' in config:
+            host = config['CLEAN_QUEUE_HOST']
+        if host and 'CLEAN_QUEUE_BASE_DIR' in config:
+            host_base = config['CLEAN_QUEUE_BASE_DIR']
 
-        # final filenames
-        filename, extension = os.path.splitext(path_to_final)
-        if extension == '.gz':
-            extension = '.nii.gz'
-            filename = filename[:-4]
-        path_to_cleaned = filename + '.cleaned' + extension
-        path_to_filled = filename + '.filled' + extension
-        path_to_cleaned_filled = filename + '.cleaned.filled' + extension
+        # remote server
+        if host:
 
-        # load data and header
-        final, header = load_data(path_to_final, 'cleanup')
-        if extension not in ['.tif','.am']:
-            _, header = load_data(label.pic.path.replace(WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT), 'cleanup')
+            # command
+            cmd = ['python3', 'remove_outlier.py', final.pic.path.replace(BASE_DIR,host_base)]
+            cmd += [f'--path_to_reference={label.pic.path.replace(BASE_DIR,host_base)}]
+            cmd += [f'-iid={image.id}', f'-fid={friend.id}', '-r']
 
-        # remove outlier
-        final_cleaned = clean(final, label.delete_outliers)
-
-        try:
-            # check if final still exists
-            friend = Upload.objects.get(pk=friend_id)
-
-            # save results
-            path_to_cleaned = unique_file_path(path_to_cleaned)
-            save_data(path_to_cleaned, final_cleaned, header, extension, label.compression)
-
-            # save django object
-            shortfilename = os.path.basename(path_to_cleaned)
-            pic_path = 'images/' + friend.user.username + '/' + shortfilename
+            # command (append only on demand)
             if fill_holes:
-                Upload.objects.create(pic=pic_path, user=friend.user, project=friend.project, final=2, imageType=3, shortfilename=shortfilename, friend=friend_id)
+                cmd += ['-fh']
+            if not label.compression:
+                cmd += ['-nc']
+            if label.delete_outliers != 0.9:
+                cmd += [f'-c={label.delete_outliers}']
+            if label.fill_holes != 0.9:
+                cmd += [f'-f={label.fill_holes}']
+
+            # change working directory
+            cwd = host_base + '/biomedisa_features/'
+
+            # send data to host
+            subprocess.Popen(['ssh', host, 'mkdir', '-p', host_base+'/private_storage/images/'+image.user.username]).wait()
+            subprocess.Popen(['rsync', '-avP', final.pic.path, host+':'+final.pic.path.replace(BASE_DIR,host_base)]).wait()
+            subprocess.Popen(['rsync', '-avP', label.pic.path, host+':'+label.pic.path.replace(BASE_DIR,host_base)]).wait()
+
+            # run interpolation
+            if 'CLEAN_QUEUE_SUBHOST' in config:
+                cmd = ['ssh', '-t', host, 'ssh', config['CLEAN_QUEUE_SUBHOST']] + cmd
             else:
-                Upload.objects.create(pic=pic_path, user=friend.user, project=friend.project, final=6, imageType=3, shortfilename=shortfilename, friend=friend_id)
+                cmd = ['ssh', host] + cmd
+            cmd[cmd.index('remove_outlier.py')] = cwd + 'remove_outlier.py'
+            subprocess.Popen(cmd).wait()
 
-            # create slices for sliceviewer
-            q_slices = Queue('slices', connection=Redis())
-            job = q_slices.enqueue_call(create_slices, args=(path_to_data, path_to_cleaned,), timeout=-1)
+            # config
+            config = subprocess.Popen(['scp', host+':'+host_base+'/log/config_6', BASE_DIR+'/log/config_6']).wait()
 
-        except Upload.DoesNotExist:
-            success = False
+            if config==0:
+                with open(BASE_DIR + '/log/config_6', 'r') as configfile:
+                    cleaned_on_host, filled_on_host, cleaned_filled_on_host = configfile.read().split()
 
-        # fill holes
-        if fill_holes and success:
+                # local file names
+                path_to_cleaned = unique_file_path(cleaned_on_host.replace(host_base,BASE_DIR))
+                path_to_filled = unique_file_path(filled_on_host.replace(host_base,BASE_DIR))
+                path_to_cleaned_filled = unique_file_path(cleaned_filled_on_host.replace(host_base,BASE_DIR))
 
-            final_filled = fill(final, label.fill_holes)
-            final_cleaned_filled = final_cleaned + (final_filled - final)
+                # get results
+                subprocess.Popen(['scp', host+':'+cleaned_on_host, path_to_cleaned]).wait()
+                if fill_holes:
+                    subprocess.Popen(['scp', host+':'+filled_on_host, path_to_filled]).wait()
+                    subprocess.Popen(['scp', host+':'+cleaned_filled_on_host, path_to_cleaned_filled]).wait()
 
+                # post processing
+                post_processing(path_to_cleaned, path_to_filled, path_to_cleaned_filled, image_id, friend_id, fill_holes)
+
+                # remove config file
+                subprocess.Popen(['ssh', host, 'rm', host_base + '/log/config_6']).wait()
+
+        # local server
+        else:
             try:
-                # check if final still exists
-                friend = Upload.objects.get(pk=friend_id)
+                main_helper(final.pic.path, label.pic.path, image_id, friend_id, fill_holes,
+                    label.delete_outliers, label.fill_holes, remote=False,
+                    no_compression=(False if label.compression else True))
+            except Exception as e:
+                print(traceback.format_exc())
 
-                # save results
-                path_to_filled = unique_file_path(path_to_filled)
-                save_data(path_to_filled, final_filled, header, extension, label.compression)
-                path_to_cleaned_filled = unique_file_path(path_to_cleaned_filled)
-                save_data(path_to_cleaned_filled, final_cleaned_filled, header, extension, label.compression)
+if __name__ == '__main__':
 
-                # save django object
-                shortfilename = os.path.basename(path_to_cleaned_filled)
-                pic_path = 'images/' + friend.user.username + '/' + shortfilename
-                Upload.objects.create(pic=pic_path, user=friend.user, project=friend.project, final=8, imageType=3, shortfilename=shortfilename, friend=friend_id)
-                shortfilename = os.path.basename(path_to_filled)
-                pic_path = 'images/' + friend.user.username + '/' + shortfilename
-                Upload.objects.create(pic=pic_path, user=friend.user, project=friend.project, final=7, imageType=3, shortfilename=shortfilename, friend=friend_id)
+    # initialize arguments
+    parser = argparse.ArgumentParser(description='Biomedisa active contour.',
+             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-                # create slices for sliceviewer
-                q_slices = Queue('slices', connection=Redis())
-                job = q_slices.enqueue_call(create_slices, args=(path_to_data, path_to_filled,), timeout=-1)
-                job = q_slices.enqueue_call(create_slices, args=(path_to_data, path_to_cleaned_filled,), timeout=-1)
+    # required arguments
+    parser.add_argument('path_to_labels', type=str, metavar='PATH_TO_LABELS',
+                        help='Location of label data')
 
-            except Upload.DoesNotExist:
-                pass
+    # optional arguments
+    parser.add_argument('-v', '--version', action='version', version=f'{biomedisa.__version__}',
+                        help='Biomedisa version')
+    parser.add_argument('--path_to_reference', type=str, default=None,
+                        help='Reference data for header information')
+    parser.add_argument('-fh','--fill_holes', action='store_true', default=False,
+                        help='Fill holes and save as an optional result')
+    parser.add_argument('-c', '--clean_threshold', type=float, default=0.9,
+                        help='Remove outliers, e.g. 0.5 means that objects smaller than 50 percent of the size of the largest object will be removed')
+    parser.add_argument('-f', '--fill_threshold', type=float, default=0.9,
+                        help='Fill holes, e.g. 0.5 means that all holes smaller than 50 percent of the entire label will be filled')
+    parser.add_argument('-nc', '--no_compression', action='store_true', default=False,
+                        help='Disable compression of segmentation results')
+    parser.add_argument('-iid','--img_id', type=str, default=None,
+                        help='Image ID within django environment/browser version')
+    parser.add_argument('-fid','--friend_id', type=str, default=None,
+                        help='Label ID within django environment/browser version')
+    parser.add_argument('-r','--remote', action='store_true', default=False,
+                        help='Process is carried out on a remote server. Must be set up in config.py')
+
+    kwargs = vars(parser.parse_args())
+
+    # main function
+    try:
+        main_helper(**kwargs)
+    except Exception as e:
+        print(traceback.format_exc())
 

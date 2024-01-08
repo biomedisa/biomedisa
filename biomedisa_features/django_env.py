@@ -1,6 +1,6 @@
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2023 Philipp Lösel. All rights reserved.              ##
+##  Copyright (c) 2024 Philipp Lösel. All rights reserved.              ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -78,7 +78,7 @@ def post_processing(path_to_final, time_str, server_name, remote, queue, path_to
         from biomedisa_app.models import Upload
         from biomedisa_app.views import send_notification
         from biomedisa_features.active_contour import init_active_contour
-        from biomedisa_features.remove_outlier import remove_outlier
+        from biomedisa_features.remove_outlier import init_remove_outlier
         from biomedisa_features.create_slices import create_slices
         from redis import Redis
         from rq import Queue
@@ -122,9 +122,9 @@ def post_processing(path_to_final, time_str, server_name, remote, queue, path_to
 
             # cleanup
             q = Queue('cleanup', connection=Redis())
-            job = q.enqueue_call(remove_outlier, args=(img_id, final.id, final.id, label_id,), timeout=-1)
+            job = q.enqueue_call(init_remove_outlier, args=(img_id, final.id, final.id, label_id,), timeout=-1)
             if smooth:
-                job = q.enqueue_call(remove_outlier, args=(img_id, smooth_obj.id, final.id, label_id, False,), timeout=-1)
+                job = q.enqueue_call(init_remove_outlier, args=(img_id, smooth_obj.id, final.id, label_id, False,), timeout=-1)
 
             # create slices
             q = Queue('slices', connection=Redis())
