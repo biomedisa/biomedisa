@@ -251,7 +251,7 @@ def post_processing(path_to_acwe, image_id=None, friend_id=None, simple=False, p
         from rq import Queue
 
         # check if reference data still exists
-        image = Upload.objects.filter(pk=img_id)
+        image = Upload.objects.filter(pk=image_id)
         friend = Upload.objects.filter(pk=friend_id)
         if len(friend)>0:
             friend = friend[0]
