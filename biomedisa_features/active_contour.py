@@ -241,7 +241,7 @@ def refinement(bm):
 def post_processing(path_to_acwe, image_id=None, friend_id=None, simple=False, path_to_data=None, remote=False):
     if remote:
         with open(BASE_DIR + '/log/config_4', 'w') as configfile:
-            print(path_to_acwe, file=configfile)
+            print(path_to_acwe, 'phantom', file=configfile)
     else:
         import django
         django.setup()
@@ -334,7 +334,7 @@ def init_active_contour(image_id, friend_id, label_id, simple=False):
 
             if config==0:
                 with open(BASE_DIR + '/log/config_4', 'r') as configfile:
-                    acwe_on_host = configfile.read()
+                    acwe_on_host, _ = configfile.read().split()
 
                 # local file names
                 path_to_acwe = unique_file_path(acwe_on_host.replace(host_base,BASE_DIR))
@@ -343,7 +343,7 @@ def init_active_contour(image_id, friend_id, label_id, simple=False):
                 subprocess.Popen(['scp', host+':'+acwe_on_host, path_to_acwe]).wait()
 
                 # post processing
-                post_processing(path_to_acwe, image_id=image_id, friend_id=friend_id, simple=simple, path_to_data=path_to_data)
+                post_processing(path_to_acwe, image_id=image_id, friend_id=friend_id, simple=simple, path_to_data=image.pic.path)
 
                 # remove config file
                 subprocess.Popen(['ssh', host, 'rm', host_base + '/log/config_4']).wait()
