@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 ##########################################################################
 ##                                                                      ##
 ##  Copyright (c) 2024 Philipp Lösel. All rights reserved.              ##
@@ -26,10 +27,25 @@
 ##                                                                      ##
 ##########################################################################
 
-import os
+import sys, os
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if not BASE_DIR in sys.path:
+    sys.path.append(BASE_DIR)
+import biomedisa
 from biomedisa_features.curvop_numba import curvop, evolution
+from biomedisa_features.biomedisa_helper import (unique_file_path,
+    save_data, pre_processing, img_to_uint8)
 import numpy as np
 import numba
+import argparse
+import traceback
+import subprocess
+
+class Biomedisa(object):
+     pass
+
+class build_label(object):
+     pass
 
 @numba.jit(nopython=True)
 def geodis(c,sqrt2,sqrt3,iterations):
@@ -95,50 +111,122 @@ def reduce_blocksize(raw, slices):
     slices = slices[argmin_z:argmax_z, argmin_y:argmax_y, argmin_x:argmax_x]
     return raw, slices, argmin_z, argmax_z, argmin_y, argmax_y, argmin_x, argmax_x
 
-def activeContour(data, labelData, alpha=1.0, smooth=1, steps=3, allLabels=None):
-    print("alpha:", alpha, "smooth:", smooth, "steps:", steps)
-    zsh, ysh, xsh = data.shape
-    tmp = np.zeros((2+zsh, 2+ysh, 2+xsh), dtype=data.dtype)
-    tmp[1:-1,1:-1,1:-1] = data
-    data = np.copy(tmp)
-    tmp = np.zeros((2+zsh, 2+ysh, 2+xsh), dtype=labelData.dtype)
-    tmp[1:-1,1:-1,1:-1] = labelData
-    labelData = np.copy(tmp)
-    zsh, ysh, xsh = data.shape
-    data, labelData, argmin_z, argmax_z, argmin_y, argmax_y, argmin_x, argmax_x = reduce_blocksize(data, labelData)
-    labelData = np.copy(labelData)
-    data = np.copy(data)
-    if allLabels is None:
-        allLabels = np.unique(labelData)
-    for n in range(steps):
-        mean = np.zeros(256, dtype=np.float32)
-        for k in allLabels:
-            inside = labelData==k
-            if np.any(inside):
-                mean[k] = np.mean(data[inside])
-        labelData = evolution(mean, labelData, data, alpha)
-        for k in allLabels:
-            labelData = curvop(labelData, smooth, k, allLabels)
-    final = np.zeros((zsh, ysh, xsh), dtype=np.uint8)
-    final[argmin_z:argmax_z, argmin_y:argmax_y, argmin_x:argmax_x] = labelData
-    final = np.copy(final[1:-1, 1:-1, 1:-1])
-    return final
+def activeContour(data, labelData, alpha=1.0, smooth=1, steps=3,
+    path_to_data=None, path_to_labels=None, no_compression=False,
+    ignore='none', only='all', simple=False,
+    img_id=None, friend_id=None, remote=False):
 
-def refinement(data, labelData, allLabels=None):
-    if allLabels is None:
-        allLabels = np.unique(labelData)
-    zsh, ysh, xsh = data.shape
-    distance = np.zeros(data.shape, dtype=np.float32)
-    distance[labelData==0] = 100
+    # create biomedisa
+    bm = Biomedisa()
+    bm.label = build_label()
+    bm.process = 'acwe'
+    bm.success = True
+
+    # transfer arguments
+    key_copy = tuple(locals().keys())
+    for arg in key_copy:
+        bm.__dict__[arg] = locals()[arg]
+    for arg in ['ignore','only']:
+        bm.label.__dict__[arg] = locals()[arg]
+
+    # django environment
+    if bm.img_id is not None:
+        bm.django_env = True
+    else:
+        bm.django_env = False
+
+    # compression
+    if bm.no_compression:
+        bm.compression = False
+    else:
+        bm.compression = True
+
+    # disable file saving when called as a function
+    if bm.data is not None:
+        bm.path_to_data = None
+        bm.path_to_labels = None
+
+    if bm.django_env:
+        bm.username = os.path.basename(os.path.dirname(bm.path_to_data))
+        bm.shortfilename = os.path.basename(bm.path_to_data)
+        bm.path_to_logfile = BASE_DIR + '/log/logfile.txt'
+
+    # pre-processing
+    bm = pre_processing(bm)
+
+    # create path_to_acwe
+    if bm.path_to_data:
+        filename, extension = os.path.splitext(bm.path_to_labels)
+        if extension == '.gz':
+            filename = filename[:-4]
+        suffix='.refined' if simple else '.acwe'
+        path_to_acwe = filename + suffix + bm.final_image_type
+
+    if bm.success:
+
+        # data type
+        bm.data = img_to_uint8(bm.data)
+
+        # append data
+        zsh, ysh, xsh = bm.data.shape
+        tmp = np.zeros((2+zsh, 2+ysh, 2+xsh), dtype=bm.data.dtype)
+        tmp[1:-1,1:-1,1:-1] = bm.data
+        bm.data = np.copy(tmp)
+        tmp = np.zeros((2+zsh, 2+ysh, 2+xsh), dtype=bm.labelData.dtype)
+        tmp[1:-1,1:-1,1:-1] = bm.labelData
+        bm.labelData = np.copy(tmp)
+        zsh, ysh, xsh = bm.data.shape
+
+        # reduce blocksize
+        bm.data, bm.labelData, argmin_z, argmax_z, argmin_y, argmax_y, argmin_x, argmax_x = reduce_blocksize(bm.data, bm.labelData)
+        bm.labelData = np.copy(bm.labelData)
+        bm.data = np.copy(bm.data)
+
+        # active contour
+        if simple:
+            bm.labelData = refinement(bm)
+        else:
+            for n in range(bm.steps):
+                print('Step:', n+1, '/', bm.steps)
+                mean = np.zeros(256, dtype=np.float32)
+                for k in bm.allLabels:
+                    inside = bm.labelData==k
+                    if np.any(inside):
+                        mean[k] = np.mean(bm.data[inside])
+                bm.labelData = evolution(mean, bm.labelData, bm.data, bm.alpha)
+                for k in bm.allLabels:
+                    bm.labelData = curvop(bm.labelData, bm.smooth, k, bm.allLabels)
+
+        # return to original data size
+        final = np.zeros((zsh, ysh, xsh), dtype=np.uint8)
+        final[argmin_z:argmax_z, argmin_y:argmax_y, argmin_x:argmax_x] = bm.labelData
+        final = np.copy(final[1:-1, 1:-1, 1:-1])
+
+        # save result
+        if bm.django_env and not bm.remote:
+            path_to_acwe = unique_file_path(path_to_acwe)
+        if bm.path_to_data:
+            save_data(path_to_acwe, final, bm.header, bm.final_image_type, bm.compression)
+
+        # post processing
+        if bm.django_env:
+            post_processing(path_to_acwe, bm.img_id, bm.friend_id, bm.simple, bm.path_to_data, bm.remote)
+
+        return final
+
+def refinement(bm):
+    zsh, ysh, xsh = bm.data.shape
+    distance = np.zeros(bm.data.shape, dtype=np.float32)
+    distance[bm.labelData==0] = 100
     distance = geodis(distance,np.sqrt(2),np.sqrt(3),1)
     distance[distance<=10] = 0
     distance[distance>10] = 1
     distance = distance.astype(np.uint8)
-    result = np.zeros_like(labelData)
-    for l in allLabels[1:]:
+    result = np.zeros_like(bm.labelData)
+    for l in bm.allLabels[1:]:
         for k in range(zsh):
-            img = data[k]
-            mask = labelData[k]
+            img = bm.data[k]
+            mask = bm.labelData[k]
             d = distance[k]
             if np.any(np.logical_and(d==0,mask==l)) and np.any(np.logical_and(d==0,mask!=l)):
                 m1,s1 = np.mean(img[np.logical_and(d==0,mask==l)]), np.std(img[np.logical_and(d==0,mask==l)])
@@ -150,88 +238,167 @@ def refinement(data, labelData, allLabels=None):
                 result[k] = np.logical_and(d==0, p1 > p2) * l
     return result
 
-class Biomedisa(object):
-     pass
+def post_processing(path_to_acwe, image_id=None, friend_id=None, simple=False, path_to_data=None, remote=False):
+    if remote:
+        with open(BASE_DIR + '/log/config_4', 'w') as configfile:
+            print(path_to_acwe, file=configfile)
+    else:
+        import django
+        django.setup()
+        from biomedisa_app.models import Upload
+        from biomedisa_features.create_slices import create_slices
+        from redis import Redis
+        from rq import Queue
 
-def active_contour(image_id, friend_id, label_id, simple=False):
+        # get django objects
+        image = Upload.objects.get(pk=image_id)
+        friend = Upload.objects.get(pk=friend_id)
+
+        # create django object
+        shortfilename = os.path.basename(path_to_acwe)
+        pic_path = 'images/' + image.user.username + '/' + shortfilename
+        Upload.objects.create(pic=pic_path, user=image.user, project=friend.project, final=(10 if simple else 3), imageType=3, shortfilename=shortfilename, friend=friend_id)
+
+        # create slices
+        q = Queue('slices', connection=Redis())
+        job = q.enqueue_call(create_slices, args=(path_to_data, path_to_acwe,), timeout=-1)
+
+def init_active_contour(image_id, friend_id, label_id, simple=False):
 
     import django
     django.setup()
     from biomedisa_app.models import Upload
-    from biomedisa.settings import BASE_DIR, WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT
-    from biomedisa_features.create_slices import create_slices
-    from biomedisa_features.biomedisa_helper import (unique_file_path,
-        save_data, pre_processing, img_to_uint8)
-    from redis import Redis
-    from rq import Queue
-
-    # create biomedisa
-    bm = Biomedisa()
-    bm.process = 'acwe'
-    bm.django_env = True
-    bm.data = None
-    bm.labelData = None
-    bm.remote, bm.queue = False, 0
-
-    # path to logfiles
-    bm.path_to_time = BASE_DIR + '/log/time.txt'
-    bm.path_to_logfile = BASE_DIR + '/log/logfile.txt'
+    from biomedisa_app.config import config
 
     # get objects
     try:
-        bm.image = Upload.objects.get(pk=image_id)
-        bm.label = Upload.objects.get(pk=label_id)
+        image = Upload.objects.get(pk=image_id)
+        label = Upload.objects.get(pk=label_id)
         friend = Upload.objects.get(pk=friend_id)
-        bm.success = True
+        success = True
     except Upload.DoesNotExist:
-        bm.success = False
+        success = False
 
-    # pre-processing
-    if bm.success:
-        bm.path_to_data = bm.image.pic.path.replace(WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT)
-        bm.path_to_labels = friend.pic.path.replace(WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT)
-        bm.img_id = image_id
-        bm.username = bm.image.user.username
-        bm.shortfilename = bm.image.shortfilename
-        bm = pre_processing(bm)
+    if success:
 
-    if bm.success:
+        # get host information
+        host = ''
+        host_base = BASE_DIR
+        if 'ACWE_QUEUE_HOST' in config:
+            host = config['ACWE_QUEUE_HOST']
+        if host and 'ACWE_QUEUE_BASE_DIR' in config:
+            host_base = config['ACWE_QUEUE_BASE_DIR']
 
-        # final filename
-        filename, extension = os.path.splitext(bm.path_to_labels)
-        if extension == '.gz':
-            filename = filename[:-4]
+        # remote server
+        if host:
 
-        # data type
-        bm.data = img_to_uint8(bm.data)
+            # command
+            cmd = ['python3', 'active_contour.py']
+            cmd += [image.pic.path.replace(BASE_DIR,host_base), friend.pic.path.replace(BASE_DIR,host_base)]
+            cmd += [f'-iid={image.id}', f'-fid={friend.id}', '-r']
 
-        # process data
-        if simple:
-            final_value = 10
-            bm.path_to_acwe = filename + '.refined' + bm.final_image_type
-            final = refinement(bm.data, bm.labelData, bm.allLabels)
+            # command (append only on demand)
+            if simple:
+                cmd += ['-si']
+            if not label.compression:
+                cmd += ['-nc']
+            if label.ignore != 'none':
+                cmd += [f'-i={label.ignore}']
+            if label.only != 'all':
+                cmd += [f'-o={label.only}']
+            if label.ac_smooth != 1:
+                cmd += [f'-s={label.ac_smooth}']
+            if label.ac_steps != 3:
+                cmd += [f'-st={label.ac_steps}']
+            if label.ac_alpha != 1.0:
+                cmd += [f'-a={label.ac_alpha}']
+
+            # change working directory
+            cwd = host_base + '/biomedisa_features/'
+
+            # send data to host
+            subprocess.Popen(['ssh', host, 'mkdir', '-p', host_base+'/private_storage/images/'+image.user.username]).wait()
+            subprocess.Popen(['rsync', '-avP', image.pic.path, host+':'+image.pic.path.replace(BASE_DIR,host_base)]).wait()
+            subprocess.Popen(['rsync', '-avP', friend.pic.path, host+':'+friend.pic.path.replace(BASE_DIR,host_base)]).wait()
+
+            # run interpolation
+            if 'ACWE_QUEUE_SUBHOST' in config:
+                cmd = ['ssh', '-t', host, 'ssh', config['ACWE_QUEUE_SUBHOST']] + cmd
+            else:
+                cmd = ['ssh', host] + cmd
+            cmd[cmd.index('active_contour.py')] = cwd + 'active_contour.py'
+            subprocess.Popen(cmd).wait()
+
+            # config
+            config = subprocess.Popen(['scp', host+':'+host_base+'/log/config_4', BASE_DIR+'/log/config_4']).wait()
+
+            if config==0:
+                with open(BASE_DIR + '/log/config_4', 'r') as configfile:
+                    acwe_on_host = configfile.read()
+
+                # local file names
+                path_to_acwe = unique_file_path(acwe_on_host.replace(host_base,BASE_DIR))
+
+                # get results
+                subprocess.Popen(['scp', host+':'+acwe_on_host, path_to_acwe]).wait()
+
+                # post processing
+                post_processing(path_to_acwe, image_id=image_id, friend_id=friend_id, simple=simple, path_to_data=path_to_data)
+
+                # remove config file
+                subprocess.Popen(['ssh', host, 'rm', host_base + '/log/config_4']).wait()
+
         else:
-            final_value = 3
-            bm.path_to_acwe = filename + '.acwe' + bm.final_image_type
-            final = activeContour(bm.data, bm.labelData, bm.label.ac_alpha, bm.label.ac_smooth, bm.label.ac_steps, bm.allLabels)
+            # local server
+            try:
+                activeContour(None, None, path_to_data=image.pic.path, path_to_labels=friend.pic.path,
+                    alpha=label.ac_alpha, smooth=label.ac_smooth, steps=label.ac_steps,
+                    no_compression=(False if label.compression else True),
+                    simple=simple, img_id=image_id, friend_id=friend_id, remote=False)
+            except Exception as e:
+                print(traceback.format_exc())
 
-        try:
-            # check if final still exists
-            friend = Upload.objects.get(pk=friend_id)
+if __name__ == '__main__':
 
-            # save result
-            bm.path_to_acwe = unique_file_path(bm.path_to_acwe)
-            save_data(bm.path_to_acwe, final, bm.header, bm.final_image_type, bm.label.compression)
+    # initialize arguments
+    parser = argparse.ArgumentParser(description='Biomedisa active contour.',
+             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-            # save django object
-            shortfilename = os.path.basename(bm.path_to_acwe)
-            pic_path = 'images/' + bm.image.user.username + '/' + shortfilename
-            Upload.objects.create(pic=pic_path, user=bm.image.user, project=friend.project, final=final_value, imageType=3, shortfilename=shortfilename, friend=friend_id)
+    # required arguments
+    parser.add_argument('path_to_data', type=str, metavar='PATH_TO_IMAGE',
+                        help='Location of image data')
+    parser.add_argument('path_to_labels', type=str, metavar='PATH_TO_LABELS',
+                        help='Location of label data')
 
-            # create slices
-            q = Queue('slices', connection=Redis())
-            job = q.enqueue_call(create_slices, args=(bm.path_to_data, bm.path_to_acwe,), timeout=-1)
+    # optional arguments
+    parser.add_argument('-v', '--version', action='version', version=f'{biomedisa.__version__}',
+                        help='Biomedisa version')
+    parser.add_argument('-si','--simple', action='store_true', default=False,
+                        help='Simple active contour')
+    parser.add_argument('-a', '--alpha', type=float, default=1.0,
+                        help='Number of random walks starting at each pre-segmented pixel')
+    parser.add_argument('-s', '--smooth', type=int, default=1,
+                        help='Steps of a random walk')
+    parser.add_argument('-st', '--steps', type=int, default=3,
+                        help='Steps of a random walk')
+    parser.add_argument('-nc', '--no_compression', action='store_true', default=False,
+                        help='Disable compression of segmentation results')
+    parser.add_argument('-i', '--ignore', type=str, default='none',
+                        help='Ignore specific label(s), e.g. 2,5,6')
+    parser.add_argument('-o', '--only', type=str, default='all',
+                        help='Segment only specific label(s), e.g. 1,3,5')
+    parser.add_argument('-iid','--img_id', type=str, default=None,
+                        help='Image ID within django environment/browser version')
+    parser.add_argument('-fid','--friend_id', type=str, default=None,
+                        help='Label ID within django environment/browser version')
+    parser.add_argument('-r','--remote', action='store_true', default=False,
+                        help='The interpolation is carried out on a remote server. Must be set up in config.py')
 
-        except Upload.DoesNotExist:
-            pass
+    kwargs = vars(parser.parse_args())
+
+    # run active contour
+    try:
+        activeContour(None, None, **kwargs)
+    except Exception as e:
+        print(traceback.format_exc())
 
