@@ -285,7 +285,7 @@ def init_remove_outlier(image_id, final_id, friend_id, label_id, fill_holes=True
 
             # command
             cmd = ['python3', 'remove_outlier.py', final.pic.path.replace(BASE_DIR,host_base)]
-            cmd += [f'--path_to_reference={label.pic.path.replace(BASE_DIR,host_base)}]
+            cmd += [f'--path_to_reference={label.pic.path.replace(BASE_DIR,host_base)}']
             cmd += [f'-iid={image.id}', f'-fid={friend.id}', '-r']
 
             # command (append only on demand)
