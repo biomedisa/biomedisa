@@ -34,7 +34,7 @@ if not BASE_DIR in sys.path:
 import biomedisa
 from biomedisa_features.curvop_numba import curvop, evolution
 from biomedisa_features.biomedisa_helper import (unique_file_path,
-    save_data, pre_processing, img_to_uint8)
+    save_data, pre_processing, img_to_uint8, silent_remove)
 import numpy as np
 import numba
 import argparse
@@ -265,6 +265,8 @@ def post_processing(path_to_acwe, image_id=None, friend_id=None, simple=False, p
             if len(image)>0:
                 q = Queue('slices', connection=Redis())
                 job = q.enqueue_call(create_slices, args=(path_to_data, path_to_acwe,), timeout=-1)
+        else:
+            silent_remove(path_to_acwe)
 
 def init_active_contour(image_id, friend_id, label_id, simple=False):
 
