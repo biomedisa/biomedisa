@@ -58,6 +58,12 @@ from multiprocessing import Process
 import re
 import math
 
+def silent_remove(filename):
+    try:
+        os.remove(filename)
+    except OSError:
+        pass
+
 def Dice_score(ground_truth, result, average_dice=False):
     if average_dice:
         dice = 0

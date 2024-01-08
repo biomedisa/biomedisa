@@ -32,7 +32,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if not BASE_DIR in sys.path:
     sys.path.append(BASE_DIR)
 import biomedisa
-from biomedisa_features.biomedisa_helper import load_data, save_data, unique_file_path
+from biomedisa_features.biomedisa_helper import load_data, save_data, unique_file_path, silent_remove
 import numpy as np
 from scipy import ndimage
 import argparse
@@ -231,6 +231,10 @@ def post_processing(path_to_cleaned, path_to_filled, path_to_cleaned_filled, img
                     q_slices = Queue('slices', connection=Redis())
                     job = q_slices.enqueue_call(create_slices, args=(image[0].pic.path, path_to_filled,), timeout=-1)
                     job = q_slices.enqueue_call(create_slices, args=(image[0].pic.path, path_to_cleaned_filled,), timeout=-1)
+        else:
+            silent_remove(path_to_cleaned)
+            silent_remove(path_to_filled)
+            silent_remove(path_to_cleaned_filled)
 
 def init_remove_outlier(image_id, final_id, friend_id, label_id, fill_holes=True):
     '''
@@ -245,7 +249,7 @@ def init_remove_outlier(image_id, final_id, friend_id, label_id, fill_holes=True
     friend_id: int
         Django id of reference object used for assigning result
     label_id: int
-        Django id of label data used for configuration parameters
+        Django id of label data used for configuration parameters and header information
     fill_holes: bool
         Fill holes and save as an optional result
 
@@ -285,7 +289,8 @@ def init_remove_outlier(image_id, final_id, friend_id, label_id, fill_holes=True
 
             # command
             cmd = ['python3', 'remove_outlier.py', final.pic.path.replace(BASE_DIR,host_base)]
-            cmd += [f'--path_to_reference={label.pic.path.replace(BASE_DIR,host_base)}']
+            if label.imageType != 4:
+                cmd += [f'--path_to_reference={label.pic.path.replace(BASE_DIR,host_base)}']
             cmd += [f'-iid={image.id}', f'-fid={friend.id}', '-r']
 
             # command (append only on demand)
@@ -304,7 +309,8 @@ def init_remove_outlier(image_id, final_id, friend_id, label_id, fill_holes=True
             # send data to host
             subprocess.Popen(['ssh', host, 'mkdir', '-p', host_base+'/private_storage/images/'+image.user.username]).wait()
             subprocess.Popen(['rsync', '-avP', final.pic.path, host+':'+final.pic.path.replace(BASE_DIR,host_base)]).wait()
-            subprocess.Popen(['rsync', '-avP', label.pic.path, host+':'+label.pic.path.replace(BASE_DIR,host_base)]).wait()
+            if label.imageType != 4:
+                subprocess.Popen(['rsync', '-avP', label.pic.path, host+':'+label.pic.path.replace(BASE_DIR,host_base)]).wait()
 
             # run interpolation
             if 'CLEAN_QUEUE_SUBHOST' in config:
