@@ -203,9 +203,8 @@ def _diffusion_child(comm, bm=None):
                 img_id=bm.img_id, label_id=bm.label_id)
 
             # write in logfile
-            shortfilename = os.path.basename(bm.path_to_final)
             with open(bm.path_to_time, 'a') as timefile:
-                print('%s %s %s %s MB %s on %s' %(time.ctime(), bm.username, shortfilename, bm.imageSize, time_str, config['SERVER_ALIAS']), file=timefile)
+                print('%s %s %s %s MB %s on %s' %(time.ctime(), bm.username, bm.shortfilename, bm.imageSize, time_str, config['SERVER_ALIAS']), file=timefile)
 
         # return results
         return results

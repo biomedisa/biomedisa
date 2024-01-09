@@ -1040,7 +1040,8 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
         image.save()
 
         # send start notification
-        send_start_notification(image)
+        if train:
+            send_start_notification(image)
 
         # number of gpus or list of gpu ids (works only locally)
         if type(config[f'{QUEUE}_QUEUE_NGPUS'])==list:
