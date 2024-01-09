@@ -213,7 +213,7 @@ def unique_file_path(path, dir_path=PRIVATE_STORAGE_ROOT+'/'):
     # check if file already exists
     file_already_exists = os.path.exists(path)
     while file_already_exists:
-        limit = 100 - len(addon) - len('-') + len(str(i)) - len(extension)
+        limit = 100 - len(addon) - len('-') - len(str(i)) - len(extension)
         path = dir_path + pic_path[:limit] + addon + '-' + str(i) + extension
         file_already_exists = os.path.exists(path)
         i += 1
