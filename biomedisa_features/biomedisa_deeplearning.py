@@ -311,9 +311,9 @@ if __name__ == '__main__':
                         help='Use averaged dice score of each label')
     parser.add_argument('-nc', '--no_compression', action='store_true', default=False,
                         help='Disable compression of segmentation results')
-    parser.add_argument('--ignore', type=str, default='none',
+    parser.add_argument('-i', '--ignore', type=str, default='none',
                         help='Ignore specific label(s), e.g. 2,5,6')
-    parser.add_argument('--only', type=str, default='all',
+    parser.add_argument('-o', '--only', type=str, default='all',
                         help='Segment only specific label(s), e.g. 1,3,5')
     parser.add_argument('-nf', '--network_filters', type=str, default='32-64-128-256-512',
                         help='Number of filters per layer up to the deepest, e.g. 32-64-128-256-512')
