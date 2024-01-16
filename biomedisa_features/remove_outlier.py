@@ -180,10 +180,10 @@ def main_helper(path_to_labels, path_to_reference=None, img_id=None, friend_id=N
         path_to_cleaned_filled = unique_file_path(path_to_cleaned_filled)
 
     # save results
-    save_data(path_to_cleaned, final_cleaned, header, compression)
+    save_data(path_to_cleaned, final_cleaned, header, extension, compression)
     if fill_holes:
-        save_data(path_to_filled, final_filled, header, compression)
-        save_data(path_to_cleaned_filled, final_cleaned_filled, header, compression)
+        save_data(path_to_filled, final_filled, header, extension, compression)
+        save_data(path_to_cleaned_filled, final_cleaned_filled, header, extension, compression)
 
     # post processing
     post_processing(path_to_cleaned, path_to_filled, path_to_cleaned_filled, img_id, friend_id, fill_holes, remote)
@@ -289,8 +289,6 @@ def init_remove_outlier(image_id, final_id, friend_id, label_id, fill_holes=True
 
             # command
             cmd = ['python3', 'remove_outlier.py', final.pic.path.replace(BASE_DIR,host_base)]
-            if label.imageType != 4:
-                cmd += [f'--path_to_reference={label.pic.path.replace(BASE_DIR,host_base)}']
             cmd += [f'-iid={image.id}', f'-fid={friend.id}', '-r']
 
             # command (append only on demand)
@@ -302,6 +300,8 @@ def init_remove_outlier(image_id, final_id, friend_id, label_id, fill_holes=True
                 cmd += [f'-c={label.delete_outliers}']
             if label.fill_holes != 0.9:
                 cmd += [f'-f={label.fill_holes}']
+            if label.imageType != 4:
+                cmd += [f'--path_to_reference={label.pic.path.replace(BASE_DIR,host_base)}']
 
             # change working directory
             cwd = host_base + '/biomedisa_features/'
@@ -347,8 +347,8 @@ def init_remove_outlier(image_id, final_id, friend_id, label_id, fill_holes=True
         # local server
         else:
             try:
-                main_helper(final.pic.path, label.pic.path, image_id, friend_id, fill_holes,
-                    label.delete_outliers, label.fill_holes, remote=False,
+                main_helper(final.pic.path, path_to_reference=label.pic.path, img_id=image_id, friend_id=friend_id,
+                    fill_holes=fill_holes, clean_threshold=label.delete_outliers, fill_threshold=label.fill_holes, remote=False,
                     no_compression=(False if label.compression else True))
             except Exception as e:
                 print(traceback.format_exc())
