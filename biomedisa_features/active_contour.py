@@ -34,7 +34,7 @@ if not BASE_DIR in sys.path:
 import biomedisa
 from biomedisa_features.curvop_numba import curvop, evolution
 from biomedisa_features.biomedisa_helper import (unique_file_path,
-    save_data, pre_processing, img_to_uint8, silent_remove)
+    load_data, save_data, pre_processing, img_to_uint8, silent_remove)
 import numpy as np
 import numba
 import argparse
@@ -113,7 +113,7 @@ def reduce_blocksize(raw, slices):
 
 def activeContour(data, labelData, alpha=1.0, smooth=1, steps=3,
     path_to_data=None, path_to_labels=None, no_compression=False,
-    ignore='none', only='all', simple=False,
+    ignore='none', only='all', simple=False, path_to_reference=None,
     img_id=None, friend_id=None, remote=False):
 
     # create biomedisa
@@ -153,6 +153,8 @@ def activeContour(data, labelData, alpha=1.0, smooth=1, steps=3,
 
     # pre-processing
     bm = pre_processing(bm)
+    if bm.final_image_type not in ['.tif','.am']:
+        _, bm.header = load_data(path_to_reference, 'acwe')
 
     # create path_to_acwe
     if bm.path_to_data:
@@ -269,6 +271,25 @@ def post_processing(path_to_acwe, image_id=None, friend_id=None, simple=False, p
             silent_remove(path_to_acwe)
 
 def init_active_contour(image_id, friend_id, label_id, simple=False):
+    '''
+    Runs activeContour() within django environment/webbrowser version
+
+    Parameters
+    ---------
+    image_id: int
+        Django id of image data
+    friend_id: int
+        Django id of result data to be processed
+    label_id: int
+        Django id of label data used for configuration parameters and header information
+    simple: bool
+        Use simplified version of active contour
+
+    Returns
+    -------
+    No returns
+        Fails silently
+    '''
 
     import django
     django.setup()
@@ -317,6 +338,8 @@ def init_active_contour(image_id, friend_id, label_id, simple=False):
                 cmd += [f'-st={label.ac_steps}']
             if label.ac_alpha != 1.0:
                 cmd += [f'-a={label.ac_alpha}']
+            if label.imageType != 4:
+                cmd += [f'--path_to_reference={label.pic.path.replace(BASE_DIR,host_base)}']
 
             # change working directory
             cwd = host_base + '/biomedisa_features/'
@@ -325,6 +348,8 @@ def init_active_contour(image_id, friend_id, label_id, simple=False):
             subprocess.Popen(['ssh', host, 'mkdir', '-p', host_base+'/private_storage/images/'+image.user.username]).wait()
             subprocess.Popen(['rsync', '-avP', image.pic.path, host+':'+image.pic.path.replace(BASE_DIR,host_base)]).wait()
             subprocess.Popen(['rsync', '-avP', friend.pic.path, host+':'+friend.pic.path.replace(BASE_DIR,host_base)]).wait()
+            if label.imageType != 4:
+                subprocess.Popen(['rsync', '-avP', label.pic.path, host+':'+label.pic.path.replace(BASE_DIR,host_base)]).wait()
 
             # run interpolation
             if 'ACWE_QUEUE_SUBHOST' in config:
@@ -357,7 +382,7 @@ def init_active_contour(image_id, friend_id, label_id, simple=False):
         else:
             try:
                 activeContour(None, None, path_to_data=image.pic.path, path_to_labels=friend.pic.path,
-                    alpha=label.ac_alpha, smooth=label.ac_smooth, steps=label.ac_steps,
+                    path_to_reference=label.pic.path, alpha=label.ac_alpha, smooth=label.ac_smooth, steps=label.ac_steps,
                     no_compression=(False if label.compression else True),
                     simple=simple, img_id=image_id, friend_id=friend_id, remote=False)
             except Exception as e:
@@ -378,6 +403,8 @@ if __name__ == '__main__':
     # optional arguments
     parser.add_argument('-v', '--version', action='version', version=f'{biomedisa.__version__}',
                         help='Biomedisa version')
+    parser.add_argument('--path_to_reference', type=str, default=None,
+                        help='Reference data for header information')
     parser.add_argument('-si','--simple', action='store_true', default=False,
                         help='Simplified version of active contour')
     parser.add_argument('-a', '--alpha', type=float, default=1.0,
