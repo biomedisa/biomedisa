@@ -48,9 +48,10 @@ from biomedisa_app.models import (UploadForm, Upload, StorageForm, Profile,
     UserForm, SettingsForm, SettingsPredictionForm, CustomUserCreationForm,
     Repository, Specimen, SpecimenForm, TomographicData, TomographicDataForm,
     ProcessedData)
+from biomedisa_features.create_mesh import convert_to_stl
 from biomedisa_features.create_slices import create_slices
 from biomedisa_features.biomedisa_helper import (load_data, save_data, id_generator,
-    convert_image, smooth_image, convert_to_stl, unique_file_path, _get_platform)
+    convert_image, smooth_image, unique_file_path, _get_platform)
 from biomedisa_features.django_env import post_processing, create_error_object
 from django.utils.crypto import get_random_string
 from biomedisa_app.config import config
