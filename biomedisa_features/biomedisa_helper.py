@@ -38,7 +38,6 @@ except:
     from biomedisa_app.config_example import config
 
 from biomedisa.settings import BASE_DIR, WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT
-from biomedisa_features.create_mesh import save_mesh, get_voxel_spacing
 from biomedisa_features.amira_to_np.amira_helper import amira_to_np, np_to_amira
 from biomedisa_features.nc_reader import nc_to_np, np_to_nc
 from tifffile import imread, imwrite
@@ -656,71 +655,6 @@ def smooth_image(id):
         img.status = 0
         img.pid = 0
         img.save()
-
-def convert_to_stl(id):
-
-    # get object
-    img = get_object_or_404(Upload, pk=id)
-
-    # return error
-    if img.imageType not in [2,3]:
-
-        # return error
-        message = 'No valid label data.'
-        Upload.objects.create(user=img.user, project=img.project, log=1, imageType=None, shortfilename=message)
-
-        # close process
-        img.status = 0
-        img.pid = 0
-        img.save()
-
-    else:
-
-        # set PID
-        if img.status == 1:
-            img.status = 2
-            img.message = 'Processing'
-        img.pid = int(os.getpid())
-        img.save()
-
-        # load data
-        data, header, extension = load_data(img.pic.path.replace(WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT), process='converter', return_extension=True)
-
-        if data is None:
-
-            # return error
-            message = 'Invalid data.'
-            Upload.objects.create(user=img.user, project=img.project, log=1, imageType=None, shortfilename=message)
-
-            # close process
-            img.status = 0
-            img.pid = 0
-            img.save()
-
-        else:
-
-            # get voxel spacing
-            xres, yres, zres = get_voxel_spacing(header, data, extension)
-            print(f'Voxel spacing: x_spacing, y_spacing, z_spacing = {xres}, {yres}, {zres}')
-
-            # create pic path
-            filename, extension = os.path.splitext(img.pic.path.replace(WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT))
-            if extension == '.gz':
-                filename = filename[:-4]
-            path_to_data = unique_file_path(filename+'.stl')
-            new_short_name = os.path.basename(path_to_data)
-            pic_path = 'images/%s/%s' %(img.user.username, new_short_name)
-
-            # create stl file
-            save_mesh(path_to_data, data, xres, yres, zres)
-
-            # create biomedisa object
-            Upload.objects.create(pic=pic_path, user=img.user, project=img.project, imageType=5, shortfilename=new_short_name)
-
-            # close process
-            img.status = 0
-            img.pid = 0
-            img.save()
 
 def _get_platform(bm):
 
