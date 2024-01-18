@@ -27,16 +27,9 @@
 ##########################################################################
 
 try:
-    import django
-    django.setup()
-    from django.shortcuts import get_object_or_404
-    from biomedisa_app.models import Upload
     from biomedisa_app.config import config
-    from redis import Redis
-    from rq import Queue
 except:
     from biomedisa_app.config_example import config
-
 from biomedisa.settings import BASE_DIR, WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT
 from biomedisa_features.amira_to_np.amira_helper import amira_to_np, np_to_amira
 from biomedisa_features.nc_reader import nc_to_np, np_to_nc
@@ -354,6 +347,8 @@ def load_data_(path_to_data, process):
 
 def load_data(path_to_data, process='None', return_extension=False):
     if config['SECURE_MODE']:
+        from redis import Redis
+        from rq import Queue
         q = Queue('load_data', connection=Redis())
         job = q.enqueue_call(load_data_, args=(path_to_data, process), timeout=-1)
         for k, data_type in enumerate(['data', 'header', 'extension']):
@@ -540,121 +535,6 @@ def delbackground(labels):
     index = np.argmax(labelcounts)
     labels[labels==allLabels[index]] = 0
     return labels
-
-def convert_image(id):
-
-    # get object
-    img = get_object_or_404(Upload, pk=id)
-
-    # set PID
-    if img.status == 1:
-        img.status = 2
-        img.message = 'Processing'
-    img.pid = int(os.getpid())
-    img.save()
-
-    # load data
-    data, _ = load_data(img.pic.path.replace(WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT), 'converter')
-
-    if data is None:
-
-        # return error
-        message = 'Invalid data.'
-        Upload.objects.create(user=img.user, project=img.project, log=1, imageType=None, shortfilename=message)
-
-        # close process
-        img.status = 0
-        img.pid = 0
-        img.save()
-
-    else:
-
-        # convert data
-        data = img_to_uint8(data)
-
-        # create pic path
-        filename, extension = os.path.splitext(img.pic.path.replace(WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT))
-        if extension == '.gz':
-            filename = filename[:-4]
-        path_to_data = unique_file_path(filename+'.8bit.tif')
-        new_short_name = os.path.basename(path_to_data)
-        pic_path = 'images/%s/%s' %(img.user.username, new_short_name)
-
-        # save data
-        save_data(path_to_data, data, final_image_type='.tif')
-
-        # copy slices for sliceviewer
-        path_to_source = img.pic.path.replace(WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT).replace('images', 'sliceviewer', 1)
-        path_to_dest = path_to_data.replace('images', 'sliceviewer', 1)
-        if os.path.exists(path_to_source):
-            copytree(path_to_source, path_to_dest, copy_function=os.link)
-
-        # create object
-        active = 1 if img.imageType == 3 else 0
-        Upload.objects.create(pic=pic_path, user=img.user, project=img.project,
-            imageType=img.imageType, shortfilename=new_short_name, active=active)
-
-        # close process
-        img.status = 0
-        img.pid = 0
-        img.save()
-
-def smooth_image(id):
-
-    # get object
-    img = get_object_or_404(Upload, pk=id)
-
-    # set PID
-    if img.status == 1:
-        img.status = 2
-        img.message = 'Processing'
-    img.pid = int(os.getpid())
-    img.save()
-
-    # load data
-    data, _ = load_data(img.pic.path.replace(WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT), 'converter')
-
-    if data is None:
-
-        # return error
-        message = 'Invalid data.'
-        Upload.objects.create(user=img.user, project=img.project, log=1, imageType=None, shortfilename=message)
-
-        # close process
-        img.status = 0
-        img.pid = 0
-        img.save()
-
-    else:
-
-        # smooth image data
-        out = smooth_img_3x3(data)
-
-        # create pic path
-        filename, extension = os.path.splitext(img.pic.path.replace(WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT))
-        if extension == '.gz':
-            filename = filename[:-4]
-        path_to_data = unique_file_path(filename+'.denoised.tif')
-        new_short_name = os.path.basename(path_to_data)
-        pic_path = 'images/%s/%s' %(img.user.username, new_short_name)
-
-        # save data
-        save_data(path_to_data, out, final_image_type='.tif')
-
-        # create slices
-        from biomedisa_features.create_slices import create_slices
-        q = Queue('slices', connection=Redis())
-        job = q.enqueue_call(create_slices, args=(path_to_data, None,), timeout=-1)
-
-        # create object
-        active = 1 if img.imageType == 3 else 0
-        Upload.objects.create(pic=pic_path, user=img.user, project=img.project,
-            imageType=img.imageType, shortfilename=new_short_name, active=active)
-
-        # close process
-        img.status = 0
-        img.pid = 0
-        img.save()
 
 def _get_platform(bm):
 
