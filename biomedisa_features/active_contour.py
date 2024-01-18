@@ -44,9 +44,6 @@ import subprocess
 class Biomedisa(object):
      pass
 
-class build_label(object):
-     pass
-
 @numba.jit(nopython=True)
 def geodis(c,sqrt2,sqrt3,iterations):
     zsh, ysh, xsh = c.shape
@@ -118,7 +115,6 @@ def activeContour(data, labelData, alpha=1.0, smooth=1, steps=3,
 
     # create biomedisa
     bm = Biomedisa()
-    bm.label = build_label()
     bm.process = 'acwe'
     bm.success = True
 
@@ -126,8 +122,6 @@ def activeContour(data, labelData, alpha=1.0, smooth=1, steps=3,
     key_copy = tuple(locals().keys())
     for arg in key_copy:
         bm.__dict__[arg] = locals()[arg]
-    for arg in ['ignore','only']:
-        bm.label.__dict__[arg] = locals()[arg]
 
     # django environment
     if bm.img_id is not None:
