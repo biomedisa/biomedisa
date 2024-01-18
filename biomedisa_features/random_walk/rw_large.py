@@ -62,7 +62,7 @@ def _diffusion_child(comm, bm=None):
         print('blocks =', blocks)
 
         # read labeled slices
-        if bm.label.allaxis:
+        if bm.allaxis:
             tmp = np.swapaxes(bm.labelData, 0, 1)
             tmp = np.ascontiguousarray(tmp)
             indices_01, _ = read_labeled_slices_allx_large(tmp)
@@ -84,7 +84,7 @@ def _diffusion_child(comm, bm=None):
             labelblock = np.copy(bm.labelData[datablockmin:datablockmax], order='C')
 
             # read labeled slices
-            if bm.label.allaxis:
+            if bm.allaxis:
                 labelblock = labelblock.astype(np.int32)
                 labelblock[:blockmin - datablockmin] = -1
                 labelblock[blockmax - datablockmin:] = -1
@@ -120,8 +120,8 @@ def _diffusion_child(comm, bm=None):
                 blocks_temp[destination+1] = blockmax - datablockmin
                 dataListe = splitlargedata(datablock)
                 sendToChildLarge(comm, indices_child, destination, dataListe, labels_child,
-                            bm.label.nbrw, bm.label.sorw, blocks_temp, bm.label.allaxis,
-                            bm.allLabels, bm.label.smooth, bm.label.uncertainty, bm.platform)
+                            bm.nbrw, bm.sorw, blocks_temp, bm.allaxis,
+                            bm.allLabels, bm.smooth, bm.uncertainty, bm.platform)
 
             else:
 
@@ -131,7 +131,7 @@ def _diffusion_child(comm, bm=None):
                     cuda.init()
                     dev = cuda.Device(rank)
                     ctx, queue = dev.make_context(), None
-                    if bm.label.allaxis:
+                    if bm.allaxis:
                         from biomedisa_features.random_walk.pycuda_large_allx import walk
                     else:
                         from biomedisa_features.random_walk.pycuda_large import walk
@@ -142,9 +142,9 @@ def _diffusion_child(comm, bm=None):
                 # run random walks
                 tic = time.time()
                 memory_error, final, final_uncertainty, final_smooth = walk(comm, datablock,
-                                    labels_child, indices_child, bm.label.nbrw, bm.label.sorw,
+                                    labels_child, indices_child, bm.nbrw, bm.sorw,
                                     blockmin-datablockmin, blockmax-datablockmin, name,
-                                    bm.allLabels, bm.label.smooth, bm.label.uncertainty,
+                                    bm.allLabels, bm.smooth, bm.uncertainty,
                                     ctx, queue, bm.platform)
                 tac = time.time()
                 print('Walktime_%s: ' %(name) + str(int(tac - tic)) + ' ' + 'seconds')
@@ -177,7 +177,7 @@ def _diffusion_child(comm, bm=None):
             if bm.django_env and not bm.remote:
                 bm.path_to_final = unique_file_path(bm.path_to_final)
             if bm.path_to_data:
-                save_data(bm.path_to_final, final_result, bm.header, bm.final_image_type, bm.label.compression)
+                save_data(bm.path_to_final, final_result, bm.header, bm.final_image_type, bm.compression)
 
             # uncertainty
             if final_uncertainty is not None:
@@ -198,9 +198,9 @@ def _diffusion_child(comm, bm=None):
                 if bm.django_env and not bm.remote:
                     bm.path_to_uq = unique_file_path(bm.path_to_uq)
                 if bm.path_to_data:
-                    save_data(bm.path_to_uq, uncertainty_result, compress=bm.label.compression)
+                    save_data(bm.path_to_uq, uncertainty_result, compress=bm.compression)
             else:
-                bm.label.uncertainty = False
+                bm.uncertainty = False
 
             # smooth
             if final_smooth is not None:
@@ -219,9 +219,9 @@ def _diffusion_child(comm, bm=None):
                 if bm.django_env and not bm.remote:
                     bm.path_to_smooth = unique_file_path(bm.path_to_smooth)
                 if bm.path_to_data:
-                    save_data(bm.path_to_smooth, smooth_result, bm.header, bm.final_image_type, bm.label.compression)
+                    save_data(bm.path_to_smooth, smooth_result, bm.header, bm.final_image_type, bm.compression)
             else:
-                bm.label.smooth = 0
+                bm.smooth = 0
 
             # computation time
             t = int(time.time() - bm.TIC)
@@ -238,7 +238,7 @@ def _diffusion_child(comm, bm=None):
                 from biomedisa_app.config import config
                 from biomedisa_features.django_env import post_processing
                 post_processing(bm.path_to_final, time_str, config['SERVER_ALIAS'], bm.remote, bm.queue,
-                    uncertainty=bm.label.uncertainty, smooth=bm.label.smooth,
+                    uncertainty=bm.uncertainty, smooth=bm.smooth,
                     path_to_uq=bm.path_to_uq, path_to_smooth=bm.path_to_smooth,
                     img_id=bm.img_id, label_id=bm.label_id)
 

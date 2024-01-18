@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2023 Philipp Lösel. All rights reserved.              ##
+##  Copyright (c) 2024 Philipp Lösel. All rights reserved.              ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -42,9 +42,6 @@ import time
 class Biomedisa(object):
      pass
 
-class build_label(object):
-     pass
-
 def smart_interpolation(data, labelData, nbrw=10, sorw=4000,
     path_to_data=None, path_to_labels=None, denoise=False, uncertainty=False, platform=None,
     allaxis=False, ignore='none', only='all', smooth=0, no_compression=False, return_hits=False,
@@ -61,7 +58,6 @@ def smart_interpolation(data, labelData, nbrw=10, sorw=4000,
 
         # create biomedisa
         bm = Biomedisa()
-        bm.label = build_label()
         bm.process = 'smart_interpolation'
         bm.success = True
 
@@ -69,10 +65,8 @@ def smart_interpolation(data, labelData, nbrw=10, sorw=4000,
         bm.TIC = time.time()
 
         # transfer arguments
-        for arg in ['nbrw','sorw','allaxis','uncertainty','ignore','only','smooth']:
-            bm.label.__dict__[arg] = locals()[arg]
-        for arg in ['data','labelData','path_to_data','path_to_labels','denoise',
-                    'platform','return_hits','img_id','label_id','remote','queue']:
+        key_copy = tuple(locals().keys())
+        for arg in key_copy:
             bm.__dict__[arg] = locals()[arg]
 
         # django environment
@@ -83,205 +77,203 @@ def smart_interpolation(data, labelData, nbrw=10, sorw=4000,
 
         # compression
         if no_compression:
-            bm.label.compression = False
+            bm.compression = False
         else:
-            bm.label.compression = True
+            bm.compression = True
 
         # disable file saving when called as a function
         if bm.data is not None:
             bm.path_to_data = None
             bm.path_to_labels = None
 
-        if 1:
+        # set pid and write in logfile
+        if bm.django_env:
+            from biomedisa_features.django_env import create_pid_object
+            create_pid_object(os.getpid(), bm.remote, bm.queue, bm.img_id)
 
-            # set pid and write in logfile
-            if bm.django_env:
-                from biomedisa_features.django_env import create_pid_object
-                create_pid_object(os.getpid(), bm.remote, bm.queue, bm.img_id)
+            # write in logfile
+            bm.username = os.path.basename(os.path.dirname(bm.path_to_data))
+            bm.shortfilename = os.path.basename(bm.path_to_data)
+            bm.path_to_logfile = BASE_DIR + '/log/logfile.txt'
+            bm.path_to_time = BASE_DIR + '/log/time.txt'
+            with open(bm.path_to_logfile, 'a') as logfile:
+                print('%s %s %s %s' %(time.ctime(), bm.username, bm.shortfilename, 'Process was started.'), file=logfile)
 
-                # write in logfile
-                bm.username = os.path.basename(os.path.dirname(bm.path_to_data))
-                bm.shortfilename = os.path.basename(bm.path_to_data)
-                bm.path_to_logfile = BASE_DIR + '/log/logfile.txt'
-                bm.path_to_time = BASE_DIR + '/log/time.txt'
-                with open(bm.path_to_logfile, 'a') as logfile:
-                    print('%s %s %s %s' %(time.ctime(), bm.username, bm.shortfilename, 'Process was started.'), file=logfile)
+        # pre-processing
+        bm = pre_processing(bm)
 
-            # pre-processing
-            bm = pre_processing(bm)
-
-            # get platform
-            if bm.success:
-                if bm.platform == 'cuda_force':
-                    bm.platform = 'cuda'
-                else:
-                    bm = _get_platform(bm)
-                    if bm.success == False:
-                        bm = _error_(bm, f'No {bm.platform} device found.')
-
-            # smooth, uncertainty and allx are not supported for opencl
-            if bm.success and bm.platform.split('_')[0] == 'opencl':
-                if bm.label.smooth:
-                    bm.label.smooth = 0
-                    print('Warning: Smoothing is not yet supported for opencl. Process starts without smoothing.')
-                if bm.label.uncertainty:
-                    bm.label.uncertainty = False
-                    print('Warning: Uncertainty is not yet supported for opencl. Process starts without uncertainty.')
-                if bm.label.allaxis:
-                    bm = _error_(bm, 'Allx is not yet supported for opencl.')
-
-            if not bm.success:
-
-                # send not executable
-                for dest in range(1, size):
-                    comm.send(bm.success, dest=dest, tag=0)
-
+        # get platform
+        if bm.success:
+            if bm.platform == 'cuda_force':
+                bm.platform = 'cuda'
             else:
+                bm = _get_platform(bm)
+                if bm.success == False:
+                    bm = _error_(bm, f'No {bm.platform} device found.')
 
-                # create path_to_final
-                if bm.path_to_data:
-                    filename, extension = os.path.splitext(os.path.basename(bm.path_to_data))
-                    if extension == '.gz':
-                        filename = filename[:-4]
-                    filename = 'final.' + filename
-                    bm.path_to_final = bm.path_to_data.replace(os.path.basename(bm.path_to_data), filename + bm.final_image_type)
+        # smooth, uncertainty and allx are not supported for opencl
+        if bm.success and bm.platform.split('_')[0] == 'opencl':
+            if bm.smooth:
+                bm.smooth = 0
+                print('Warning: Smoothing is not yet supported for opencl. Process starts without smoothing.')
+            if bm.uncertainty:
+                bm.uncertainty = False
+                print('Warning: Uncertainty is not yet supported for opencl. Process starts without uncertainty.')
+            if bm.allaxis:
+                bm = _error_(bm, 'Allx is not yet supported for opencl.')
 
-                    # path to optional results
-                    filename, extension = os.path.splitext(bm.path_to_final)
-                    if extension == '.gz':
-                        filename = filename[:-4]
-                    bm.path_to_smooth = filename + '.smooth' + bm.final_image_type
-                    bm.path_to_uq = filename + '.uncertainty.tif'
+        if not bm.success:
 
-                # data type
-                if bm.data.dtype == 'uint8':
-                    pass
-                elif bm.data.dtype == 'int8':
-                    bm.data = bm.data.astype(np.int16)
-                    bm.data += 128
-                    bm.data = bm.data.astype(np.uint8)
-                else:
-                    bm.data = bm.data.astype(float)
-                    bm.data -= np.amin(bm.data)
-                    bm.data /= np.amax(bm.data)
-                    bm.data *= 255.0
-                    bm.data = bm.data.astype(np.float32)
+            # send not executable
+            for dest in range(1, size):
+                comm.send(bm.success, dest=dest, tag=0)
 
-                # denoise image data
-                if bm.denoise:
-                    bm.data = smooth_img_3x3(bm.data)
+        else:
 
-                # image size
-                bm.imageSize = int(bm.data.nbytes * 10e-7)
+            # create path_to_final
+            if bm.path_to_data:
+                filename, extension = os.path.splitext(os.path.basename(bm.path_to_data))
+                if extension == '.gz':
+                    filename = filename[:-4]
+                filename = 'final.' + filename
+                bm.path_to_final = bm.path_to_data.replace(os.path.basename(bm.path_to_data), filename + bm.final_image_type)
 
-                # add boundaries
-                zsh, ysh, xsh = bm.data.shape
-                tmp = np.zeros((1+zsh+1, 1+ysh+1, 1+xsh+1), dtype=bm.labelData.dtype)
-                tmp[1:-1, 1:-1, 1:-1] = bm.labelData
-                bm.labelData = tmp.copy(order='C')
-                tmp = np.zeros((1+zsh+1, 1+ysh+1, 1+xsh+1), dtype=bm.data.dtype)
-                tmp[1:-1, 1:-1, 1:-1] = bm.data
-                bm.data = tmp.copy(order='C')
-                bm.zsh, bm.ysh, bm.xsh = bm.data.shape
+                # path to optional results
+                filename, extension = os.path.splitext(bm.path_to_final)
+                if extension == '.gz':
+                    filename = filename[:-4]
+                bm.path_to_smooth = filename + '.smooth' + bm.final_image_type
+                bm.path_to_uq = filename + '.uncertainty.tif'
 
-                # check if labeled slices are adjacent
-                if bm.label.allaxis:
-                    bm.indices = []
-                    indices_tmp = read_indices_allx(bm.labelData, 0)
-                    bm.indices.extend(indices_tmp)
-                    tmp = np.swapaxes(bm.labelData, 0, 1)
-                    tmp = np.ascontiguousarray(tmp)
-                    indices_tmp = read_indices_allx(tmp, 1)
-                    bm.indices.extend(indices_tmp)
-                    tmp = np.swapaxes(tmp, 0, 2)
-                    tmp = np.ascontiguousarray(tmp)
-                    indices_tmp = read_indices_allx(tmp, 2)
-                    bm.indices.extend(indices_tmp)
+            # data type
+            if bm.data.dtype == 'uint8':
+                pass
+            elif bm.data.dtype == 'int8':
+                bm.data = bm.data.astype(np.int16)
+                bm.data += 128
+                bm.data = bm.data.astype(np.uint8)
+            else:
+                bm.data = bm.data.astype(float)
+                bm.data -= np.amin(bm.data)
+                bm.data /= np.amax(bm.data)
+                bm.data *= 255.0
+                bm.data = bm.data.astype(np.float32)
 
-                    # labels must not be adjacent
-                    neighbours = False
-                    for k in range(3):
-                        sub_indices = [x for (x, y) in bm.indices if y == k]
-                        sub_indices_minus_one = [x - 1 for x in sub_indices]
-                        if any(i in sub_indices for i in sub_indices_minus_one):
-                            neighbours = True
-                    if neighbours:
-                        bm = _error_(bm, 'At least one empty slice between labels required.')
+            # denoise image data
+            if bm.denoise:
+                bm.data = smooth_img_3x3(bm.data)
 
-                # send executable
-                for dest in range(1, size):
-                    comm.send(bm.success, dest=dest, tag=0)
+            # image size
+            bm.imageSize = int(bm.data.nbytes * 10e-7)
 
-                if bm.success:
+            # add boundaries
+            zsh, ysh, xsh = bm.data.shape
+            tmp = np.zeros((1+zsh+1, 1+ysh+1, 1+xsh+1), dtype=bm.labelData.dtype)
+            tmp[1:-1, 1:-1, 1:-1] = bm.labelData
+            bm.labelData = tmp.copy(order='C')
+            tmp = np.zeros((1+zsh+1, 1+ysh+1, 1+xsh+1), dtype=bm.data.dtype)
+            tmp[1:-1, 1:-1, 1:-1] = bm.data
+            bm.data = tmp.copy(order='C')
+            bm.zsh, bm.ysh, bm.xsh = bm.data.shape
 
-                    # When is domain decomposition faster?
-                    bm = predict_blocksize(bm)
-                    nbytes = (bm.argmax_z - bm.argmin_z) * (bm.argmax_y - bm.argmin_y) * (bm.argmax_x - bm.argmin_x) * 4
+            # check if labeled slices are adjacent
+            if bm.allaxis:
+                bm.indices = []
+                indices_tmp = read_indices_allx(bm.labelData, 0)
+                bm.indices.extend(indices_tmp)
+                tmp = np.swapaxes(bm.labelData, 0, 1)
+                tmp = np.ascontiguousarray(tmp)
+                indices_tmp = read_indices_allx(tmp, 1)
+                bm.indices.extend(indices_tmp)
+                tmp = np.swapaxes(tmp, 0, 2)
+                tmp = np.ascontiguousarray(tmp)
+                indices_tmp = read_indices_allx(tmp, 2)
+                bm.indices.extend(indices_tmp)
 
-                    # small or large
-                    if nbytes * bm.nol < 1e10 and nbytes < 2e9:
+                # labels must not be adjacent
+                neighbours = False
+                for k in range(3):
+                    sub_indices = [x for (x, y) in bm.indices if y == k]
+                    sub_indices_minus_one = [x - 1 for x in sub_indices]
+                    if any(i in sub_indices for i in sub_indices_minus_one):
+                        neighbours = True
+                if neighbours:
+                    bm = _error_(bm, 'At least one empty slice between labels required.')
 
-                        # send "small" to childs
-                        for dest in range(1, size):
-                            comm.send(1, dest=dest, tag=1)
+            # send executable
+            for dest in range(1, size):
+                comm.send(bm.success, dest=dest, tag=0)
 
-                        # reduce blocksize
-                        bm.data = np.copy(bm.data[bm.argmin_z:bm.argmax_z, bm.argmin_y:bm.argmax_y, bm.argmin_x:bm.argmax_x], order='C')
-                        bm.labelData = np.copy(bm.labelData[bm.argmin_z:bm.argmax_z, bm.argmin_y:bm.argmax_y, bm.argmin_x:bm.argmax_x], order='C')
+            if bm.success:
 
-                        # read labeled slices
-                        if bm.label.allaxis:
-                            bm.indices, bm.labels = [], []
-                            indices_tmp, labels_tmp = read_labeled_slices_allx(bm.labelData, 0)
-                            bm.indices.extend(indices_tmp)
-                            bm.labels.append(labels_tmp)
-                            tmp = np.swapaxes(bm.labelData, 0, 1)
-                            tmp = np.ascontiguousarray(tmp)
-                            indices_tmp, labels_tmp = read_labeled_slices_allx(tmp, 1)
-                            bm.indices.extend(indices_tmp)
-                            bm.labels.append(labels_tmp)
-                            tmp = np.swapaxes(tmp, 0, 2)
-                            tmp = np.ascontiguousarray(tmp)
-                            indices_tmp, labels_tmp = read_labeled_slices_allx(tmp, 2)
-                            bm.indices.extend(indices_tmp)
-                            bm.labels.append(labels_tmp)
-                        else:
-                            bm.indices, bm.labels = read_labeled_slices(bm.labelData)
+                # When is domain decomposition faster?
+                bm = predict_blocksize(bm)
+                nbytes = (bm.argmax_z - bm.argmin_z) * (bm.argmax_y - bm.argmin_y) * (bm.argmax_x - bm.argmin_x) * 4
 
-                        # number of ngpus
-                        ngpus = min(len(bm.indices), size)
+                # small or large
+                if nbytes * bm.nol < 1e10 and nbytes < 2e9:
 
-                        # send number of GPUs to childs
-                        for dest in range(1, size):
-                            comm.send(ngpus, dest=dest, tag=2)
+                    # send "small" to childs
+                    for dest in range(1, size):
+                        comm.send(1, dest=dest, tag=1)
 
-                        # create subcommunicator
-                        sub_comm = MPI.Comm.Split(comm, 1, rank)
+                    # reduce blocksize
+                    bm.data = np.copy(bm.data[bm.argmin_z:bm.argmax_z, bm.argmin_y:bm.argmax_y, bm.argmin_x:bm.argmax_x], order='C')
+                    bm.labelData = np.copy(bm.labelData[bm.argmin_z:bm.argmax_z, bm.argmin_y:bm.argmax_y, bm.argmin_x:bm.argmax_x], order='C')
 
-                        from biomedisa_features.random_walk.rw_small import _diffusion_child
-                        results = _diffusion_child(sub_comm, bm)
-
+                    # read labeled slices
+                    if bm.allaxis:
+                        bm.indices, bm.labels = [], []
+                        indices_tmp, labels_tmp = read_labeled_slices_allx(bm.labelData, 0)
+                        bm.indices.extend(indices_tmp)
+                        bm.labels.append(labels_tmp)
+                        tmp = np.swapaxes(bm.labelData, 0, 1)
+                        tmp = np.ascontiguousarray(tmp)
+                        indices_tmp, labels_tmp = read_labeled_slices_allx(tmp, 1)
+                        bm.indices.extend(indices_tmp)
+                        bm.labels.append(labels_tmp)
+                        tmp = np.swapaxes(tmp, 0, 2)
+                        tmp = np.ascontiguousarray(tmp)
+                        indices_tmp, labels_tmp = read_labeled_slices_allx(tmp, 2)
+                        bm.indices.extend(indices_tmp)
+                        bm.labels.append(labels_tmp)
                     else:
+                        bm.indices, bm.labels = read_labeled_slices(bm.labelData)
 
-                        # send "large" to childs
-                        for dest in range(1, size):
-                            comm.send(0, dest=dest, tag=1)
+                    # number of ngpus
+                    ngpus = min(len(bm.indices), size)
 
-                        # number of ngpus
-                        ngpus = min((bm.argmax_z - bm.argmin_z) // 100, size)
-                        ngpus = max(ngpus, 1)
+                    # send number of GPUs to childs
+                    for dest in range(1, size):
+                        comm.send(ngpus, dest=dest, tag=2)
 
-                        # send number of GPUs to childs
-                        for dest in range(1, size):
-                            comm.send(ngpus, dest=dest, tag=2)
+                    # create subcommunicator
+                    sub_comm = MPI.Comm.Split(comm, 1, rank)
 
-                        # create subcommunicator
-                        sub_comm = MPI.Comm.Split(comm, 1, rank)
+                    from biomedisa_features.random_walk.rw_small import _diffusion_child
+                    results = _diffusion_child(sub_comm, bm)
 
-                        from biomedisa_features.random_walk.rw_large import _diffusion_child
-                        results = _diffusion_child(sub_comm, bm)
+                else:
 
-                    return results
+                    # send "large" to childs
+                    for dest in range(1, size):
+                        comm.send(0, dest=dest, tag=1)
+
+                    # number of ngpus
+                    ngpus = min((bm.argmax_z - bm.argmin_z) // 100, size)
+                    ngpus = max(ngpus, 1)
+
+                    # send number of GPUs to childs
+                    for dest in range(1, size):
+                        comm.send(ngpus, dest=dest, tag=2)
+
+                    # create subcommunicator
+                    sub_comm = MPI.Comm.Split(comm, 1, rank)
+
+                    from biomedisa_features.random_walk.rw_large import _diffusion_child
+                    results = _diffusion_child(sub_comm, bm)
+
+                return results
 
     else:
 

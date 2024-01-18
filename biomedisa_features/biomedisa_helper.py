@@ -430,7 +430,7 @@ def pre_processing(bm):
         bm.allLabels = np.append(0, bm.allLabels)
 
     # compute only specific labels
-    labels_to_compute = (bm.label.only).split(',')
+    labels_to_compute = (bm.only).split(',')
     if not any([x in ['all', 'All', 'ALL'] for x in labels_to_compute]):
         labels_to_remove = [k for k in bm.allLabels if str(k) not in labels_to_compute and k > 0]
         for k in labels_to_remove:
@@ -439,7 +439,7 @@ def pre_processing(bm):
             bm.allLabels = np.delete(bm.allLabels, index)
 
     # ignore specific labels
-    labels_to_remove = (bm.label.ignore).split(',')
+    labels_to_remove = (bm.ignore).split(',')
     if not any([x in ['none', 'None', 'NONE'] for x in labels_to_remove]):
         for k in labels_to_remove:
             try:

@@ -54,8 +54,8 @@ def _diffusion_child(comm, bm=None):
 
         # send data to GPUs
         for k in range(1, ngpus):
-            sendToChild(comm, bm.indices, indices_split[k], k, bm.data, bm.labels, bm.label.nbrw,
-                        bm.label.sorw, bm.label.allaxis, bm.platform)
+            sendToChild(comm, bm.indices, indices_split[k], k, bm.data, bm.labels, bm.nbrw,
+                        bm.sorw, bm.allaxis, bm.platform)
 
         # select platform
         if bm.platform == 'cuda':
@@ -66,7 +66,7 @@ def _diffusion_child(comm, bm=None):
             cuda.init()
             dev = cuda.Device(rank)
             ctx, queue = dev.make_context(), None
-            if bm.label.allaxis:
+            if bm.allaxis:
                 from biomedisa_features.random_walk.pycuda_small_allx import walk
             else:
                 from biomedisa_features.random_walk.pycuda_small import walk
@@ -76,7 +76,7 @@ def _diffusion_child(comm, bm=None):
 
         # run random walks
         tic = time.time()
-        walkmap = walk(bm.data, bm.labels, bm.indices, indices_split[0], bm.label.nbrw, bm.label.sorw, name, ctx, queue)
+        walkmap = walk(bm.data, bm.labels, bm.indices, indices_split[0], bm.nbrw, bm.sorw, name, ctx, queue)
         tac = time.time()
         print('Walktime_%s: ' %(name) + str(int(tac - tic)) + ' ' + 'seconds')
 
@@ -104,7 +104,7 @@ def _diffusion_child(comm, bm=None):
         ysh_gpu = np.int32(ysh_tmp)
 
         # smooth
-        if bm.label.smooth:
+        if bm.smooth:
             try:
                 update_gpu = _build_update_gpu()
                 curvature_gpu = _build_curvature_gpu()
@@ -113,7 +113,7 @@ def _diffusion_child(comm, bm=None):
                 final_smooth = np.copy(final_zero)
                 for k in range(bm.nol):
                     a_gpu = gpuarray.to_gpu(final_smooth[k])
-                    for l in range(bm.label.smooth):
+                    for l in range(bm.smooth):
                         curvature_gpu(a_gpu, b_gpu, xsh_gpu, ysh_gpu, block=block, grid=grid)
                         update_gpu(a_gpu, b_gpu, xsh_gpu, ysh_gpu, block=block, grid=grid)
                     final_smooth[k] = a_gpu.get()
@@ -126,13 +126,13 @@ def _diffusion_child(comm, bm=None):
                 if bm.django_env and not bm.remote:
                     bm.path_to_smooth = unique_file_path(bm.path_to_smooth)
                 if bm.path_to_data:
-                    save_data(bm.path_to_smooth, smooth_result, bm.header, bm.final_image_type, bm.label.compression)
+                    save_data(bm.path_to_smooth, smooth_result, bm.header, bm.final_image_type, bm.compression)
             except Exception as e:
                 print('Warning: GPU out of memory to allocate smooth array. Process starts without smoothing.')
-                bm.label.smooth = 0
+                bm.smooth = 0
 
         # uncertainty
-        if bm.label.uncertainty:
+        if bm.uncertainty:
             try:
                 max_gpu = gpuarray.zeros((3, zsh_tmp, ysh_tmp, xsh_tmp), dtype=np.float32)
                 a_gpu = gpuarray.zeros((zsh_tmp, ysh_tmp, xsh_tmp), dtype=np.float32)
@@ -152,10 +152,10 @@ def _diffusion_child(comm, bm=None):
                 if bm.django_env and not bm.remote:
                     bm.path_to_uq = unique_file_path(bm.path_to_uq)
                 if bm.path_to_data:
-                    save_data(bm.path_to_uq, uncertainty_result, compress=bm.label.compression)
+                    save_data(bm.path_to_uq, uncertainty_result, compress=bm.compression)
             except Exception as e:
                 print('Warning: GPU out of memory to allocate uncertainty array. Process starts without uncertainty.')
-                bm.label.uncertainty = False
+                bm.uncertainty = False
 
         # free device
         if bm.platform == 'cuda':
@@ -181,7 +181,7 @@ def _diffusion_child(comm, bm=None):
         if bm.django_env and not bm.remote:
             bm.path_to_final = unique_file_path(bm.path_to_final)
         if bm.path_to_data:
-            save_data(bm.path_to_final, final_result, bm.header, bm.final_image_type, bm.label.compression)
+            save_data(bm.path_to_final, final_result, bm.header, bm.final_image_type, bm.compression)
 
         # computation time
         t = int(time.time() - bm.TIC)
@@ -198,7 +198,7 @@ def _diffusion_child(comm, bm=None):
             from biomedisa_app.config import config
             from biomedisa_features.django_env import post_processing
             post_processing(bm.path_to_final, time_str, config['SERVER_ALIAS'], bm.remote, bm.queue,
-                uncertainty=bm.label.uncertainty, smooth=bm.label.smooth,
+                uncertainty=bm.uncertainty, smooth=bm.smooth,
                 path_to_uq=bm.path_to_uq, path_to_smooth=bm.path_to_smooth,
                 img_id=bm.img_id, label_id=bm.label_id)
 
