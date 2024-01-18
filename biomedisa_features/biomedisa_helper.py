@@ -30,7 +30,7 @@ try:
     from biomedisa_app.config import config
 except:
     from biomedisa_app.config_example import config
-from biomedisa.settings import BASE_DIR, WWW_DATA_ROOT, PRIVATE_STORAGE_ROOT
+from biomedisa.settings import BASE_DIR, PRIVATE_STORAGE_ROOT
 from biomedisa_features.amira_to_np.amira_helper import amira_to_np, np_to_amira
 from biomedisa_features.nc_reader import nc_to_np, np_to_nc
 from tifffile import imread, imwrite

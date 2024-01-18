@@ -55,7 +55,7 @@ from biomedisa_features.biomedisa_helper import (load_data, save_data, id_genera
 from biomedisa_features.django_env import post_processing, create_error_object
 from django.utils.crypto import get_random_string
 from biomedisa_app.config import config
-from biomedisa.settings import BASE_DIR, WWW_DATA_ROOT
+from biomedisa.settings import BASE_DIR, PRIVATE_STORAGE_ROOT
 
 from wsgiref.util import FileWrapper
 import numpy as np
@@ -355,8 +355,8 @@ def share_repository_data(request):
             pic_path = 'images/' + request.user.username + '/' + shortfilename
 
             # rename image if path already exists
-            if os.path.exists(WWW_DATA_ROOT + '/' + pic_path):
-                path_to_data = unique_file_path(pic_path, WWW_DATA_ROOT+'/')
+            if os.path.exists(PRIVATE_STORAGE_ROOT + '/' + pic_path):
+                path_to_data = unique_file_path(pic_path)
                 pic_path = 'images/' + request.user.username + '/' + os.path.basename(path_to_data)
                 shortfilename = os.path.basename(path_to_data)
 
@@ -440,7 +440,7 @@ def register(request):
             else:
                 # create user directories
                 for directory in ['images', 'sliceviewer']:
-                    path_to_data = WWW_DATA_ROOT + '/' + directory + '/' + meta['username']
+                    path_to_data = PRIVATE_STORAGE_ROOT + '/' + directory + '/' + meta['username']
                     os.makedirs(path_to_data)
                     try:
                         os.chmod(path_to_data, 0o770)
@@ -494,7 +494,7 @@ def activation(request, key):
             profile.user.save()
             # create user directories
             for directory in ['images', 'sliceviewer']:
-                path_to_data = WWW_DATA_ROOT + '/' + directory + '/' + str(profile.user.username)
+                path_to_data = PRIVATE_STORAGE_ROOT + '/' + directory + '/' + str(profile.user.username)
                 os.makedirs(path_to_data)
                 try:
                     os.chmod(path_to_data, 0o770)
@@ -854,7 +854,7 @@ def storage(request):
 
     # storage size
     storage_size = request.user.profile.storage_size
-    datasize = get_size(WWW_DATA_ROOT + '/images/' + request.user.username)
+    datasize = get_size(PRIVATE_STORAGE_ROOT + '/images/' + request.user.username)
     storage_full = 1 if datasize > storage_size*10e8 else 0
     datasize *= 10e-10
     if datasize < 1:
@@ -1500,7 +1500,7 @@ def features(request, action):
                             extension = '.tar.gz'
 
                     # create unique filename
-                    path_to_data = unique_file_path(img.pic.path, WWW_DATA_ROOT+'/')
+                    path_to_data = unique_file_path(img.pic.path)
                     pic_path = 'images/' + img.user.username + '/' + os.path.basename(path_to_data)
                     new_short_name = os.path.basename(path_to_data)
 
@@ -1605,7 +1605,7 @@ def app(request):
 
             # create user directories
             for directory in ['images', 'sliceviewer']:
-                path_to_data = WWW_DATA_ROOT + '/' + directory + '/' + str(profile.user.username)
+                path_to_data = PRIVATE_STORAGE_ROOT + '/' + directory + '/' + str(profile.user.username)
 
                 if not os.path.isdir(path_to_data):
                     os.makedirs(path_to_data)
@@ -1777,7 +1777,7 @@ def app(request):
 
     # get storage size of user
     storage_size = request.user.profile.storage_size
-    datasize = get_size(WWW_DATA_ROOT + '/images/' + request.user.username)
+    datasize = get_size(PRIVATE_STORAGE_ROOT + '/images/' + request.user.username)
     storage_full = 1 if datasize > storage_size*10e8 else 0
     datasize *= 10e-10
     if datasize < 1:
@@ -1891,8 +1891,8 @@ def share_data(request):
                         pic_path = 'images/' + new_user_name + '/' + img.shortfilename
 
                         # rename image if path already exists
-                        if os.path.exists(WWW_DATA_ROOT+'/'+pic_path):
-                            path_to_data = unique_file_path(pic_path, WWW_DATA_ROOT+'/')
+                        if os.path.exists(PRIVATE_STORAGE_ROOT+'/'+pic_path):
+                            path_to_data = unique_file_path(pic_path)
                             pic_path = 'images/' + new_user_name + '/' + os.path.basename(path_to_data)
 
                         # create object
@@ -1983,7 +1983,7 @@ def accept_shared_data(request):
 
                     # rename image if path already exists
                     if os.path.exists(img.pic.path):
-                        path_to_data = unique_file_path(img.pic.path, WWW_DATA_ROOT+'/')
+                        path_to_data = unique_file_path(img.pic.path)
                         pic_path = 'images/' + img.user.username + '/' + os.path.basename(path_to_data)
                         img.shortfilename = os.path.basename(path_to_data)
                         img.pic.name = pic_path
@@ -2522,7 +2522,7 @@ def delete_account(request):
             img.delete()
         # delete user directories
         for directory in ['images', 'sliceviewer']:
-            path_to_data = WWW_DATA_ROOT + '/' + directory + '/' + user_id.username
+            path_to_data = PRIVATE_STORAGE_ROOT + '/' + directory + '/' + user_id.username
             if os.path.exists(path_to_data):
                 shutil.rmtree(path_to_data)
         profile.delete()
