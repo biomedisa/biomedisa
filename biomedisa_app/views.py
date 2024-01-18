@@ -48,10 +48,10 @@ from biomedisa_app.models import (UploadForm, Upload, StorageForm, Profile,
     UserForm, SettingsForm, SettingsPredictionForm, CustomUserCreationForm,
     Repository, Specimen, SpecimenForm, TomographicData, TomographicDataForm,
     ProcessedData)
-from biomedisa_features.create_mesh import convert_to_stl
+from biomedisa_features.create_mesh import get_voxel_spacing, save_mesh
 from biomedisa_features.create_slices import create_slices
 from biomedisa_features.biomedisa_helper import (load_data, save_data, id_generator,
-    convert_image, smooth_image, unique_file_path, _get_platform)
+    unique_file_path, _get_platform, smooth_img_3x3, img_to_uint8)
 from biomedisa_features.django_env import post_processing, create_error_object
 from django.utils.crypto import get_random_string
 from biomedisa_app.config import config
@@ -1216,6 +1216,115 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
         image.pid = 0
         image.save()
 
+def process_image(id, process=None):
+
+    # get object
+    img = get_object_or_404(Upload, pk=id)
+
+    # return error
+    if process=='create_mesh' and img.imageType not in [2,3]:
+
+        # return error
+        message = 'No valid label data.'
+        Upload.objects.create(user=img.user, project=img.project, log=1, imageType=None, shortfilename=message)
+
+        # close process
+        img.status = 0
+        img.pid = 0
+        img.save()
+
+    elif process in ['smooth'] and img.imageType!=1:
+
+        # return error
+        message = 'No valid image data.'
+        Upload.objects.create(user=img.user, project=img.project, log=1, imageType=None, shortfilename=message)
+
+        # close process
+        img.status = 0
+        img.pid = 0
+        img.save()
+
+    else:
+
+        # set PID
+        if img.status == 1:
+            img.status = 2
+            img.message = 'Processing'
+        img.pid = int(os.getpid())
+        img.save()
+
+        # load data
+        data, header = load_data(img.pic.path, process='converter')
+
+        if data is None:
+
+            # return error
+            message = 'Invalid data.'
+            Upload.objects.create(user=img.user, project=img.project, log=1, imageType=None, shortfilename=message)
+
+            # close process
+            img.status = 0
+            img.pid = 0
+            img.save()
+
+        else:
+
+            # suffix
+            if process == 'convert':
+                suffix = '.8bit.tif'
+            elif process == 'smooth':
+                suffix = '.denoised.tif'
+            elif process == 'create_mesh':
+                suffix = '.stl'
+
+            # create pic path
+            filename, extension = os.path.splitext(img.pic.path)
+            if extension == '.gz':
+                extension = '.nii.gz'
+                filename = filename[:-4]
+            path_to_data = unique_file_path(filename + suffix)
+            new_short_name = os.path.basename(path_to_data)
+            pic_path = 'images/%s/%s' %(img.user.username, new_short_name)
+
+            # process data
+            if process == 'convert':
+                data = img_to_uint8(data)
+                save_data(path_to_data, data, final_image_type='.tif')
+
+                # copy slices
+                path_to_source = img.pic.path.replace('images', 'sliceviewer', 1)
+                path_to_dest = path_to_data.replace('images', 'sliceviewer', 1)
+                if os.path.exists(path_to_source):
+                    copytree(path_to_source, path_to_dest, copy_function=os.link)
+
+            elif process == 'smooth':
+                data = smooth_img_3x3(data)
+                save_data(path_to_data, data, final_image_type='.tif')
+
+                # create slices
+                q = Queue('slices', connection=Redis())
+                job = q.enqueue_call(create_slices, args=(path_to_data, None,), timeout=-1)
+
+            elif process == 'create_mesh':
+
+                # get voxel spacing
+                xres, yres, zres = get_voxel_spacing(header, data, extension)
+                print(f'Voxel spacing: x_spacing, y_spacing, z_spacing = {xres}, {yres}, {zres}')
+
+                # create stl file
+                save_mesh(path_to_data, data, xres, yres, zres)
+
+            # create object
+            active = 1 if img.imageType == 3 else 0
+            imageType = 5 if process == 'create_mesh' else img.imageType
+            Upload.objects.create(pic=pic_path, user=img.user, project=img.project,
+                imageType=imageType, shortfilename=new_short_name, active=active)
+
+            # close process
+            img.status = 0
+            img.pid = 0
+            img.save()
+
 # 25. features
 def features(request, action):
 
@@ -1434,11 +1543,11 @@ def features(request, action):
                 else:
                     q = Queue('process_image', connection=Redis())
                     if int(action) == 7:
-                        job = q.enqueue_call(convert_image, args=(img.id,), timeout=-1)
+                        job = q.enqueue_call(process_image, args=(img.id, 'convert',), timeout=-1)
                     elif int(action) == 8:
-                        job = q.enqueue_call(smooth_image, args=(img.id,), timeout=-1)
+                        job = q.enqueue_call(process_image, args=(img.id, 'smooth',), timeout=-1)
                     elif int(action) == 11:
-                        job = q.enqueue_call(convert_to_stl, args=(img.id,), timeout=-1)
+                        job = q.enqueue_call(process_image, args=(img.id, 'create_mesh',), timeout=-1)
                     lenq = len(q)
                     img.job_id = job.id
                     if lenq == 0:
