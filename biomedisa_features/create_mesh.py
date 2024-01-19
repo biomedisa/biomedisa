@@ -269,25 +269,30 @@ def init_create_mesh(id):
                 subprocess.Popen(['rsync', '-avP', img.pic.path, host+':'+img.pic.path.replace(BASE_DIR,host_base)]).wait()
 
                 # create mesh
-                if 'MESH_QUEUE_SUBHOST' in config:
-                    cmd = ['ssh', '-t', host, 'ssh', config['MESH_QUEUE_SUBHOST']] + cmd
+                if 'REMOTE_QUEUE_SUBHOST' in config:
+                    cmd = ['ssh', '-t', host, 'ssh', config['REMOTE_QUEUE_SUBHOST']] + cmd
                 else:
                     cmd = ['ssh', host] + cmd
                 subprocess.Popen(cmd).wait()
 
-                # get result
-                result_on_host = img.pic.path.replace(BASE_DIR,host_base)
-                result_on_host = result_on_host.replace(os.path.splitext(result_on_host)[1],'.stl')
-                result = subprocess.Popen(['scp', host+':'+result_on_host, path_to_result]).wait()
+                # check if aborted
+                stopped = subprocess.Popen(['scp', host+':'+host_base+f'/log/pid_5', BASE_DIR+f'/log/pid_5']).wait()
+                subprocess.Popen(['ssh', host, 'rm', host_base+f'/log/pid_5']).wait()
 
-                if result==0:
-                    # create object
-                    Upload.objects.create(pic=pic_path, user=img.user, project=img.project,
-                        imageType=5, shortfilename=new_short_name)
-                else:
-                    # return error
-                    Upload.objects.create(user=img.user, project=img.project,
-                        log=1, imageType=None, shortfilename='Invalid label data.')
+                # get result
+                if stopped==0:
+                    result_on_host = img.pic.path.replace(BASE_DIR,host_base)
+                    result_on_host = result_on_host.replace(os.path.splitext(result_on_host)[1],'.stl')
+                    result = subprocess.Popen(['scp', host+':'+result_on_host, path_to_result]).wait()
+
+                    if result==0:
+                        # create object
+                        Upload.objects.create(pic=pic_path, user=img.user, project=img.project,
+                            imageType=5, shortfilename=new_short_name)
+                    else:
+                        # return error
+                        Upload.objects.create(user=img.user, project=img.project,
+                            log=1, imageType=None, shortfilename='Invalid label data.')
 
             # local server
             else:
