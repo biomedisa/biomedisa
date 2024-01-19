@@ -141,6 +141,7 @@ def init_process_image(id, process=None):
             else:
 
                 # set pid
+                stopped = 0
                 img.pid = int(os.getpid())
                 img.save()
 
@@ -165,14 +166,12 @@ def init_process_image(id, process=None):
                         imageType=img.imageType, shortfilename=new_short_name, active=active)
 
             # copy or create slice preview
-            if process == 'convert':
+            if stopped==0 and process == 'convert':
                 path_to_source = img.pic.path.replace('images', 'sliceviewer', 1)
                 path_to_dest = path_to_result.replace('images', 'sliceviewer', 1)
-                if os.path.exists(path_to_source):
+                if os.path.exists(path_to_source) and not os.path.exists(path_to_dest):
                     copytree(path_to_source, path_to_dest, copy_function=os.link)
-            elif process == 'smooth':
-                data = smooth_img_3x3(data)
-                save_data(path_to_result, data, final_image_type='.tif')
+            elif stopped==0 and process == 'smooth':
                 q = Queue('slices', connection=Redis())
                 job = q.enqueue_call(create_slices, args=(path_to_result, None,), timeout=-1)
 
