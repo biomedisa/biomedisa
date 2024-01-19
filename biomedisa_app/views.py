@@ -2401,8 +2401,11 @@ def stop_running_job(id, queue):
         QUEUE, host = 'SECOND', config['SECOND_QUEUE_HOST']
     elif queue == 3:
         QUEUE, host = 'THIRD', config['THIRD_QUEUE_HOST']
-    elif queue in [4,5]:
-        host = ''
+    elif queue == 5:
+        if 'REMOTE_QUEUE_HOST' in config:
+            QUEUE, host = 'REMOTE', config['REMOTE_QUEUE_HOST']
+        else:
+            host = ''
 
     # kill process
     try:
@@ -2449,10 +2452,10 @@ def remove_from_queue(request):
                     queue_name, host = 'second_queue', config['SECOND_QUEUE_HOST']
                 elif image_to_stop.queue == 3:
                     queue_name, host = 'third_queue', config['THIRD_QUEUE_HOST']
-                elif image_to_stop.queue == 4:
-                    queue_name, host = 'acwe', ''
                 elif image_to_stop.queue == 5:
-                    queue_name, host = 'process_image', ''
+                    queue_name = 'process_image'
+                    host = True if 'REMOTE_QUEUE_HOST' in config else False
+
                 q = Queue(queue_name, connection=Redis())
                 id_to_check = image_to_stop.job_id
                 if id_to_check in q.job_ids:
