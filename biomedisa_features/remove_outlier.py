@@ -279,16 +279,16 @@ def init_remove_outlier(image_id, final_id, friend_id, label_id, fill_holes=True
         # get host information
         host = ''
         host_base = BASE_DIR
-        if 'CLEAN_QUEUE_HOST' in config:
-            host = config['CLEAN_QUEUE_HOST']
-        if host and 'CLEAN_QUEUE_BASE_DIR' in config:
-            host_base = config['CLEAN_QUEUE_BASE_DIR']
+        if 'REMOTE_QUEUE_HOST' in config:
+            host = config['REMOTE_QUEUE_HOST']
+        if host and 'REMOTE_QUEUE_BASE_DIR' in config:
+            host_base = config['REMOTE_QUEUE_BASE_DIR']
 
         # remote server
         if host:
 
             # command
-            cmd = ['python3', 'remove_outlier.py', final.pic.path.replace(BASE_DIR,host_base)]
+            cmd = ['python3', host_base+'/biomedisa_features/remove_outlier.py', final.pic.path.replace(BASE_DIR,host_base)]
             cmd += [f'-iid={image.id}', f'-fid={friend.id}', '-r']
 
             # command (append only on demand)
@@ -303,9 +303,6 @@ def init_remove_outlier(image_id, final_id, friend_id, label_id, fill_holes=True
             if label.imageType != 4:
                 cmd += [f'--path_to_reference={label.pic.path.replace(BASE_DIR,host_base)}']
 
-            # change working directory
-            cwd = host_base + '/biomedisa_features/'
-
             # send data to host
             subprocess.Popen(['ssh', host, 'mkdir', '-p', host_base+'/private_storage/images/'+image.user.username]).wait()
             subprocess.Popen(['rsync', '-avP', final.pic.path, host+':'+final.pic.path.replace(BASE_DIR,host_base)]).wait()
@@ -313,11 +310,10 @@ def init_remove_outlier(image_id, final_id, friend_id, label_id, fill_holes=True
                 subprocess.Popen(['rsync', '-avP', label.pic.path, host+':'+label.pic.path.replace(BASE_DIR,host_base)]).wait()
 
             # run interpolation
-            if 'CLEAN_QUEUE_SUBHOST' in config:
-                cmd = ['ssh', '-t', host, 'ssh', config['CLEAN_QUEUE_SUBHOST']] + cmd
+            if 'REMOTE_QUEUE_SUBHOST' in config:
+                cmd = ['ssh', '-t', host, 'ssh', config['REMOTE_QUEUE_SUBHOST']] + cmd
             else:
                 cmd = ['ssh', host] + cmd
-            cmd[cmd.index('remove_outlier.py')] = cwd + 'remove_outlier.py'
             subprocess.Popen(cmd).wait()
 
             # config

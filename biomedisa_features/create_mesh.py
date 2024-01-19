@@ -29,14 +29,18 @@
 
 import os, sys
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(BASE_DIR)
+if not BASE_DIR in sys.path:
+    sys.path.append(BASE_DIR)
 import numpy as np
-from biomedisa_features.biomedisa_helper import load_data
+from biomedisa_features.biomedisa_helper import load_data, unique_file_path
+from biomedisa_features.django_env import create_pid_object
 from vtk.util.numpy_support import vtk_to_numpy, numpy_to_vtk
 from stl import mesh
 import vtk
 import re
 import argparse
+import traceback
+import subprocess
 
 def marching_cubes(image, threshold, poly_reduction, smoothing_iterations):
 
@@ -100,12 +104,13 @@ def marching_cubes(image, threshold, poly_reduction, smoothing_iterations):
 
     return decimatedPoly#confilter.GetOutput()
 
-def save_mesh(path_to_data, image, x_res=1, y_res=1, z_res=1, poly_reduction=0.9, smoothing_iterations=15):
+def save_mesh(path_to_result, labels, x_res=1, y_res=1, z_res=1,
+    poly_reduction=0.9, smoothing_iterations=15):
 
     # get labels
-    zsh, ysh, xsh = image.shape
-    allLabels = np.unique(image)
-    b = np.empty_like(image)
+    zsh, ysh, xsh = labels.shape
+    allLabels = np.unique(labels)
+    b = np.empty_like(labels)
     arr = np.empty((0,3,3))
     nTotalCells = [0]
 
@@ -113,7 +118,7 @@ def save_mesh(path_to_data, image, x_res=1, y_res=1, z_res=1, poly_reduction=0.9
 
         # get label
         b.fill(0)
-        b[image==label] = 1
+        b[labels==label] = 1
 
         # numpy to vtk
         sc = numpy_to_vtk(num_array=b.ravel(), deep=True, array_type=vtk.VTK_UNSIGNED_CHAR)
@@ -163,7 +168,7 @@ def save_mesh(path_to_data, image, x_res=1, y_res=1, z_res=1, poly_reduction=0.9
         start = nTotalCells[i]
         stop = nTotalCells[i+1]
         mesh_final.attr[start:stop,0] = i+1
-    mesh_final.save(path_to_data)
+    mesh_final.save(path_to_result)
 
 def get_voxel_spacing(header, data, extension):
 
@@ -204,6 +209,118 @@ def get_voxel_spacing(header, data, extension):
 
     return xres, yres, zres
 
+def init_create_mesh(id):
+
+    import django
+    django.setup()
+    from biomedisa_app.models import Upload
+    from biomedisa_app.config import config
+
+    # get object
+    try:
+        img = Upload.objects.get(pk=id)
+    except Upload.DoesNotExist:
+        img.status = 0
+        img.save()
+        message = 'File has been removed.'
+        Upload.objects.create(user=img.user, project=img.project, log=1, imageType=None, shortfilename=message)
+
+    # check if aborted
+    if img.status > 0:
+
+        # return error
+        if img.imageType not in [2,3]:
+            Upload.objects.create(user=img.user, project=img.project,
+                log=1, imageType=None, shortfilename='No valid label data.')
+
+        else:
+
+            # get host information
+            host = ''
+            host_base = BASE_DIR
+            if 'REMOTE_QUEUE_HOST' in config:
+                host = config['REMOTE_QUEUE_HOST']
+            if host and 'REMOTE_QUEUE_BASE_DIR' in config:
+                host_base = config['REMOTE_QUEUE_BASE_DIR']
+
+            # set status to processing
+            if img.status == 1:
+                img.status = 2
+                img.message = 'Processing'
+
+            # create pic path
+            filename, extension = os.path.splitext(img.pic.path)
+            if extension == '.gz':
+                extension = '.nii.gz'
+                filename = filename[:-4]
+            path_to_result = unique_file_path(filename + '.stl')
+            new_short_name = os.path.basename(path_to_result)
+            pic_path = 'images/%s/%s' %(img.user.username, new_short_name)
+
+            # remote server
+            if host:
+
+                # command
+                cmd = ['python3', host_base+'/biomedisa_features/create_mesh.py', img.pic.path.replace(BASE_DIR,host_base)]
+                cmd += [f'-iid={img.id}', '-r']
+
+                # send data to host
+                subprocess.Popen(['ssh', host, 'mkdir', '-p', host_base+'/private_storage/images/'+img.user.username]).wait()
+                subprocess.Popen(['rsync', '-avP', img.pic.path, host+':'+img.pic.path.replace(BASE_DIR,host_base)]).wait()
+
+                # create mesh
+                if 'MESH_QUEUE_SUBHOST' in config:
+                    cmd = ['ssh', '-t', host, 'ssh', config['MESH_QUEUE_SUBHOST']] + cmd
+                else:
+                    cmd = ['ssh', host] + cmd
+                subprocess.Popen(cmd).wait()
+
+                # get result
+                result_on_host = img.pic.path.replace(BASE_DIR,host_base)
+                result_on_host = result_on_host.replace(os.path.splitext(result_on_host)[1],'.stl')
+                result = subprocess.Popen(['scp', host+':'+result_on_host, path_to_result]).wait()
+
+                if result==0:
+                    # create object
+                    Upload.objects.create(pic=pic_path, user=img.user, project=img.project,
+                        imageType=5, shortfilename=new_short_name)
+                else:
+                    # return error
+                    Upload.objects.create(user=img.user, project=img.project,
+                        log=1, imageType=None, shortfilename='Invalid label data.')
+
+            # local server
+            else:
+
+                # set pid
+                img.pid = int(os.getpid())
+                img.save()
+
+                # load data
+                data, header = load_data(img.pic.path, process='converter')
+
+                if data is None:
+                    # return error
+                    Upload.objects.create(user=img.user, project=img.project,
+                        log=1, imageType=None, shortfilename='Invalid label data.')
+
+                else:
+                    # get voxel spacing
+                    xres, yres, zres = get_voxel_spacing(header, data, extension)
+                    print(f'Voxel spacing: x_spacing, y_spacing, z_spacing = {xres}, {yres}, {zres}')
+
+                    # create stl file
+                    save_mesh(path_to_result, data, xres, yres, zres)
+
+                    # create object
+                    Upload.objects.create(pic=pic_path, user=img.user, project=img.project,
+                        imageType=5, shortfilename=new_short_name)
+
+        # close process
+        img.status = 0
+        img.pid = 0
+        img.save()
+
 if __name__ == "__main__":
 
     # initialize arguments
@@ -211,7 +328,7 @@ if __name__ == "__main__":
              formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     # required arguments
-    parser.add_argument('path_to_data', type=str, metavar='PATH_TO_LABELS',
+    parser.add_argument('path_to_labels', type=str, metavar='PATH_TO_LABELS',
                         help='Location of label data')
 
     # optional arguments
@@ -225,27 +342,40 @@ if __name__ == "__main__":
                         help='Voxel spacing/resolution y-axis')
     parser.add_argument('-zres','--z_res', type=int, default=None,
                         help='Voxel spacing/resolution z-axis')
-    args = parser.parse_args()
+    parser.add_argument('-iid','--img_id', type=str, default=None,
+                        help='Label ID within django environment/browser version')
+    parser.add_argument('-r','--remote', action='store_true', default=False,
+                        help='The mesh is created on a remote server. Must be set up in config.py')
+    bm = parser.parse_args()
+
+    # set pid
+    if bm.remote:
+        create_pid_object(os.getpid(), True, 5, bm.img_id)
 
     # load data
-    data, header, extension = load_data(args.path_to_data, return_extension=True)
+    bm.labels, header, extension = load_data(bm.path_to_labels, return_extension=True)
 
-    # get voxel spacing
-    if not all([args.x_res, args.y_res, args.z_res]):
-        x_res, y_res, z_res = get_voxel_spacing(header, data, extension)
-        if args.x_res:
-            x_res = args.x_res
-        if args.y_res:
-            y_res = args.y_res
-        if args.z_res:
-            z_res = args.z_res
-        print(f'Voxel spacing: x_spacing, y_spacing, z_spacing = {x_res}, {y_res}, {z_res}')
+    if bm.labels is None:
+        print('Error: Invalid label data.')
+
     else:
-        x_res = args.x_res
-        y_res = args.y_res
-        z_res = args.z_res
+        # path to result
+        path_to_result = bm.path_to_labels.replace(os.path.splitext(bm.path_to_labels)[1],'.stl')
 
-    # save stl file
-    path_to_data = args.path_to_data.replace(os.path.splitext(args.path_to_data)[1],'.stl')
-    save_mesh(path_to_data, data, x_res, y_res, z_res, args.poly_reduction, args.smoothing_iterations)
+        # get voxel spacing
+        if not all([bm.x_res, bm.y_res, bm.z_res]):
+            x_res, y_res, z_res = get_voxel_spacing(header, bm.labels, extension)
+            if not bm.x_res:
+                bm.x_res = x_res
+            if not bm.y_res:
+                bm.y_res = y_res
+            if not bm.z_res:
+                bm.z_res = z_res
+            print(f'Voxel spacing: x_spacing, y_spacing, z_spacing = {bm.x_res}, {bm.y_res}, {bm.z_res}')
+
+        # create mesh
+        try:
+            save_mesh(path_to_result, bm.labels, bm.x_res, bm.y_res, bm.z_res, bm.poly_reduction, bm.smoothing_iterations)
+        except Exception as e:
+            print(traceback.format_exc())
 

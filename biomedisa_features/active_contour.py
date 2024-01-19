@@ -304,16 +304,16 @@ def init_active_contour(image_id, friend_id, label_id, simple=False):
         # get host information
         host = ''
         host_base = BASE_DIR
-        if 'ACWE_QUEUE_HOST' in config:
-            host = config['ACWE_QUEUE_HOST']
-        if host and 'ACWE_QUEUE_BASE_DIR' in config:
-            host_base = config['ACWE_QUEUE_BASE_DIR']
+        if 'REMOTE_QUEUE_HOST' in config:
+            host = config['REMOTE_QUEUE_HOST']
+        if host and 'REMOTE_QUEUE_BASE_DIR' in config:
+            host_base = config['REMOTE_QUEUE_BASE_DIR']
 
         # remote server
         if host:
 
             # command
-            cmd = ['python3', 'active_contour.py']
+            cmd = ['python3', host_base+'/biomedisa_features/active_contour.py']
             cmd += [image.pic.path.replace(BASE_DIR,host_base), friend.pic.path.replace(BASE_DIR,host_base)]
             cmd += [f'-iid={image.id}', f'-fid={friend.id}', '-r']
 
@@ -335,9 +335,6 @@ def init_active_contour(image_id, friend_id, label_id, simple=False):
             if label.imageType != 4:
                 cmd += [f'--path_to_reference={label.pic.path.replace(BASE_DIR,host_base)}']
 
-            # change working directory
-            cwd = host_base + '/biomedisa_features/'
-
             # send data to host
             subprocess.Popen(['ssh', host, 'mkdir', '-p', host_base+'/private_storage/images/'+image.user.username]).wait()
             subprocess.Popen(['rsync', '-avP', image.pic.path, host+':'+image.pic.path.replace(BASE_DIR,host_base)]).wait()
@@ -346,11 +343,10 @@ def init_active_contour(image_id, friend_id, label_id, simple=False):
                 subprocess.Popen(['rsync', '-avP', label.pic.path, host+':'+label.pic.path.replace(BASE_DIR,host_base)]).wait()
 
             # run interpolation
-            if 'ACWE_QUEUE_SUBHOST' in config:
-                cmd = ['ssh', '-t', host, 'ssh', config['ACWE_QUEUE_SUBHOST']] + cmd
+            if 'REMOTE_QUEUE_SUBHOST' in config:
+                cmd = ['ssh', '-t', host, 'ssh', config['REMOTE_QUEUE_SUBHOST']] + cmd
             else:
                 cmd = ['ssh', host] + cmd
-            cmd[cmd.index('active_contour.py')] = cwd + 'active_contour.py'
             subprocess.Popen(cmd).wait()
 
             # config
