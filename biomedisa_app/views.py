@@ -49,6 +49,7 @@ from biomedisa_app.models import (UploadForm, Upload, StorageForm, Profile,
     Repository, Specimen, SpecimenForm, TomographicData, TomographicDataForm,
     ProcessedData)
 from biomedisa_features.create_mesh import init_create_mesh
+from biomedisa_features.process_image import init_process_image
 from biomedisa_features.create_slices import create_slices
 from biomedisa_features.biomedisa_helper import (load_data, save_data, id_generator,
     unique_file_path, _get_platform, smooth_img_3x3, img_to_uint8)
@@ -1215,86 +1216,6 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
         image.status = 0
         image.pid = 0
         image.save()
-
-def init_process_image(id, process=None):
-
-    # get object
-    try:
-        img = Upload.objects.get(pk=id)
-    except Upload.DoesNotExist:
-        img.status = 0
-        img.save()
-        Upload.objects.create(user=img.user, project=img.project,
-            log=1, imageType=None, shortfilename='File has been removed.')
-
-    # check if aborted
-    if img.status > 0:
-
-        if process=='smooth' and img.imageType!=1:
-            Upload.objects.create(user=img.user, project=img.project, log=1,
-                imageType=None, shortfilename='No valid image data.')
-
-        else:
-            # set processing status
-            if img.status == 1:
-                img.status = 2
-                img.message = 'Processing'
-
-            # set PID
-            img.pid = int(os.getpid())
-            img.save()
-
-            # load data
-            data, header = load_data(img.pic.path, process='converter')
-            if data is None:
-                Upload.objects.create(user=img.user, project=img.project,
-                    log=1, imageType=None, shortfilename='Invalid data.')
-
-            else:
-
-                # suffix
-                if process == 'convert':
-                    suffix = '.8bit.tif'
-                elif process == 'smooth':
-                    suffix = '.denoised.tif'
-
-                # create pic path
-                filename, extension = os.path.splitext(img.pic.path)
-                if extension == '.gz':
-                    extension = '.nii.gz'
-                    filename = filename[:-4]
-                path_to_data = unique_file_path(filename + suffix)
-                new_short_name = os.path.basename(path_to_data)
-                pic_path = 'images/%s/%s' %(img.user.username, new_short_name)
-
-                # process data
-                if process == 'convert':
-                    data = img_to_uint8(data)
-                    save_data(path_to_data, data, final_image_type='.tif')
-
-                    # copy slices
-                    path_to_source = img.pic.path.replace('images', 'sliceviewer', 1)
-                    path_to_dest = path_to_data.replace('images', 'sliceviewer', 1)
-                    if os.path.exists(path_to_source):
-                        copytree(path_to_source, path_to_dest, copy_function=os.link)
-
-                elif process == 'smooth':
-                    data = smooth_img_3x3(data)
-                    save_data(path_to_data, data, final_image_type='.tif')
-
-                    # create slices
-                    q = Queue('slices', connection=Redis())
-                    job = q.enqueue_call(create_slices, args=(path_to_data, None,), timeout=-1)
-
-                # create object
-                active = 1 if img.imageType == 3 else 0
-                Upload.objects.create(pic=pic_path, user=img.user, project=img.project,
-                    imageType=img.imageType, shortfilename=new_short_name, active=active)
-
-        # close process
-        img.status = 0
-        img.pid = 0
-        img.save()
 
 # 25. features
 def features(request, action):

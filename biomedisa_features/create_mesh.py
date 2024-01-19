@@ -235,6 +235,11 @@ def init_create_mesh(id):
 
         else:
 
+            # set status to processing
+            if img.status == 1:
+                img.status = 2
+                img.message = 'Processing'
+
             # get host information
             host = ''
             host_base = BASE_DIR
@@ -243,12 +248,7 @@ def init_create_mesh(id):
             if host and 'REMOTE_QUEUE_BASE_DIR' in config:
                 host_base = config['REMOTE_QUEUE_BASE_DIR']
 
-            # set status to processing
-            if img.status == 1:
-                img.status = 2
-                img.message = 'Processing'
-
-            # create pic path
+            # create path to result
             filename, extension = os.path.splitext(img.pic.path)
             if extension == '.gz':
                 extension = '.nii.gz'
@@ -303,12 +303,10 @@ def init_create_mesh(id):
 
                 # load data
                 data, header = load_data(img.pic.path, process='converter')
-
                 if data is None:
                     # return error
                     Upload.objects.create(user=img.user, project=img.project,
                         log=1, imageType=None, shortfilename='Invalid label data.')
-
                 else:
                     # get voxel spacing
                     xres, yres, zres = get_voxel_spacing(header, data, extension)
