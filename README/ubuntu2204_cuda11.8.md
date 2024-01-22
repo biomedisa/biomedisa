@@ -28,7 +28,7 @@ Note: If you are not running Biomedisa with an Apache Server, you may only use `
 ```
 sudo -H pip3 install --upgrade pip setuptools testresources scikit-build
 sudo -H pip3 install --upgrade numpy scipy h5py colorama wget numpy-stl \
-    numba imagecodecs tifffile scikit-image opencv-python \
+    numba imagecodecs tifffile scikit-image opencv-python netCDF4 mrcfile \
     Pillow nibabel medpy SimpleITK mpi4py itk vtk rq mysqlclient matplotlib
 sudo -H pip3 install django==3.2.6
 ```

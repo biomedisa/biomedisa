@@ -34,7 +34,7 @@ You may only use `pip3 install --upgrade <package>` and add `export PATH=/home/$
 ```
 sudo -H pip3 install --upgrade pip setuptools testresources scikit-build wheel
 sudo -H pip3 install --upgrade numpy scipy h5py colorama numpy-stl \
-    numba imagecodecs tifffile scikit-image opencv-python \
+    numba imagecodecs tifffile scikit-image opencv-python netCDF4 mrcfile \
     Pillow nibabel medpy SimpleITK mpi4py itk vtk matplotlib pyopencl
 ```
 

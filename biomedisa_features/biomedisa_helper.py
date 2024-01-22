@@ -227,6 +227,8 @@ def load_data_(path_to_data, process):
     extension = os.path.splitext(path_to_data)[1]
     if extension == '.gz':
         extension = '.nii.gz'
+    elif extension == '.bz2':
+        extension = os.path.splitext(os.path.splitext(path_to_data)[0])[1]
 
     if extension == '.am':
         try:
@@ -269,7 +271,10 @@ def load_data_(path_to_data, process):
 
         # list of files
         files = glob.glob(path_to_data[:-4]+'/**/*', recursive=True)
-        if os.path.splitext(files[0])[1] in ['.nc', '.nc.bz2']:
+        for file in files:
+            if os.path.splitext(file)[1] == '.nc' or os.path.splitext(os.path.splitext(file)[0])[1] == '.nc':
+                extension = '.nc'
+        if extension == '.nc':
             try:
                 data, header = nc_to_np(path_to_data[:-4])
             except Exception as e:

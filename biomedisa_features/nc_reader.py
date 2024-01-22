@@ -1,6 +1,6 @@
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2023 Philipp Lösel. All rights reserved.              ##
+##  Copyright (c) 2024 Philipp Lösel. All rights reserved.              ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -107,8 +107,16 @@ def nc_to_np(base_dir, start=0, stop=None, show_keys=False):
         raise Exception("netCDF4 not found. please use `pip install netCDF4`")
 
     if os.path.isfile(base_dir):
-        # read nc object
-        f = netCDF4.Dataset(base_dir,'r')
+        # decompress bz2 files
+        if '.bz2' in base_dir:
+            import bz2
+            zipfile = bz2.BZ2File(base_dir) # open the file
+            data = zipfile.read() # get the decompressed data
+            newfilepath = base_dir[:-4] # assuming the filepath ends with .bz2
+            open(newfilepath, 'wb').write(data)
+            f = netCDF4.Dataset(newfilepath,'r')
+        else:
+            f = netCDF4.Dataset(base_dir,'r')
         if show_keys:
             print(f.variables.keys())
         for n in ['labels', 'segmented', 'tomo']:
@@ -116,11 +124,15 @@ def nc_to_np(base_dir, start=0, stop=None, show_keys=False):
                 name = n
         output = f.variables[name]
         output = np.copy(output)
+        # remove tmp file
+        if '.bz2' in base_dir:
+            os.remove(newfilepath)
         header = [name, [base_dir], output.dtype]
 
     elif os.path.isdir(base_dir):
         # read volume by volume
-        files = glob.glob(base_dir+'/*')
+        files = glob.glob(base_dir+'/**/*.nc', recursive=True)
+        files += glob.glob(base_dir+'/**/*.bz2', recursive=True)
         files.sort()
 
         # check for compression
