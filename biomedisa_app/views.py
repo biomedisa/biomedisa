@@ -52,7 +52,7 @@ from biomedisa_features.create_mesh import init_create_mesh
 from biomedisa_features.process_image import init_process_image
 from biomedisa_features.create_slices import create_slices
 from biomedisa_features.biomedisa_helper import (load_data, save_data, id_generator,
-    unique_file_path, _get_platform, smooth_img_3x3, img_to_uint8)
+    unique_file_path, _get_platform, smooth_img_3x3, img_to_uint8, send_data_to_host)
 from biomedisa_features.django_env import post_processing, create_error_object
 from django.utils.crypto import get_random_string
 from biomedisa_app.config import config
@@ -1128,21 +1128,23 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
         # remote server
         if host:
 
-            # send data to host
+            # create user directory
             subprocess.Popen(['ssh', host, 'mkdir', '-p', host_base+'/private_storage/images/'+image.user.username]).wait()
+
+            # send data to host
             if predict:
-                subprocess.Popen(['rsync', '-avP', image.pic.path, host+':'+image.pic.path.replace(BASE_DIR,host_base)]).wait()
-                subprocess.Popen(['rsync', '-avP', label.pic.path, host+':'+label.pic.path.replace(BASE_DIR,host_base)]).wait()
+                send_data_to_host(image.pic.path, host+':'+image.pic.path.replace(BASE_DIR,host_base))
+                send_data_to_host(label.pic.path, host+':'+label.pic.path.replace(BASE_DIR,host_base))
             else:
                 for path in img_list.split(',')[:-1]:
-                    subprocess.Popen(['rsync', '-avP', path, host+':'+path.replace(BASE_DIR,host_base)]).wait()
+                    send_data_to_host(path, host+':'+path.replace(BASE_DIR,host_base))
                 for path in label_list.split(',')[:-1]:
-                    subprocess.Popen(['rsync', '-avP', path, host+':'+path.replace(BASE_DIR,host_base)]).wait()
+                    send_data_to_host(path, host+':'+path.replace(BASE_DIR,host_base))
                 if val_img_list and val_label_list:
                     for path in val_img_list.split(',')[:-1]:
-                        subprocess.Popen(['rsync', '-avP', path, host+':'+path.replace(BASE_DIR,host_base)]).wait()
+                        send_data_to_host(path, host+':'+path.replace(BASE_DIR,host_base))
                     for path in val_label_list.split(',')[:-1]:
-                        subprocess.Popen(['rsync', '-avP', path, host+':'+path.replace(BASE_DIR,host_base)]).wait()
+                        send_data_to_host(path, host+':'+path.replace(BASE_DIR,host_base))
 
             # run deep learning
             cmd[1] = cwd+'biomedisa_deeplearning.py'
@@ -1157,10 +1159,8 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
             path_to_error = BASE_DIR + f'/log/error_{queue_id}'
             error = subprocess.Popen(['scp', host + ':' + host_base + f'/log/error_{queue_id}', path_to_error]).wait()
             stopped = subprocess.Popen(['scp', host + ':' + host_base + f'/log/pid_{queue_id}', BASE_DIR + f'/log/pid_{queue_id}']).wait()
-            error = True if error == 0 else False
-            stopped = False if stopped == 0 else True
 
-            if error:
+            if error == 0:
 
                 # create error object
                 with open(path_to_error, 'r') as errorfile:
@@ -1169,53 +1169,56 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
 
                 # remove error file
                 subprocess.Popen(['ssh', host, 'rm', host_base + f'/log/error_{queue_id}']).wait()
-                subprocess.Popen(['ssh', host, 'rm', host_base + f'/log/pid_{queue_id}']).wait()
 
-            elif not stopped:
+            elif stopped == 0:
 
                 # config
-                subprocess.Popen(['scp', host + ':' + host_base + f'/log/config_{queue_id}', BASE_DIR + f'/log/config_{queue_id}']).wait()
-                with open(BASE_DIR + f'/log/config_{queue_id}', 'r') as configfile:
-                    final_on_host, _, _, _, _, time_str, server_name, model_on_host, cropped_on_host = configfile.read().split()
-                if cropped_on_host=='None':
-                    cropped_on_host=None
-                time_str = time_str.replace('-',' ')
+                success = subprocess.Popen(['scp', host + ':' + host_base + f'/log/config_{queue_id}', BASE_DIR + f'/log/config_{queue_id}']).wait()
 
-                # local file names
-                path_to_model, path_to_final, path_to_cropped_image = None, None, None
-                if predict:
-                    path_to_final = unique_file_path(final_on_host.replace(host_base,BASE_DIR))
-                    if cropped_on_host:
-                        path_to_cropped_image = unique_file_path(cropped_on_host.replace(host_base,BASE_DIR))
+                if success == 0:
+                    with open(BASE_DIR + f'/log/config_{queue_id}', 'r') as configfile:
+                        final_on_host, _, _, _, _, time_str, server_name, model_on_host, cropped_on_host = configfile.read().split()
+                    if cropped_on_host=='None':
+                        cropped_on_host=None
+                    time_str = time_str.replace('-',' ')
+
+                    # local file names
+                    path_to_model, path_to_final, path_to_cropped_image = None, None, None
+                    if predict:
+                        path_to_final = unique_file_path(final_on_host.replace(host_base,BASE_DIR))
+                        if cropped_on_host:
+                            path_to_cropped_image = unique_file_path(cropped_on_host.replace(host_base,BASE_DIR))
+                    else:
+                        path_to_model = unique_file_path(model_on_host.replace(host_base,BASE_DIR))
+
+                    # get results
+                    if predict:
+                        subprocess.Popen(['scp', host+':'+final_on_host, path_to_final]).wait()
+                        if cropped_on_host:
+                            subprocess.Popen(['scp', host+':'+cropped_on_host, path_to_cropped_image]).wait()
+                    else:
+                        subprocess.Popen(['scp', host+':'+model_on_host, path_to_model]).wait()
+
+                    # post processing
+                    post_processing(path_to_final, time_str, server_name, False, None,
+                        path_to_cropped_image=path_to_cropped_image, path_to_model=path_to_model,
+                        predict=predict, train=train,
+                        img_id=image.id, label_id=label.id)
+
+                    # remove config file
+                    subprocess.Popen(['ssh', host, 'rm', host_base + f'/log/config_{queue_id}']).wait()
+
                 else:
-                    path_to_model = unique_file_path(model_on_host.replace(host_base,BASE_DIR))
+                    # something went wrong
+                    return_error(image, 'Something went wrong. Please restart.')
 
-                # get results
-                if predict:
-                    subprocess.Popen(['scp', host+':'+final_on_host, path_to_final]).wait()
-                    if cropped_on_host:
-                        subprocess.Popen(['scp', host+':'+cropped_on_host, path_to_cropped_image]).wait()
-                else:
-                    subprocess.Popen(['scp', host+':'+model_on_host, path_to_model]).wait()
-
-                # post processing
-                post_processing(path_to_final, time_str, server_name, False, None,
-                    path_to_cropped_image=path_to_cropped_image, path_to_model=path_to_model,
-                    predict=predict, train=train,
-                    img_id=image.id, label_id=label.id)
-
-                # remove pid file
+            # remove pid file
+            if stopped == 0:
                 subprocess.Popen(['ssh', host, 'rm', host_base + f'/log/pid_{queue_id}']).wait()
 
         # local server
         else:
             subprocess.Popen(cmd, cwd=cwd, env=my_env).wait()
-
-        # stop processing
-        image.path_to_model = ''
-        image.status = 0
-        image.pid = 0
-        image.save()
 
 # 25. features
 def features(request, action):
@@ -1685,7 +1688,7 @@ def app(request):
 # return error
 def return_error(img, error_message):
     '''
-    Resets the image object when an error occurs. While _error_ in biomedisa_helper.py does not reset the object.
+    Returns error without requiring bm class.
 
     Parameter
     ---------
@@ -1694,14 +1697,15 @@ def return_error(img, error_message):
     error_message: string
         name of the error
     '''
-    img.status = 0
-    img.pid = 0
-    img.save()
     Upload.objects.create(user=img.user, project=img.project, log=1, imageType=None, shortfilename=error_message)
     path_to_logfile = BASE_DIR + '/log/logfile.txt'
     with open(path_to_logfile, 'a') as logfile:
         print('%s %s %s %s' %(time.ctime(), img.user.username, img.shortfilename, error_message), file=logfile)
     send_error_message(img.user.username, img.shortfilename, error_message)
+    img.path_to_model = ''
+    img.status = 0
+    img.pid = 0
+    img.save()
 
 # search for failed jobs
 def init_check_queue(id, processing_queue):
@@ -2183,10 +2187,12 @@ def init_random_walk(image, label):
         # remote server
         if host:
 
-            # send data to host
+            # create user directory
             subprocess.Popen(['ssh', host, 'mkdir', '-p', host_base+'/private_storage/images/'+image.user.username]).wait()
-            subprocess.Popen(['rsync', '-avP', image.pic.path, host+':'+image.pic.path.replace(BASE_DIR,host_base)]).wait()
-            subprocess.Popen(['rsync', '-avP', label.pic.path, host+':'+label.pic.path.replace(BASE_DIR,host_base)]).wait()
+
+            # send data to host
+            send_data_to_host(image.pic.path, host+':'+image.pic.path.replace(BASE_DIR,host_base))
+            send_data_to_host(label.pic.path, host+':'+label.pic.path.replace(BASE_DIR,host_base))
 
             # run interpolation
             if f'{QUEUE}_QUEUE_SUBHOST' in config:
@@ -2197,14 +2203,12 @@ def init_random_walk(image, label):
             cmd[cmd.index('biomedisa_interpolation.py')] = cwd + 'biomedisa_interpolation.py'
             subprocess.Popen(cmd).wait()
 
-            # get error or stopped
+            # get config files
             path_to_error = BASE_DIR + f'/log/error_{queue_id}'
             error = subprocess.Popen(['scp', host + ':' + host_base + f'/log/error_{queue_id}', path_to_error]).wait()
             stopped = subprocess.Popen(['scp', host + ':' + host_base + f'/log/pid_{queue_id}', BASE_DIR + f'/log/pid_{queue_id}']).wait()
-            error = True if error == 0 else False
-            stopped = False if stopped == 0 else True
 
-            if error:
+            if error == 0:
 
                 # create error object
                 with open(path_to_error, 'r') as errorfile:
@@ -2213,47 +2217,51 @@ def init_random_walk(image, label):
 
                 # remove error file
                 subprocess.Popen(['ssh', host, 'rm', host_base + f'/log/error_{queue_id}']).wait()
-                subprocess.Popen(['ssh', host, 'rm', host_base + f'/log/pid_{queue_id}']).wait()
 
-            elif not stopped:
+            elif stopped == 0:
 
                 # config
-                subprocess.Popen(['scp', host + ':' + host_base + f'/log/config_{queue_id}', BASE_DIR + f'/log/config_{queue_id}']).wait()
-                with open(BASE_DIR + f'/log/config_{queue_id}', 'r') as configfile:
-                    final_on_host, uncertainty_on_host, smooth_on_host, uncertainty, smooth, time_str, server_name, _, _ = configfile.read().split()
-                uncertainty=True if uncertainty=='True' else False
-                smooth=False if smooth=='0' else True
-                time_str = time_str.replace('-',' ')
+                success = subprocess.Popen(['scp', host + ':' + host_base + f'/log/config_{queue_id}', BASE_DIR + f'/log/config_{queue_id}']).wait()
 
-                # local file names
-                path_to_final = unique_file_path(final_on_host.replace(host_base,BASE_DIR))
-                path_to_smooth = unique_file_path(smooth_on_host.replace(host_base,BASE_DIR))
-                path_to_uq = unique_file_path(uncertainty_on_host.replace(host_base,BASE_DIR))
+                if success == 0:
+                    with open(BASE_DIR + f'/log/config_{queue_id}', 'r') as configfile:
+                        final_on_host, uncertainty_on_host, smooth_on_host, uncertainty, smooth, time_str, server_name, _, _ = configfile.read().split()
+                    uncertainty=True if uncertainty=='True' else False
+                    smooth=False if smooth=='0' else True
+                    time_str = time_str.replace('-',' ')
 
-                # get results
-                subprocess.Popen(['scp', host+':'+final_on_host, path_to_final]).wait()
-                if smooth:
-                    subprocess.Popen(['scp', host+':'+smooth_on_host, path_to_smooth]).wait()
-                if uncertainty:
-                    subprocess.Popen(['scp', host+':'+uncertainty_on_host, path_to_uq]).wait()
+                    # local file names
+                    path_to_final = unique_file_path(final_on_host.replace(host_base,BASE_DIR))
+                    path_to_smooth = unique_file_path(smooth_on_host.replace(host_base,BASE_DIR))
+                    path_to_uq = unique_file_path(uncertainty_on_host.replace(host_base,BASE_DIR))
 
-                # post processing
-                post_processing(path_to_final, time_str, server_name, False, None,
-                    path_to_uq=path_to_uq, path_to_smooth=path_to_smooth,
-                    uncertainty=uncertainty, smooth=smooth,
-                    img_id=image.id, label_id=label.id)
+                    # get results
+                    subprocess.Popen(['scp', host+':'+final_on_host, path_to_final]).wait()
+                    if smooth:
+                        subprocess.Popen(['scp', host+':'+smooth_on_host, path_to_smooth]).wait()
+                    if uncertainty:
+                        subprocess.Popen(['scp', host+':'+uncertainty_on_host, path_to_uq]).wait()
 
-                # remove pid file
+                    # post processing
+                    post_processing(path_to_final, time_str, server_name, False, None,
+                        path_to_uq=path_to_uq, path_to_smooth=path_to_smooth,
+                        uncertainty=uncertainty, smooth=smooth,
+                        img_id=image.id, label_id=label.id)
+
+                    # remove config file
+                    subprocess.Popen(['ssh', host, 'rm', host_base + f'/log/config_{queue_id}']).wait()
+
+                else:
+                    # something went wrong
+                    return_error(image, 'Something went wrong. Please restart.')
+
+            # remove pid file
+            if stopped == 0:
                 subprocess.Popen(['ssh', host, 'rm', host_base + f'/log/pid_{queue_id}']).wait()
 
         # local server
         else:
             subprocess.Popen(cmd, cwd=cwd, env=my_env).wait()
-
-        # stop processing
-        image.status = 0
-        image.pid = 0
-        image.save()
 
 # 43. run random walks
 @login_required

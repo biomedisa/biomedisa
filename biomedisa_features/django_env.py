@@ -47,6 +47,12 @@ def create_error_object(message, remote=False, queue=None, img_id=None):
         Upload.objects.create(user=image.user, project=image.project, log=1, imageType=None, shortfilename=message)
         send_error_message(image.user.username, image.shortfilename, message)
 
+        # stop processing
+        image.path_to_model = ''
+        image.status = 0
+        image.pid = 0
+        image.save()
+
 def create_pid_object(pid, remote=False, queue=None, img_id=None, path_to_model=''):
 
     # remote server
@@ -139,4 +145,10 @@ def post_processing(path_to_final, time_str, server_name, remote, queue, path_to
 
         # send notification
         send_notification(image.user.username, image.shortfilename, time_str, server_name, train, predict)
+
+        # stop processing
+        image.path_to_model = ''
+        image.status = 0
+        image.pid = 0
+        image.save()
 

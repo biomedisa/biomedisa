@@ -33,8 +33,8 @@ if not BASE_DIR in sys.path:
     sys.path.append(BASE_DIR)
 import biomedisa
 from biomedisa_features.curvop_numba import curvop, evolution
-from biomedisa_features.biomedisa_helper import (unique_file_path,
-    load_data, save_data, pre_processing, img_to_uint8, silent_remove)
+from biomedisa_features.biomedisa_helper import (unique_file_path, load_data, save_data,
+    pre_processing, img_to_uint8, silent_remove, send_data_to_host)
 import numpy as np
 import numba
 import argparse
@@ -335,12 +335,14 @@ def init_active_contour(image_id, friend_id, label_id, simple=False):
             if label.imageType != 4:
                 cmd += [f'--path_to_reference={label.pic.path.replace(BASE_DIR,host_base)}']
 
-            # send data to host
+            # create user directory
             subprocess.Popen(['ssh', host, 'mkdir', '-p', host_base+'/private_storage/images/'+image.user.username]).wait()
-            subprocess.Popen(['rsync', '-avP', image.pic.path, host+':'+image.pic.path.replace(BASE_DIR,host_base)]).wait()
-            subprocess.Popen(['rsync', '-avP', friend.pic.path, host+':'+friend.pic.path.replace(BASE_DIR,host_base)]).wait()
+
+            # send data to host
+            send_data_to_host(image.pic.path, host+':'+image.pic.path.replace(BASE_DIR,host_base))
+            send_data_to_host(friend.pic.path, host+':'+friend.pic.path.replace(BASE_DIR,host_base))
             if label.imageType != 4:
-                subprocess.Popen(['rsync', '-avP', label.pic.path, host+':'+label.pic.path.replace(BASE_DIR,host_base)]).wait()
+                send_data_to_host(label.pic.path, host+':'+label.pic.path.replace(BASE_DIR,host_base))
 
             # run interpolation
             if 'REMOTE_QUEUE_SUBHOST' in config:

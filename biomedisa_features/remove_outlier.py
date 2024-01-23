@@ -32,7 +32,8 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if not BASE_DIR in sys.path:
     sys.path.append(BASE_DIR)
 import biomedisa
-from biomedisa_features.biomedisa_helper import load_data, save_data, unique_file_path, silent_remove
+from biomedisa_features.biomedisa_helper import (load_data, save_data,
+    unique_file_path, silent_remove, send_data_to_host)
 import numpy as np
 from scipy import ndimage
 import argparse
@@ -303,11 +304,13 @@ def init_remove_outlier(image_id, final_id, friend_id, label_id, fill_holes=True
             if label.imageType != 4:
                 cmd += [f'--path_to_reference={label.pic.path.replace(BASE_DIR,host_base)}']
 
-            # send data to host
+            # create user directory
             subprocess.Popen(['ssh', host, 'mkdir', '-p', host_base+'/private_storage/images/'+image.user.username]).wait()
-            subprocess.Popen(['rsync', '-avP', final.pic.path, host+':'+final.pic.path.replace(BASE_DIR,host_base)]).wait()
+
+            # send data to host
+            send_data_to_host(final.pic.path, host+':'+final.pic.path.replace(BASE_DIR,host_base))
             if label.imageType != 4:
-                subprocess.Popen(['rsync', '-avP', label.pic.path, host+':'+label.pic.path.replace(BASE_DIR,host_base)]).wait()
+                send_data_to_host(label.pic.path, host+':'+label.pic.path.replace(BASE_DIR,host_base))
 
             # run interpolation
             if 'REMOTE_QUEUE_SUBHOST' in config:

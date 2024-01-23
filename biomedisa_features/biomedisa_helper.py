@@ -46,9 +46,14 @@ import time
 import zipfile
 import numba
 from shutil import copytree
-from multiprocessing import Process
+import subprocess
 import re
 import math
+
+def send_data_to_host(src, dst):
+    tmp = 1
+    while tmp!=0:
+        tmp = subprocess.Popen(['rsync','-avP',src,dst]).wait()
 
 def silent_remove(filename):
     try:
