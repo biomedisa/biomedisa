@@ -33,8 +33,7 @@ if not BASE_DIR in sys.path:
     sys.path.append(BASE_DIR)
 import numpy as np
 from biomedisa_features.biomedisa_helper import (load_data, save_data, unique_file_path,
-    img_to_uint8, smooth_img_3x3)
-from biomedisa_features.django_env import create_pid_object
+    img_to_uint8, smooth_img_3x3, send_data_to_host)
 from biomedisa_features.create_slices import create_slices
 from shutil import copytree
 import argparse
@@ -106,9 +105,11 @@ def init_process_image(id, process=None):
                 elif process == 'smooth':
                     cmd += ['-s']
 
-                # send data to host
+                # create user directory
                 subprocess.Popen(['ssh', host, 'mkdir', '-p', host_base+'/private_storage/images/'+img.user.username]).wait()
-                subprocess.Popen(['rsync', '-avP', img.pic.path, host+':'+img.pic.path.replace(BASE_DIR,host_base)]).wait()
+
+                # send data to host
+                send_data_to_host(img.pic.path, host+':'+img.pic.path.replace(BASE_DIR,host_base))
 
                 # process image
                 if 'REMOTE_QUEUE_SUBHOST' in config:
@@ -119,10 +120,12 @@ def init_process_image(id, process=None):
 
                 # check if aborted
                 stopped = subprocess.Popen(['scp', host+':'+host_base+f'/log/pid_5', BASE_DIR+f'/log/pid_5']).wait()
-                subprocess.Popen(['ssh', host, 'rm', host_base+f'/log/pid_5']).wait()
 
                 # get result
                 if stopped==0:
+                    # remove pid file
+                    subprocess.Popen(['ssh', host, 'rm', host_base+f'/log/pid_5']).wait()
+
                     result_on_host = img.pic.path.replace(BASE_DIR,host_base)
                     result_on_host = result_on_host.replace(os.path.splitext(result_on_host)[1], suffix)
                     result = subprocess.Popen(['scp', host+':'+result_on_host, path_to_result]).wait()
@@ -134,14 +137,14 @@ def init_process_image(id, process=None):
                             imageType=img.imageType, shortfilename=new_short_name, active=active)
                     else:
                         # return error
+                        stopped = 1
                         Upload.objects.create(user=img.user, project=img.project,
-                            log=1, imageType=None, shortfilename='Invalid image data.')
+                            log=1, imageType=None, shortfilename='Invalid data.')
 
             # local server
             else:
 
                 # set pid
-                stopped = 0
                 img.pid = int(os.getpid())
                 img.save()
 
@@ -149,10 +152,12 @@ def init_process_image(id, process=None):
                 data, header = load_data(img.pic.path, process='converter')
                 if data is None:
                     # return error
+                    stopped = 1
                     Upload.objects.create(user=img.user, project=img.project,
                         log=1, imageType=None, shortfilename='Invalid data.')
                 else:
                     # process data
+                    stopped = 0
                     if process == 'convert':
                         data = img_to_uint8(data)
                         save_data(path_to_result, data, final_image_type='.tif')
@@ -165,7 +170,7 @@ def init_process_image(id, process=None):
                     Upload.objects.create(pic=pic_path, user=img.user, project=img.project,
                         imageType=img.imageType, shortfilename=new_short_name, active=active)
 
-            # copy or create slice preview
+            # copy or create slices for preview
             if stopped==0 and process == 'convert':
                 path_to_source = img.pic.path.replace('images', 'sliceviewer', 1)
                 path_to_dest = path_to_result.replace('images', 'sliceviewer', 1)
@@ -203,13 +208,14 @@ if __name__ == "__main__":
 
     # set pid
     if bm.remote:
+        from biomedisa_features.django_env import create_pid_object
         create_pid_object(os.getpid(), True, 5, bm.img_id)
 
     # load data
     if bm.convert or bm.smooth:
         bm.image, _ = load_data(bm.path_to_data)
         if bm.image is None:
-            print('Error: Invalid image data.')
+            print('Error: Invalid data.')
         else:
             try:
                 # suffix
