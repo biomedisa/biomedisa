@@ -1,6 +1,6 @@
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2023 Philipp Lösel. All rights reserved.              ##
+##  Copyright (c) 2024 Philipp Lösel. All rights reserved.              ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -338,7 +338,7 @@ def get_labels(arr, allLabels):
 
 def load_training_data(normalize, img_list, label_list, channels, x_scale, y_scale, z_scale, no_scaling,
         crop_data, labels_to_compute, labels_to_remove, img_in=None, label_in=None,
-        configuration_data=None, allLabels=None, header=None, extension='.tif',
+        normalization_parameters=None, allLabels=None, header=None, extension='.tif',
         x_puffer=25, y_puffer=25, z_puffer=25):
 
     if any(img_list):
@@ -427,20 +427,39 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
         img = img_in[0]
     else:
         img = img_in
+
+    # handle all images having channels >=1
+    if len(img.shape)==3:
+        z_shape, y_shape, x_shape = img.shape
+        img = img.reshape(z_shape, y_shape, x_shape, 1)
+    if channels is None:
+        channels = img.shape[3]
+    if channels != img.shape[3]:
+        InputError.message = f'Number of channels must be {channels} for {os.path.basename(img_names[0])}.'
+        raise InputError()
+
+    # crop data
     if crop_data:
         img = np.copy(img[argmin_z:argmax_z,argmin_y:argmax_y,argmin_x:argmax_x], order='C')
+
+    # scale/resize image data
     img = img.astype(np.float32)
     if not no_scaling:
         img = img_resize(img, z_scale, y_scale, x_scale)
-    img -= np.amin(img)
-    img /= np.amax(img)
-    if configuration_data is not None and normalize:
-        mu, sig = configuration_data[5], configuration_data[6]
-        mu_tmp, sig_tmp = np.mean(img), np.std(img)
-        img = (img - mu_tmp) / sig_tmp
-        img = img * sig + mu
-    else:
-        mu, sig = np.mean(img), np.std(img)
+
+    # normalize image data
+    if normalization_parameters is None:
+        normalization_parameters = np.zeros((2,channels))
+    for c in range(channels):
+        img[:,:,:,c] -= np.amin(img[:,:,:,c])
+        img[:,:,:,c] /= np.amax(img[:,:,:,c])
+        if allLabels is not None and normalize:
+            mean, std = np.mean(img[:,:,:,c]), np.std(img[:,:,:,c])
+            img[:,:,:,c] = (img[:,:,:,c] - mean) / std
+            img[:,:,:,c] = img[:,:,:,c] * normalization_parameters[1,c] + normalization_parameters[0,c]
+        else:
+            normalization_parameters[0,c] = np.mean(img[:,:,:,c])
+            normalization_parameters[1,c] = np.std(img[:,:,:,c])
 
     # loop over list of images
     if any(img_list) or type(img_in) is list:
@@ -472,20 +491,27 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
                     raise InputError()
             else:
                 a = img_in[k]
+            if len(a.shape)==3:
+                z_shape, y_shape, x_shape = a.shape
+                a = a.reshape(z_shape, y_shape, x_shape, 1)
+            if a.shape[3] != channels:
+                InputError.message = f'Number of channels must be {channels} for {os.path.basename(img_names[k])}.'
+                raise InputError()
             if crop_data:
                 a = np.copy(a[argmin_z:argmax_z,argmin_y:argmax_y,argmin_x:argmax_x], order='C')
             a = a.astype(np.float32)
             if not no_scaling:
                 a = img_resize(a, z_scale, y_scale, x_scale)
-            a -= np.amin(a)
-            a /= np.amax(a)
-            if normalize:
-                mu_tmp, sig_tmp = np.mean(a), np.std(a)
-                a = (a - mu_tmp) / sig_tmp
-                a = a * sig + mu
+            for c in range(channels):
+                a[:,:,:,c] -= np.amin(a[:,:,:,c])
+                a[:,:,:,c] /= np.amax(a[:,:,:,c])
+                if normalize:
+                    mean, std = np.mean(a[:,:,:,c]), np.std(a[:,:,:,c])
+                    a[:,:,:,c] = (a[:,:,:,c] - mean) / std
+                    a[:,:,:,c] = a[:,:,:,c] * normalization_parameters[1,c] + normalization_parameters[0,c]
             img = np.append(img, a, axis=0)
 
-    # scale image data to [0,1]
+    # limit intensity range
     img[img<0] = 0
     img[img>1] = 1
 
@@ -497,10 +523,7 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
     for k, l in enumerate(allLabels):
         label[label==l] = k
 
-    # configuration data
-    configuration_data = np.array([channels, x_scale, y_scale, z_scale, normalize, mu, sig])
-
-    return img, label, allLabels, configuration_data, header, extension
+    return img, label, allLabels, normalization_parameters, header, extension, channels
 
 class CustomCallback(Callback):
     def __init__(self, id, epochs):
@@ -534,9 +557,13 @@ class CustomCallback(Callback):
             print("Start epoch {} of training; got log keys: {}".format(epoch, keys))
 
 class MetaData(Callback):
-    def __init__(self, path_to_model, configuration_data, allLabels, extension, header, crop_data, cropping_weights, cropping_config):
+    def __init__(self, path_to_model, configuration_data, allLabels,
+        extension, header, crop_data, cropping_weights, cropping_config,
+        normalization_parameters):
+
         self.path_to_model = path_to_model
         self.configuration_data = configuration_data
+        self.normalization_parameters = normalization_parameters
         self.allLabels = allLabels
         self.extension = extension
         self.header = header
@@ -551,6 +578,7 @@ class MetaData(Callback):
             hf = h5py.File(self.path_to_model, 'r+')
             group = hf.create_group('meta')
             group.create_dataset('configuration', data=self.configuration_data)
+            group.create_dataset('normalization', data=self.normalization_parameters)
             group.create_dataset('labels', data=self.allLabels)
             if self.extension == '.am':
                 group.create_dataset('extension', data=self.extension)
@@ -615,9 +643,10 @@ class Metrics(Callback):
                     tmp_X = self.img[k:k+self.dim_patch[0],l:l+self.dim_patch[1],m:m+self.dim_patch[2]]
                     if self.patch_normalization:
                         tmp_X = np.copy(tmp_X)
-                        tmp_X -= np.mean(tmp_X)
-                        tmp_X /= max(np.std(tmp_X), 1e-6)
-                    X_val[i,:,:,:,0] = tmp_X
+                        for c in range(self.n_channels):
+                            tmp_X[:,:,:,c] -= np.mean(tmp_X[:,:,:,c])
+                            tmp_X[:,:,:,c] /= max(np.std(tmp_X[:,:,:,c]), 1e-6)
+                    X_val[i] = tmp_X
 
                 # Prediction segmentation
                 y_predict = np.asarray(self.model.predict(X_val, verbose=0, steps=None, batch_size=self.batch_size))
@@ -683,18 +712,21 @@ def train_semantic_segmentation(bm,
     header=None, extension='.tif'):
 
     # training data
-    img, label, allLabels, configuration_data, header, extension = load_training_data(bm.normalize,
-                    img_list, label_list, bm.channels, bm.x_scale, bm.y_scale, bm.z_scale, bm.no_scaling, bm.crop_data,
+    img, label, allLabels, normalization_parameters, header, extension, bm.channels = load_training_data(bm.normalize,
+                    img_list, label_list, None, bm.x_scale, bm.y_scale, bm.z_scale, bm.no_scaling, bm.crop_data,
                     bm.only, bm.ignore, img, label, None, None, header, extension)
 
+    # configuration data
+    configuration_data = np.array([bm.channels, bm.x_scale, bm.y_scale, bm.z_scale, bm.normalize, 0, 1])
+
     # img shape
-    zsh, ysh, xsh = img.shape
+    zsh, ysh, xsh, _ = img.shape
 
     # validation data
     if any(val_img_list) or img_val is not None:
-        img_val, label_val, _, _, _, _ = load_training_data(bm.normalize,
-                        val_img_list, val_label_list, bm.channels, bm.x_scale, bm.y_scale, bm.z_scale, bm.no_scaling, bm.crop_data,
-                        bm.only, bm.ignore, img_val, label_val, configuration_data, allLabels)
+        img_val, label_val, _, _, _, _, _ = load_training_data(bm.normalize,
+                    val_img_list, val_label_list, bm.channels, bm.x_scale, bm.y_scale, bm.z_scale, bm.no_scaling, bm.crop_data,
+                    bm.only, bm.ignore, img_val, label_val, normalization_parameters, allLabels)
 
     elif bm.validation_split:
         split = round(zsh * bm.validation_split)
@@ -702,7 +734,7 @@ def train_semantic_segmentation(bm,
         label_val = np.copy(label[split:])
         img = np.copy(img[:split])
         label = np.copy(label[:split])
-        zsh, ysh, xsh = img.shape
+        zsh, ysh, xsh, _ = img.shape
 
     # list of IDs
     list_IDs_fg, list_IDs_bg = [], []
@@ -725,7 +757,7 @@ def train_semantic_segmentation(bm,
     if img_val is not None:
 
         # img_val shape
-        zsh_val, ysh_val, xsh_val = img_val.shape
+        zsh_val, ysh_val, xsh_val, _ = img_val.shape
 
         # list of validation IDs
         list_IDs_val_fg, list_IDs_val_bg = [], []
@@ -815,7 +847,9 @@ def train_semantic_segmentation(bm,
                       metrics=metrics)
 
     # save meta data
-    meta_data = MetaData(bm.path_to_model, configuration_data, allLabels, extension, header, bm.crop_data, bm.cropping_weights, bm.cropping_config)
+    meta_data = MetaData(bm.path_to_model, configuration_data, allLabels,
+        extension, header, bm.crop_data, bm.cropping_weights, bm.cropping_config,
+        normalization_parameters)
 
     # model checkpoint
     if img_val is not None:
@@ -854,20 +888,30 @@ def train_semantic_segmentation(bm,
         save_history(history.history, bm.path_to_model, bm.val_tf, bm.train_tf)
 
 def load_prediction_data(path_to_img, channels, x_scale, y_scale, z_scale,
-                        no_scaling, normalize, mu, sig, region_of_interest,
+                        no_scaling, normalize, normalization_parameters, region_of_interest,
                         img, img_header, img_extension):
-
     # read image data
     if img is None:
         img, img_header, img_extension = load_data(path_to_img, 'first_queue', return_extension=True)
+
+    # verify validity
     if img is None:
-        InputError.message = "Invalid image data %s." %(os.path.basename(path_to_img))
+        InputError.message = f'Invalid image data: {os.path.basename(path_to_img)}.'
         raise InputError()
+
+    # handle all images having channels >=1
+    if len(img.shape)==3:
+        z_shape, y_shape, x_shape = img.shape
+        img = img.reshape(z_shape, y_shape, x_shape, 1)
+    if img.shape[3] != channels:
+        InputError.message = f'Number of channels must be {channels}.'
+        raise InputError()
+
     if img_extension != '.am':
         img_header = None
     else:
         img_header = img_header[0]
-    z_shape, y_shape, x_shape = img.shape
+    z_shape, y_shape, x_shape, _ = img.shape
 
     # automatic cropping of image to region of interest
     if np.any(region_of_interest):
@@ -876,16 +920,22 @@ def load_prediction_data(path_to_img, channels, x_scale, y_scale, z_scale,
         region_of_interest = np.array([min_z,max_z,min_y,max_y,min_x,max_x,z_shape,y_shape,x_shape])
         z_shape, y_shape, x_shape = max_z-min_z, max_y-min_y, max_x-min_x
 
-    # scale image data
+    # scale/resize image data
     img = img.astype(np.float32)
     if not no_scaling:
         img = img_resize(img, z_scale, y_scale, x_scale)
-    img -= np.amin(img)
-    img /= np.amax(img)
+
+    # normalize image data
+    for c in range(channels):
+        img[:,:,:,c] -= np.amin(img[:,:,:,c])
+        img[:,:,:,c] /= np.amax(img[:,:,:,c])
+        if normalize:
+            mean, std = np.mean(img[:,:,:,c]), np.std(img[:,:,:,c])
+            img[:,:,:,c] = (img[:,:,:,c] - mean) / std
+            img[:,:,:,c] = img[:,:,:,c] * normalization_parameters[1,c] + normalization_parameters[0,c]
+
+    # limit intensity range
     if normalize:
-        mu_tmp, sig_tmp = np.mean(img), np.std(img)
-        img = (img - mu_tmp) / sig_tmp
-        img = img * sig + mu
         img[img<0] = 0
         img[img>1] = 1
 
@@ -893,13 +943,13 @@ def load_prediction_data(path_to_img, channels, x_scale, y_scale, z_scale,
 
 def predict_semantic_segmentation(bm, img, path_to_model,
     z_patch, y_patch, x_patch, z_shape, y_shape, x_shape, compress, header,
-    img_header, channels, stride_size, allLabels, batch_size, region_of_interest,
+    img_header, stride_size, allLabels, batch_size, region_of_interest,
     no_scaling):
 
     results = {}
 
     # img shape
-    zsh, ysh, xsh = img.shape
+    zsh, ysh, xsh, csh = img.shape
 
     # number of labels
     nb_labels = len(allLabels)
@@ -924,7 +974,7 @@ def predict_semantic_segmentation(bm, img, path_to_model,
     params = {'dim': (z_patch, y_patch, x_patch),
               'dim_img': (zsh, ysh, xsh),
               'batch_size': batch_size,
-              'n_channels': channels,
+              'n_channels': csh,
               'patch_normalization': bm.patch_normalization}
 
     # data generator
@@ -937,7 +987,7 @@ def predict_semantic_segmentation(bm, img, path_to_model,
     if nb_patches < 400:
         probabilities = model.predict(predict_generator, verbose=0, steps=None)
     else:
-        X = np.empty((batch_size, z_patch, y_patch, x_patch, channels), dtype=np.float32)
+        X = np.empty((batch_size, z_patch, y_patch, x_patch, csh), dtype=np.float32)
         probabilities = np.zeros((nb_patches, z_patch, y_patch, x_patch, nb_labels), dtype=np.float32)
 
         # get image patches
@@ -954,9 +1004,10 @@ def predict_semantic_segmentation(bm, img, path_to_model,
                 tmp_X = img[k:k+z_patch,l:l+y_patch,m:m+x_patch]
                 if bm.patch_normalization:
                     tmp_X = np.copy(tmp_X)
-                    tmp_X -= np.mean(tmp_X)
-                    tmp_X /= max(np.std(tmp_X), 1e-6)
-                X[i,:,:,:,0] = tmp_X
+                    for c in range(csh):
+                        tmp_X[:,:,:,c] -= np.mean(tmp_X[:,:,:,c])
+                        tmp_X[:,:,:,c] /= max(np.std(tmp_X[:,:,:,c]), 1e-6)
+                X[i] = tmp_X
 
             probabilities[step*batch_size:(step+1)*batch_size] = model.predict(X, verbose=0, steps=None, batch_size=batch_size)
 
@@ -978,10 +1029,7 @@ def predict_semantic_segmentation(bm, img, path_to_model,
         counter[counter==0] = 1
         probabilities = final / counter
         if not no_scaling:
-            probs = np.zeros((z_shape, y_shape, x_shape, nb_labels), dtype=np.float32)
-            for k in range(nb_labels):
-                probs[:,:,:,k] = img_resize(probabilities[:,:,:,k], z_shape, y_shape, x_shape)
-            probabilities = probs
+            probabilities = img_resize(probabilities, z_shape, y_shape, x_shape)
         if np.any(region_of_interest):
             min_z,max_z,min_y,max_y,min_x,max_x,original_zsh,original_ysh,original_xsh = region_of_interest[:]
             tmp = np.zeros((original_zsh, original_ysh, original_xsh, nb_labels), dtype=np.float32)

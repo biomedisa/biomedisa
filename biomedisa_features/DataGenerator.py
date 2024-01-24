@@ -1,6 +1,6 @@
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2023 Philipp Lösel. All rights reserved.              ##
+##  Copyright (c) 2024 Philipp Lösel. All rights reserved.              ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -243,6 +243,7 @@ class DataGenerator(tf.keras.utils.Sequence):
                 y[i,0] = tmp_y
 
             else:
+                # get patch
                 tmp_X = self.img[k:k+self.dim[0],l:l+self.dim[1],m:m+self.dim[2]]
                 tmp_y = self.label[k:k+self.dim[0],l:l+self.dim[1],m:m+self.dim[2]]
 
@@ -251,13 +252,14 @@ class DataGenerator(tf.keras.utils.Sequence):
 
                     # rotate in xy plane
                     if rotate:
-                        tmp_X = np.empty(self.dim, dtype=np.float32)
+                        tmp_X = np.empty((*self.dim, self.n_channels), dtype=np.float32)
                         tmp_y = np.empty(self.dim, dtype=np.int32)
                         cos_a = cos_angle[i]
                         sin_a = sin_angle[i]
-                        tmp_X = rotate_img_patch(self.img,tmp_X,k,l,m,cos_a,sin_a,
-                            self.dim[0],self.dim[1],self.dim[2],
-                            self.dim_img[1],self.dim_img[2])
+                        for c in range(self.n_channels):
+                            tmp_X[:,:,:,c] = rotate_img_patch(self.img[:,:,:,c],tmp_X[:,:,:,c],k,l,m,cos_a,sin_a,
+                                self.dim[0],self.dim[1],self.dim[2],
+                                self.dim_img[1],self.dim_img[2])
                         tmp_y = rotate_label_patch(self.label,tmp_y,k,l,m,cos_a,sin_a,
                             self.dim[0],self.dim[1],self.dim[2],
                             self.dim_img[1],self.dim_img[2])
@@ -282,13 +284,15 @@ class DataGenerator(tf.keras.utils.Sequence):
                             tmp_X = np.swapaxes(tmp_X,1,2)
                             tmp_y = np.swapaxes(tmp_y,1,2)
 
+                # patch normalization
                 if self.patch_normalization:
                     tmp_X = np.copy(tmp_X)
-                    tmp_X -= np.mean(tmp_X)
-                    tmp_X /= max(np.std(tmp_X), 1e-6)
+                    for c in range(self.n_channels):
+                        tmp_X[:,:,:,c] -= np.mean(tmp_X[:,:,:,c])
+                        tmp_X[:,:,:,c] /= max(np.std(tmp_X[:,:,:,c]), 1e-6)
 
                 # assign to batch
-                X[i,:,:,:,0] = tmp_X
+                X[i] = tmp_X
                 y[i,:,:,:,0] = tmp_y
 
         return X, tf.keras.utils.to_categorical(y, num_classes=self.n_classes)

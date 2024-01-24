@@ -91,7 +91,10 @@ def ASSD(ground_truth, result):
         return None, None
 
 def img_resize(a, z_shape, y_shape, x_shape, interpolation=None, labels=False):
-    zsh, ysh, xsh = a.shape
+    if len(a.shape) > 3:
+        zsh, ysh, xsh, csh = a.shape
+    else:
+        zsh, ysh, xsh = a.shape
     if interpolation == None:
         if z_shape < zsh or y_shape < ysh or x_shape < xsh:
             interpolation = cv2.INTER_AREA
@@ -118,6 +121,10 @@ def img_resize(a, z_shape, y_shape, x_shape, interpolation=None, labels=False):
             tmp[a==k] = 1
             tmp = __resize__(tmp)
             data[tmp==1] = k
+    elif len(a.shape) > 3:
+        data = np.empty((z_shape, y_shape, x_shape, csh), dtype=a.dtype)
+        for channel in range(csh):
+            data[:,:,:,channel] = __resize__(a[:,:,:,channel])
     else:
         data = __resize__(a)
     return data
