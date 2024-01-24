@@ -50,7 +50,7 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
     path_to_model=None, predict=False, train=False,
     balance=False, crop_data=False, flip_x=False, flip_y=False, flip_z=False,
     swapaxes=False, val_tf=False, train_tf=False, no_compression=False, ignore='none', only='all',
-    network_filters='32-64-128-256-512', resnet=False, channels=1, debug_cropping=False,
+    network_filters='32-64-128-256-512', resnet=False, debug_cropping=False,
     save_cropped=False, epochs=100, no_normalization=False, rotate=0.0, validation_split=0.0,
     learning_rate=0.01, stride_size=32, validation_stride_size=32, validation_freq=1,
     batch_size=24, x_scale=256, y_scale=256, z_scale=256, no_scaling=False, early_stopping=0,
@@ -190,6 +190,10 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
         channels, bm.x_scale, bm.y_scale, bm.z_scale, normalize, mu, sig = np.array(configuration)[:]
         channels, bm.x_scale, bm.y_scale, bm.z_scale, normalize, mu, sig = int(channels), int(bm.x_scale), \
                                 int(bm.y_scale), int(bm.z_scale), int(normalize), float(mu), float(sig)
+        if '/meta/normalization' in hf:
+            normalization_parameters = np.array(meta.get('normalization'), dtype=float)
+        else:
+            normalization_parameters = np.array([[mu],[sig]])
         allLabels = np.array(meta.get('labels'))
         header = np.array(meta.get('header'))
         try:
@@ -226,13 +230,13 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
 
         # load prediction data
         img, img_header, z_shape, y_shape, x_shape, region_of_interest = load_prediction_data(bm.path_to_images,
-            channels, bm.x_scale, bm.y_scale, bm.z_scale, bm.no_scaling, normalize, mu, sig, region_of_interest,
-            img_data, img_header, img_extension)
+            channels, bm.x_scale, bm.y_scale, bm.z_scale, bm.no_scaling, normalize, normalization_parameters,
+            region_of_interest, img_data, img_header, img_extension)
 
         # make prediction
         results = predict_semantic_segmentation(bm, img, bm.path_to_model,
             bm.z_patch, bm.y_patch, bm.x_patch, z_shape, y_shape, x_shape, bm.compression, header,
-            img_header, channels, bm.stride_size, allLabels, bm.batch_size, region_of_interest,
+            img_header, bm.stride_size, allLabels, bm.batch_size, region_of_interest,
             bm.no_scaling)
 
         # results
@@ -319,8 +323,6 @@ if __name__ == '__main__':
                         help='Number of filters per layer up to the deepest, e.g. 32-64-128-256-512')
     parser.add_argument('-rn','--resnet', action='store_true', default=False,
                         help='Use U-resnet instead of standard U-net')
-    parser.add_argument('--channels', type=int, default=1,
-                        help='Use voxel coordinates')
     parser.add_argument('-dc','--debug_cropping', action='store_true', default=False,
                         help='Debug cropping')
     parser.add_argument('-sc','--save_cropped', action='store_true', default=False,
