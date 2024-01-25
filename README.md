@@ -1,4 +1,4 @@
-[![biomedisa](biomedisa_app/static/biomedisa_logo.svg)](https://biomedisa.info) has moved to https://biomedisa.info
+[![biomedisa](biomedisa_app/static/biomedisa_logo.svg)](https://biomedisa.info)
 -----------
 - [Overview](#overview)
 - [Hardware Requirements](#hardware-requirements)

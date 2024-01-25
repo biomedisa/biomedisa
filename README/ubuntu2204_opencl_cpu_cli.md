@@ -46,7 +46,7 @@ git clone https://github.com/biomedisa/biomedisa.git
 ```
 
 #### Biomedisa example
-Download test files from [Gallery](https://biomedisa.de/gallery/).
+Download test files from [Gallery](https://biomedisa.info/gallery/).
 ```
 python3 git/biomedisa/demo/biomedisa_interpolation.py Downloads/tumor.tif Downloads/labels.tumor.tif --platform opencl_Intel_CPU
 ```

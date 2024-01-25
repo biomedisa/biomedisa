@@ -170,9 +170,8 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
                         bm.normalize, bm.path_to_images, bm.path_to_labels, bm.path_to_model,
                         bm.cropping_epochs, bm.batch_size, bm.validation_split,
                         bm.flip_x, bm.flip_y, bm.flip_z, bm.rotate, bm.only, bm.ignore,
-                        bm.val_images, bm.val_labels,
-                        img_data, label_data, None,
-                        val_img_data, val_label_data, None)
+                        bm.val_images, bm.val_labels, img_data, label_data,
+                        val_img_data, val_label_data)
 
         # train automatic segmentation
         train_semantic_segmentation(bm, bm.path_to_images, bm.path_to_labels,
@@ -420,6 +419,9 @@ if __name__ == '__main__':
     except InputError:
         print(traceback.format_exc())
         bm = _error_(bm, f'{InputError.message}')
+    except ch.InputError:
+        print(traceback.format_exc())
+        bm = _error_(bm, f'{ch.InputError.message}')
     except MemoryError:
         print(traceback.format_exc())
         bm = _error_(bm, 'MemoryError')

@@ -308,40 +308,43 @@ def init_remove_outlier(image_id, final_id, friend_id, label_id, fill_holes=True
             subprocess.Popen(['ssh', host, 'mkdir', '-p', host_base+'/private_storage/images/'+image.user.username]).wait()
 
             # send data to host
-            send_data_to_host(final.pic.path, host+':'+final.pic.path.replace(BASE_DIR,host_base))
+            success=0
+            success+=send_data_to_host(final.pic.path, host+':'+final.pic.path.replace(BASE_DIR,host_base))
             if label.imageType != 4:
-                send_data_to_host(label.pic.path, host+':'+label.pic.path.replace(BASE_DIR,host_base))
+                success+=send_data_to_host(label.pic.path, host+':'+label.pic.path.replace(BASE_DIR,host_base))
 
-            # run interpolation
-            if 'REMOTE_QUEUE_SUBHOST' in config:
-                cmd = ['ssh', '-t', host, 'ssh', config['REMOTE_QUEUE_SUBHOST']] + cmd
-            else:
-                cmd = ['ssh', host] + cmd
-            subprocess.Popen(cmd).wait()
+            if success==0:
 
-            # config
-            config = subprocess.Popen(['scp', host+':'+host_base+'/log/config_6', BASE_DIR+'/log/config_6']).wait()
+                # run interpolation
+                if 'REMOTE_QUEUE_SUBHOST' in config:
+                    cmd = ['ssh', '-t', host, 'ssh', config['REMOTE_QUEUE_SUBHOST']] + cmd
+                else:
+                    cmd = ['ssh', host] + cmd
+                subprocess.Popen(cmd).wait()
 
-            if config==0:
-                with open(BASE_DIR + '/log/config_6', 'r') as configfile:
-                    cleaned_on_host, filled_on_host, cleaned_filled_on_host = configfile.read().split()
+                # config
+                config = subprocess.Popen(['scp', host+':'+host_base+'/log/config_6', BASE_DIR+'/log/config_6']).wait()
 
-                # local file names
-                path_to_cleaned = unique_file_path(cleaned_on_host.replace(host_base,BASE_DIR))
-                path_to_filled = unique_file_path(filled_on_host.replace(host_base,BASE_DIR))
-                path_to_cleaned_filled = unique_file_path(cleaned_filled_on_host.replace(host_base,BASE_DIR))
+                if config==0:
+                    with open(BASE_DIR + '/log/config_6', 'r') as configfile:
+                        cleaned_on_host, filled_on_host, cleaned_filled_on_host = configfile.read().split()
 
-                # get results
-                subprocess.Popen(['scp', host+':'+cleaned_on_host, path_to_cleaned]).wait()
-                if fill_holes:
-                    subprocess.Popen(['scp', host+':'+filled_on_host, path_to_filled]).wait()
-                    subprocess.Popen(['scp', host+':'+cleaned_filled_on_host, path_to_cleaned_filled]).wait()
+                    # local file names
+                    path_to_cleaned = unique_file_path(cleaned_on_host.replace(host_base,BASE_DIR))
+                    path_to_filled = unique_file_path(filled_on_host.replace(host_base,BASE_DIR))
+                    path_to_cleaned_filled = unique_file_path(cleaned_filled_on_host.replace(host_base,BASE_DIR))
 
-                # post processing
-                post_processing(path_to_cleaned, path_to_filled, path_to_cleaned_filled, image_id, friend_id, fill_holes)
+                    # get results
+                    subprocess.Popen(['scp', host+':'+cleaned_on_host, path_to_cleaned]).wait()
+                    if fill_holes:
+                        subprocess.Popen(['scp', host+':'+filled_on_host, path_to_filled]).wait()
+                        subprocess.Popen(['scp', host+':'+cleaned_filled_on_host, path_to_cleaned_filled]).wait()
 
-                # remove config file
-                subprocess.Popen(['ssh', host, 'rm', host_base + '/log/config_6']).wait()
+                    # post processing
+                    post_processing(path_to_cleaned, path_to_filled, path_to_cleaned_filled, image_id, friend_id, fill_holes)
+
+                    # remove config file
+                    subprocess.Popen(['ssh', host, 'rm', host_base + '/log/config_6']).wait()
 
         # local server
         else:

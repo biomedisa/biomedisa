@@ -52,8 +52,12 @@ import math
 
 def send_data_to_host(src, dst):
     tmp = 1
-    while tmp!=0:
+    while tmp!=0 and os.path.exists(src):
         tmp = subprocess.Popen(['rsync','-avP',src,dst]).wait()
+    if os.path.exists(src):
+        return 0
+    else:
+        return 1
 
 def silent_remove(filename):
     try:
@@ -501,7 +505,7 @@ def save_data(path_to_final, final, header=None, final_image_type=None, compress
         results_dir = os.path.splitext(path_to_final)[0]
         if not os.path.isdir(results_dir):
             os.makedirs(results_dir)
-            os.chmod(results_dir, 0o777)
+            os.chmod(results_dir, 0o770)
         # save data as NC blocks
         if os.path.splitext(header[1][0])[1] == '.nc':
             np_to_nc(results_dir, final, header)

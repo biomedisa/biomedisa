@@ -46,7 +46,7 @@ Activate conda environment.
 ```
 conda activate biomedisa
 ```
-Download test files from [Gallery](https://biomedisa.de/gallery/) and run
+Download test files from [Gallery](https://biomedisa.info/gallery/) and run
 ```
 # smart interpolation
 python git\biomedisa\biomedisa_features\biomedisa_interpolation.py Downloads\tumor.tif Downloads\labels.tumor.tif --platform opencl_NVIDIA_GPU
