@@ -34,9 +34,6 @@ function toggleAccordion(qsid) {
               <div class="clr"></div>
               <div class="img"><img src="/static/labeledslices_large.png" width="650" height="200" alt="" class="fl" /></div>
               <div class="clr"></div>
-            <p>
-            Lösel, P.D. et al. <a href="https://www.nature.com/articles/s41467-020-19303-w" target="_blank" title="Introducing Biomedisa as an open-source online platform for biomedical image segmentation">Introducing Biomedisa as an open-source online platform for biomedical image segmentation.</a></strong><em> Nat. Commun. </em><strong>11</strong>, 5577 (2020).
-            </p>
           </div>
 
           <button id="qs2" class="accordion" onclick="toggleAccordion(this.id);"> <b> 2) What are the two most common user errors using Interpolation?</b> </button>
@@ -55,11 +52,9 @@ function toggleAccordion(qsid) {
 
           <button id="qs4" class="accordion" onclick="toggleAccordion(this.id);"> <b> 4) How to use Biomedisa AI?</b> </button>
           <div id="ans4" class="panel">
-            <p> You can train a deep neural network by selecting multiple image files and their corresponding fully segmented label files. Each pair must be in a different project. Then press the AI button <img src="/static/ai_logo.svg" title="train" style="width:18px;height:18px;border:0;">. When training is complete, select the trained network and one or more images for which you want to predict the segmentation. Finally, press the predict button <img src="/static/predict.svg" title="predict" style="width:18px;height:18px;border:0;">. Alternatively, you can upload all image files in one TAR file (<b>.tar</b> or <b>.tar.gz</b>) and all label files in one TAR file. In this case, the image file names must match the label file names, e.g. "brain_1.tif" and "brain_1.labels.tif". See our <a href="https://biomedisa.de/gallery/" title="gallery">gallery</a> for an example and check out the following preprint:
-            </p>
-            <p>
-            Lösel, P.D. et al. <a href="https://www.biorxiv.org/content/10.1101/2022.10.12.511944" target="_blank" title=" Natural variability in bee brain size and symmetry revealed by micro-CT imaging and deep learning."> Natural variability in bee brain size and symmetry revealed by micro-CT imaging and deep learning.</a></strong> Preprint at <em>bioRxiv</em> (2022).
-            </p>
+<p><b>Training:</b> To train a deep neural network, simply select multiple image files along with their corresponding fully segmented label files, ensuring each pair resides within a distinct project. Alternatively, streamline the process by uploading both image and label files in TAR format (<b>.tar</b> or <b>.tar.gz</b>). Ensure the image file names match their corresponding label file names, such as "brain_1.tif" and "brain_1.labels.tif," as exemplified in our <a href="https://biomedisa.info/gallery/" title="gallery">gallery</a>. Once organized, initiate the training process by clicking the AI button <img src="/static/ai_logo.svg" title="train" style="width:18px;height:18px;border:0;">.</p>
+<p><b>Validation:</b> Optionally, optimize your training data with validation splitting in the settings. A validation split of 0.2 allocates 80% for training and 20% for network validation after each epoch, saving only the best-performing network state. For more convenience, upload validation images and labels separately in TAR files, mirroring the training data structure, and enable "Validation Data" in the settings.</p>
+<p><b>Prediction:</b> Upon completion of training, select the trained network and specify one or more images for segmentation prediction. Execute the prediction by pressing the predict button <img src="/static/predict.svg" title="predict" style="width:18px;height:18px;border:0;">.</p>
           </div>
 
           <button id="qs5" class="accordion" onclick="toggleAccordion(this.id);"> <b> 5) What are the two most common user errors using Biomedisa AI?</b> </button>
@@ -71,7 +66,7 @@ function toggleAccordion(qsid) {
           <button id="qs6" class="accordion" onclick="toggleAccordion(this.id);"> <b> 6) Which hardware requirements do I need for Biomedisa Interpolation?</b> </button>
           <div id="ans6" class="panel">
                 <p>
-                    <p><b>Online:</b> No special hardware required. <br><br> <b>Locally:</b> You must have at least one state-of-the-art NVIDIA GPU. The most important points are the GPU memory and the memory of your system (RAM). How much memory you exactly need depends on the size of the image you want to segment. To give you an idea, we tested two of our showcases, which you can download from our <b><a href="https://biomedisa.de/gallery/" title="gallery">gallery</a></b>. First, we used a workstation with a GeForce 1080 Ti (11 GB GPU memory). The system has 60 GB of RAM. Second, we used a server with 4 NVIDIA Tesla V100 (each of it has 32 GB of GPU memory) and 750 GB of RAM.</p>
+                    <p><b>Online:</b> No special hardware required. <br><br> <b>Locally:</b> You must have at least one state-of-the-art NVIDIA GPU. The most important points are the GPU memory and the memory of your system (RAM). How much memory you exactly need depends on the size of the image you want to segment. To give you an idea, we tested two of our showcases, which you can download from our <b><a href="https://biomedisa.info/gallery/" title="gallery">gallery</a></b>. First, we used a workstation with a GeForce 1080 Ti (11 GB GPU memory). The system has 60 GB of RAM. Second, we used a server with 4 NVIDIA Tesla V100 (each of it has 32 GB of GPU memory) and 750 GB of RAM.</p>
 
                     <p>1. The <b>biological screw</b> is a rather small image (419 x 492 x 462 voxels). About 7 GB of RAM and 3 GB of GPU memory were used. Two objects were pre-segmented every 20th slice.</p>
 
@@ -93,7 +88,7 @@ function toggleAccordion(qsid) {
 
           <button id="qs8" class="accordion" onclick="toggleAccordion(this.id);"> <b> 8) What should my label file look like?</b> </button>
           <div id="ans8" class="panel">
-              <p> The label file should contain pre-segmented reference slices. It must have exactly the same <i>xyz</i>-dimensions like the uploaded image file. If you use an Amira label file, all your information, like names and colors, will be preserved. Once you label a slice, all segments that appear in this slice must be labeled. Otherwise, these areas are considered as background, and your segmentation will not be correct. Tip: Download one of our showcases from our <b><a href="https://biomedisa.de/gallery/" title="gallery">gallery</a></b> and see how the label files were created. </p>
+              <p> The label file should contain pre-segmented reference slices. It must have exactly the same <i>xyz</i>-dimensions like the uploaded image file. If you use an Amira label file, all your information, like names and colors, will be preserved. Once you label a slice, all segments that appear in this slice must be labeled. Otherwise, these areas are considered as background, and your segmentation will not be correct. Tip: Download one of our showcases from our <b><a href="https://biomedisa.info/gallery/" title="gallery">gallery</a></b> and see how the label files were created. </p>
           </div>
 
           <button id="qs9" class="accordion" onclick="toggleAccordion(this.id);"> <b> 9) Is it possible to label in a different plane than the xy-plane?</b> </button>
@@ -115,13 +110,16 @@ function toggleAccordion(qsid) {
           <div id="ans12" class="panel">
               <li> <b>All axes</b> enables pre-segmentation in all orientations (not only xy) </li>
               <li> <b>Uncertainty</b> calculates the uncertainty of the result </li>
-              <li> <b>Compression</b> results are compressed </li>
+              <li> <b>Compress results</b> results are compressed </li>
               <li> <b>Normalize training data (AI)</b> training images are scaled to the same mean and variance </li>
-              <li> <b>Consider voxel location (AI)</b> takes into account the coordinates of the voxels </li>
-              <li> <b>Balance training data (AI)</b> balances the number of foreground and background patches </li>
+              <li> <b>Automatic cropping (AI)</b> train additional network to crop data automatically to region of interest </li>
+              <li> <b>Validation data (AI)</b> data will be used for validation of the network after each epoch </li>
+              <li> <b>Early stopping (AI)</b> training is terminated when the accuracy has not increased in 10 epochs </li>
               <li> <b>Flip x-axis (AI)</b> randomly flipps the patches horizontally</li>
               <li> <b>Flip y-axis (AI)</b> randomly flipps the patches along y-axis </li>
               <li> <b>Flip z-axis (AI)</b> randomly flipps the patches along z-axis</li>
+              <li> <b>ResNet convolutional blocks (AI)</b> use U-resnet instead of standard U-net</li>
+              <li> <b>Network architecture (AI)</b> number of filters per layer up to the deepest</li>
               <li> <b>Rotate (AI)</b> randomly rotates the image (&#x00B1) during traing (maximum is 180 degrees)</li>
               <li> <b>Number of epochs (AI)</b> the number of epochs (how often the network "sees" a patch) </li>
               <li> <b>Batch size (AI)</b> the number of samples used in each step to update the weights of the network</li>
@@ -129,14 +127,13 @@ function toggleAccordion(qsid) {
               <li> <b>Y Scale</b> y-axis of the images is sclaed to this size before training </li>
               <li> <b>Z Scale</b> z-axis of the images is sclaed to this size before training </li>
               <li> <b>Stride size (AI)</b> the stride made to create overlapping patches of size 64x64x64</li>
+              <li> <b>Validation split (AI)</b> percentage of data used for validation</li>
+              <li> <b>Validation frequency (AI)</b> epochs performed before validation</li>
               <li> <b>Smooth</b> number of smoothing steps</li>
-              <li> <b>Active contour alpha</b> balance factor between expansion and shrinking </li>
-              <li> <b>Active contour smooth</b> number of smoothing steps after each iteration step </li>
-              <li> <b>Active contour steps</b> number of iteration steps </li>
               <li> <b>Delete outliers</b> remove outliers (by default outliers smaller than 90% of the largest object) </li>
               <li> <b>Fill holes</b> fill holes (by default holes smaller than 90% of the entire label size) </li>
               <li> <b>Ignore label</b> single label or list of labels (e.g. 1,2,3) that are ignored </li>
-              <li> <b>Compute only</b> single label or list of labels (e.g. 1,2,3) that are exclusively calculated </li>
+              <li> <b>Compute only label</b> single label or list of labels (e.g. 1,2,3) that are exclusively calculated </li>
           </div>
 
           <button id="qs13" class="accordion" onclick="toggleAccordion(this.id);"> <b> 13) Can I share my data with other users or with someone who is not registered?</b> </button>
@@ -151,7 +148,7 @@ function toggleAccordion(qsid) {
 
           <button id="qs15" class="accordion" onclick="toggleAccordion(this.id);"> <b> 15) Is there a way to visualize my data online?</b> </button>
           <div id="ans15" class="panel">
-              <p> You can have a quick view at your data with the <img src="/static/2D_plain.png" title="slice viewer" style="width:27px;height:18px;border:0;"> slice viewer or visualize it with our 3D rendering software by clicking on the file icon <img src="/static/file_image.svg" title="visualize" style="width:18px;height:18px;border:0;">. </p>
+              <p> Explore your data using the <img src="/static/2D_plain.png" title="slice viewer" style="width:27px;height:18px;border:0;"> slice viewer, or visualize it through ParaView Glance by clicking on the file icon <img src="/static/file_image.svg" title="visualize" style="width:18px;height:18px;border:0;">. When examining segmentation results, employ the mesh generator <img src="/static/mesh.svg" title="mesh" style="width:18px;height:18px;border:0;"> to create a mesh. Then, in Paraview Glance, choose "Attribute" for "Color By" to color each label individually.</p>
           </div>
 
           <button id="qs16" class="accordion" onclick="toggleAccordion(this.id);"> <b> 16) When does Biomedisa not work?</b> </button>
@@ -161,7 +158,7 @@ function toggleAccordion(qsid) {
 
           <button id="qs17" class="accordion" onclick="toggleAccordion(this.id);"> <b> 17) How to install Biomedisa?</b> </button>
           <div id="ans17" class="panel">
-              <p> Please check out Biomedisa on <a href="https://github.com/biomedisa/biomedisa" target="_blank" title="github">GitHub</a>.</p>
+              <p> Please check out Biomedisa on <a href="https://github.com/biomedisa/biomedisa#installation-command-line-based" target="_blank" title="github">GitHub</a>.</p>
           </div>
 
           <button id="qs18" class="accordion" onclick="toggleAccordion(this.id);"> <b> 18) Is Biomedisa for free?</b> </button>
@@ -171,8 +168,15 @@ function toggleAccordion(qsid) {
 
           <button id="qs19" class="accordion" onclick="toggleAccordion(this.id);"> <b> 19) Which publication should I cite?</b> </button>
           <div id="ans19" class="panel">
-              <p> Lösel, P.D. et al. <a href="https://www.nature.com/articles/s41467-020-19303-w" target="_blank" title="Introducing Biomedisa as an open-source online platform for biomedical image segmentation">Introducing Biomedisa as an open-source online platform for biomedical image segmentation.</a></strong><em> Nat. Commun. </em><strong>11</strong>, 5577 (2020).</p> If you use Biomedisa's deep learning, you may also cite:
-              <p> Lösel, P.D. et al. <a href="https://www.biorxiv.org/content/10.1101/2022.10.12.511944" target="_blank" title=" Natural variability in bee brain size and symmetry revealed by micro-CT imaging and deep learning."> Natural variability in bee brain size and symmetry revealed by micro-CT imaging and deep learning.</a></strong> Preprint at <em>bioRxiv</em> (2022).</p>
+          <p>
+            Please cite the <b>Biomedisa</b> Paper:
+              <p> Lösel, P.D. et al. <a href="https://www.nature.com/articles/s41467-020-19303-w" target="_blank" title="Introducing Biomedisa as an open-source online platform for biomedical image segmentation">Introducing Biomedisa as an open-source online platform for biomedical image segmentation.</a></strong><em> Nat. Commun. </em><strong>11</strong>, 5577 (2020).</p>
+            If you use Biomedisa's <b>Deep Learning</b>, you may also cite:
+              <p> Lösel, P.D. et al. <a href="https://doi.org/10.1371/journal.pcbi.1011529" target="_blank" title="Natural variability in bee brain size and symmetry revealed by micro-CT imaging and deep learning">Natural variability in bee brain size and symmetry revealed by micro-CT imaging and deep learning.</a></strong><em> PLoS Comput. Biol. </em><strong>19</strong>, e1011529 (2023).</p>
+            If you use Biomedisa's <b>Smart Interpolation</b>, you can also cite the initial description of this method:
+              <p> Lösel, P. & Heuveline, V. <a href="https://doi.org/10.1117/12.2216202" target="_blank" title="Enhancing a diffusion algorithm for 4D image segmentation using local information">Enhancing a diffusion algorithm for 4D image segmentation using local information.</a></strong><em> Proc. SPIE </em><strong>9784</strong>, 97842L (2016).</p>
+          </p>
+
           </div>
 
         </div> <!-- end of questions -->

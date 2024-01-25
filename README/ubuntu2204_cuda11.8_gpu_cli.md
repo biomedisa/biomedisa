@@ -91,7 +91,7 @@ sudo -H pip3 install tensorflow==2.13.0
 ```
 
 #### Biomedisa examples
-Download test files from [Gallery](https://biomedisa.de/gallery/).
+Download test files from [Gallery](https://biomedisa.info/gallery/).
 ```
 # smart interpolation
 python3 git/biomedisa/demo/biomedisa_interpolation.py Downloads/tumor.tif Downloads/labels.tumor.tif

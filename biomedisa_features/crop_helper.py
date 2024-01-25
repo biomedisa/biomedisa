@@ -1,6 +1,6 @@
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2023 Philipp Lösel. All rights reserved.              ##
+##  Copyright (c) 2024 Philipp Lösel. All rights reserved.              ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -93,7 +93,7 @@ def make_densenet(inputshape):
     return model
 
 def load_cropping_training_data(normalize, img_list, label_list, x_scale, y_scale, z_scale,
-    labels_to_compute, labels_to_remove, img_in, label_in, position_in, mu=None, sig=None):
+    labels_to_compute, labels_to_remove, img_in, label_in, mu=None, sig=None):
 
     if any(img_list):
 
@@ -242,14 +242,11 @@ def load_cropping_training_data(normalize, img_list, label_list, x_scale, y_scal
     for i in range(3):
         img_rgb[...,i] = img
 
-    # compute position data
-    position = None
-
-    return img_rgb, label, position, mu, sig, number_of_images
+    return img_rgb, label, mu, sig, number_of_images
 
 def train_cropping(img, label, path_to_model, epochs, batch_size,
-                    validation_split, position, flip_x, flip_y, flip_z, rotate,
-                    img_val, label_val, position_val):
+                    validation_split, flip_x, flip_y, flip_z, rotate,
+                    img_val, label_val):
 
     # img shape
     zsh, ysh, xsh, channels = img.shape
@@ -263,8 +260,8 @@ def train_cropping(img, label, path_to_model, epochs, batch_size,
         list_IDs_val_fg = list(np.where(label_val)[0])
         list_IDs_val_bg = list(np.where(label_val==False)[0])
     elif validation_split:
-        split_fg = int(len(list_IDs_fg) * validation_split)
-        split_bg = int(len(list_IDs_bg) * validation_split)
+        split_fg = len(list_IDs_fg) - int(len(list_IDs_fg) * validation_split)
+        split_bg = len(list_IDs_bg) - int(len(list_IDs_bg) * validation_split)
         list_IDs_val_fg = list_IDs_fg[split_fg:]
         list_IDs_val_bg = list_IDs_bg[split_bg:]
         list_IDs_fg = list_IDs_fg[:split_fg]
@@ -317,11 +314,11 @@ def train_cropping(img, label, path_to_model, epochs, batch_size,
                   'shuffle': False}
 
     # data generator
-    training_generator = DataGeneratorCrop(img, label, position, list_IDs_fg, list_IDs_bg, **params)
+    training_generator = DataGeneratorCrop(img, label, list_IDs_fg, list_IDs_bg, **params)
     if np.any(img_val):
-        validation_generator = DataGeneratorCrop(img_val, label_val, position_val, list_IDs_val_fg, list_IDs_val_bg, **params_val)
+        validation_generator = DataGeneratorCrop(img_val, label_val, list_IDs_val_fg, list_IDs_val_bg, **params_val)
     elif validation_split:
-        validation_generator = DataGeneratorCrop(img, label, position, list_IDs_val_fg, list_IDs_val_bg, **params_val)
+        validation_generator = DataGeneratorCrop(img, label, list_IDs_val_fg, list_IDs_val_bg, **params_val)
     else:
         validation_generator = None
 
@@ -371,8 +368,8 @@ def train_cropping(img, label, path_to_model, epochs, batch_size,
     if np.any(img_val) or validation_split:
         save_history(history.history, path_to_model.replace(".h5","_cropfine.h5"))
 
-def load_data_to_crop(path_to_img, x_scale, y_scale, z_scale,
-                        normalize, mu, sig, img):
+def load_data_to_crop(path_to_img, channels, x_scale, y_scale, z_scale,
+                        normalize, normalization_parameters, img):
     # read image data
     if img is None:
         img, _, _ = load_data(path_to_img, 'first_queue', return_extension=True)
@@ -380,26 +377,36 @@ def load_data_to_crop(path_to_img, x_scale, y_scale, z_scale,
     if img is None:
         InputError.message = "Invalid image data %s." %(os.path.basename(path_to_img))
         raise InputError()
-    z_shape, y_shape, x_shape = img.shape
+    # handle all images having channels >=1
+    if len(img.shape)==3:
+        z_shape, y_shape, x_shape = img.shape
+        img = img.reshape(z_shape, y_shape, x_shape, 1)
+    if img.shape[3] != channels:
+        InputError.message = f'Number of channels must be {channels}.'
+        raise InputError()
+    z_shape, y_shape, x_shape, _ = img.shape
     img = img.astype(np.float32)
     img_z = img_resize(img, z_shape, y_scale, x_scale)
     img_y = np.swapaxes(img_resize(img,z_scale,y_shape,x_scale),0,1)
     img_x = np.swapaxes(img_resize(img,z_scale,y_scale,x_shape),0,2)
     img = np.append(img_z,img_y,axis=0)
     img = np.append(img,img_x,axis=0)
-    img -= np.amin(img)
-    img /= np.amax(img)
-    if normalize:
-        mu_tmp, sig_tmp = np.mean(img), np.std(img)
-        img = (img - mu_tmp) / sig_tmp
-        img = img * sig + mu
-        img[img<0] = 0
-        img[img>1] = 1
+    for c in range(channels):
+        img[:,:,:,c] -= np.amin(img[:,:,:,c])
+        img[:,:,:,c] /= np.amax(img[:,:,:,c])
+        if normalize:
+            mean, std = np.mean(img[:,:,:,c]), np.std(img[:,:,:,c])
+            img[:,:,:,c] = (img[:,:,:,c] - mean) / std
+            img[:,:,:,c] = img[:,:,:,c] * normalization_parameters[1,c] + normalization_parameters[0,c]
+    img[img<0] = 0
+    img[img>1] = 1
     img = np.uint8(img*255)
 
-    img_rgb = np.empty((img.shape + (3,)), dtype=np.uint8)
+    # number of channels must be three (reuse or cut off)
+    channels = min(3, channels)
+    img_rgb = np.empty((img.shape[:3] + (3,)), dtype=np.uint8)
     for i in range(3):
-        img_rgb[...,i] = img
+        img_rgb[...,i] = img[...,i % channels]
     return img_rgb, z_shape, y_shape, x_shape, img_data
 
 def crop_volume(img, path_to_model, path_to_final, z_shape, y_shape, x_shape, batch_size,
@@ -522,27 +529,26 @@ def load_and_train(normalize,path_to_img,path_to_labels,path_to_model,
                 epochs,batch_size,validation_split,
                 flip_x,flip_y,flip_z,rotate,labels_to_compute,labels_to_remove,
                 path_val_img=[None],path_val_labels=[None],
-                img=None, label=None, position=None,
-                img_val=None, label_val=None, position_val=None,
+                img=None, label=None, img_val=None, label_val=None,
                 x_scale=256, y_scale=256, z_scale=256):
 
     # load training data
-    img, label, position, mu, sig, number_of_images = load_cropping_training_data(normalize,
+    img, label, mu, sig, number_of_images = load_cropping_training_data(normalize,
                         path_to_img, path_to_labels, x_scale, y_scale, z_scale, labels_to_compute, labels_to_remove,
-                        img, label, position)
+                        img, label)
 
     # load validation data
     if any(path_val_img) or img_val is not None:
-        img_val, label_val, position_val, _, _, _ = load_cropping_training_data(normalize,
+        img_val, label_val, _, _, _ = load_cropping_training_data(normalize,
                             path_val_img, path_val_labels, x_scale, y_scale, z_scale,
                             labels_to_compute, labels_to_remove,
-                            img_val, label_val, position_val, mu, sig)
+                            img_val, label_val, mu, sig)
 
     # train cropping
     train_cropping(img, label, path_to_model, epochs,
-                    batch_size, validation_split, position,
+                    batch_size, validation_split,
                     flip_x, flip_y, flip_z, rotate,
-                    img_val, label_val, position_val)
+                    img_val, label_val)
 
     # load weights
     model = load_model(str(path_to_model))
@@ -568,11 +574,17 @@ def crop_data(path_to_data, path_to_model, path_to_cropped_image, batch_size,
     channels, x_scale, y_scale, z_scale, normalize, mu, sig = np.array(configuration)[:]
     channels, x_scale, y_scale, z_scale, normalize, mu, sig = int(channels), int(x_scale), \
                             int(y_scale), int(z_scale), int(normalize), float(mu), float(sig)
+    if '/cropping_meta/normalization' in hf:
+        normalization_parameters = np.array(meta.get('normalization'), dtype=float)
+    else:
+        # old configuration
+        normalization_parameters = np.array([[mu],[sig]])
+        channels = 1
     hf.close()
 
     # load data
-    img, z_shape, y_shape, x_shape, img_data = load_data_to_crop(path_to_data,
-                    x_scale, y_scale, z_scale, normalize, mu, sig, img_data)
+    img, z_shape, y_shape, x_shape, img_data = load_data_to_crop(path_to_data, channels,
+                    x_scale, y_scale, z_scale, normalize, normalization_parameters, img_data)
 
     # make prediction
     z_lower, z_upper, y_lower, y_upper, x_lower, x_upper, cropped_volume = crop_volume(img, path_to_model,
