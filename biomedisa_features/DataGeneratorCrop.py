@@ -1,6 +1,6 @@
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2022 Philipp Lösel. All rights reserved.              ##
+##  Copyright (c) 2024 Philipp Lösel. All rights reserved.              ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -42,7 +42,7 @@ def elastic_transform(image, alpha=100, sigma=20):
 
 class DataGeneratorCrop(tf.keras.utils.Sequence):
     'Generates data for Keras'
-    def __init__(self, img, label, position, list_IDs_fg, list_IDs_bg, batch_size=32, dim=(32,32,32),
+    def __init__(self, img, label, list_IDs_fg, list_IDs_bg, batch_size=32, dim=(32,32,32),
                  n_channels=3, n_classes=2, shuffle=True):
         'Initialization'
         self.dim = dim
@@ -51,7 +51,6 @@ class DataGeneratorCrop(tf.keras.utils.Sequence):
         self.batch_size = batch_size
         self.label = label
         self.img = img
-        self.position = position
         self.n_channels = n_channels
         self.n_classes = n_classes
         self.shuffle = shuffle

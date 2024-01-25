@@ -109,37 +109,44 @@ def init_process_image(id, process=None):
                 subprocess.Popen(['ssh', host, 'mkdir', '-p', host_base+'/private_storage/images/'+img.user.username]).wait()
 
                 # send data to host
-                send_data_to_host(img.pic.path, host+':'+img.pic.path.replace(BASE_DIR,host_base))
-
-                # process image
-                if 'REMOTE_QUEUE_SUBHOST' in config:
-                    cmd = ['ssh', '-t', host, 'ssh', config['REMOTE_QUEUE_SUBHOST']] + cmd
-                else:
-                    cmd = ['ssh', host] + cmd
-                subprocess.Popen(cmd).wait()
+                success=send_data_to_host(img.pic.path, host+':'+img.pic.path.replace(BASE_DIR,host_base))
 
                 # check if aborted
-                stopped = subprocess.Popen(['scp', host+':'+host_base+f'/log/pid_5', BASE_DIR+f'/log/pid_5']).wait()
+                img = Upload.objects.get(pk=img.id)
+                if img.status > 0 and success == 0:
 
-                # get result
-                if stopped==0:
-                    # remove pid file
-                    subprocess.Popen(['ssh', host, 'rm', host_base+f'/log/pid_5']).wait()
+                    # set pid
+                    img.pid=-1
+                    img.save()
 
-                    result_on_host = img.pic.path.replace(BASE_DIR,host_base)
-                    result_on_host = result_on_host.replace(os.path.splitext(result_on_host)[1], suffix)
-                    result = subprocess.Popen(['scp', host+':'+result_on_host, path_to_result]).wait()
-
-                    if result==0:
-                        # create object
-                        active = 1 if img.imageType == 3 else 0
-                        Upload.objects.create(pic=pic_path, user=img.user, project=img.project,
-                            imageType=img.imageType, shortfilename=new_short_name, active=active)
+                    # process image
+                    if 'REMOTE_QUEUE_SUBHOST' in config:
+                        cmd = ['ssh', '-t', host, 'ssh', config['REMOTE_QUEUE_SUBHOST']] + cmd
                     else:
-                        # return error
-                        stopped = 1
-                        Upload.objects.create(user=img.user, project=img.project,
-                            log=1, imageType=None, shortfilename='Invalid data.')
+                        cmd = ['ssh', host] + cmd
+                    subprocess.Popen(cmd).wait()
+
+                    # check if aborted
+                    success = subprocess.Popen(['scp', host+':'+host_base+f'/log/pid_5', BASE_DIR+f'/log/pid_5']).wait()
+
+                    # get result
+                    if success==0:
+                        # remove pid file
+                        subprocess.Popen(['ssh', host, 'rm', host_base+f'/log/pid_5']).wait()
+
+                        result_on_host = img.pic.path.replace(BASE_DIR,host_base)
+                        result_on_host = result_on_host.replace(os.path.splitext(result_on_host)[1], suffix)
+                        success = subprocess.Popen(['scp', host+':'+result_on_host, path_to_result]).wait()
+
+                        if success==0:
+                            # create object
+                            active = 1 if img.imageType == 3 else 0
+                            Upload.objects.create(pic=pic_path, user=img.user, project=img.project,
+                                imageType=img.imageType, shortfilename=new_short_name, active=active)
+                        else:
+                            # return error
+                            Upload.objects.create(user=img.user, project=img.project,
+                                log=1, imageType=None, shortfilename='Invalid data.')
 
             # local server
             else:
@@ -152,12 +159,12 @@ def init_process_image(id, process=None):
                 data, header = load_data(img.pic.path, process='converter')
                 if data is None:
                     # return error
-                    stopped = 1
+                    success = 1
                     Upload.objects.create(user=img.user, project=img.project,
                         log=1, imageType=None, shortfilename='Invalid data.')
                 else:
                     # process data
-                    stopped = 0
+                    success = 0
                     if process == 'convert':
                         data = img_to_uint8(data)
                         save_data(path_to_result, data, final_image_type='.tif')
@@ -171,12 +178,12 @@ def init_process_image(id, process=None):
                         imageType=img.imageType, shortfilename=new_short_name, active=active)
 
             # copy or create slices for preview
-            if stopped==0 and process == 'convert':
+            if success==0 and process == 'convert':
                 path_to_source = img.pic.path.replace('images', 'sliceviewer', 1)
                 path_to_dest = path_to_result.replace('images', 'sliceviewer', 1)
                 if os.path.exists(path_to_source) and not os.path.exists(path_to_dest):
                     copytree(path_to_source, path_to_dest, copy_function=os.link)
-            elif stopped==0 and process == 'smooth':
+            elif success==0 and process == 'smooth':
                 q = Queue('slices', connection=Redis())
                 job = q.enqueue_call(create_slices, args=(path_to_result, None,), timeout=-1)
 

@@ -339,36 +339,39 @@ def init_active_contour(image_id, friend_id, label_id, simple=False):
             subprocess.Popen(['ssh', host, 'mkdir', '-p', host_base+'/private_storage/images/'+image.user.username]).wait()
 
             # send data to host
-            send_data_to_host(image.pic.path, host+':'+image.pic.path.replace(BASE_DIR,host_base))
-            send_data_to_host(friend.pic.path, host+':'+friend.pic.path.replace(BASE_DIR,host_base))
+            success=0
+            success+=send_data_to_host(image.pic.path, host+':'+image.pic.path.replace(BASE_DIR,host_base))
+            success+=send_data_to_host(friend.pic.path, host+':'+friend.pic.path.replace(BASE_DIR,host_base))
             if label.imageType != 4:
-                send_data_to_host(label.pic.path, host+':'+label.pic.path.replace(BASE_DIR,host_base))
+                success+=send_data_to_host(label.pic.path, host+':'+label.pic.path.replace(BASE_DIR,host_base))
 
-            # run interpolation
-            if 'REMOTE_QUEUE_SUBHOST' in config:
-                cmd = ['ssh', '-t', host, 'ssh', config['REMOTE_QUEUE_SUBHOST']] + cmd
-            else:
-                cmd = ['ssh', host] + cmd
-            subprocess.Popen(cmd).wait()
+            if success==0:
 
-            # config
-            config = subprocess.Popen(['scp', host+':'+host_base+'/log/config_4', BASE_DIR+'/log/config_4']).wait()
+                # run interpolation
+                if 'REMOTE_QUEUE_SUBHOST' in config:
+                    cmd = ['ssh', '-t', host, 'ssh', config['REMOTE_QUEUE_SUBHOST']] + cmd
+                else:
+                    cmd = ['ssh', host] + cmd
+                subprocess.Popen(cmd).wait()
 
-            if config==0:
-                with open(BASE_DIR + '/log/config_4', 'r') as configfile:
-                    acwe_on_host, _ = configfile.read().split()
+                # config
+                config = subprocess.Popen(['scp', host+':'+host_base+'/log/config_4', BASE_DIR+'/log/config_4']).wait()
 
-                # local file names
-                path_to_acwe = unique_file_path(acwe_on_host.replace(host_base,BASE_DIR))
+                if config==0:
+                    with open(BASE_DIR + '/log/config_4', 'r') as configfile:
+                        acwe_on_host, _ = configfile.read().split()
 
-                # get results
-                subprocess.Popen(['scp', host+':'+acwe_on_host, path_to_acwe]).wait()
+                    # local file names
+                    path_to_acwe = unique_file_path(acwe_on_host.replace(host_base,BASE_DIR))
 
-                # post processing
-                post_processing(path_to_acwe, image_id=image_id, friend_id=friend_id, simple=simple, path_to_data=image.pic.path)
+                    # get results
+                    subprocess.Popen(['scp', host+':'+acwe_on_host, path_to_acwe]).wait()
 
-                # remove config file
-                subprocess.Popen(['ssh', host, 'rm', host_base + '/log/config_4']).wait()
+                    # post processing
+                    post_processing(path_to_acwe, image_id=image_id, friend_id=friend_id, simple=simple, path_to_data=image.pic.path)
+
+                    # remove config file
+                    subprocess.Popen(['ssh', host, 'rm', host_base + '/log/config_4']).wait()
 
         # local server
         else:
