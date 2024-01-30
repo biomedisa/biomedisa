@@ -59,7 +59,7 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
     img_header=None, img_extension='.tif', average_dice=False, django_env=False,
     path=None, success=True, return_probs=False, patch_normalization=False,
     z_patch=64, y_patch=64, x_patch=64, path_to_logfile=None, img_id=None, label_id=None,
-    remote=False, queue=0, username=None, shortfilename=None):
+    remote=False, queue=0, username=None, shortfilename=None, dice_loss=False):
 
     # create biomedisa
     bm = Biomedisa()
@@ -121,8 +121,9 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
         # write in log file
         with open(bm.path_to_logfile, 'a') as logfile:
             print('%s %s %s %s' %(time.ctime(), bm.username, bm.shortfilename, 'Process was started.'), file=logfile)
-            print('PROJECT:%s PREDICT:%s IMG:%s IMG_LIST:%s LABEL_LIST:%s'
-                 %(project, bm.predict, bm.shortfilename, bm.path_to_images, bm.path_to_labels), file=logfile)
+            print(f'PROJECT:{project} PREDICT:{bm.predict} IMG:{bm.shortfilename}', file=logfile)
+            if bm.train:
+                print(f'IMG_LIST:{bm.path_to_images} LABEL_LIST:{bm.path_to_labels} VAL_IMG_LIST:{bm.val_images} VAL_LABEL_LIST:{bm.val_labels}', file=logfile)
 
     # path to model
     if bm.train and not bm.path_to_model:
@@ -310,6 +311,8 @@ if __name__ == '__main__':
                         help='Use tensorflow standard accuracy on validation data')
     parser.add_argument('-tt','--train_tf', action='store_true', default=False,
                         help='Use tensorflow standard accuracy on training data')
+    parser.add_argument('-dl','--dice_loss', action='store_true', default=False,
+                        help='Dice loss function')
     parser.add_argument('-ad','--average_dice', action='store_true', default=False,
                         help='Use averaged dice score of each label')
     parser.add_argument('-nc', '--no_compression', action='store_true', default=False,
