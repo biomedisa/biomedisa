@@ -4,7 +4,6 @@ config = {
     'SECRET_KEY' : '...', # some random string
     'DJANGO_DATABASE' : '...', # password of your mysql database
     'ALLOWED_HOSTS' : ['localhost', '0.0.0.0'], # you must tell django explicitly which hosts are allowed (e.g. your IP and/or the URL of your homepage when running an APACHE server)
-    'SECURE_MODE' : False, # this mode is highly recommended if you use biomedisa for production with users you do not trust
     'DEBUG' : True, # activate the debug mode if you develop the app. This must be deactivated in production mode for security reasons!
     #'STORAGE_SIZE' : 1000, # storage size for new users
 
@@ -16,6 +15,7 @@ config = {
     'SMTP_PORT' : 587,
 
     'FIRST_QUEUE_HOST' : '', # empty string ('') if it is running on your local machine
+    #'FIRST_QUEUE_BASE_DIR' : '/home/another_user/git/biomedisa', # if the path to your base directory on the remote server differs from the path of your local base directory
     'FIRST_QUEUE_NGPUS' : 'all', # number of GPUs available (e.g. 1, 4, 'all') or list of GPU IDs (e.g. [0,3]). If CLUSTER=True this must be the sum of of all GPUs. List and 'all' works only locally and with CUDA.
     'FIRST_QUEUE_CLUSTER' : False, # if you want to use several machines for one queue (see README/INSTALL_CLUSTER.txt), you must specify the IPs of your machines and the number of GPUs respectively in 'log/workers_host'
 
