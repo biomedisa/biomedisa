@@ -235,7 +235,7 @@ def rgb2gray(img):
     """Convert a RGB image to gray scale."""
     return 0.2989*img[:,:,0] + 0.587*img[:,:,1] + 0.114*img[:,:,2]
 
-def load_data_(path_to_data, process):
+def load_data(path_to_data, process='None', return_extension=False):
 
     if os.path.isdir(path_to_data):
         path_to_data = path_to_data + '.zip'
@@ -351,48 +351,6 @@ def load_data_(path_to_data, process):
     else:
         data, header = None, None
 
-    if config['SECURE_MODE']:
-        if extension not in ['.am','.tif']:
-            extension, header = '.tif', None
-        if data is None:
-            data = 'None'
-        if header is None:
-            header = 'None'
-        for file, data_type in [(data, 'data'), (header, 'header'), (extension, 'extension')]:
-            src = BASE_DIR + '/tmp/tmp.' + data_type + '_' + process + '.npy'
-            dest = BASE_DIR + '/tmp/' + data_type + '_' + process + '.npy'
-            np.save(src, file, allow_pickle=False)
-            os.rename(src, dest)
-    else:
-        return data, header, extension
-
-def load_data(path_to_data, process='None', return_extension=False):
-    if config['SECURE_MODE']:
-        from redis import Redis
-        from rq import Queue
-        q = Queue('load_data', connection=Redis())
-        job = q.enqueue_call(load_data_, args=(path_to_data, process), timeout=-1)
-        for k, data_type in enumerate(['data', 'header', 'extension']):
-            file_path = BASE_DIR + '/tmp/' + data_type + '_' + process + '.npy'
-            while not os.path.exists(file_path):
-                time.sleep(1)
-            if k == 0:
-                data = np.load(file_path)
-                if data.dtype == '<U4':
-                    if str(data) == 'None':
-                        data = None
-            elif k == 1:
-                header = np.load(file_path)
-                if header.dtype == '<U4':
-                    if str(header) == 'None':
-                        header = None
-            elif k == 2:
-                extension = str(np.load(file_path))
-                if extension == 'None':
-                    extension = None
-            os.remove(file_path)
-    else:
-        data, header, extension = load_data_(path_to_data, process)
     if return_extension:
         return data, header, extension
     else:

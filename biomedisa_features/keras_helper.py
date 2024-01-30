@@ -26,7 +26,6 @@
 ##                                                                      ##
 ##########################################################################
 
-from biomedisa_features.biomedisa_helper import img_resize, load_data, save_data, set_labels_to_zero
 try:
     from tensorflow.keras.optimizers.legacy import SGD
 except:
@@ -35,11 +34,13 @@ from tensorflow.keras.models import Model, load_model
 from tensorflow.keras.layers import (
     Input, Conv3D, MaxPooling3D, UpSampling3D, Activation, Reshape,
     BatchNormalization, Concatenate, ReLU, Add, GlobalAveragePooling3D,
-    Dense, Dropout, MaxPool3D, Flatten)
+    Dense, Dropout, MaxPool3D, Flatten, Multiply)
+from tensorflow.keras import backend as K
 from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.callbacks import Callback, ModelCheckpoint, EarlyStopping
 from biomedisa_features.DataGenerator import DataGenerator
 from biomedisa_features.PredictDataGenerator import PredictDataGenerator
+from biomedisa_features.biomedisa_helper import img_resize, load_data, save_data, set_labels_to_zero
 import matplotlib.pyplot as plt
 import tensorflow as tf
 import numpy as np
@@ -704,6 +705,25 @@ class Metrics(Callback):
                 if self.early_stopping > 0 and max(self.history['val_accuracy']) not in self.history['val_accuracy'][-self.early_stopping:]:
                     self.model.stop_training = True
 
+def dice_coef(y_true, y_pred, smooth=1e-5):
+    intersection = K.sum(Multiply()([y_true, y_pred]))
+    dice = (2. * intersection + smooth) / (K.sum(y_true) + K.sum(y_pred) + smooth)
+    return dice
+
+def dice_coef_loss(nb_labels):
+    #y_pred_f = K.argmax(y_pred, axis=-1)
+    #y_pred_f = K.cast(y_pred_f,'float32')
+    #dice_coef(y_true[:,:,:,:,1], y_pred[:,:,:,:,1] * y_pred_f)
+    def loss_fn(y_true, y_pred):
+        dice = 0
+        for index in range(1,nb_labels):
+            dice += dice_coef(y_true[:,:,:,:,index], y_pred[:,:,:,:,index])
+        dice = dice / (nb_labels-1)
+        loss = -K.log(dice)
+        #loss = 1 - dice
+        return loss
+    return loss_fn
+
 def train_semantic_segmentation(bm,
     img_list, label_list,
     val_img_list, val_label_list,
@@ -841,8 +861,9 @@ def train_semantic_segmentation(bm,
         sgd = SGD(learning_rate=bm.learning_rate, decay=1e-6, momentum=0.9, nesterov=True)
 
         # comile model
+        loss=dice_coef_loss(nb_labels) if bm.dice_loss else 'categorical_crossentropy'
         metrics=['accuracy'] if bm.train_tf or bm.val_tf else None
-        model.compile(loss='categorical_crossentropy',
+        model.compile(loss=loss,
                       optimizer=sgd,
                       metrics=metrics)
 
