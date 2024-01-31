@@ -93,7 +93,7 @@ def make_densenet(inputshape):
     return model
 
 def load_cropping_training_data(normalize, img_list, label_list, x_scale, y_scale, z_scale,
-    labels_to_compute, labels_to_remove, img_in, label_in, mu=None, sig=None):
+    labels_to_compute, labels_to_remove, img_in, label_in, normalization_parameters=None, channels=None):
 
     if any(img_list):
 
@@ -171,26 +171,36 @@ def load_cropping_training_data(normalize, img_list, label_list, x_scale, y_scal
         img = img_in[0]
     else:
         img = img_in
+    # handle all images having channels >=1
+    if len(img.shape)==3:
+        z_shape, y_shape, x_shape = img.shape
+        img = img.reshape(z_shape, y_shape, x_shape, 1)
+    if channels is None:
+        channels = img.shape[3]
+    if img.shape[3] != channels:
+        InputError.message = f'Number of channels must be {channels} for {os.path.basename(img_names[0])}.'
+        raise InputError()
     img = img.astype(np.float32)
     img_z = img_resize(img, a.shape[0], y_scale, x_scale)
     img_y = np.swapaxes(img_resize(img, z_scale, a.shape[1], x_scale),0,1)
     img_x = np.swapaxes(img_resize(img, z_scale, y_scale, a.shape[2]),0,2)
     img = np.append(img_z,img_y,axis=0)
     img = np.append(img,img_x,axis=0)
-    img -= np.amin(img)
-    img /= np.amax(img)
-    if mu is not None and normalize:
-        mu_tmp, sig_tmp = np.mean(img), np.std(img)
-        img = (img - mu_tmp) / sig_tmp
-        img = img * sig + mu
-        img[img<0] = 0
-        img[img>1] = 1
-    else:
-        mu, sig = np.mean(img), np.std(img)
-    img = np.uint8(img*255)
+
+    # normalize image data
+    for c in range(channels):
+        img[:,:,:,c] -= np.amin(img[:,:,:,c])
+        img[:,:,:,c] /= np.amax(img[:,:,:,c])
+        if normalization_parameters is None:
+            normalization_parameters = np.zeros((2,channels))
+            normalization_parameters[0,c] = np.mean(img[:,:,:,c])
+            normalization_parameters[1,c] = np.std(img[:,:,:,c])
+        elif normalize:
+            mean, std = np.mean(img[:,:,:,c]), np.std(img[:,:,:,c])
+            img[:,:,:,c] = (img[:,:,:,c] - mean) / std
+            img[:,:,:,c] = img[:,:,:,c] * normalization_parameters[1,c] + normalization_parameters[0,c]
 
     # loop over list of images
-    number_of_images = 1
     if any(img_list) or type(img_in) is list:
         number_of_images = len(img_names) if any(img_list) else len(img_in)
 
@@ -221,28 +231,39 @@ def load_cropping_training_data(normalize, img_list, label_list, x_scale, y_scal
                     raise InputError()
             else:
                 a = img_in[k]
+            if len(a.shape)==3:
+                z_shape, y_shape, x_shape = a.shape
+                a = a.reshape(z_shape, y_shape, x_shape, 1)
+            if a.shape[3] != channels:
+                InputError.message = f'Number of channels must be {channels} for {os.path.basename(img_names[k])}.'
+                raise InputError()
             a = a.astype(np.float32)
             img_z = img_resize(a, a.shape[0], y_scale, x_scale)
             img_y = np.swapaxes(img_resize(a, z_scale, a.shape[1], x_scale),0,1)
             img_x = np.swapaxes(img_resize(a, z_scale, y_scale, a.shape[2]),0,2)
             next_img = np.append(img_z,img_y,axis=0)
             next_img = np.append(next_img,img_x,axis=0)
-            next_img -= np.amin(next_img)
-            next_img /= np.amax(next_img)
-            if normalize:
-                mu_tmp, sig_tmp = np.mean(next_img), np.std(next_img)
-                next_img = (next_img - mu_tmp) / sig_tmp
-                next_img = next_img * sig + mu
-                next_img[next_img<0] = 0
-                next_img[next_img>1] = 1
-            next_img = np.uint8(next_img*255)
+            for c in range(channels):
+                next_img[:,:,:,c] -= np.amin(next_img[:,:,:,c])
+                next_img[:,:,:,c] /= np.amax(next_img[:,:,:,c])
+                if normalize:
+                    mean, std = np.mean(next_img[:,:,:,c]), np.std(next_img[:,:,:,c])
+                    next_img[:,:,:,c] = (next_img[:,:,:,c] - mean) / std
+                    next_img[:,:,:,c] = next_img[:,:,:,c] * normalization_parameters[1,c] + normalization_parameters[0,c]
             img = np.append(img, next_img, axis=0)
 
-    img_rgb = np.empty((img.shape + (3,)), dtype=np.uint8)
-    for i in range(3):
-        img_rgb[...,i] = img
+    # limit intensity range
+    img[img<0] = 0
+    img[img>1] = 1
+    img = np.uint8(img*255)
 
-    return img_rgb, label, mu, sig, number_of_images
+    # number of channels must be three (reuse or cut off)
+    min_channels = min(3, channels)
+    img_rgb = np.empty((img.shape[:3] + (3,)), dtype=np.uint8)
+    for i in range(3):
+        img_rgb[...,i] = img[...,i % min_channels]
+
+    return img_rgb, label, normalization_parameters, channels
 
 def train_cropping(img, label, path_to_model, epochs, batch_size,
                     validation_split, flip_x, flip_y, flip_z, rotate,
@@ -533,16 +554,16 @@ def load_and_train(normalize,path_to_img,path_to_labels,path_to_model,
                 x_scale=256, y_scale=256, z_scale=256):
 
     # load training data
-    img, label, mu, sig, number_of_images = load_cropping_training_data(normalize,
+    img, label, normalization_parameters, channels = load_cropping_training_data(normalize,
                         path_to_img, path_to_labels, x_scale, y_scale, z_scale, labels_to_compute, labels_to_remove,
                         img, label)
 
     # load validation data
     if any(path_val_img) or img_val is not None:
-        img_val, label_val, _, _, _ = load_cropping_training_data(normalize,
+        img_val, label_val, _, _ = load_cropping_training_data(normalize,
                             path_val_img, path_val_labels, x_scale, y_scale, z_scale,
                             labels_to_compute, labels_to_remove,
-                            img_val, label_val, mu, sig)
+                            img_val, label_val, normalization_parameters, channels)
 
     # train cropping
     train_cropping(img, label, path_to_model, epochs,
@@ -559,9 +580,9 @@ def load_and_train(normalize,path_to_img,path_to_labels,path_to_model,
                 cropping_weights.append(arr)
 
     # configuration data
-    cropping_config = np.array([3, x_scale, y_scale, z_scale, normalize, mu, sig])
+    cropping_config = np.array([channels, x_scale, y_scale, z_scale, normalize, 0, 1])
 
-    return cropping_weights, cropping_config
+    return cropping_weights, cropping_config, normalization_parameters
 
 def crop_data(path_to_data, path_to_model, path_to_cropped_image, batch_size,
     debug_cropping=False, save_cropped=True, img_data=None,

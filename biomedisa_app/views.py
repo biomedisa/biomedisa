@@ -798,10 +798,13 @@ def change_password(request):
     return render(request, 'change_password.html', {'pw_form': pw_form})
 
 def recursive_file_permissions(path_to_dir):
-    files = glob.glob(path_to_dir+'/**/*', recursive=True)
+    files = glob.glob(path_to_dir+'/**/*', recursive=True) + [path_to_dir]
     for file in files:
         try:
-            os.chmod(file, 0o770)
+            if os.path.isdir(file):
+                os.chmod(file, 0o770)
+            else:
+                os.chmod(file, 0o660)
         except:
             pass
 
