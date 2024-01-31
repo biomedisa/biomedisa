@@ -165,9 +165,9 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
             bm.val_images, bm.val_labels = [bm.val_images], [bm.val_labels]
 
         # train automatic cropping
-        bm.cropping_weights, bm.cropping_config = None, None
+        bm.cropping_weights, bm.cropping_config, bm.cropping_norm = None, None, None
         if bm.crop_data:
-            bm.cropping_weights, bm.cropping_config = ch.load_and_train(
+            bm.cropping_weights, bm.cropping_config, bm.cropping_norm = ch.load_and_train(
                         bm.normalize, bm.path_to_images, bm.path_to_labels, bm.path_to_model,
                         bm.cropping_epochs, bm.batch_size, bm.validation_split,
                         bm.flip_x, bm.flip_y, bm.flip_z, bm.rotate, bm.only, bm.ignore,
@@ -408,8 +408,9 @@ if __name__ == '__main__':
     # django environment
     if bm.img_id is not None:
         bm.django_env = True
-        bm.username = os.path.basename(os.path.dirname(bm.path_to_images))
-        bm.shortfilename = os.path.basename(bm.path_to_images)
+        reference_image_path = bm.path_to_images.split(',')[:-1][-1]
+        bm.username = os.path.basename(os.path.dirname(reference_image_path))
+        bm.shortfilename = os.path.basename(reference_image_path)
         bm.path_to_logfile = BASE_DIR + '/log/logfile.txt'
     else:
         bm.django_env = False

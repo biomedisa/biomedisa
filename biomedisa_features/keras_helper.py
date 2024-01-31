@@ -449,18 +449,17 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
         img = img_resize(img, z_scale, y_scale, x_scale)
 
     # normalize image data
-    if normalization_parameters is None:
-        normalization_parameters = np.zeros((2,channels))
     for c in range(channels):
         img[:,:,:,c] -= np.amin(img[:,:,:,c])
         img[:,:,:,c] /= np.amax(img[:,:,:,c])
-        if allLabels is not None and normalize:
+        if normalization_parameters is None:
+            normalization_parameters = np.zeros((2,channels))
+            normalization_parameters[0,c] = np.mean(img[:,:,:,c])
+            normalization_parameters[1,c] = np.std(img[:,:,:,c])
+        elif normalize:
             mean, std = np.mean(img[:,:,:,c]), np.std(img[:,:,:,c])
             img[:,:,:,c] = (img[:,:,:,c] - mean) / std
             img[:,:,:,c] = img[:,:,:,c] * normalization_parameters[1,c] + normalization_parameters[0,c]
-        else:
-            normalization_parameters[0,c] = np.mean(img[:,:,:,c])
-            normalization_parameters[1,c] = np.std(img[:,:,:,c])
 
     # loop over list of images
     if any(img_list) or type(img_in) is list:
@@ -560,7 +559,7 @@ class CustomCallback(Callback):
 class MetaData(Callback):
     def __init__(self, path_to_model, configuration_data, allLabels,
         extension, header, crop_data, cropping_weights, cropping_config,
-        normalization_parameters):
+        normalization_parameters, cropping_norm):
 
         self.path_to_model = path_to_model
         self.configuration_data = configuration_data
@@ -571,6 +570,7 @@ class MetaData(Callback):
         self.crop_data = crop_data
         self.cropping_weights = cropping_weights
         self.cropping_config = cropping_config
+        self.cropping_norm = cropping_norm
 
     def on_epoch_end(self, epoch, logs={}):
         hf = h5py.File(self.path_to_model, 'r')
@@ -587,6 +587,7 @@ class MetaData(Callback):
             if self.crop_data:
                 cm_group = hf.create_group('cropping_meta')
                 cm_group.create_dataset('configuration', data=self.cropping_config)
+                cm_group.create_dataset('normalization', data=self.cropping_norm)
                 cw_group = hf.create_group('cropping_weights')
                 for iterator, arr in enumerate(self.cropping_weights):
                     cw_group.create_dataset(str(iterator), data=arr)
@@ -870,7 +871,7 @@ def train_semantic_segmentation(bm,
     # save meta data
     meta_data = MetaData(bm.path_to_model, configuration_data, allLabels,
         extension, header, bm.crop_data, bm.cropping_weights, bm.cropping_config,
-        normalization_parameters)
+        normalization_parameters, bm.cropping_norm)
 
     # model checkpoint
     if img_val is not None:
