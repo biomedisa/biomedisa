@@ -234,7 +234,7 @@ label_data = fill(label_data, 0.9)
 
 #### Measure accuracy
 ```python
-from biomedisa_features.helper import Dice_score, ASSD
+from biomedisa_features.biomedisa_helper import Dice_score, ASSD
 
 dice = Dice_score(ground_truth, result)
 assd = ASSD(ground_truth, result)
