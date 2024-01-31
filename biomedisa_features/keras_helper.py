@@ -337,64 +337,68 @@ def get_labels(arr, allLabels):
         final[arr == k] = allLabels[k]
     return final
 
+def read_img_list(img_list, label_list):
+    # read filenames
+    img_names, label_names = [], []
+    for img_name, label_name in zip(img_list, label_list):
+
+        # check for tarball
+        img_dir, img_ext = os.path.splitext(img_name)
+        if img_ext == '.gz':
+            img_dir, img_ext = os.path.splitext(img_dir)
+
+        label_dir, label_ext = os.path.splitext(label_name)
+        if label_ext == '.gz':
+            label_dir, label_ext = os.path.splitext(label_dir)
+
+        if (img_ext == '.tar' and label_ext == '.tar') or (os.path.isdir(img_name) and os.path.isdir(label_name)):
+
+            # extract files if necessary
+            if img_ext == '.tar':
+                if not os.path.exists(img_dir):
+                    tar = tarfile.open(img_name)
+                    tar.extractall(path=img_dir)
+                    tar.close()
+                img_name = img_dir
+            if label_ext == '.tar':
+                if not os.path.exists(label_dir):
+                    tar = tarfile.open(label_name)
+                    tar.extractall(path=label_dir)
+                    tar.close()
+                label_name = label_dir
+
+            for data_type in ['.am','.tif','.tiff','.hdr','.mhd','.mha','.nrrd','.nii','.nii.gz']:
+                tmp_img_names = glob(img_name+'/**/*'+data_type, recursive=True)
+                tmp_label_names = glob(label_name+'/**/*'+data_type, recursive=True)
+                tmp_img_names = sorted(tmp_img_names)
+                tmp_label_names = sorted(tmp_label_names)
+                img_names.extend(tmp_img_names)
+                label_names.extend(tmp_label_names)
+            if len(img_names)==0:
+                InputError.message = "Invalid image data."
+                raise InputError()
+            if len(label_names)==0:
+                InputError.message = "Invalid label data."
+                raise InputError()
+        else:
+            img_names.append(img_name)
+            label_names.append(label_name)
+    return img_names, label_names
+
 def load_training_data(normalize, img_list, label_list, channels, x_scale, y_scale, z_scale, no_scaling,
         crop_data, labels_to_compute, labels_to_remove, img_in=None, label_in=None,
         normalization_parameters=None, allLabels=None, header=None, extension='.tif',
         x_puffer=25, y_puffer=25, z_puffer=25):
 
+    # read image lists
     if any(img_list):
-
-        # get filenames
-        img_names, label_names = [], []
-        for img_name, label_name in zip(img_list, label_list):
-
-            # check for tarball
-            img_dir, img_ext = os.path.splitext(img_name)
-            if img_ext == '.gz':
-                img_dir, img_ext = os.path.splitext(img_dir)
-
-            label_dir, label_ext = os.path.splitext(label_name)
-            if label_ext == '.gz':
-                label_dir, label_ext = os.path.splitext(label_dir)
-
-            if (img_ext == '.tar' and label_ext == '.tar') or (os.path.isdir(img_name) and os.path.isdir(label_name)):
-
-                # extract files if necessary
-                if img_ext == '.tar':
-                    if not os.path.exists(img_dir):
-                        tar = tarfile.open(img_name)
-                        tar.extractall(path=img_dir)
-                        tar.close()
-                    img_name = img_dir
-                if label_ext == '.tar':
-                    if not os.path.exists(label_dir):
-                        tar = tarfile.open(label_name)
-                        tar.extractall(path=label_dir)
-                        tar.close()
-                    label_name = label_dir
-
-                for data_type in ['.am','.tif','.tiff','.hdr','.mhd','.mha','.nrrd','.nii','.nii.gz']:
-                    tmp_img_names = glob(img_name+'/**/*'+data_type, recursive=True)
-                    tmp_label_names = glob(label_name+'/**/*'+data_type, recursive=True)
-                    tmp_img_names = sorted(tmp_img_names)
-                    tmp_label_names = sorted(tmp_label_names)
-                    img_names.extend(tmp_img_names)
-                    label_names.extend(tmp_label_names)
-                if len(img_names)==0:
-                    InputError.message = "Invalid image data."
-                    raise InputError()
-                if len(label_names)==0:
-                    InputError.message = "Invalid label data."
-                    raise InputError()
-            else:
-                img_names.append(img_name)
-                label_names.append(label_name)
+        img_names, label_names = read_img_list(img_list, label_list)
 
     # load first label
     if any(img_list):
         label, header, extension = load_data(label_names[0], 'first_queue', True)
         if label is None:
-            InputError.message = "Invalid label data %s." %(os.path.basename(label_names[0]))
+            InputError.message = f'Invalid label data "{os.path.basename(label_names[0])}"'
             raise InputError()
     elif type(label_in) is list:
         label = label_in[0]
@@ -422,7 +426,7 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
     if any(img_list):
         img, _ = load_data(img_names[0], 'first_queue')
         if img is None:
-            InputError.message = "Invalid image data %s." %(os.path.basename(img_names[0]))
+            InputError.message = f'Invalid image data "{os.path.basename(img_names[0])}"'
             raise InputError()
     elif type(img_in) is list:
         img = img_in[0]
@@ -436,7 +440,7 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
     if channels is None:
         channels = img.shape[3]
     if channels != img.shape[3]:
-        InputError.message = f'Number of channels must be {channels} for {os.path.basename(img_names[0])}.'
+        InputError.message = f'Number of channels must be {channels} for "{os.path.basename(img_names[0])}"'
         raise InputError()
 
     # crop data
@@ -471,7 +475,7 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
             if any(label_list):
                 a, _ = load_data(label_names[k], 'first_queue')
                 if a is None:
-                    InputError.message = "Invalid label data %s." %(os.path.basename(label_names[k]))
+                    InputError.message = f'Invalid label data "{os.path.basename(label_names[k])}"'
                     raise InputError()
             else:
                 a = label_in[k]
@@ -487,7 +491,7 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
             if any(img_list):
                 a, _ = load_data(img_names[k], 'first_queue')
                 if a is None:
-                    InputError.message = "Invalid image data %s." %(os.path.basename(img_names[k]))
+                    InputError.message = f'Invalid image data "{os.path.basename(img_names[k])}"'
                     raise InputError()
             else:
                 a = img_in[k]
@@ -495,7 +499,7 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
                 z_shape, y_shape, x_shape = a.shape
                 a = a.reshape(z_shape, y_shape, x_shape, 1)
             if a.shape[3] != channels:
-                InputError.message = f'Number of channels must be {channels} for {os.path.basename(img_names[k])}.'
+                InputError.message = f'Number of channels must be {channels} for "{os.path.basename(img_names[k])}"'
                 raise InputError()
             if crop_data:
                 a = np.copy(a[argmin_z:argmax_z,argmin_y:argmax_y,argmin_x:argmax_x], order='C')
