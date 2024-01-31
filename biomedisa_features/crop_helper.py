@@ -27,6 +27,7 @@
 ##########################################################################
 
 import os
+from biomedisa_features.keras_helper import read_img_list
 from biomedisa_features.biomedisa_helper import img_resize, load_data, save_data, set_labels_to_zero
 from tensorflow.python.framework.errors_impl import ResourceExhaustedError
 from tensorflow.keras.applications import DenseNet121, densenet
@@ -95,59 +96,15 @@ def make_densenet(inputshape):
 def load_cropping_training_data(normalize, img_list, label_list, x_scale, y_scale, z_scale,
     labels_to_compute, labels_to_remove, img_in, label_in, normalization_parameters=None, channels=None):
 
+    # read image lists
     if any(img_list):
-
-        # get filenames
-        img_names, label_names = [], []
-        for img_name, label_name in zip(img_list, label_list):
-
-            # check for tarball
-            img_dir, img_ext = os.path.splitext(img_name)
-            if img_ext == '.gz':
-                img_dir, img_ext = os.path.splitext(img_dir)
-
-            label_dir, label_ext = os.path.splitext(label_name)
-            if label_ext == '.gz':
-                label_dir, label_ext = os.path.splitext(label_dir)
-
-            if (img_ext == '.tar' and label_ext == '.tar') or (os.path.isdir(img_name) and os.path.isdir(label_name)):
-
-                # extract files if necessary
-                if img_ext == '.tar':
-                    if not os.path.exists(img_dir):
-                        tar = tarfile.open(img_name)
-                        tar.extractall(path=img_dir)
-                        tar.close()
-                    img_name = img_dir
-                if label_ext == '.tar':
-                    if not os.path.exists(label_dir):
-                        tar = tarfile.open(label_name)
-                        tar.extractall(path=label_dir)
-                        tar.close()
-                    label_name = label_dir
-
-                for data_type in ['.am','.tif','.tiff','.hdr','.mhd','.mha','.nrrd','.nii','.nii.gz']:
-                    tmp_img_names = glob(img_name+'/**/*'+data_type, recursive=True)
-                    tmp_label_names = glob(label_name+'/**/*'+data_type, recursive=True)
-                    tmp_img_names = sorted(tmp_img_names)
-                    tmp_label_names = sorted(tmp_label_names)
-                    img_names.extend(tmp_img_names)
-                    label_names.extend(tmp_label_names)
-                if len(img_names)==0:
-                    InputError.message = "Invalid image TAR file."
-                    raise InputError()
-                if len(label_names)==0:
-                    InputError.message = "Invalid label TAR file."
-                    raise InputError()
-            else:
-                img_names.append(img_name)
-                label_names.append(label_name)
+        img_names, label_names = read_img_list(img_list, label_list)
 
     # load first label
     if any(img_list):
         a, _, _ = load_data(label_names[0], 'first_queue', True)
         if a is None:
-            InputError.message = "Invalid label data %s." %(os.path.basename(label_names[0]))
+            InputError.message = f'Invalid label data "{os.path.basename(label_names[0])}"'
             raise InputError()
     elif type(label_in) is list:
         a = label_in[0]
@@ -165,7 +122,7 @@ def load_cropping_training_data(normalize, img_list, label_list, x_scale, y_scal
     if any(img_list):
         img, _ = load_data(img_names[0], 'first_queue')
         if img is None:
-            InputError.message = "Invalid image data %s." %(os.path.basename(img_names[0]))
+            InputError.message = f'Invalid image data "{os.path.basename(img_names[0])}"'
             raise InputError()
     elif type(img_in) is list:
         img = img_in[0]
@@ -178,7 +135,7 @@ def load_cropping_training_data(normalize, img_list, label_list, x_scale, y_scal
     if channels is None:
         channels = img.shape[3]
     if img.shape[3] != channels:
-        InputError.message = f'Number of channels must be {channels} for {os.path.basename(img_names[0])}.'
+        InputError.message = f'Number of channels must be {channels} for "{os.path.basename(img_names[0])}"'
         raise InputError()
     img = img.astype(np.float32)
     img_z = img_resize(img, a.shape[0], y_scale, x_scale)
@@ -210,7 +167,7 @@ def load_cropping_training_data(normalize, img_list, label_list, x_scale, y_scal
             if any(label_list):
                 a, _ = load_data(label_names[k], 'first_queue')
                 if a is None:
-                    InputError.message = "Invalid label data %s." %(os.path.basename(name))
+                    InputError.message = f'Invalid label data "{os.path.basename(label_names[k])}"'
                     raise InputError()
             else:
                 a = label_in[k]
@@ -227,7 +184,7 @@ def load_cropping_training_data(normalize, img_list, label_list, x_scale, y_scal
             if any(img_list):
                 a, _ = load_data(img_names[k], 'first_queue')
                 if a is None:
-                    InputError.message = "Invalid image data %s." %(os.path.basename(name))
+                    InputError.message = f'Invalid image data "{os.path.basename(img_names[k])}"'
                     raise InputError()
             else:
                 a = img_in[k]
@@ -235,7 +192,7 @@ def load_cropping_training_data(normalize, img_list, label_list, x_scale, y_scal
                 z_shape, y_shape, x_shape = a.shape
                 a = a.reshape(z_shape, y_shape, x_shape, 1)
             if a.shape[3] != channels:
-                InputError.message = f'Number of channels must be {channels} for {os.path.basename(img_names[k])}.'
+                InputError.message = f'Number of channels must be {channels} for "{os.path.basename(img_names[k])}"'
                 raise InputError()
             a = a.astype(np.float32)
             img_z = img_resize(a, a.shape[0], y_scale, x_scale)
