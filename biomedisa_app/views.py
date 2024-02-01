@@ -1189,7 +1189,7 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
 
                     if success == 0:
                         with open(BASE_DIR + f'/log/config_{queue_id}', 'r') as configfile:
-                            final_on_host, _, _, _, _, time_str, server_name, model_on_host, cropped_on_host = configfile.read().split()
+                            final_on_host, _, _, _, _, time_str, server_name, model_on_host, cropped_on_host, _ = configfile.read().split()
                         if cropped_on_host=='None':
                             cropped_on_host=None
                         time_str = time_str.replace('-',' ')
@@ -2246,7 +2246,7 @@ def init_random_walk(image, label):
 
                     if success == 0:
                         with open(BASE_DIR + f'/log/config_{queue_id}', 'r') as configfile:
-                            final_on_host, uncertainty_on_host, smooth_on_host, uncertainty, smooth, time_str, server_name, _, _ = configfile.read().split()
+                            final_on_host, uncertainty_on_host, smooth_on_host, uncertainty, smooth, time_str, server_name, _, _, dice = configfile.read().split()
                         uncertainty=True if uncertainty=='True' else False
                         smooth=False if smooth=='0' else True
                         time_str = time_str.replace('-',' ')
@@ -2265,7 +2265,7 @@ def init_random_walk(image, label):
 
                         # post processing
                         post_processing(path_to_final, time_str, server_name, False, None,
-                            path_to_uq=path_to_uq, path_to_smooth=path_to_smooth,
+                            dice=float(dice), path_to_uq=path_to_uq, path_to_smooth=path_to_smooth,
                             uncertainty=uncertainty, smooth=smooth,
                             img_id=image.id, label_id=label.id)
 

@@ -70,12 +70,12 @@ def create_pid_object(pid, remote=False, queue=None, img_id=None, path_to_model=
         image.pid = pid
         image.save()
 
-def post_processing(path_to_final, time_str, server_name, remote, queue, path_to_model=None, path_to_uq=None, path_to_smooth=None, path_to_cropped_image=None, uncertainty=False, smooth=False, img_id=None, label_id=None, train=False, predict=False):
+def post_processing(path_to_final, time_str, server_name, remote, queue, dice=1.0, path_to_model=None, path_to_uq=None, path_to_smooth=None, path_to_cropped_image=None, uncertainty=False, smooth=False, img_id=None, label_id=None, train=False, predict=False):
 
     # remote server
     if remote:
         with open(BASE_DIR + f'/log/config_{queue}', 'w') as configfile:
-            print(path_to_final, path_to_uq, path_to_smooth, uncertainty, smooth, str(time_str).replace(' ','-'), server_name, path_to_model, path_to_cropped_image, file=configfile)
+            print(path_to_final, path_to_uq, path_to_smooth, uncertainty, smooth, str(time_str).replace(' ','-'), server_name, path_to_model, path_to_cropped_image, dice, file=configfile)
 
     # local server
     else:
@@ -120,6 +120,11 @@ def post_processing(path_to_final, time_str, server_name, remote, queue, path_to
                 shortfilename = os.path.basename(path_to_smooth)
                 filename = 'images/' + image.user.username + '/' + shortfilename
                 smooth_obj = Upload.objects.create(pic=filename, user=image.user, project=image.project, final=5, imageType=3, shortfilename=shortfilename, friend=final.id)
+
+            # create allaxes warning
+            if dice < 0.3:
+                Upload.objects.create(user=image.user, project=image.project,
+                    log=1, imageType=None, shortfilename='Bad result! Activate "All axes" if you labeled axes other than the xy-plane.')
 
             # acwe
             q = Queue('acwe', connection=Redis())

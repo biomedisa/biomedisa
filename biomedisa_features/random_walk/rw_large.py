@@ -27,7 +27,8 @@
 ##########################################################################
 
 from biomedisa_features.biomedisa_helper import (_get_device, save_data, _error_, unique_file_path,
-    splitlargedata, read_labeled_slices_allx_large, read_labeled_slices_large, sendToChildLarge)
+    splitlargedata, read_labeled_slices_allx_large, read_labeled_slices_large, sendToChildLarge,
+    Dice_score)
 from mpi4py import MPI
 import numpy as np
 import time
@@ -169,6 +170,12 @@ def _diffusion_child(comm, bm=None):
                     comm.Recv([receivedata, MPI.BYTE], source=source, tag=10+(2*l+1))
                     final = np.append(final, receivedata, axis=0)
 
+            # validate result and check for allaxis
+            mask = bm.labelData>0
+            dice = Dice_score(bm.labelData, final*mask)
+            if dice < 0.3:
+                print('Warning: Bad result! Use "--allaxis" if you labeled axes other than the xy-plane.')
+
             # regular result
             final_result = np.zeros((bm.zsh, bm.ysh, bm.xsh), dtype=np.uint8)
             final_result[bm.argmin_z:bm.argmax_z, bm.argmin_y:bm.argmax_y, bm.argmin_x:bm.argmax_x] = final
@@ -238,7 +245,7 @@ def _diffusion_child(comm, bm=None):
                 from biomedisa_app.config import config
                 from biomedisa_features.django_env import post_processing
                 post_processing(bm.path_to_final, time_str, config['SERVER_ALIAS'], bm.remote, bm.queue,
-                    uncertainty=bm.uncertainty, smooth=bm.smooth,
+                    dice=dice, uncertainty=bm.uncertainty, smooth=bm.smooth,
                     path_to_uq=bm.path_to_uq, path_to_smooth=bm.path_to_smooth,
                     img_id=bm.img_id, label_id=bm.label_id)
 
