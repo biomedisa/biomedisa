@@ -408,7 +408,10 @@ if __name__ == '__main__':
     # django environment
     if bm.img_id is not None:
         bm.django_env = True
-        reference_image_path = bm.path_to_images.split(',')[:-1][-1]
+        if bm.train:
+            reference_image_path = bm.path_to_images.split(',')[:-1][-1]
+        else:
+            reference_image_path = bm.path_to_images
         bm.username = os.path.basename(os.path.dirname(reference_image_path))
         bm.shortfilename = os.path.basename(reference_image_path)
         bm.path_to_logfile = BASE_DIR + '/log/logfile.txt'
