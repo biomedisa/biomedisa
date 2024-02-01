@@ -1,4 +1,4 @@
-[![biomedisa](biomedisa_app/static/biomedisa_logo.svg)](https://biomedisa.info) has moved to https://biomedisa.info
+[![biomedisa](biomedisa_app/static/biomedisa_logo.svg)](https://biomedisa.info)
 -----------
 - [Overview](#overview)
 - [Hardware Requirements](#hardware-requirements)
@@ -232,10 +232,9 @@ label_data = clean(label_data, 0.9)
 label_data = fill(label_data, 0.9)
 ```
 
-#### Measure accuracy
+#### Accuracy assessment
 ```python
 from biomedisa_features.biomedisa_helper import Dice_score, ASSD
-
 dice = Dice_score(ground_truth, result)
 assd = ASSD(ground_truth, result)
 ```
