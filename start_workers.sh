@@ -26,6 +26,7 @@ screen -X -S cleanup quit
 screen -X -S share_notification quit
 screen -X -S stop_job quit
 screen -X -S process_image quit
+screen -X -S create_mesh quit
 
 # start workers
 uuid=$(uuidgen)
@@ -39,4 +40,5 @@ screen -d -m -S cleanup bash -c "cd ${path_to_biomedisa} && rq worker cleanup"
 screen -d -m -S share_notification bash -c "cd ${path_to_biomedisa} && rq worker share_notification"
 screen -d -m -S stop_job bash -c "cd ${path_to_biomedisa} && rq worker stop_job"
 screen -d -m -S process_image bash -c "cd ${path_to_biomedisa} && rq worker process_image"
+screen -d -m -S create_mesh bash -c "cd ${path_to_biomedisa} && rq worker create_mesh"
 

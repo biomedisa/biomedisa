@@ -215,6 +215,7 @@ def init_create_mesh(id):
     django.setup()
     from biomedisa_app.models import Upload
     from biomedisa_app.config import config
+    from biomedisa_app.views import send_data_to_host, qsub_start, qsub_stop
 
     # get object
     try:
@@ -234,12 +235,6 @@ def init_create_mesh(id):
                 log=1, imageType=None, shortfilename='No valid label data.')
 
         else:
-
-            # set status to processing
-            if img.status == 1:
-                img.status = 2
-                img.message = 'Processing'
-
             # get host information
             host = ''
             host_base = BASE_DIR
@@ -264,41 +259,66 @@ def init_create_mesh(id):
                 cmd = ['python3', host_base+'/biomedisa_features/create_mesh.py', img.pic.path.replace(BASE_DIR,host_base)]
                 cmd += [f'-iid={img.id}', '-r']
 
-                # send data to host
+                # create user directory
                 subprocess.Popen(['ssh', host, 'mkdir', '-p', host_base+'/private_storage/images/'+img.user.username]).wait()
-                subprocess.Popen(['rsync', '-avP', img.pic.path, host+':'+img.pic.path.replace(BASE_DIR,host_base)]).wait()
 
-                # create mesh
-                if 'REMOTE_QUEUE_SUBHOST' in config:
-                    cmd = ['ssh', '-t', host, 'ssh', config['REMOTE_QUEUE_SUBHOST']] + cmd
-                else:
-                    cmd = ['ssh', host] + cmd
-                subprocess.Popen(cmd).wait()
+                # send data to host
+                success=send_data_to_host(img.pic.path, host+':'+img.pic.path.replace(BASE_DIR,host_base))
+
+                # qsub start
+                subhost = None
+                if 'REMOTE_QUEUE_QSUB' in config and config['REMOTE_QUEUE_QSUB']:
+                    subhost, qsub_pid = qsub_start(host, host_base, 7)
 
                 # check if aborted
-                stopped = subprocess.Popen(['scp', host+':'+host_base+f'/log/pid_5', BASE_DIR+f'/log/pid_5']).wait()
-                subprocess.Popen(['ssh', host, 'rm', host_base+f'/log/pid_5']).wait()
+                img = Upload.objects.get(pk=img.id)
+                if img.status > 0 and success == 0:
 
-                # get result
-                if stopped==0:
-                    result_on_host = img.pic.path.replace(BASE_DIR,host_base)
-                    result_on_host = result_on_host.replace(os.path.splitext(result_on_host)[1],'.stl')
-                    result = subprocess.Popen(['scp', host+':'+result_on_host, path_to_result]).wait()
+                    # set pid and processing status
+                    img.message = 'Processing'
+                    img.status = 2
+                    img.pid = -1
+                    img.save()
 
-                    if result==0:
-                        # create object
-                        Upload.objects.create(pic=pic_path, user=img.user, project=img.project,
-                            imageType=5, shortfilename=new_short_name)
+                    # create mesh
+                    if subhost:
+                        cmd = ['ssh', '-t', host, 'ssh', subhost] + cmd
                     else:
-                        # return error
-                        Upload.objects.create(user=img.user, project=img.project,
-                            log=1, imageType=None, shortfilename='Invalid label data.')
+                        cmd = ['ssh', host] + cmd
+                    subprocess.Popen(cmd).wait()
+
+                    # check if aborted
+                    success = subprocess.Popen(['scp', host+':'+host_base+f'/log/pid_7', BASE_DIR+f'/log/pid_7']).wait()
+
+                    # get result
+                    if success==0:
+                        # remove pid file
+                        subprocess.Popen(['ssh', host, 'rm', host_base+f'/log/pid_7']).wait()
+
+                        result_on_host = img.pic.path.replace(BASE_DIR,host_base)
+                        result_on_host = result_on_host.replace(os.path.splitext(result_on_host)[1],'.stl')
+                        success = subprocess.Popen(['scp', host+':'+result_on_host, path_to_result]).wait()
+
+                        if success==0:
+                            # create object
+                            Upload.objects.create(pic=pic_path, user=img.user, project=img.project,
+                                imageType=5, shortfilename=new_short_name)
+                        else:
+                            # return error
+                            Upload.objects.create(user=img.user, project=img.project,
+                                log=1, imageType=None, shortfilename='Invalid label data.')
+
+                # qsub stop
+                if 'REMOTE_QUEUE_QSUB' in config and config['REMOTE_QUEUE_QSUB']:
+                    qsub_stop(host, host_base, 7, 'create_mesh', subhost, qsub_pid)
 
             # local server
             else:
 
-                # set pid
+                # set pid and processing status
                 img.pid = int(os.getpid())
+                img.message = 'Processing'
+                img.status = 2
                 img.save()
 
                 # load data
@@ -353,7 +373,7 @@ if __name__ == "__main__":
 
     # set pid
     if bm.remote:
-        create_pid_object(os.getpid(), True, 5, bm.img_id)
+        create_pid_object(os.getpid(), True, 7, bm.img_id)
 
     # load data
     bm.labels, header, extension = load_data(bm.path_to_labels, return_extension=True)
