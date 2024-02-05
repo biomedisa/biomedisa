@@ -361,9 +361,9 @@ def init_active_contour(image_id, friend_id, label_id, simple=False):
                 subprocess.Popen(cmd).wait()
 
                 # config
-                config = subprocess.Popen(['scp', host+':'+host_base+'/log/config_4', BASE_DIR+'/log/config_4']).wait()
+                success = subprocess.Popen(['scp', host+':'+host_base+'/log/config_4', BASE_DIR+'/log/config_4']).wait()
 
-                if config==0:
+                if success==0:
                     with open(BASE_DIR + '/log/config_4', 'r') as configfile:
                         acwe_on_host, _ = configfile.read().split()
 

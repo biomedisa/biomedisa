@@ -329,9 +329,9 @@ def init_remove_outlier(image_id, final_id, friend_id, label_id, fill_holes=True
                 subprocess.Popen(cmd).wait()
 
                 # config
-                config = subprocess.Popen(['scp', host+':'+host_base+'/log/config_6', BASE_DIR+'/log/config_6']).wait()
+                success = subprocess.Popen(['scp', host+':'+host_base+'/log/config_6', BASE_DIR+'/log/config_6']).wait()
 
-                if config==0:
+                if success==0:
                     with open(BASE_DIR + '/log/config_6', 'r') as configfile:
                         cleaned_on_host, filled_on_host, cleaned_filled_on_host = configfile.read().split()
 
