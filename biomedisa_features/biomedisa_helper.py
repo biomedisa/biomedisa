@@ -50,15 +50,6 @@ import subprocess
 import re
 import math
 
-def send_data_to_host(src, dst):
-    tmp = 1
-    while tmp!=0 and os.path.exists(src):
-        tmp = subprocess.Popen(['rsync','-avP',src,dst]).wait()
-    if os.path.exists(src):
-        return 0
-    else:
-        return 1
-
 def silent_remove(filename):
     try:
         os.remove(filename)

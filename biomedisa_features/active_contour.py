@@ -34,7 +34,7 @@ if not BASE_DIR in sys.path:
 import biomedisa
 from biomedisa_features.curvop_numba import curvop, evolution
 from biomedisa_features.biomedisa_helper import (unique_file_path, load_data, save_data,
-    pre_processing, img_to_uint8, silent_remove, send_data_to_host)
+    pre_processing, img_to_uint8, silent_remove)
 import numpy as np
 import numba
 import argparse
@@ -289,6 +289,7 @@ def init_active_contour(image_id, friend_id, label_id, simple=False):
     django.setup()
     from biomedisa_app.models import Upload
     from biomedisa_app.config import config
+    from biomedisa_app.views import send_data_to_host, qsub_start, qsub_stop
 
     # get objects
     try:
@@ -347,9 +348,14 @@ def init_active_contour(image_id, friend_id, label_id, simple=False):
 
             if success==0:
 
-                # run interpolation
-                if 'REMOTE_QUEUE_SUBHOST' in config:
-                    cmd = ['ssh', '-t', host, 'ssh', config['REMOTE_QUEUE_SUBHOST']] + cmd
+                # qsub start
+                subhost = None
+                if 'REMOTE_QUEUE_QSUB' in config and config['REMOTE_QUEUE_QSUB']:
+                    subhost, qsub_pid = qsub_start(host, host_base, 4)
+
+                # start active contour
+                if subhost:
+                    cmd = ['ssh', '-t', host, 'ssh', subhost] + cmd
                 else:
                     cmd = ['ssh', host] + cmd
                 subprocess.Popen(cmd).wait()
@@ -372,6 +378,10 @@ def init_active_contour(image_id, friend_id, label_id, simple=False):
 
                     # remove config file
                     subprocess.Popen(['ssh', host, 'rm', host_base + '/log/config_4']).wait()
+
+                # qsub stop
+                if 'REMOTE_QUEUE_QSUB' in config and config['REMOTE_QUEUE_QSUB']:
+                    qsub_stop(host, host_base, 4, 'acwe', subhost, qsub_pid)
 
         # local server
         else:
