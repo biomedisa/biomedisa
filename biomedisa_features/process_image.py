@@ -33,7 +33,7 @@ if not BASE_DIR in sys.path:
     sys.path.append(BASE_DIR)
 import numpy as np
 from biomedisa_features.biomedisa_helper import (load_data, save_data, unique_file_path,
-    img_to_uint8, smooth_img_3x3, send_data_to_host)
+    img_to_uint8, smooth_img_3x3)
 from biomedisa_features.create_slices import create_slices
 from shutil import copytree
 import argparse
@@ -46,6 +46,7 @@ def init_process_image(id, process=None):
     django.setup()
     from biomedisa_app.models import Upload
     from biomedisa_app.config import config
+    from biomedisa_app.views import send_data_to_host, qsub_start, qsub_stop
     from redis import Redis
     from rq import Queue
 
@@ -66,11 +67,6 @@ def init_process_image(id, process=None):
                 imageType=None, shortfilename='No valid image data.')
 
         else:
-            # set processing status
-            if img.status == 1:
-                img.status = 2
-                img.message = 'Processing'
-
             # get host information
             host = ''
             host_base = BASE_DIR
@@ -111,17 +107,24 @@ def init_process_image(id, process=None):
                 # send data to host
                 success=send_data_to_host(img.pic.path, host+':'+img.pic.path.replace(BASE_DIR,host_base))
 
+                # qsub start
+                subhost = None
+                if 'REMOTE_QUEUE_QSUB' in config and config['REMOTE_QUEUE_QSUB']:
+                    subhost, qsub_pid = qsub_start(host, host_base, 5)
+
                 # check if aborted
                 img = Upload.objects.get(pk=img.id)
                 if img.status > 0 and success == 0:
 
-                    # set pid
-                    img.pid=-1
+                    # set pid and processing status
+                    img.message = 'Processing'
+                    img.status = 2
+                    img.pid = -1
                     img.save()
 
                     # process image
-                    if 'REMOTE_QUEUE_SUBHOST' in config:
-                        cmd = ['ssh', '-t', host, 'ssh', config['REMOTE_QUEUE_SUBHOST']] + cmd
+                    if subhost:
+                        cmd = ['ssh', '-t', host, 'ssh', subhost] + cmd
                     else:
                         cmd = ['ssh', host] + cmd
                     subprocess.Popen(cmd).wait()
@@ -148,11 +151,17 @@ def init_process_image(id, process=None):
                             Upload.objects.create(user=img.user, project=img.project,
                                 log=1, imageType=None, shortfilename='Invalid data.')
 
+                # qsub stop
+                if 'REMOTE_QUEUE_QSUB' in config and config['REMOTE_QUEUE_QSUB']:
+                    qsub_stop(host, host_base, 5, 'process_image', subhost, qsub_pid)
+
             # local server
             else:
 
-                # set pid
+                # set pid and processing status
                 img.pid = int(os.getpid())
+                img.message = 'Processing'
+                img.status = 2
                 img.save()
 
                 # load data

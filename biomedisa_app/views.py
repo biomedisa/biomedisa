@@ -52,7 +52,7 @@ from biomedisa_features.create_mesh import init_create_mesh
 from biomedisa_features.process_image import init_process_image
 from biomedisa_features.create_slices import create_slices
 from biomedisa_features.biomedisa_helper import (load_data, save_data, id_generator,
-    unique_file_path, _get_platform, smooth_img_3x3, img_to_uint8, send_data_to_host)
+    unique_file_path, _get_platform, smooth_img_3x3, img_to_uint8)
 from biomedisa_features.django_env import post_processing, create_error_object
 from django.utils.crypto import get_random_string
 from biomedisa_app.config import config
@@ -990,6 +990,45 @@ def rename_file(request):
                 results = {'success':True}
     return JsonResponse(results)
 
+def send_data_to_host(src, dst):
+    tmp = 1
+    while tmp!=0 and os.path.exists(src):
+        tmp = subprocess.Popen(['rsync','-avP',src,dst]).wait()
+    if os.path.exists(src):
+        return 0
+    else:
+        return 1
+
+def qsub_start(host, host_base, queue_id):
+    # check compute server is running
+    qsub = subprocess.Popen(['scp', host + ':' + host_base + f'/log/qsub_{queue_id}', BASE_DIR + f'/log/qsub_{queue_id}']).wait()
+
+    # request compute server
+    if qsub!=0:
+        subprocess.Popen(['ssh', host, 'qsub', f'biomedisa_queue_{queue_id}.sh'])
+
+    # wait for server being started
+    while qsub!=0:
+        qsub = subprocess.Popen(['scp', host + ':' + host_base + f'/log/qsub_{queue_id}', BASE_DIR + f'/log/qsub_{queue_id}']).wait()
+        time.sleep(3)
+
+    # get pid and subhost
+    with open(BASE_DIR + f'/log/qsub_{queue_id}', 'r') as qsubfile:
+        subhost, qsub_pid = qsubfile.read().split(',')
+    subhost = subhost.split('.')[0]
+
+    return subhost, qsub_pid
+
+def qsub_stop(host, host_base, queue_id, queue_name, subhost, qsub_pid):
+    # stop server if queue is empty
+    q = Queue(queue_name, connection=Redis())
+    if len(q)==0:
+        # remove qsub file
+        subprocess.Popen(['ssh', host, 'rm', host_base + f'/log/qsub_{queue_id}']).wait()
+
+        # stop process on remote server
+        subprocess.Popen(['ssh', '-t', host, 'ssh', subhost, 'kill', qsub_pid]).wait()
+
 # init_keras_3D
 def init_keras_3D(image, label, predict, img_list=None, label_list=None,
     val_img_list=None, val_label_list=None):
@@ -1016,11 +1055,11 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
         # get queue configuration
         my_env = None
         if 'first_worker' in worker_name:
-            QUEUE, queue_id = 'FIRST', 1
+            QUEUE, queue_id, queue_name = 'FIRST', 1, 'first_queue'
         elif 'second_worker' in worker_name:
-            QUEUE, queue_id = 'SECOND', 2
+            QUEUE, queue_id, queue_name = 'SECOND', 2, 'second_queue'
         elif 'third_worker' in worker_name:
-            QUEUE, queue_id = 'THIRD', 3
+            QUEUE, queue_id, queue_name = 'THIRD', 3, 'third_queue'
             if image.queue == 1:
                 image.queue = 3
                 image.save()
@@ -1032,19 +1071,8 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
         q = Queue('check_queue', connection=Redis())
         job = q.enqueue_call(init_check_queue, args=(image.id, queue_id,), timeout=-1)
 
-        # set status to processing
-        train = False if predict else True
-        image.status = 2
-        if predict or host:
-            image.message = 'Processing'
-        elif label.automatic_cropping:
-            image.message = 'Train automatic cropping'
-        else:
-            image.message = 'Progress 0%'
-        image.path_to_model = ''
-        image.save()
-
         # send start notification
+        train = False if predict else True
         if train:
             send_start_notification(image)
 
@@ -1150,18 +1178,26 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
                     for path in val_label_list.split(',')[:-1]:
                         success+=send_data_to_host(path, host+':'+path.replace(BASE_DIR,host_base))
 
+            # qsub start
+            subhost = None
+            if f'{QUEUE}_QUEUE_QSUB' in config and config[f'{QUEUE}_QUEUE_QSUB']:
+                subhost, qsub_pid = qsub_start(host, host_base, queue_id)
+
             # check if aborted
             image = Upload.objects.get(pk=image.id)
             if image.status > 0 and success == 0:
 
-                # set pid
-                image.pid=-1
+                # set pid and status to processing
+                image.message = 'Processing'
+                image.path_to_model = ''
+                image.status = 2
+                image.pid = -1
                 image.save()
 
-                # run deep learning
+                # start deep learning
                 cmd[1] = cwd+'biomedisa_deeplearning.py'
-                if f'{QUEUE}_QUEUE_SUBHOST' in config:
-                    cmd = ['ssh', '-t', host, 'ssh', config[f'{QUEUE}_QUEUE_SUBHOST']] + cmd
+                if subhost:
+                    cmd = ['ssh', '-t', host, 'ssh', subhost] + cmd
                 else:
                     cmd = ['ssh', host] + cmd
                 cmd += ['-re', f'-q={queue_id}']
@@ -1228,9 +1264,29 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
                 if stopped == 0:
                     subprocess.Popen(['ssh', host, 'rm', host_base + f'/log/pid_{queue_id}']).wait()
 
+            # qsub stop
+            if f'{QUEUE}_QUEUE_QSUB' in config and config[f'{QUEUE}_QUEUE_QSUB']:
+                qsub_stop(host, host_base, queue_id, queue_name, subhost, qsub_pid)
+
         # local server
         else:
-            subprocess.Popen(cmd, cwd=cwd, env=my_env).wait()
+            # check if aborted
+            image = Upload.objects.get(pk=image.id)
+            if image.status > 0:
+
+                # set status to processing
+                image.status = 2
+                if predict:
+                    image.message = 'Processing'
+                elif label.automatic_cropping:
+                    image.message = 'Train automatic cropping'
+                else:
+                    image.message = 'Progress 0%'
+                image.path_to_model = ''
+                image.save()
+
+                # start deep learning
+                subprocess.Popen(cmd, cwd=cwd, env=my_env).wait()
 
 # 25. features
 def features(request, action):
@@ -1313,11 +1369,16 @@ def features(request, action):
                         lenq = len(q)
                         img.queue = 1
 
-                    if lenq == 0:
+                    # processing message
+                    if lenq==0 and ((config['FIRST_QUEUE_HOST'] and queue_short=='A') or (config['SECOND_QUEUE_HOST'] and queue_short=='B')):
+                        img.message = 'Waiting for the process to start'
+                        img.status = 2
+                    elif lenq==0:
                         img.message = 'Processing'
+                        img.status = 2
                     else:
                         img.message = f'Queue {queue_short} position {lenq} of {lenq}'
-                    img.status = 1
+                        img.status = 1
                     img.job_id = job.id
                     img.save()
 
@@ -1369,16 +1430,22 @@ def features(request, action):
             q = Queue(queue_name, connection=Redis())
             job = q.enqueue_call(init_keras_3D, args=(raw_out.id, label_out.id, False,
                                  img_list, label_list, val_img_list, val_label_list), timeout=-1)
+
+            # processing message
             lenq = len(q)
-            raw_out.job_id = job.id
-            if lenq == 0:
+            if lenq==0 and ((config['FIRST_QUEUE_HOST'] and queue_short=='A') or (config['THIRD_QUEUE_HOST'] and queue_short=='C')):
+                raw_out.message = 'Waiting for the process to start'
+                raw_out.status = 2
+            elif lenq==0:
                 if label_out.automatic_cropping:
                     raw_out.message = 'Train automatic cropping'
                 else:
                     raw_out.message = 'Progress 0%'
+                raw_out.status = 2
             else:
                 raw_out.message = f'Queue {queue_short} position {lenq} of {lenq}'
-            raw_out.status = 1
+                raw_out.status = 1
+            raw_out.job_id = job.id
             raw_out.save()
 
     # duplicate file
@@ -1448,16 +1515,21 @@ def features(request, action):
                 if img.status > 0:
                     request.session['state'] = img.shortfilename + ' is already being processed.'
                 else:
-                    q = Queue('process_image', connection=Redis())
                     if int(action) == 7:
+                        q = Queue('process_image', connection=Redis())
                         job = q.enqueue_call(init_process_image, args=(img.id, 'convert',), timeout=-1)
                     elif int(action) == 8:
+                        q = Queue('process_image', connection=Redis())
                         job = q.enqueue_call(init_process_image, args=(img.id, 'smooth',), timeout=-1)
                     elif int(action) == 11:
+                        q = Queue('create_mesh', connection=Redis())
                         job = q.enqueue_call(init_create_mesh, args=(img.id,), timeout=-1)
                     lenq = len(q)
                     img.job_id = job.id
-                    if lenq == 0:
+                    if lenq==0 and config['REMOTE_QUEUE_HOST']:
+                        img.status = 2
+                        img.message = 'Waiting for the process to start'
+                    elif lenq==0:
                         img.status = 2
                         img.message = 'Processing'
                     else:
@@ -2101,11 +2173,11 @@ def init_random_walk(image, label):
         # get queue configuration
         my_env = None
         if 'first_worker' in worker_name:
-            QUEUE, queue_id = 'FIRST', 1
+            QUEUE, queue_id, queue_name = 'FIRST', 1, 'first_queue'
         elif 'second_worker' in worker_name:
-            QUEUE, queue_id = 'SECOND', 2
+            QUEUE, queue_id, queue_name = 'SECOND', 2, 'second_queue'
         elif 'third_worker' in worker_name:
-            QUEUE, queue_id = 'THIRD', 3
+            QUEUE, queue_id, queue_name = 'THIRD', 3, 'third_queue'
             if image.queue == 1:
                 image.queue = 3
                 image.save()
@@ -2121,11 +2193,6 @@ def init_random_walk(image, label):
         # search for failed jobs in queue
         q = Queue('check_queue', connection=Redis())
         job = q.enqueue_call(init_check_queue, args=(image.id, queue_id,), timeout=-1)
-
-        # set status to processing
-        image.status = 2
-        image.message = 'Processing'
-        image.save()
 
         # get platform
         if image.user.profile.platform:
@@ -2207,17 +2274,24 @@ def init_random_walk(image, label):
             success+=send_data_to_host(image.pic.path, host+':'+image.pic.path.replace(BASE_DIR,host_base))
             success+=send_data_to_host(label.pic.path, host+':'+label.pic.path.replace(BASE_DIR,host_base))
 
+            # qsub start
+            subhost = None
+            if f'{QUEUE}_QUEUE_QSUB' in config and config[f'{QUEUE}_QUEUE_QSUB']:
+                subhost, qsub_pid = qsub_start(host, host_base, queue_id)
+
             # check if aborted
             image = Upload.objects.get(pk=image.id)
             if image.status > 0 and success == 0:
 
-                # set pid
-                image.pid=-1
+                # set pid and status to processing
+                image.message = 'Processing'
+                image.status = 2
+                image.pid = -1
                 image.save()
 
-                # run interpolation
-                if f'{QUEUE}_QUEUE_SUBHOST' in config:
-                    cmd = ['ssh', '-t', host, 'ssh', config[f'{QUEUE}_QUEUE_SUBHOST']] + cmd
+                # start interpolation
+                if subhost:
+                    cmd = ['ssh', '-t', host, 'ssh', subhost] + cmd
                 else:
                     cmd = ['ssh', host] + cmd
                 cmd += ['-r', f'-q={queue_id}']
@@ -2280,9 +2354,23 @@ def init_random_walk(image, label):
                 if stopped == 0:
                     subprocess.Popen(['ssh', host, 'rm', host_base + f'/log/pid_{queue_id}']).wait()
 
+            # qsub stop
+            if f'{QUEUE}_QUEUE_QSUB' in config and config[f'{QUEUE}_QUEUE_QSUB']:
+                qsub_stop(host, host_base, queue_id, queue_name, subhost, qsub_pid)
+
         # local server
         else:
-            subprocess.Popen(cmd, cwd=cwd, env=my_env).wait()
+            # check if aborted
+            image = Upload.objects.get(pk=image.id)
+            if image.status > 0:
+
+                # set status to processing
+                image.message = 'Processing'
+                image.status = 2
+                image.save()
+
+                # start interpolation
+                subprocess.Popen(cmd, cwd=cwd, env=my_env).wait()
 
 # 43. run random walks
 @login_required
@@ -2325,12 +2413,17 @@ def run(request):
                     lenq = len(q1)
                     raw.queue = 1
 
-                raw.job_id = job.id
-                if lenq == 0:
+                # processing message
+                if lenq==0 and ((config['FIRST_QUEUE_HOST'] and queue_name=='A') or (config['SECOND_QUEUE_HOST'] and queue_name=='B')):
+                    raw.message = 'Waiting for the process to start'
+                    raw.status = 2
+                elif lenq==0:
                     raw.message = 'Processing'
+                    raw.status = 2
                 else:
                     raw.message = f'Queue {queue_name} position {lenq} of {lenq}'
-                raw.status = 1
+                    raw.status = 1
+                raw.job_id = job.id
                 raw.save()
 
             results = {'success':True}
@@ -2340,18 +2433,18 @@ def run(request):
     return JsonResponse(results)
 
 # 44. stop running job
-def stop_running_job(id, queue):
-    id = int(id)
-    queue = int(queue)
+def stop_running_job(pid, queue_id):
+    pid = int(pid)
+    queue_id = int(queue_id)
 
     # get configuration
-    if queue == 1:
+    if queue_id == 1:
         QUEUE, host = 'FIRST', config['FIRST_QUEUE_HOST']
-    elif queue == 2:
+    elif queue_id == 2:
         QUEUE, host = 'SECOND', config['SECOND_QUEUE_HOST']
-    elif queue == 3:
+    elif queue_id == 3:
         QUEUE, host = 'THIRD', config['THIRD_QUEUE_HOST']
-    elif queue == 5:
+    elif queue_id == 5:
         if 'REMOTE_QUEUE_HOST' in config:
             QUEUE, host = 'REMOTE', config['REMOTE_QUEUE_HOST']
         else:
@@ -2363,13 +2456,19 @@ def stop_running_job(id, queue):
             host_base = BASE_DIR
             if host and f'{QUEUE}_QUEUE_BASE_DIR' in config:
                 host_base = config[f'{QUEUE}_QUEUE_BASE_DIR']
-            if f'{QUEUE}_QUEUE_SUBHOST' in config:
-                cmd = ['ssh', '-t', host, 'ssh', config[f'{QUEUE}_QUEUE_SUBHOST'], 'python3', host_base+f'/biomedisa_features/pid.py', str(queue)]
+
+            # kill qsub process
+            if f'{QUEUE}_QUEUE_QSUB' in config and config[f'{QUEUE}_QUEUE_QSUB']:
+                # get subhost
+                with open(BASE_DIR + f'/log/qsub_{queue_id}', 'r') as qsubfile:
+                    subhost, _ = qsubfile.read().split(',')
+                subhost = subhost.split('.')[0]
+                cmd = ['ssh', '-t', host, 'ssh', subhost, 'python3', host_base+f'/biomedisa_features/pid.py', str(queue_id)]
             else:
-                cmd = ['ssh', host, 'python3', host_base+f'/biomedisa_features/pid.py', str(queue)]
+                cmd = ['ssh', host, 'python3', host_base+f'/biomedisa_features/pid.py', str(queue_id)]
             subprocess.Popen(cmd)
         else:
-            subprocess.Popen(['kill', str(id)])
+            subprocess.Popen(['kill', str(pid)])
     except:
         pass
 

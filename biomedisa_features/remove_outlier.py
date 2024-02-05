@@ -33,7 +33,7 @@ if not BASE_DIR in sys.path:
     sys.path.append(BASE_DIR)
 import biomedisa
 from biomedisa_features.biomedisa_helper import (load_data, save_data,
-    unique_file_path, silent_remove, send_data_to_host)
+    unique_file_path, silent_remove)
 import numpy as np
 from scipy import ndimage
 import argparse
@@ -264,6 +264,7 @@ def init_remove_outlier(image_id, final_id, friend_id, label_id, fill_holes=True
     django.setup()
     from biomedisa_app.models import Upload
     from biomedisa_app.config import config
+    from biomedisa_app.views import send_data_to_host, qsub_start, qsub_stop
 
     # get objects
     try:
@@ -315,9 +316,14 @@ def init_remove_outlier(image_id, final_id, friend_id, label_id, fill_holes=True
 
             if success==0:
 
-                # run interpolation
-                if 'REMOTE_QUEUE_SUBHOST' in config:
-                    cmd = ['ssh', '-t', host, 'ssh', config['REMOTE_QUEUE_SUBHOST']] + cmd
+                # qsub start
+                subhost = None
+                if 'REMOTE_QUEUE_QSUB' in config and config['REMOTE_QUEUE_QSUB']:
+                    subhost, qsub_pid = qsub_start(host, host_base, 6)
+
+                # start removing outliers
+                if subhost:
+                    cmd = ['ssh', '-t', host, 'ssh', subhost] + cmd
                 else:
                     cmd = ['ssh', host] + cmd
                 subprocess.Popen(cmd).wait()
@@ -345,6 +351,10 @@ def init_remove_outlier(image_id, final_id, friend_id, label_id, fill_holes=True
 
                     # remove config file
                     subprocess.Popen(['ssh', host, 'rm', host_base + '/log/config_6']).wait()
+
+                # qsub stop
+                if 'REMOTE_QUEUE_QSUB' in config and config['REMOTE_QUEUE_QSUB']:
+                    qsub_stop(host, host_base, 6, 'cleanup', subhost, qsub_pid)
 
         # local server
         else:
