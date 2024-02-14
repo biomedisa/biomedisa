@@ -112,10 +112,11 @@ def img_resize(a, z_shape, y_shape, x_shape, interpolation=None, labels=False):
     if labels:
         data = np.zeros((z_shape, y_shape, x_shape), dtype=a.dtype)
         for k in np.unique(a):
-            tmp = np.zeros(a.shape, dtype=np.uint8)
-            tmp[a==k] = 1
-            tmp = __resize__(tmp)
-            data[tmp==1] = k
+            if k!=0:
+                tmp = np.zeros(a.shape, dtype=np.uint8)
+                tmp[a==k] = 1
+                tmp = __resize__(tmp)
+                data[tmp==1] = k
     elif len(a.shape) > 3:
         data = np.empty((z_shape, y_shape, x_shape, csh), dtype=a.dtype)
         for channel in range(csh):
