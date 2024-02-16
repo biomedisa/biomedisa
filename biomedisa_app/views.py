@@ -840,9 +840,19 @@ def storage(request):
                 if extension == '.gz':
                     path_to_dir, extension = os.path.splitext(path_to_dir)
                 if extension == '.zip':
-                    zip_ref = zipfile.ZipFile(newimg.pic.path, 'r')
-                    zip_ref.extractall(path=path_to_dir)
-                    zip_ref.close()
+                    try:
+                        zip_ref = zipfile.ZipFile(newimg.pic.path, 'r')
+                        zip_ref.extractall(path=path_to_dir)
+                        zip_ref.close()
+                    except:
+                        try:
+                            success = subprocess.Popen(['unzip',newimg.pic.path,'-d',path_to_dir]).wait()
+                            if success != 0:
+                                if os.path.isdir(path_to_dir):
+                                    shutil.rmtree(path_to_dir)
+                        except:
+                            if os.path.isdir(path_to_dir):
+                                shutil.rmtree(path_to_dir)
                     recursive_file_permissions(path_to_dir)
                 elif extension == '.tar':
                     tar = tarfile.open(newimg.pic.path)
@@ -1638,9 +1648,19 @@ def app(request):
             if extension == '.gz':
                 path_to_dir, extension = os.path.splitext(path_to_dir)
             if extension == '.zip':
-                zip_ref = zipfile.ZipFile(newimg.pic.path, 'r')
-                zip_ref.extractall(path=path_to_dir)
-                zip_ref.close()
+                try:
+                    zip_ref = zipfile.ZipFile(newimg.pic.path, 'r')
+                    zip_ref.extractall(path=path_to_dir)
+                    zip_ref.close()
+                except:
+                    try:
+                        success = subprocess.Popen(['unzip',newimg.pic.path,'-d',path_to_dir]).wait()
+                        if success != 0:
+                            if os.path.isdir(path_to_dir):
+                                shutil.rmtree(path_to_dir)
+                    except:
+                        if os.path.isdir(path_to_dir):
+                            shutil.rmtree(path_to_dir)
                 recursive_file_permissions(path_to_dir)
             elif extension == '.tar':
                 tar = tarfile.open(newimg.pic.path)
