@@ -45,7 +45,7 @@ import cv2
 import time
 import zipfile
 import numba
-from shutil import copytree
+import shutil
 import subprocess
 import re
 import math
@@ -223,9 +223,14 @@ def unique_file_path(path, dir_path=PRIVATE_STORAGE_ROOT+'/'):
 def id_generator(size, chars):
     return ''.join(random.choice(chars) for x in range(size))
 
-def rgb2gray(img):
+def rgb2gray(img, channel='last'):
     """Convert a RGB image to gray scale."""
-    return 0.2989*img[:,:,0] + 0.587*img[:,:,1] + 0.114*img[:,:,2]
+    if channel=='last':
+        out =  0.2989*img[:,:,0] + 0.587*img[:,:,1] + 0.114*img[:,:,2]
+    elif channel=='first':
+        out = 0.2989*img[0,:,:] + 0.587*img[1,:,:] + 0.114*img[2,:,:]
+    out = out.astype(img.dtype)
+    return out
 
 def load_data(path_to_data, process='None', return_extension=False):
 
@@ -275,51 +280,76 @@ def load_data(path_to_data, process='None', return_extension=False):
                 zip_ref.close()
         except Exception as e:
             print(e)
-            data, header = None, None
+            print('Using unzip package...')
+            try:
+                success = subprocess.Popen(['unzip',path_to_data,'-d',path_to_data[:-4]]).wait()
+                if success != 0:
+                    if os.path.isdir(path_to_data[:-4]):
+                        shutil.rmtree(path_to_data[:-4])
+                    data, header = None, None
+            except Exception as e:
+                print(e)
+                if os.path.isdir(path_to_data[:-4]):
+                    shutil.rmtree(path_to_data[:-4])
+                data, header = None, None
 
         # list of files
-        files = glob.glob(path_to_data[:-4]+'/**/*', recursive=True)
-        for file in files:
-            if os.path.splitext(file)[1] == '.nc' or os.path.splitext(os.path.splitext(file)[0])[1] == '.nc':
-                extension = '.nc'
-        if extension == '.nc':
-            try:
-                data, header = nc_to_np(path_to_data[:-4])
-            except Exception as e:
-                print(e)
-                data, header = None, None
-        else:
-            try:
-                # remove unreadable files or directories
-                for name in files:
-                    if os.path.isfile(name):
-                        try:
-                            img, _ = load(name)
-                        except:
+        if os.path.isdir(path_to_data[:-4]):
+            files = glob.glob(path_to_data[:-4]+'/**/*', recursive=True)
+            for file in files:
+                if os.path.splitext(file)[1] == '.nc' or os.path.splitext(os.path.splitext(file)[0])[1] == '.nc':
+                    extension = '.nc'
+            if extension == '.nc':
+                try:
+                    data, header = nc_to_np(path_to_data[:-4])
+                except Exception as e:
+                    print(e)
+                    data, header = None, None
+            else:
+                try:
+                    # remove unreadable files or directories
+                    for name in files:
+                        if os.path.isfile(name):
+                            try:
+                                img, _ = load(name)
+                            except:
+                                files.remove(name)
+                        else:
                             files.remove(name)
-                    else:
-                        files.remove(name)
-                files.sort()
+                    files.sort()
 
-                # load data slice by slice
-                img, _ = load(files[0])
-                data = np.zeros((len(files), img.shape[0], img.shape[1]), dtype=img.dtype)
-                header, image_data_shape = [], []
-                for k, file_name in enumerate(files):
-                    img, img_header = load(file_name)
-                    if len(img.shape) == 3 and img.shape[2] == 3:
-                        img = rgb2gray(img)
-                        extension = '.tif'
-                    elif len(img.shape) == 3 and img.shape[2] == 1:
-                        img = img[:,:,0]
-                    data[k] = img
-                    header.append(img_header)
-                header = [header, files, data.dtype]
-                data = np.swapaxes(data, 1, 2)
-                data = np.copy(data, order='C')
-            except Exception as e:
-                print(e)
-                data, header = None, None
+                    # get data size
+                    img, _ = load(files[0])
+                    if len(img.shape)==3:
+                        ysh, xsh, csh = img.shape[0], img.shape[1], img.shape[2]
+                        channel = 'last'
+                        if ysh < csh:
+                            csh, ysh, xsh = img.shape[0], img.shape[1], img.shape[2]
+                            channel = 'first'
+                    else:
+                        ysh, xsh = img.shape[0], img.shape[1]
+                        csh, channel = 0, None
+
+                    # load data slice by slice
+                    data = np.empty((len(files), ysh, xsh), dtype=img.dtype)
+                    header, image_data_shape = [], []
+                    for k, file_name in enumerate(files):
+                        img, img_header = load(file_name)
+                        if csh==3:
+                            img = rgb2gray(img, channel)
+                            extension = '.tif'
+                        elif csh==1 and channel=='last':
+                            img = img[:,:,0]
+                        elif csh==1 and channel=='first':
+                            img = img[0,:,:]
+                        data[k] = img
+                        header.append(img_header)
+                    header = [header, files, data.dtype]
+                    data = np.swapaxes(data, 1, 2)
+                    data = np.copy(data, order='C')
+                except Exception as e:
+                    print(e)
+                    data, header = None, None
 
     elif extension == '.mrc':
         try:
