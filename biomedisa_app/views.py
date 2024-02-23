@@ -1746,7 +1746,7 @@ def app(request):
     img.fields['project'].initial = [current_project]
 
     # get all images
-    images = Upload.objects.filter(user=request.user)
+    images = Upload.objects.filter(user=request.user, project__gt=0)
     process_running = 0
     process_list = ""
 
@@ -1790,7 +1790,7 @@ def app(request):
                 image.save()
 
     # update list of images
-    images = Upload.objects.filter(user=request.user)
+    images = Upload.objects.filter(user=request.user, project__gt=0)
 
     # check which projects can be started
     StartProject = np.zeros(9)
