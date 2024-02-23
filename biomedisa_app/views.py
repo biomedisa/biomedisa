@@ -540,7 +540,7 @@ def change_active_final(request, id, val):
     else:
         return redirect(app)
 
-# 17. sliceviewer
+# imageviewer
 @login_required
 def imageviewer(request, id):
     id = int(id)
@@ -862,6 +862,9 @@ def storage(request):
                 newimg.shortfilename = os.path.basename(newimg.pic.path)
                 newimg.save()
 
+                # update size of user data
+                request.session['datasize'] = get_size(PRIVATE_STORAGE_ROOT + '/images/' + request.user.username)
+
                 # untar or unzip if necessary
                 path_to_dir, extension = os.path.splitext(newimg.pic.path)
                 if extension == '.gz':
@@ -895,7 +898,11 @@ def storage(request):
 
     # storage size
     storage_size = request.user.profile.storage_size
-    datasize = get_size(PRIVATE_STORAGE_ROOT + '/images/' + request.user.username)
+    if 'datasize' in request.session:
+        datasize = request.session['datasize']
+    else:
+        datasize = get_size(PRIVATE_STORAGE_ROOT + '/images/' + request.user.username)
+        request.session['datasize'] = datasize
     storage_full = 1 if datasize > storage_size*10e8 else 0
     datasize *= 10e-10
     if datasize < 1:
@@ -1674,6 +1681,9 @@ def app(request):
             newimg.shortfilename = os.path.basename(newimg.pic.path)
             newimg.save()
 
+            # update size of user data
+            request.session['datasize'] = get_size(PRIVATE_STORAGE_ROOT + '/images/' + request.user.username)
+
             # untar or unzip if necessary
             path_to_dir, extension = os.path.splitext(newimg.pic.path)
             if extension == '.gz':
@@ -1807,7 +1817,11 @@ def app(request):
 
     # get storage size of user
     storage_size = request.user.profile.storage_size
-    datasize = get_size(PRIVATE_STORAGE_ROOT + '/images/' + request.user.username)
+    if 'datasize' in request.session:
+        datasize = request.session['datasize']
+    else:
+        datasize = get_size(PRIVATE_STORAGE_ROOT + '/images/' + request.user.username)
+        request.session['datasize'] = datasize
     storage_full = 1 if datasize > storage_size*10e8 else 0
     datasize *= 10e-10
     if datasize < 1:
@@ -2040,6 +2054,9 @@ def accept_shared_data(request):
                     img.shared = 0
                     img.save()
 
+                # update size of user data
+                request.session['datasize'] = get_size(PRIVATE_STORAGE_ROOT + '/images/' + request.user.username)
+
                 results = {'success':True}
             else:
                 state = 'Data has already been removed.'
@@ -2190,6 +2207,8 @@ def delete(request):
                             img.delete()
                     else:
                         stock_to_delete.delete()
+                    # update size of user data
+                    request.session['datasize'] = get_size(PRIVATE_STORAGE_ROOT + '/images/' + request.user.username)
             results = {'success':True}
         except:
             pass
