@@ -694,8 +694,7 @@ class Metrics(Callback):
                 logs["val_accuracy"] = dice
                 logs["best_acc"] = max(self.history['accuracy'])
                 logs["best_val"] = max(self.history['val_accuracy'])
-                if not self.django_env:
-                    save_history(self.history, self.path_to_model, False, self.train_tf)
+                save_history(self.history, self.path_to_model, False, self.train_tf)
 
                 # print accuracies
                 print('\nValidation history:')

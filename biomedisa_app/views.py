@@ -542,6 +542,33 @@ def change_active_final(request, id, val):
 
 # 17. sliceviewer
 @login_required
+def imageviewer(request, id):
+    id = int(id)
+    stock_to_show = get_object_or_404(Upload, pk=id)
+    if stock_to_show.user == request.user:
+
+        # link data from stoarge to media
+        prefix = generate_activation_key()
+        path_to_image = '/media/' + prefix
+        dest = BASE_DIR + path_to_image
+        os.symlink(stock_to_show.pic.path, dest)
+
+        # create symlinks wich are removed when "app" is called or user loggs out
+        try:
+            symlinks = request.session["symlinks"]
+            symlinks.append(dest)
+            request.session["symlinks"] = symlinks
+        except:
+            request.session["symlinks"] = [dest]
+
+        # read image file
+        with open(dest, 'rb') as f:
+            image_data = f.read()
+
+        return HttpResponse(image_data, content_type='image/png')
+
+# 17. sliceviewer
+@login_required
 def sliceviewer(request, id):
     id = int(id)
     stock_to_show = get_object_or_404(Upload, pk=id)
@@ -1239,6 +1266,7 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
                         if cropped_on_host=='None':
                             cropped_on_host=None
                         time_str = time_str.replace('-',' ')
+                        validation=True if label.validation_split or (val_img_list and val_label_list) else False
 
                         # local file names
                         path_to_model, path_to_final, path_to_cropped_image = None, None, None
@@ -1256,11 +1284,14 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
                                 subprocess.Popen(['scp', host+':'+cropped_on_host, path_to_cropped_image]).wait()
                         else:
                             subprocess.Popen(['scp', host+':'+model_on_host, path_to_model]).wait()
+                            if validation:
+                                subprocess.Popen(['scp', host+':'+model_on_host.replace('.h5','_acc.png'), path_to_model.replace('.h5','_acc.png')]).wait()
+                                subprocess.Popen(['scp', host+':'+model_on_host.replace('.h5','_loss.png'), path_to_model.replace('.h5','_loss.png')]).wait()
 
                         # post processing
                         post_processing(path_to_final, time_str, server_name, False, None,
                             path_to_cropped_image=path_to_cropped_image, path_to_model=path_to_model,
-                            predict=predict, train=train,
+                            predict=predict, train=train, validation=validation,
                             img_id=image.id, label_id=label.id)
 
                         # remove config file
