@@ -14,7 +14,7 @@ sudo apt-get install python3 python3-dev python3-pip
 
 #### Install software dependencies
 ```
-sudo apt-get install libsm6 libxrender-dev \
+sudo apt-get install libsm6 libxrender-dev unzip \
     libboost-python-dev build-essential libssl-dev cmake \
     openmpi-bin openmpi-doc libopenmpi-dev git libgl1 \
     ocl-icd-libopencl1 opencl-headers clinfo ocl-icd-opencl-dev lsb-core

@@ -90,6 +90,7 @@ urlpatterns = [
     url(r'^visualization/$', views.visualization, name='visualization'),
     url(r'^visualization_demo/$', views.visualization_demo, name='visualization_demo'),
     # sliceviewer
+    url(r'^imageviewer/(?P<id>\d+)/$', views.imageviewer, name='imageviewer'),
     url(r'^sliceviewer/(?P<id>\d+)/$', views.sliceviewer, name='sliceviewer'),
     url(r'^sliceviewer_demo/$', views.sliceviewer_demo, name='sliceviewer_demo'),
     # stop running process or remove from queue
