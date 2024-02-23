@@ -57,6 +57,11 @@ function visualizationFunction(id) {
     window.close();
 }
 
+function viewFunction(id) {
+    window.location.href = "/imageviewer/" + id;
+    window.close();
+}
+
 function changeFunction(id, val) {
     window.location.href = "/change_active_final/" + id + "/" + val + "/?next=app";
     window.close();
@@ -368,6 +373,18 @@ $(document).ready(addClickHandlers);
                 <div id="img{{ img.id }}" >
                   <p>
                   <a href=# onclick="visualizationFunction({{img.id}})"><img src="/static/file_mesh.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
+                  <span class="delete_link" id="{{img.id}},{{img.status}},{{ img.project }},Delete File?"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+                  <a href="/download/{{img.id}}"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+                  <span class="move_link" id="{{img.id}},{{img.status}}"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+                  <span class="share_link" id="{{img.id}}"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+                  <input type="checkbox" name="selected" value="{{img.id}}"/> </br>
+                  <span class="rename_link" id="{{img.id}},{{img.shortfilename}}" title="rename">{{ img.shortfilename }}</span>
+                  </p>
+                </div>
+              {% elif img.imageType == 6 %}
+                <div id="img{{ img.id }}" >
+                  <p>
+                  <a href=# onclick="viewFunction({{img.id}})"><img src="/static/file_log.svg" title="accuracy" style="width:50px;height:50px;border:0;"></a>
                   <span class="delete_link" id="{{img.id}},{{img.status}},{{ img.project }},Delete File?"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
                   <a href="/download/{{img.id}}"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
                   <span class="move_link" id="{{img.id}},{{img.status}}"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;cursor:pointer;"></span>

@@ -257,10 +257,11 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
     if bm.django_env:
         from biomedisa_app.config import config
         from biomedisa_features.django_env import post_processing
+        validation=True if bm.validation_split or bm.val_images[0] is not None else False
         post_processing(bm.path_to_final, time_str, config['SERVER_ALIAS'], bm.remote, bm.queue,
             img_id=bm.img_id, label_id=bm.label_id, path_to_model=bm.path_to_model,
             path_to_cropped_image=(bm.path_to_cropped_image if crop_data else None),
-            train=bm.train, predict=bm.predict)
+            train=bm.train, predict=bm.predict, validation=validation)
 
         # write in log file
         path_to_time = BASE_DIR + '/log/time.txt'
