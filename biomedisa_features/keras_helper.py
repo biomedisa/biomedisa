@@ -753,7 +753,7 @@ def train_semantic_segmentation(bm,
                     bm.only, bm.ignore, img_val, label_val, normalization_parameters, allLabels)
 
     elif bm.validation_split:
-        split = zsh - round(zsh * bm.validation_split)
+        split = round(zsh * bm.validation_split)
         img_val = np.copy(img[split:])
         label_val = np.copy(label[split:])
         img = np.copy(img[:split])
