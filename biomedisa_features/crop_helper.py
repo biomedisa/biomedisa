@@ -238,8 +238,8 @@ def train_cropping(img, label, path_to_model, epochs, batch_size,
         list_IDs_val_fg = list(np.where(label_val)[0])
         list_IDs_val_bg = list(np.where(label_val==False)[0])
     elif validation_split:
-        split_fg = len(list_IDs_fg) - int(len(list_IDs_fg) * validation_split)
-        split_bg = len(list_IDs_bg) - int(len(list_IDs_bg) * validation_split)
+        split_fg = int(len(list_IDs_fg) * validation_split)
+        split_bg = int(len(list_IDs_bg) * validation_split)
         list_IDs_val_fg = list_IDs_fg[split_fg:]
         list_IDs_val_bg = list_IDs_bg[split_bg:]
         list_IDs_fg = list_IDs_fg[:split_fg]
