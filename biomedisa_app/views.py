@@ -546,25 +546,9 @@ def imageviewer(request, id):
     id = int(id)
     stock_to_show = get_object_or_404(Upload, pk=id)
     if stock_to_show.user == request.user:
-
-        # link data from stoarge to media
-        prefix = generate_activation_key()
-        path_to_image = '/media/' + prefix
-        dest = BASE_DIR + path_to_image
-        os.symlink(stock_to_show.pic.path, dest)
-
-        # create symlinks wich are removed when "app" is called or user loggs out
-        try:
-            symlinks = request.session["symlinks"]
-            symlinks.append(dest)
-            request.session["symlinks"] = symlinks
-        except:
-            request.session["symlinks"] = [dest]
-
         # read image file
-        with open(dest, 'rb') as f:
+        with open(stock_to_show.pic.path, 'rb') as f:
             image_data = f.read()
-
         return HttpResponse(image_data, content_type='image/png')
 
 # 17. sliceviewer
