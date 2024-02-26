@@ -26,6 +26,8 @@
 ##                                                                      ##
 ##########################################################################
 
+import os
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 try:
     from tensorflow.keras.optimizers.legacy import SGD
 except:
@@ -40,7 +42,7 @@ from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.callbacks import Callback, ModelCheckpoint, EarlyStopping
 from biomedisa_features.DataGenerator import DataGenerator
 from biomedisa_features.PredictDataGenerator import PredictDataGenerator
-from biomedisa_features.biomedisa_helper import img_resize, load_data, save_data, set_labels_to_zero
+from biomedisa_features.biomedisa_helper import img_resize, load_data, save_data, set_labels_to_zero, id_generator
 import matplotlib.pyplot as plt
 import tensorflow as tf
 import numpy as np
@@ -51,10 +53,10 @@ from glob import glob
 import random
 import numba
 import re
-import os
 import time
 import h5py
 import atexit
+import shutil
 
 class InputError(Exception):
     def __init__(self, message=None):
@@ -353,18 +355,18 @@ def read_img_list(img_list, label_list):
 
         if (img_ext == '.tar' and label_ext == '.tar') or (os.path.isdir(img_name) and os.path.isdir(label_name)):
 
-            # extract files if necessary
+            # extract files
             if img_ext == '.tar':
-                if not os.path.exists(img_dir):
-                    tar = tarfile.open(img_name)
-                    tar.extractall(path=img_dir)
-                    tar.close()
+                img_dir = BASE_DIR + '/tmp/' + id_generator(40)
+                tar = tarfile.open(img_name)
+                tar.extractall(path=img_dir)
+                tar.close()
                 img_name = img_dir
             if label_ext == '.tar':
-                if not os.path.exists(label_dir):
-                    tar = tarfile.open(label_name)
-                    tar.extractall(path=label_dir)
-                    tar.close()
+                label_dir = BASE_DIR + '/tmp/' + id_generator(40)
+                tar = tarfile.open(label_name)
+                tar.extractall(path=label_dir)
+                tar.close()
                 label_name = label_dir
 
             for data_type in ['.am','.tif','.tiff','.hdr','.mhd','.mha','.nrrd','.nii','.nii.gz']:
@@ -384,6 +386,18 @@ def read_img_list(img_list, label_list):
             img_names.append(img_name)
             label_names.append(label_name)
     return img_names, label_names
+
+def remove_extracted_data(img_list, label_list):
+    for img_name in img_list:
+        if BASE_DIR + '/tmp/' in img_name:
+            img_dir = img_name[:len(BASE_DIR + '/tmp/') + 40]
+            if os.path.exists(img_dir):
+                shutil.rmtree(img_dir)
+    for label_name in label_list:
+        if BASE_DIR + '/tmp/' in label_name:
+            label_dir = label_name[:len(BASE_DIR + '/tmp/') + 40]
+            if os.path.exists(label_dir):
+                shutil.rmtree(label_dir)
 
 def load_training_data(normalize, img_list, label_list, channels, x_scale, y_scale, z_scale, no_scaling,
         crop_data, labels_to_compute, labels_to_remove, img_in=None, label_in=None,
@@ -514,6 +528,10 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
                     a[:,:,:,c] = (a[:,:,:,c] - mean) / std
                     a[:,:,:,c] = a[:,:,:,c] * normalization_parameters[1,c] + normalization_parameters[0,c]
             img = np.append(img, a, axis=0)
+
+    # remove extracted data
+    if any(img_list):
+        remove_extracted_data(img_names, label_names)
 
     # limit intensity range
     img[img<0] = 0

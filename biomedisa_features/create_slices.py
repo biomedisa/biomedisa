@@ -30,13 +30,14 @@
 import sys, os
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(BASE_DIR)
-from biomedisa_features.biomedisa_helper import load_data, color_to_gray, img_to_uint8, img_resize
+from biomedisa_features.biomedisa_helper import load_data, color_to_gray, img_to_uint8, img_resize, id_generator
 from PIL import Image
 import numpy as np
 from glob import glob
 import numba
 import shutil
 import cv2
+import tarfile
 
 def unique(arr):
     arr = arr.astype(np.uint8)
@@ -92,14 +93,13 @@ def create_slices(path_to_data, path_to_label, on_site=False):
 
     try:
         if on_site:
-            path_to_slices = os.path.dirname(path_to_data) + '/' + os.path.splitext(os.path.basename(path_to_data))[0]
+            path_to_slices = os.path.dirname(path_to_data) + '/slices.' + os.path.splitext(os.path.basename(path_to_data))[0]
             if os.path.isdir(path_to_slices):
                 shutil.rmtree(path_to_slices)
             if path_to_label:
-                path_to_label_slices = os.path.dirname(path_to_label) + '/' + os.path.splitext(os.path.basename(path_to_label))[0]
+                path_to_label_slices = os.path.dirname(path_to_label) + '/slices.' + os.path.splitext(os.path.basename(path_to_label))[0]
                 if os.path.isdir(path_to_label_slices):
                     shutil.rmtree(path_to_label_slices)
-
         else:
             path_to_slices = path_to_data.replace('images', 'sliceviewer', 1)
             if path_to_label:
@@ -112,6 +112,12 @@ def create_slices(path_to_data, path_to_label, on_site=False):
             if extension == '.gz':
                 path_to_dir, extension = os.path.splitext(path_to_dir)
             if extension == '.tar':
+                # extract files
+                path_to_dir = BASE_DIR + '/tmp/' + id_generator(40)
+                tar = tarfile.open(path_to_data)
+                tar.extractall(path=path_to_dir)
+                tar.close()
+                # load files
                 img_names = []
                 for data_type in ['.tif','.tiff','.am','.hdr','.mhd','.mha','.nrrd','.nii','.nii.gz']:
                     tmp_img_names = glob(path_to_dir+'/**/*'+data_type, recursive=True)
@@ -128,6 +134,9 @@ def create_slices(path_to_data, path_to_label, on_site=False):
                     tmp, _ = load_data(name, 'create_slices')
                     tmp = img_resize(tmp, z_scale, y_scale, x_scale)
                     raw = np.append(raw, tmp, axis=0)
+                # remove extracted files
+                if os.path.isdir(path_to_dir):
+                    shutil.rmtree(path_to_dir)
             else:
                 raw, _ = load_data(path_to_data, 'create_slices')
                 zsh, ysh, xsh = raw.shape
@@ -152,7 +161,7 @@ def create_slices(path_to_data, path_to_label, on_site=False):
                 os.chmod(path_to_slices, 0o770)
 
                 # save slices
-                for k in range(zsh):
+                for k in range(raw.shape[0]):
                     im = Image.fromarray(raw[k])
                     im.save(path_to_slices + f'/{k}.png')
 
@@ -163,6 +172,12 @@ def create_slices(path_to_data, path_to_label, on_site=False):
                 if extension == '.gz':
                     path_to_dir, extension = os.path.splitext(path_to_dir)
                 if extension == '.tar':
+                    # extract files
+                    path_to_dir = BASE_DIR + '/tmp/' + id_generator(40)
+                    tar = tarfile.open(path_to_label)
+                    tar.extractall(path=path_to_dir)
+                    tar.close()
+                    # load files
                     img_names = []
                     for data_type in ['.tif','.tiff','.am','.hdr','.mhd','.mha','.nrrd','.nii','.nii.gz']:
                         tmp_img_names = glob(path_to_dir+'/**/*'+data_type, recursive=True)
@@ -176,6 +191,9 @@ def create_slices(path_to_data, path_to_label, on_site=False):
                         arr = arr.astype(np.uint8)
                         arr = img_resize(arr, z_scale, y_scale, x_scale, labels=True)
                         mask = np.append(mask, arr, axis=0)
+                    # remove extracted files
+                    if os.path.isdir(path_to_dir):
+                        shutil.rmtree(path_to_dir)
                 else:
                     mask, _ = load_data(path_to_label, 'create_slices')
                     mask = color_to_gray(mask)
