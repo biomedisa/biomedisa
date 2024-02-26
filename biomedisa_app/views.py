@@ -736,7 +736,7 @@ def settings(request, id):
                     if any([scale > 256 for scale in [image.x_scale, image.y_scale, image.z_scale]]):
                         image.stride_size = 64
                     if cd['early_stopping'] and image.validation_split == 0.0:
-                        image.validation_split = 0.2
+                        image.validation_split = 0.8
                     image.save()
                     messages.error(request, 'Your settings were changed.')
                 return redirect(settings, id)

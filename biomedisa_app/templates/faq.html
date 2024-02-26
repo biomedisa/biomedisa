@@ -53,7 +53,7 @@ function toggleAccordion(qsid) {
           <button id="qs4" class="accordion" onclick="toggleAccordion(this.id);"> <b> 4) How to use Biomedisa AI?</b> </button>
           <div id="ans4" class="panel">
 <p><b>Training:</b> To train a deep neural network, simply select multiple image files along with their corresponding fully segmented label files, ensuring each pair resides within a distinct project. Alternatively, streamline the process by uploading both image and label files in TAR format (<b>.tar</b> or <b>.tar.gz</b>). Ensure the image file names match their corresponding label file names, such as "brain_1.tif" and "brain_1.labels.tif," as exemplified in our <a href="https://biomedisa.info/gallery/" title="gallery">gallery</a>. Once organized, initiate the training process by clicking the AI button <img src="/static/ai_logo.svg" title="train" style="width:18px;height:18px;border:0;">.</p>
-<p><b>Validation:</b> Optionally, optimize your training data with validation splitting in the settings. A validation split of 0.2 allocates 80% for training and 20% for network validation after each epoch, saving only the best-performing network state. For more convenience, upload validation images and labels separately in TAR files, mirroring the training data structure, and enable "Validation Data" in the settings.</p>
+<p><b>Validation:</b> Optionally, optimize your training data with validation splitting in the settings. A validation split of 0.8 allocates 80% for training and 20% for network validation after each epoch, saving only the best-performing network state. For more convenience, upload validation images and labels separately in TAR files, mirroring the training data structure, and enable "Validation Data" in the settings.</p>
 <p><b>Prediction:</b> Upon completion of training, select the trained network and specify one or more images for segmentation prediction. Execute the prediction by pressing the predict button <img src="/static/predict.svg" title="predict" style="width:18px;height:18px;border:0;">.</p>
           </div>
 
@@ -127,7 +127,7 @@ function toggleAccordion(qsid) {
               <li> <b>Y Scale</b> y-axis of the images is sclaed to this size before training </li>
               <li> <b>Z Scale</b> z-axis of the images is sclaed to this size before training </li>
               <li> <b>Stride size (AI)</b> the stride made to create overlapping patches of size 64x64x64</li>
-              <li> <b>Validation split (AI)</b> percentage of data used for validation</li>
+              <li> <b>Validation split (AI)</b> e.g. 0.8 splits your data into 80% training data and 20% validation data</li>
               <li> <b>Validation frequency (AI)</b> epochs performed before validation</li>
               <li> <b>Smooth</b> number of smoothing steps</li>
               <li> <b>Delete outliers</b> remove outliers (by default outliers smaller than 90% of the largest object) </li>
