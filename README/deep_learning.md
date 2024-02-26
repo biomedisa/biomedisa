@@ -77,7 +77,7 @@ biomedisa_features.deep_learning(
 + **version**: Show Biomedisa version (command-line only).
 + **val_images PATH**: Path to directory with validation images (command-line only).
 + **val_labels PATH**: Path to directory with validation labels (command-line only).
-+ **validation_split FLOAT**: Percentage of data used for validation, e.g., `-vs 0.2` splits your data into 80% training data and 20% validation data.
++ **validation_split FLOAT**: Splits your dataset into two parts: a training set and a validation set, e.g., `-vs 0.8` indicates that 80% of your data will be used for training, while the remaining 20% will be used for validation.
 + **val_tf**: Use standard pixelwise accuracy provided by TensorFlow on validation data (default: False). When evaluating accuracy, Biomedisa relies on the Dice score rather than the standard accuracy. The Dice score offers a more reliable assessment by measuring the overlap between the segmented regions, whereas the standard accuracy also considers background classification, which can lead to misleading results, especially when dealing with small segments within a much larger volume. Even if half of the segment is mislabeled, the standard accuracy may still yield a remarkably high value. However, if you still prefer to use the standard accuracy, you can enable it by using this option.
 + **train_tf**: Use standard pixelwise accuracy provided by TensorFlow on training data (default: False).
 + **average_dice**: Use averaged dice score of each label (default: False).
