@@ -1,5 +1,8 @@
 # Windows 10 + OpenCL + CPU (command-line-only)
 
+- [Install Microsoft Visual Studio 2022](#install-microsoft-visual-studio-2022)
+- [Option 1: Set Path Variable manually](#option-1-set-path-variable-manually)
+- [Option 2: Set Path Variable using PowerShell](#option-2-set-path-variable-using-powershell)
 - [Install Microsoft MPI](#install-microsoft-mpi)
 - [Install Intel CPU Runtime for OpenCL](#install-intel-cpu-runtime-for-opencl)
 - [Install Git](#install-git)
@@ -8,6 +11,36 @@
 - [Install Biomedisa environment](#install-biomedisa-environment)
 - [Biomedisa examples](#biomedisa-examples)
 - [Remove Biomedisa environment](#remove-biomedisa-environment)
+
+#### Install Microsoft Visual Studio 2022
+Download and install [MS Visual Studio](https://visualstudio.microsoft.com/de/thank-you-downloading-visual-studio/?sku=Community&channel=Release&version=VS2022&source=VSLandingPage&passive=false&cid=2030).
+```
+Select "Desktop development with C++"
+Install
+Restart Windows
+```
+
+#### Option 1: Set Path Variable manually
+Open PowerShell (e.g. Windows Search `PowerShell`) and get the Microsoft Visual Studio path using the following command:
+```
+Resolve-Path -Path "C:\Program Files\Microsoft Visual Studio\*\Community\VC\Tools\MSVC\*\bin\Hostx64\x64" | select -ExpandProperty Path
+```
+Note: The output should look like `C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.37.32822\bin\Hostx64\x64` but year `2022` and version number `14.37.32822` can be different in your case. Please use exactly the path from the output.
+
+Open Windows Search  
+Type `View advanced system settings`  
+Click `Environment Variables...`  
+Add exactly the path from the output to the **System variable** `Path`
+
+#### Option 2: Set Path Variable using PowerShell
+Skip this step if you did it manually.
+Open PowerShell as administrator (e.g. Windows Search `PowerShell`).
+```
+$currentPath = [System.Environment]::GetEnvironmentVariable('PATH', [System.EnvironmentVariableTarget]::Machine)
+$newPath = Resolve-Path -Path "C:\Program Files\Microsoft Visual Studio\*\Community\VC\Tools\MSVC\*\bin\Hostx64\x64" | select -ExpandProperty Path
+$newPathValue = "$currentPath;$newPath"
+[System.Environment]::SetEnvironmentVariable('PATH', $newPathValue, [System.EnvironmentVariableTarget]::Machine)
+```
 
 #### Install Microsoft MPI
 Download and install [Microsoft MPI](https://www.microsoft.com/en-us/download/details.aspx?id=57467).
