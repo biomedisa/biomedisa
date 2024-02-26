@@ -67,7 +67,7 @@ import json
 from decimal import Decimal
 import hashlib
 from shutil import copytree
-import tarfile, zipfile
+import zipfile
 import shutil, wget
 import subprocess
 import glob
@@ -824,17 +824,6 @@ def change_password(request):
         pw_form = PasswordChangeForm(request.user)
     return render(request, 'change_password.html', {'pw_form': pw_form})
 
-def recursive_file_permissions(path_to_dir):
-    files = glob.glob(path_to_dir+'/**/*', recursive=True) + [path_to_dir]
-    for file in files:
-        try:
-            if os.path.isdir(file):
-                os.chmod(file, 0o770)
-            else:
-                os.chmod(file, 0o660)
-        except:
-            pass
-
 # 23. storage
 @login_required
 def storage(request):
@@ -864,31 +853,6 @@ def storage(request):
 
                 # update size of user data
                 request.session['datasize'] = get_size(PRIVATE_STORAGE_ROOT + '/images/' + request.user.username)
-
-                # untar or unzip if necessary
-                path_to_dir, extension = os.path.splitext(newimg.pic.path)
-                if extension == '.gz':
-                    path_to_dir, extension = os.path.splitext(path_to_dir)
-                if extension == '.zip':
-                    try:
-                        zip_ref = zipfile.ZipFile(newimg.pic.path, 'r')
-                        zip_ref.extractall(path=path_to_dir)
-                        zip_ref.close()
-                    except:
-                        try:
-                            success = subprocess.Popen(['unzip',newimg.pic.path,'-d',path_to_dir]).wait()
-                            if success != 0:
-                                if os.path.isdir(path_to_dir):
-                                    shutil.rmtree(path_to_dir)
-                        except:
-                            if os.path.isdir(path_to_dir):
-                                shutil.rmtree(path_to_dir)
-                    recursive_file_permissions(path_to_dir)
-                elif extension == '.tar':
-                    tar = tarfile.open(newimg.pic.path)
-                    tar.extractall(path=path_to_dir)
-                    tar.close()
-                    recursive_file_permissions(path_to_dir)
                 return redirect(storage)
     else:
         img = StorageForm()
@@ -986,13 +950,6 @@ def rename_file(request):
         new_name = str(new_name)
         stock_to_rename = get_object_or_404(Upload, pk=id)
 
-        # get source file extension
-        filename, src_ext = os.path.splitext(stock_to_rename.shortfilename)
-        if src_ext == '.gz':
-            filename, src_ext = os.path.splitext(filename)
-            if src_ext == '.tar':
-                src_ext = '.tar.gz'
-
         # get new filename extension
         new_name = new_name.encode('ascii', 'ignore').decode()
         new_name, extension = os.path.splitext(new_name)
@@ -1019,9 +976,6 @@ def rename_file(request):
             else:
                 # rename file
                 os.rename(stock_to_rename.pic.path, dirname + '/' + new_name)
-                # rename extracted .tar or .zip files
-                if src_ext in ['.tar','.zip','.tar.gz'] and os.path.exists(stock_to_rename.pic.path[:-len(src_ext)]):
-                    os.rename(stock_to_rename.pic.path[:-len(src_ext)], dirname + '/' + new_name[:-len(extension)])
                 # rename slices
                 path_to_slices = stock_to_rename.pic.path.replace("images", "sliceviewer", 1)
                 if os.path.exists(path_to_slices):
@@ -1546,13 +1500,6 @@ def features(request, action):
                     if os.path.exists(path_to_source):
                         copytree(path_to_source, path_to_dest, copy_function=os.link)
 
-                    # copy untared or unzipped data
-                    if extension in ['.zip', '.tar', '.tar.gz']:
-                        path_to_src = img.pic.path[:-len(extension)]
-                        path_to_dir = path_to_data[:-len(extension)]
-                        if os.path.exists(path_to_src):
-                            copytree(path_to_src, path_to_dir, copy_function=os.link)
-
     # process image
     elif int(action) in [7,8,11]:
         todo = request.GET.getlist('selected')
@@ -1683,31 +1630,6 @@ def app(request):
 
             # update size of user data
             request.session['datasize'] = get_size(PRIVATE_STORAGE_ROOT + '/images/' + request.user.username)
-
-            # untar or unzip if necessary
-            path_to_dir, extension = os.path.splitext(newimg.pic.path)
-            if extension == '.gz':
-                path_to_dir, extension = os.path.splitext(path_to_dir)
-            if extension == '.zip':
-                try:
-                    zip_ref = zipfile.ZipFile(newimg.pic.path, 'r')
-                    zip_ref.extractall(path=path_to_dir)
-                    zip_ref.close()
-                except:
-                    try:
-                        success = subprocess.Popen(['unzip',newimg.pic.path,'-d',path_to_dir]).wait()
-                        if success != 0:
-                            if os.path.isdir(path_to_dir):
-                                shutil.rmtree(path_to_dir)
-                    except:
-                        if os.path.isdir(path_to_dir):
-                            shutil.rmtree(path_to_dir)
-                recursive_file_permissions(path_to_dir)
-            elif extension == '.tar':
-                tar = tarfile.open(newimg.pic.path)
-                tar.extractall(path=path_to_dir)
-                tar.close()
-                recursive_file_permissions(path_to_dir)
 
             # create slices
             if newimg.imageType == 1:
@@ -2036,13 +1958,6 @@ def accept_shared_data(request):
 
                     # copy file
                     os.link(img.shared_path, img.pic.path)
-
-                    # copy untared or unzipped data
-                    if extension in ['.zip', '.tar', '.tar.gz']:
-                        path_to_src = img.shared_path[:-len(extension)]
-                        path_to_dest = img.pic.path[:-len(extension)]
-                        if os.path.exists(path_to_src):
-                            copytree(path_to_src, path_to_dest, copy_function=os.link)
 
                     # copy slices
                     path_to_src = img.shared_path.replace('images', 'sliceviewer', 1)

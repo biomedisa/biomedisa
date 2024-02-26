@@ -220,7 +220,7 @@ def unique_file_path(path, dir_path=PRIVATE_STORAGE_ROOT+'/'):
 
     return path
 
-def id_generator(size, chars):
+def id_generator(size, chars='abcdefghijklmnopqrstuvwxyz0123456789'):
     return ''.join(random.choice(chars) for x in range(size))
 
 def rgb2gray(img, channel='last'):
@@ -232,11 +232,23 @@ def rgb2gray(img, channel='last'):
     out = out.astype(img.dtype)
     return out
 
+def recursive_file_permissions(path_to_dir):
+    files = glob.glob(path_to_dir+'/**/*', recursive=True) + [path_to_dir]
+    for file in files:
+        try:
+            if os.path.isdir(file):
+                os.chmod(file, 0o770)
+            else:
+                os.chmod(file, 0o660)
+        except:
+            pass
+
 def load_data(path_to_data, process='None', return_extension=False):
 
-    if os.path.isdir(path_to_data):
-        path_to_data = path_to_data + '.zip'
+    if not os.path.exists(path_to_data):
+        print(f"Error: No such file or directory '{path_to_data}'")
 
+    # get file extension
     extension = os.path.splitext(path_to_data)[1]
     if extension == '.gz':
         extension = '.nii.gz'
@@ -271,37 +283,40 @@ def load_data(path_to_data, process='None', return_extension=False):
             print(e)
             data, header = None, None
 
-    elif extension == '.zip':
-        try:
-            # extract data if necessary
-            if not os.path.isdir(path_to_data[:-4]):
-                zip_ref = zipfile.ZipFile(path_to_data, 'r')
-                zip_ref.extractall(path=path_to_data[:-4])
-                zip_ref.close()
-        except Exception as e:
-            print(e)
-            print('Using unzip package...')
+    elif extension == '.zip' or os.path.isdir(path_to_data):
+        # extract files
+        if extension=='.zip':
+            path_to_dir = BASE_DIR + '/tmp/' + id_generator(40)
             try:
-                success = subprocess.Popen(['unzip',path_to_data,'-d',path_to_data[:-4]]).wait()
-                if success != 0:
-                    if os.path.isdir(path_to_data[:-4]):
-                        shutil.rmtree(path_to_data[:-4])
-                    data, header = None, None
+                zip_ref = zipfile.ZipFile(path_to_data, 'r')
+                zip_ref.extractall(path=path_to_dir)
+                zip_ref.close()
             except Exception as e:
                 print(e)
-                if os.path.isdir(path_to_data[:-4]):
-                    shutil.rmtree(path_to_data[:-4])
-                data, header = None, None
+                print('Using unzip package...')
+                try:
+                    success = subprocess.Popen(['unzip',path_to_data,'-d',path_to_dir]).wait()
+                    if success != 0:
+                        if os.path.isdir(path_to_dir):
+                            shutil.rmtree(path_to_dir)
+                        data, header = None, None
+                except Exception as e:
+                    print(e)
+                    if os.path.isdir(path_to_dir):
+                        shutil.rmtree(path_to_dir)
+                    data, header = None, None
+            path_to_data = path_to_dir
 
-        # list of files
-        if os.path.isdir(path_to_data[:-4]):
-            files = glob.glob(path_to_data[:-4]+'/**/*', recursive=True)
+        # load files
+        if os.path.isdir(path_to_data):
+            files = glob.glob(path_to_data+'/**/*', recursive=True)
+            nc_extension = False
             for file in files:
                 if os.path.splitext(file)[1] == '.nc' or os.path.splitext(os.path.splitext(file)[0])[1] == '.nc':
-                    extension = '.nc'
-            if extension == '.nc':
+                    nc_extension = True
+            if nc_extension:
                 try:
-                    data, header = nc_to_np(path_to_data[:-4])
+                    data, header = nc_to_np(path_to_data)
                 except Exception as e:
                     print(e)
                     data, header = None, None
@@ -337,7 +352,6 @@ def load_data(path_to_data, process='None', return_extension=False):
                         img, img_header = load(file_name)
                         if csh==3:
                             img = rgb2gray(img, channel)
-                            extension = '.tif'
                         elif csh==1 and channel=='last':
                             img = img[:,:,0]
                         elif csh==1 and channel=='first':
@@ -350,6 +364,10 @@ def load_data(path_to_data, process='None', return_extension=False):
                 except Exception as e:
                     print(e)
                     data, header = None, None
+
+        # remove extracted files
+        if extension=='.zip' and os.path.isdir(path_to_data):
+            shutil.rmtree(path_to_data)
 
     elif extension == '.mrc':
         try:
@@ -482,10 +500,15 @@ def save_data(path_to_final, final, header=None, final_image_type=None, compress
             sitk.WriteImage(simg, path_to_final, useCompression=True)
     elif final_image_type in ['.zip', 'directory', '']:
         # make results directory
-        results_dir = os.path.splitext(path_to_final)[0]
-        if not os.path.isdir(results_dir):
+        if final_image_type == '.zip':
+            results_dir = BASE_DIR + '/tmp/' + id_generator(40)
             os.makedirs(results_dir)
             os.chmod(results_dir, 0o770)
+        else:
+            results_dir = path_to_final
+            if not os.path.isdir(results_dir):
+                os.makedirs(results_dir)
+                os.chmod(results_dir, 0o770)
         # save data as NC blocks
         if os.path.splitext(header[1][0])[1] == '.nc':
             np_to_nc(results_dir, final, header)
@@ -502,6 +525,8 @@ def save_data(path_to_final, final, header=None, final_image_type=None, compress
             with zipfile.ZipFile(path_to_final, 'w') as zip:
                 for file in file_names:
                     zip.write(results_dir + '/' + os.path.basename(file), os.path.basename(file))
+            if os.path.isdir(results_dir):
+                shutil.rmtree(results_dir)
     else:
         imageSize = int(final.nbytes * 10e-7)
         bigtiff = True if imageSize > 2000 else False

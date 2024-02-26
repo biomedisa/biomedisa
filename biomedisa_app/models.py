@@ -390,20 +390,10 @@ def delete_files(instance, files):
         if os.path.isdir(path_to_slices):
             shutil.rmtree(path_to_slices)
 
-    # remove extracted files
-    if files=='extracted':
-        filename, extension = os.path.splitext(instance.pic.path)
-        if extension == '.gz':
-            filename, extension = os.path.splitext(filename)
-        if extension in ['.tar','.zip'] and os.path.isdir(filename):
-            shutil.rmtree(filename)
-
     # remove individual files
     if files=='individual':
         if os.path.isfile(instance.pic.path):
             os.remove(instance.pic.path)
-        elif os.path.isdir(instance.pic.path):
-            shutil.rmtree(instance.pic.path)
 
 @receiver(models.signals.post_delete, sender=Upload)
 def auto_delete_file_on_delete(sender, instance, **kwargs):
@@ -411,6 +401,6 @@ def auto_delete_file_on_delete(sender, instance, **kwargs):
     when corresponding `Upload` object is deleted.
     """
     if instance.pic:
-        for files in ['preview','extracted','individual']:
+        for files in ['preview','individual']:
             Process(target=delete_files, args=(instance, files)).start()
 

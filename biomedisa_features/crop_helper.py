@@ -27,7 +27,7 @@
 ##########################################################################
 
 import os
-from biomedisa_features.keras_helper import read_img_list
+from biomedisa_features.keras_helper import read_img_list, remove_extracted_data
 from biomedisa_features.biomedisa_helper import img_resize, load_data, save_data, set_labels_to_zero
 from tensorflow.python.framework.errors_impl import ResourceExhaustedError
 from tensorflow.keras.applications import DenseNet121, densenet
@@ -208,6 +208,10 @@ def load_cropping_training_data(normalize, img_list, label_list, x_scale, y_scal
                     next_img[:,:,:,c] = (next_img[:,:,:,c] - mean) / std
                     next_img[:,:,:,c] = next_img[:,:,:,c] * normalization_parameters[1,c] + normalization_parameters[0,c]
             img = np.append(img, next_img, axis=0)
+
+    # remove extracted data
+    if any(img_list):
+        remove_extracted_data(img_names, label_names)
 
     # limit intensity range
     img[img<0] = 0
