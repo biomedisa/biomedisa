@@ -49,7 +49,7 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
     path_to_images=None, path_to_labels=None, val_images=None, val_labels=None,
     path_to_model=None, predict=False, train=False,
     balance=False, crop_data=False, flip_x=False, flip_y=False, flip_z=False,
-    swapaxes=False, val_tf=False, train_tf=False, no_compression=False, ignore='none', only='all',
+    swapaxes=False, train_dice=True, val_dice=True, no_compression=False, ignore='none', only='all',
     network_filters='32-64-128-256-512', resnet=False, debug_cropping=False,
     save_cropped=False, epochs=100, no_normalization=False, rotate=0.0, validation_split=0.0,
     learning_rate=0.01, stride_size=32, validation_stride_size=32, validation_freq=1,
@@ -308,10 +308,10 @@ if __name__ == '__main__':
                         help='Randomly flip z-axis during training')
     parser.add_argument('-sa','--swapaxes', action='store_true', default=False,
                         help='Randomly swap two axes during training')
-    parser.add_argument('-vt','--val_tf', action='store_true', default=False,
-                        help='Use tensorflow standard accuracy on validation data')
-    parser.add_argument('-tt','--train_tf', action='store_true', default=False,
-                        help='Use tensorflow standard accuracy on training data')
+    parser.add_argument('-nvd','--no-val_dice', dest='val_dice', action='store_false',
+                        help='Disable monitoring of Dice score on validation data')
+    parser.add_argument('-ntd','--no-train_dice', dest='train_dice', action='store_false',
+                        help='Disable monitoring of Dice score on training data')
     parser.add_argument('-dl','--dice_loss', action='store_true', default=False,
                         help='Dice loss function')
     parser.add_argument('-ad','--average_dice', action='store_true', default=False,
@@ -435,7 +435,7 @@ if __name__ == '__main__':
         bm = _error_(bm, 'MemoryError')
     except ResourceExhaustedError:
         print(traceback.format_exc())
-        bm = _error_(bm, 'GPU out of memory')
+        bm = _error_(bm, 'GPU out of memory. Reduce your batch size')
     except Exception as e:
         print(traceback.format_exc())
         bm = _error_(bm, e)
