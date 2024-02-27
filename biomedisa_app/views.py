@@ -1088,7 +1088,7 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
                     label.pic.path.replace(BASE_DIR,host_base),'-p','-sc']
         else:
             cmd += [img_list.replace(BASE_DIR,host_base),
-                    label_list.replace(BASE_DIR,host_base),'-t','-tt']
+                    label_list.replace(BASE_DIR,host_base),'-t']
             if val_img_list and val_label_list:
                 cmd += ['-vi',val_img_list.replace(BASE_DIR,host_base),'-vl',val_label_list.replace(BASE_DIR,host_base)]
         cmd += [f'-iid={image.id}', f'-lid={label.id}']

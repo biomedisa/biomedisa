@@ -62,18 +62,22 @@ class InputError(Exception):
     def __init__(self, message=None):
         self.message = message
 
-def save_history(history, path_to_model, val_tf, train_tf):
+def save_history(history, path_to_model, val_dice, train_dice):
     # summarize history for accuracy
     plt.plot(history['accuracy'])
     plt.plot(history['val_accuracy'])
-    if val_tf and train_tf:
-        plt.legend(['train', 'test'], loc='upper left')
-    elif val_tf:
-        plt.legend(['train (Dice score)', 'test'], loc='upper left')
-    elif train_tf:
-        plt.legend(['train', 'test (Dice score)'], loc='upper left')
+    if val_dice and train_dice:
+        plt.plot(history['dice'])
+        plt.plot(history['val_dice'])
+        plt.legend(['Accuracy (train)', 'Accuracy (test)', 'Dice score (train)', 'Dice score (test)'], loc='upper left')
+    elif train_dice:
+        plt.plot(history['dice'])
+        plt.legend(['Accuracy (train)', 'Accuracy (test)', 'Dice score (train)'], loc='upper left')
+    elif val_dice:
+        plt.plot(history['val_dice'])
+        plt.legend(['Accuracy (train)', 'Accuracy (test)', 'Dice score (test)'], loc='upper left')
     else:
-        plt.legend(['train (Dice score)', 'test (Dice score)'], loc='upper left')
+        plt.legend(['Accuracy (train)', 'Accuracy (test)'], loc='upper left')
     plt.title('model accuracy')
     plt.ylabel('accuracy')
     plt.xlabel('epoch')
@@ -82,7 +86,7 @@ def save_history(history, path_to_model, val_tf, train_tf):
     plt.clf()
     # summarize history for loss
     plt.plot(history['loss'])
-    if val_tf:
+    if not val_dice:
         plt.plot(history['val_loss'])
     plt.title('model loss')
     plt.ylabel('loss')
@@ -632,12 +636,14 @@ class Metrics(Callback):
         self.django_env = bm.django_env
         self.patch_normalization = bm.patch_normalization
         self.train = train
-        self.train_tf = bm.train_tf
+        self.train_dice = bm.train_dice
 
     def on_train_begin(self, logs={}):
         self.history = {}
         self.history['val_accuracy'] = []
         self.history['accuracy'] = []
+        self.history['val_dice'] = []
+        self.history['dice'] = []
         self.history['loss'] = []
 
     def on_epoch_end(self, epoch, logs={}):
@@ -688,7 +694,11 @@ class Metrics(Callback):
             result = np.argmax(result, axis=-1)
             result = result.astype(np.uint8)
 
-            # Compute dice score
+            # calculate standard accuracy
+            if not self.train:
+                accuracy = np.sum(self.label==result) / float(self.label.size)
+
+            # calculate dice score
             if self.average_dice:
                 dice = 0
                 for l in range(1, self.n_classes):
@@ -699,32 +709,43 @@ class Metrics(Callback):
                        float((self.label>0).sum() + (result>0).sum())
 
             if self.train:
-                logs["accuracy"] = dice
+                logs['dice'] = dice
             else:
                 # save best model only
-                if epoch == 0 or round(dice,5) > max(self.history['val_accuracy']):
+                if epoch == 0 or round(dice,4) > max(self.history['val_dice']):
                     self.model.save(str(self.path_to_model))
 
                 # add accuracy to history
-                self.history['val_accuracy'].append(round(dice,5))
-                self.history['accuracy'].append(round(logs["accuracy"],5))
-                self.history['loss'].append(round(logs["loss"],5))
-                logs["val_accuracy"] = dice
-                logs["best_acc"] = max(self.history['accuracy'])
-                logs["best_val"] = max(self.history['val_accuracy'])
-                save_history(self.history, self.path_to_model, False, self.train_tf)
+                self.history['loss'].append(round(logs['loss'],4))
+                self.history['accuracy'].append(round(logs['accuracy'],4))
+                if self.train_dice:
+                    self.history['dice'].append(round(logs['dice'],4))
+                self.history['val_accuracy'].append(round(accuracy,4))
+                self.history['val_dice'].append(round(dice,4))
+
+                # tensorflow monitoring variables
+                logs['val_accuracy'] = accuracy
+                logs['val_dice'] = dice
+                logs['best_acc'] = max(self.history['accuracy'])
+                if self.train_dice:
+                    logs['best_dice'] = max(self.history['dice'])
+                logs['best_val_acc'] = max(self.history['val_accuracy'])
+                logs['best_val_dice'] = max(self.history['val_dice'])
+
+                # plot history in figure and save as numpy array
+                save_history(self.history, self.path_to_model, True, self.train_dice)
 
                 # print accuracies
                 print('\nValidation history:')
-                if self.train_tf:
-                    print('train_acc:', self.history['accuracy'])
-                else:
-                    print('train_acc (Dice):', self.history['accuracy'])
-                print('val_acc (Dice):', self.history['val_accuracy'])
+                print('train_acc:', self.history['accuracy'])
+                if self.train_dice:
+                    print('train_dice:', self.history['dice'])
+                print('val_acc:', self.history['val_accuracy'])
+                print('val_dice:', self.history['val_dice'])
                 print('')
 
                 # early stopping
-                if self.early_stopping > 0 and max(self.history['val_accuracy']) not in self.history['val_accuracy'][-self.early_stopping:]:
+                if self.early_stopping > 0 and max(self.history['val_dice']) not in self.history['val_dice'][-self.early_stopping:]:
                     self.model.stop_training = True
 
 def dice_coef(y_true, y_pred, smooth=1e-5):
@@ -805,7 +826,7 @@ def train_semantic_segmentation(bm,
         list_IDs_val_fg, list_IDs_val_bg = [], []
 
         # get validation IDs of patches
-        if bm.balance and bm.val_tf:
+        if bm.balance and not bm.val_dice:
             for k in range(0, zsh_val-bm.z_patch+1, bm.validation_stride_size):
                 for l in range(0, ysh_val-bm.y_patch+1, bm.validation_stride_size):
                     for m in range(0, xsh_val-bm.x_patch+1, bm.validation_stride_size):
@@ -838,15 +859,15 @@ def train_semantic_segmentation(bm,
     validation_generator = None
     training_generator = DataGenerator(img, label, list_IDs_fg, list_IDs_bg, True, True, False, **params)
     if img_val is not None:
-        if bm.val_tf:
+        if bm.val_dice:
+            val_metrics = Metrics(bm, img_val, label_val, list_IDs_val_fg, (zsh_val, ysh_val, xsh_val), nb_labels, False)
+        else:
             params['dim_img'] = (zsh_val, ysh_val, xsh_val)
             params['augment'] = (False, False, False, False, 0)
             validation_generator = DataGenerator(img_val, label_val, list_IDs_val_fg, list_IDs_val_bg, True, False, False, **params)
-        else:
-            val_metrics = Metrics(bm, img_val, label_val, list_IDs_val_fg, (zsh_val, ysh_val, xsh_val), nb_labels, False)
 
     # monitor dice score on training data
-    if not bm.train_tf:
+    if bm.train_dice:
         train_metrics = Metrics(bm, img, label, list_IDs_fg, (zsh, ysh, xsh), nb_labels, True)
 
     # create a MirroredStrategy
@@ -884,10 +905,9 @@ def train_semantic_segmentation(bm,
 
         # comile model
         loss=dice_coef_loss(nb_labels) if bm.dice_loss else 'categorical_crossentropy'
-        metrics=['accuracy'] if bm.train_tf or bm.val_tf else None
         model.compile(loss=loss,
                       optimizer=sgd,
-                      metrics=metrics)
+                      metrics=['accuracy'])
 
     # save meta data
     meta_data = MetaData(bm.path_to_model, configuration_data, allLabels,
@@ -896,7 +916,9 @@ def train_semantic_segmentation(bm,
 
     # model checkpoint
     if img_val is not None:
-        if bm.val_tf:
+        if bm.val_dice:
+            callbacks = [val_metrics, meta_data]
+        else:
             model_checkpoint_callback = ModelCheckpoint(
                 filepath=str(bm.path_to_model),
                 save_weights_only=False,
@@ -906,13 +928,11 @@ def train_semantic_segmentation(bm,
             callbacks = [model_checkpoint_callback, meta_data]
             if bm.early_stopping > 0:
                 callbacks.insert(0, EarlyStopping(monitor='val_accuracy', mode='max', patience=bm.early_stopping))
-        else:
-            callbacks = [val_metrics, meta_data]
     else:
         callbacks = [ModelCheckpoint(filepath=str(bm.path_to_model)), meta_data]
 
     # monitor dice score on training data
-    if not bm.train_tf:
+    if bm.train_dice:
         callbacks = [train_metrics] + callbacks
 
     # custom callback
@@ -927,8 +947,8 @@ def train_semantic_segmentation(bm,
               workers=bm.workers)
 
     # save monitoring figure on train end
-    if img_val is not None and bm.val_tf:
-        save_history(history.history, bm.path_to_model, bm.val_tf, bm.train_tf)
+    if img_val is not None and not bm.val_dice:
+        save_history(history.history, bm.path_to_model, False, bm.train_dice)
 
 def load_prediction_data(path_to_img, channels, x_scale, y_scale, z_scale,
                         no_scaling, normalize, normalization_parameters, region_of_interest,
