@@ -86,8 +86,7 @@ def save_history(history, path_to_model, val_dice, train_dice):
     plt.clf()
     # summarize history for loss
     plt.plot(history['loss'])
-    if not val_dice:
-        plt.plot(history['val_loss'])
+    plt.plot(history['val_loss'])
     plt.title('model loss')
     plt.ylabel('loss')
     plt.xlabel('epoch')
@@ -644,6 +643,7 @@ class Metrics(Callback):
         self.history['accuracy'] = []
         self.history['val_dice'] = []
         self.history['dice'] = []
+        self.history['val_loss'] = []
         self.history['loss'] = []
 
     def on_epoch_end(self, epoch, logs={}):
@@ -690,6 +690,10 @@ class Metrics(Callback):
                     m = rest % self.dim_img[2]
                     result[k:k+self.dim_patch[0],l:l+self.dim_patch[1],m:m+self.dim_patch[2]] += y_predict[i]
 
+            # calculate categorical crossentropy
+            if not self.train:
+                crossentropy = categorical_crossentropy(self.label, softmax(result))
+
             # get result
             result = np.argmax(result, axis=-1)
             result = result.astype(np.uint8)
@@ -722,8 +726,10 @@ class Metrics(Callback):
                     self.history['dice'].append(round(logs['dice'],4))
                 self.history['val_accuracy'].append(round(accuracy,4))
                 self.history['val_dice'].append(round(dice,4))
+                self.history['val_loss'].append(round(crossentropy,4))
 
                 # tensorflow monitoring variables
+                logs['val_loss'] = crossentropy
                 logs['val_accuracy'] = accuracy
                 logs['val_dice'] = dice
                 logs['best_acc'] = max(self.history['accuracy'])
@@ -747,6 +753,28 @@ class Metrics(Callback):
                 # early stopping
                 if self.early_stopping > 0 and max(self.history['val_dice']) not in self.history['val_dice'][-self.early_stopping:]:
                     self.model.stop_training = True
+
+def softmax(x):
+    # Avoiding numerical instability by subtracting the maximum value
+    exp_values = np.exp(x - np.max(x, axis=-1, keepdims=True))
+    probabilities = exp_values / np.sum(exp_values, axis=-1, keepdims=True)
+    return probabilities
+
+@numba.jit(nopython=True)
+def categorical_crossentropy(true_labels, predicted_probs):
+    # Clip predicted probabilities to avoid log(0) issues
+    predicted_probs = np.clip(predicted_probs, 1e-7, 1 - 1e-7)
+    predicted_probs = -np.log(predicted_probs)
+    zsh,ysh,xsh = true_labels.shape
+    # Calculate categorical crossentropy
+    loss = 0
+    for z in range(zsh):
+        for y in range(ysh):
+            for x in range(xsh):
+                l = true_labels[z,y,x]
+                loss += predicted_probs[z,y,x,l]
+    loss = loss / float(zsh*ysh*xsh)
+    return loss
 
 def dice_coef(y_true, y_pred, smooth=1e-5):
     intersection = K.sum(Multiply()([y_true, y_pred]))
