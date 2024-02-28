@@ -9,7 +9,7 @@ biomedisa_features.deep_learning(
     val_labels=None,
     validation_split=0.0,
     val_dice=True,
-    train_dice=True,
+    train_dice=False,
     average_dice=False,
     path_to_model=None,
     predict=False,
@@ -79,7 +79,7 @@ biomedisa_features.deep_learning(
 + **val_labels PATH**: Location of validation label data (tarball, directory, or file) (command-line only).
 + **validation_split FLOAT**: Splits your dataset into two parts: a training set and a validation set, e.g., `-vs 0.8` indicates that 80% of your data will be used for training, while the remaining 20% will be used for validation.
 + **val_dice**: Monitor Dice score on validation data (default: True). The Dice score offers a more reliable assessment by measuring the overlap between the segmented regions, whereas the standard accuracy also considers background classification, which can lead to misleading results, especially when dealing with small segments within a much larger volume. Even if half of the segment is mislabeled, the standard accuracy may still yield a remarkably high value. However, calculating the Dice score in Biomedisa is computationally intensive and can be disabled with this variable.
-+ **train_dice**: Monitor Dice score on training data (default: True).
++ **train_dice**: Monitor Dice score on training data (default: False).
 + **average_dice**: Monitor averaged dice score of all labels (default: False).
 + **path_to_model PATH**: Path to model.
 + **predict**: Automatic/predict segmentation.
