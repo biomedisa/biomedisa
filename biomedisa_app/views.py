@@ -216,10 +216,9 @@ def specimen_info(request, id):
             nos = 0
             imshape = (0,0)
             path_to_slices = None
-            processed_data = ProcessedData.objects.filter(specimen=specimen, imageType=1)
             if ProcessedData.objects.filter(specimen=specimen, imageType=1).exists():
                 processed_data = ProcessedData.objects.filter(specimen=specimen, imageType=1)[0]
-                path_to_slices = os.path.splitext('/media/antscan/' + processed_data.pic.name)[0]
+                path_to_slices = os.path.splitext('/media/' + processed_data.pic.name)[0]
                 full_path = BASE_DIR + path_to_slices
                 if os.path.exists(full_path):
                     nos = len(os.listdir(full_path)) - 1
@@ -292,7 +291,7 @@ def sliceviewer_repository(request):
             tomographic_data = ProcessedData.objects.filter(specimen=specimen, imageType=1)[0]
         if request.user in tomographic_data.specimen.repository.users.all():
             if obj == 'processed' or obj == 'specimen':
-                path_to_slices = '/media/antscan/' + tomographic_data.pic.name.replace('.tif','')
+                path_to_slices = '/media/' + tomographic_data.pic.name.replace('.tif','')
             else:
                 path_to_slices = '/media/' + os.path.dirname(tomographic_data.pic.name) + '/slices'
             full_path = BASE_DIR + path_to_slices
@@ -312,7 +311,7 @@ def visualization_repository(request):
         elif obj == 'specimen':
             specimen = get_object_or_404(Specimen, pk=id)
         if request.user in specimen.repository.users.all():
-            path_to_link = '/media/antscan/2020_12_antscan/' + specimen.internal_id + '.stl'
+            path_to_link = f'/media/antscan/processed/{specimen.magnification}/{specimen.internal_id}.stl'
             name = specimen.internal_id + '.stl'
             url = config['SERVER'] + path_to_link
             URL = config['SERVER'] + "/paraview/?name=["+name+"]&url=["+url+"]"
@@ -330,8 +329,6 @@ def download_repository(request):
         if request.user in tomographic_data.specimen.repository.users.all():
             filename = tomographic_data.pic.name
             path_to_file = tomographic_data.pic.path
-            if obj == 'processed':
-                path_to_file = path_to_file.replace('media','media/antscan')
             wrapper = FileWrapper(open(path_to_file, 'rb'))
             imgsize = os.path.getsize(path_to_file)
             if imgsize < 5000000000:
