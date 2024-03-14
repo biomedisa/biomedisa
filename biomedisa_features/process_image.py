@@ -67,6 +67,10 @@ def init_process_image(id, process=None):
                 imageType=None, shortfilename='No valid image data.')
 
         else:
+            # set status to processing
+            img.status = 2
+            img.save()
+
             # get host information
             host = ''
             host_base = BASE_DIR
@@ -114,11 +118,10 @@ def init_process_image(id, process=None):
 
                 # check if aborted
                 img = Upload.objects.get(pk=img.id)
-                if img.status > 0 and success == 0:
+                if img.status==2 and img.queue==5 and success==0:
 
                     # set pid and processing status
                     img.message = 'Processing'
-                    img.status = 2
                     img.pid = -1
                     img.save()
 
@@ -161,7 +164,6 @@ def init_process_image(id, process=None):
                 # set pid and processing status
                 img.pid = int(os.getpid())
                 img.message = 'Processing'
-                img.status = 2
                 img.save()
 
                 # load data
