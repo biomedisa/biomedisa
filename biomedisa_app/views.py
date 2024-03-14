@@ -1025,6 +1025,10 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
     # check if aborted
     if image.status > 0:
 
+        # set status to processing
+        image.status = 2
+        image.save()
+
         # get worker name
         worker_name = 'first_worker'
         job = get_current_job()
@@ -1164,12 +1168,11 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
 
             # check if aborted
             image = Upload.objects.get(pk=image.id)
-            if image.status > 0 and success == 0:
+            if image.status==2 and image.queue==queue_id and success==0:
 
                 # set pid and status to processing
                 image.message = 'Processing'
                 image.path_to_model = ''
-                image.status = 2
                 image.pid = -1
                 image.save()
 
@@ -1255,10 +1258,9 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
         else:
             # check if aborted
             image = Upload.objects.get(pk=image.id)
-            if image.status > 0:
+            if image.status==2 and image.queue==queue_id:
 
                 # set status to processing
-                image.status = 2
                 if predict:
                     image.message = 'Processing'
                 elif label.automatic_cropping:
@@ -1494,12 +1496,18 @@ def features(request, action):
                     if int(action) == 7:
                         q = Queue('process_image', connection=Redis())
                         job = q.enqueue_call(init_process_image, args=(img.id, 'convert',), timeout=-1)
+                        img.queue = 5
+                        queue_short = 'E'
                     elif int(action) == 8:
                         q = Queue('process_image', connection=Redis())
                         job = q.enqueue_call(init_process_image, args=(img.id, 'smooth',), timeout=-1)
+                        img.queue = 5
+                        queue_short = 'E'
                     elif int(action) == 11:
                         q = Queue('create_mesh', connection=Redis())
                         job = q.enqueue_call(init_create_mesh, args=(img.id,), timeout=-1)
+                        img.queue = 7
+                        queue_short = 'F'
                     lenq = len(q)
                     img.job_id = job.id
                     if lenq==0 and config['REMOTE_QUEUE_HOST']:
@@ -1510,8 +1518,7 @@ def features(request, action):
                         img.message = 'Processing'
                     else:
                         img.status = 1
-                        img.message = f'Queue E position {lenq} of {lenq}'
-                    img.queue = 5
+                        img.message = f'Queue {queue_short} position {lenq} of {lenq}'
                     img.save()
 
     # switch image type
@@ -1680,6 +1687,8 @@ def app(request):
                 queue_name, queue_short = 'acwe', 'D'
             elif image.queue == 5:
                 queue_name, queue_short = 'process_image', 'E'
+            elif image.queue == 7:
+                queue_name, queue_short = 'create_mesh', 'F'
 
             id_to_check = image.job_id
             new_message = image.message
@@ -2126,6 +2135,10 @@ def init_random_walk(image, label):
     # check if aborted
     if image.status > 0:
 
+        # set status to processing
+        image.status = 2
+        image.save()
+
         # create biomedisa
         bm = Biomedisa()
         bm.success = True
@@ -2247,11 +2260,10 @@ def init_random_walk(image, label):
 
             # check if aborted
             image = Upload.objects.get(pk=image.id)
-            if image.status > 0 and success == 0:
+            if image.status==2 and image.queue==queue_id and success==0:
 
                 # set pid and status to processing
                 image.message = 'Processing'
-                image.status = 2
                 image.pid = -1
                 image.save()
 
@@ -2328,11 +2340,10 @@ def init_random_walk(image, label):
         else:
             # check if aborted
             image = Upload.objects.get(pk=image.id)
-            if image.status > 0:
+            if image.status==2 and image.queue==queue_id:
 
                 # set status to processing
                 image.message = 'Processing'
-                image.status = 2
                 image.save()
 
                 # start interpolation
@@ -2410,7 +2421,7 @@ def stop_running_job(pid, queue_id):
         QUEUE, host = 'SECOND', config['SECOND_QUEUE_HOST']
     elif queue_id == 3:
         QUEUE, host = 'THIRD', config['THIRD_QUEUE_HOST']
-    elif queue_id == 5:
+    elif queue_id in [5,7]:
         if 'REMOTE_QUEUE_HOST' in config:
             QUEUE, host = 'REMOTE', config['REMOTE_QUEUE_HOST']
         else:
@@ -2462,14 +2473,15 @@ def remove_from_queue(request):
 
                 # remove from queue
                 if image_to_stop.queue == 1:
-                    queue_name, host = 'first_queue', config['FIRST_QUEUE_HOST']
+                    queue_name = 'first_queue'
                 elif image_to_stop.queue == 2:
-                    queue_name, host = 'second_queue', config['SECOND_QUEUE_HOST']
+                    queue_name = 'second_queue'
                 elif image_to_stop.queue == 3:
-                    queue_name, host = 'third_queue', config['THIRD_QUEUE_HOST']
+                    queue_name = 'third_queue'
                 elif image_to_stop.queue == 5:
                     queue_name = 'process_image'
-                    host = True if 'REMOTE_QUEUE_HOST' in config else False
+                elif image_to_stop.queue == 7:
+                    queue_name = 'create_mesh'
 
                 q = Queue(queue_name, connection=Redis())
                 id_to_check = image_to_stop.job_id
