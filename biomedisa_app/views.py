@@ -1135,6 +1135,8 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
             cmd += [f'-ss={label.stride_size}']
         if label.rotate > 0:
             cmd += [f'-r={label.rotate}']
+        if label.header_file:
+            cmd += [f'-hf={host_base}/private_storage/images/{label.user.username}/{label.header_file}']
 
         # change working directory
         cwd = host_base + '/biomedisa_features/'
