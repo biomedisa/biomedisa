@@ -47,7 +47,7 @@ class Biomedisa(object):
 
 def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=None,
     path_to_images=None, path_to_labels=None, val_images=None, val_labels=None,
-    path_to_model=None, predict=False, train=False,
+    path_to_model=None, predict=False, train=False, header_file=None,
     balance=False, crop_data=False, flip_x=False, flip_y=False, flip_z=False,
     swapaxes=False, train_dice=False, val_dice=True, no_compression=False, ignore='none', only='all',
     network_filters='32-64-128-256-512', resnet=False, debug_cropping=False,
@@ -396,6 +396,8 @@ if __name__ == '__main__':
                         help='The interpolation is carried out on a remote server. Must be set up in config.py')
     parser.add_argument('-q','--queue', type=int, default=0,
                         help='Processing queue when using a remote server')
+    parser.add_argument('-hf','--header_file', type=str, metavar='PATH', default=None,
+                        help='Location of header file')
     bm = parser.parse_args()
 
     bm.success = True

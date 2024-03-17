@@ -229,6 +229,7 @@ class Upload(models.Model):
     filters = models.CharField("Network architecture (AI)", default='32-64-128-256-512', max_length=30)
     resnet = models.BooleanField("ResNet convolutional blocks (AI)", default=False)
     validation_data = models.BooleanField('Validation data (AI)', default=False)
+    header_file = models.CharField("Header file", null=True, blank=True, max_length=100)
 
 class UploadForm(forms.ModelForm):
     class Meta:
@@ -253,7 +254,7 @@ class SettingsPredictionForm(forms.ModelForm):
     class Meta:
         model = Upload
         fields = ('compression', 'batch_size', 'stride_size',
-                  'delete_outliers', 'fill_holes')
+                  'delete_outliers', 'fill_holes', 'header_file')
 
 def repository_directory_path(instance, filename):
     filename = filename.encode('ascii', 'ignore').decode()
