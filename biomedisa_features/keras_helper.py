@@ -1160,12 +1160,15 @@ def predict_semantic_segmentation(bm, img, path_to_model,
 
     # use header file
     # ToDo: header.set_voxel_spacing(), header.set_offset()
-    if bm.header_file:
+    if bm.header_file and os.path.exists(bm.header_file):
         _, header = load_data(bm.header_file)
         if header is not None:
             new_extension = os.path.splitext(bm.header_file)[1]
+            if new_extension == '.gz':
+                new_extension = '.nii.gz'
             filename, old_extension = os.path.splitext(bm.path_to_final)
             bm.path_to_final = filename + new_extension
+            results['header'] = header
 
     # save result
     if bm.path_to_images:

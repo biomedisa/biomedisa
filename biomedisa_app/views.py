@@ -1136,7 +1136,8 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
         if label.rotate > 0:
             cmd += [f'-r={label.rotate}']
         if label.header_file:
-            cmd += [f'-hf={host_base}/private_storage/images/{label.user.username}/{label.header_file}']
+            header_file = BASE_DIR + f'/private_storage/images/{label.user.username}/{label.header_file}'
+            cmd += [f'-hf={header_file.replace(BASE_DIR,host_base)}']
 
         # change working directory
         cwd = host_base + '/biomedisa_features/'
@@ -1152,6 +1153,8 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
             if predict:
                 success+=send_data_to_host(image.pic.path, host+':'+image.pic.path.replace(BASE_DIR,host_base))
                 success+=send_data_to_host(label.pic.path, host+':'+label.pic.path.replace(BASE_DIR,host_base))
+                if label.header_file:
+                    send_data_to_host(header_file, host+':'+header_file.replace(BASE_DIR,host_base))
             else:
                 for path in img_list.split(',')[:-1]:
                     success+=send_data_to_host(path, host+':'+path.replace(BASE_DIR,host_base))
