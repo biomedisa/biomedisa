@@ -120,9 +120,8 @@ def create_slices(path_to_data, path_to_label, on_site=False):
                 # load files
                 img_names = []
                 for data_type in ['.tif','.tiff','.am','.hdr','.mhd','.mha','.nrrd','.nii','.nii.gz']:
-                    tmp_img_names = glob(path_to_dir+'/**/*'+data_type, recursive=True)
-                    tmp_img_names = sorted(tmp_img_names)
-                    img_names.extend(tmp_img_names)
+                    img_names.extend(glob(path_to_dir+'/**/*'+data_type, recursive=True))
+                img_names = sorted(img_names)
                 raw, _ = load_data(img_names[0], 'create_slices')
                 zsh, ysh, xsh = raw.shape
                 scale = float(256) / float(max(zsh, ysh, xsh))
@@ -180,9 +179,8 @@ def create_slices(path_to_data, path_to_label, on_site=False):
                     # load files
                     img_names = []
                     for data_type in ['.tif','.tiff','.am','.hdr','.mhd','.mha','.nrrd','.nii','.nii.gz']:
-                        tmp_img_names = glob(path_to_dir+'/**/*'+data_type, recursive=True)
-                        tmp_img_names = sorted(tmp_img_names)
-                        img_names.extend(tmp_img_names)
+                        img_names.extend(glob(path_to_dir+'/**/*'+data_type, recursive=True))
+                    img_names = sorted(img_names)
                     # load and scale label data to corresponding img data
                     mask = np.zeros((0, y_scale, x_scale), dtype=np.uint8)
                     for name in img_names:
