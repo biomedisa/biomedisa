@@ -2516,6 +2516,23 @@ def remove_from_queue(request):
             pass
     return JsonResponse(results)
 
+# remove file from carantine
+@login_required
+def reactivate_file(request):
+    results = {'success':False}
+    try:
+        if request.method == 'GET':
+            id = int(request.GET.get('id'))
+            image = get_object_or_404(Upload, pk=id)
+            if image.user == request.user:
+                image.upload_date = timezone.localtime()
+                image.log = 0
+                image.save()
+                results = {'success':True}
+    except:
+        pass
+    return JsonResponse(results)
+
 # 46. delete account
 @login_required
 def delete_account(request):

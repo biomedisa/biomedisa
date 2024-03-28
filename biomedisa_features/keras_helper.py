@@ -373,12 +373,10 @@ def read_img_list(img_list, label_list):
                 label_name = label_dir
 
             for data_type in ['.am','.tif','.tiff','.hdr','.mhd','.mha','.nrrd','.nii','.nii.gz']:
-                tmp_img_names = glob(img_name+'/**/*'+data_type, recursive=True)
-                tmp_label_names = glob(label_name+'/**/*'+data_type, recursive=True)
-                tmp_img_names = sorted(tmp_img_names)
-                tmp_label_names = sorted(tmp_label_names)
-                img_names.extend(tmp_img_names)
-                label_names.extend(tmp_label_names)
+                img_names.extend(glob(img_name+'/**/*'+data_type, recursive=True))
+                label_names.extend(glob(label_name+'/**/*'+data_type, recursive=True))
+            img_names = sorted(img_names)
+            label_names = sorted(label_names)
             if len(img_names)==0:
                 InputError.message = "Invalid image data."
                 raise InputError()
