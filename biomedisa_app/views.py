@@ -1361,7 +1361,7 @@ def features(request, action):
 
                     # processing message
                     if lenq==0 and ((config['FIRST_QUEUE_HOST'] and queue_short=='A') or (config['SECOND_QUEUE_HOST'] and queue_short=='B')):
-                        img.message = 'Waiting for the process to start'
+                        img.message = 'Waiting for resources'
                         img.status = 2
                     elif lenq==0:
                         img.message = 'Processing'
@@ -1424,7 +1424,7 @@ def features(request, action):
             # processing message
             lenq = len(q)
             if lenq==0 and ((config['FIRST_QUEUE_HOST'] and queue_short=='A') or (config['THIRD_QUEUE_HOST'] and queue_short=='C')):
-                raw_out.message = 'Waiting for the process to start'
+                raw_out.message = 'Waiting for resources'
                 raw_out.status = 2
             elif lenq==0:
                 if label_out.automatic_cropping:
@@ -1517,7 +1517,7 @@ def features(request, action):
                     img.job_id = job.id
                     if lenq==0 and config['REMOTE_QUEUE_HOST']:
                         img.status = 2
-                        img.message = 'Waiting for the process to start'
+                        img.message = 'Waiting for resources'
                     elif lenq==0:
                         img.status = 2
                         img.message = 'Processing'
@@ -1811,8 +1811,11 @@ def share_data(request):
         # get object
         if demo:
             id = str(id)
-            demo_id = User.objects.get(username='demo')
-            stock_to_share = Upload.objects.filter(user_id=demo_id, shortfilename=id)[0]
+            demo_files = glob.glob(BASE_DIR + '/media/images/*')
+            demo_files = [os.path.basename(x) for x in demo_files]
+            max_str = max(demo_files, key=len)
+            if id[:len(max_str)] in demo_files:
+                path_to_file = BASE_DIR + '/media/images/' + id
         else:
             id = int(id)
             stock_to_share = get_object_or_404(Upload, pk=id)
@@ -1824,11 +1827,13 @@ def share_data(request):
         else:
             shared_by = request.user.username
 
-        if stock_to_share.user == request.user or stock_to_share.user.username == 'demo':
+        if demo or stock_to_share.user==request.user:
+            # loop over new users
             list_of_users = list_of_users.split(";")
             unknown_users = []
             for new_user_name in list_of_users:
 
+                # get new user object
                 if User.objects.filter(username=new_user_name).exists():
                     user_id = User.objects.get(username=new_user_name)
                 elif User.objects.filter(email=new_user_name).exists():
@@ -1838,42 +1843,79 @@ def share_data(request):
                     user_id = None
 
                 if user_id:
-
-                    if stock_to_share.final:
-                        if demo:
-                            images = Upload.objects.filter(user=demo_id, friend=stock_to_share.friend)
-                        else:
-                            images = Upload.objects.filter(user=request.user, friend=stock_to_share.friend)
-                    else:
-                        images = [stock_to_share]
-
-                    for k, img in enumerate(images):
-
+                    # share gallery data
+                    if demo:
                         # new file path
-                        pic_path = 'images/' + new_user_name + '/' + img.shortfilename
+                        pic_path = 'images/' + new_user_name + '/' + os.path.basename(path_to_file)
 
-                        # rename image if path already exists
+                        # rename image if path or object already exist
                         if os.path.exists(PRIVATE_STORAGE_ROOT+'/'+pic_path):
                             path_to_data = unique_file_path(pic_path)
                             pic_path = 'images/' + new_user_name + '/' + os.path.basename(path_to_data)
+                        if Upload.objects.filter(user=user_id, pic=pic_path).exists():
+                            filename, extension = os.path.splitext(os.path.basename(pic_path))
+                            random_string = '_' + id_generator(7)
+                            pic_path = 'images/' + new_user_name + '/' + filename + random_string + extension
 
-                        # create object
-                        if img.final:
-                            if k == 0:
-                                ref_img = Upload.objects.create(pic=pic_path, user=user_id, project=0, imageType=img.imageType,
-                                            shortfilename=os.path.basename(pic_path), final=img.final, shared=1, shared_by=shared_by,
-                                            shared_path=img.pic.path, active=img.active)
-                                ref_img.friend = ref_img.id
-                                ref_img.save()
+                        # image type
+                        if '.stl' in pic_path:
+                            imageType = 5
+                        elif '.h5' in pic_path:
+                            imageType = 4
+                        elif 'final.' in pic_path:
+                            imageType = 3
+                        elif 'labels' in pic_path:
+                            imageType = 2
+                        else:
+                            imageType = 1
+
+                        # create upload object
+                        img = Upload.objects.create(pic=pic_path, user=user_id, project=0, imageType=imageType,
+                            shortfilename=os.path.basename(pic_path), final=(1 if imageType==3 else 0), shared=1,
+                            shared_by=shared_by, shared_path=path_to_file, active=(1 if imageType==3 else 0))
+                        if imageType==3:
+                            img.friend = img.id
+                            img.save()
+                    else:
+                        # collect images
+                        if stock_to_share.final:
+                            images = Upload.objects.filter(user=request.user, friend=stock_to_share.friend)
+                        else:
+                            images = [stock_to_share]
+
+                        # loop over images
+                        for k, img in enumerate(images):
+
+                            # new file path
+                            pic_path = 'images/' + new_user_name + '/' + img.shortfilename
+
+                            # rename image if path already exists
+                            if os.path.exists(PRIVATE_STORAGE_ROOT+'/'+pic_path):
+                                path_to_data = unique_file_path(pic_path)
+                                pic_path = 'images/' + new_user_name + '/' + os.path.basename(path_to_data)
+                            if Upload.objects.filter(user=user_id, pic=pic_path).exists():
+                                filename, extension = os.path.splitext(os.path.basename(pic_path))
+                                random_string = '_' + id_generator(7)
+                                pic_path = 'images/' + new_user_name + '/' + filename + random_string + extension
+
+                            # create upload object
+                            if img.final:
+                                if k==0:
+                                    ref_img = Upload.objects.create(pic=pic_path, user=user_id, project=0, imageType=img.imageType,
+                                        shortfilename=os.path.basename(pic_path), final=img.final, shared=1, shared_by=shared_by,
+                                        shared_path=img.pic.path, active=img.active)
+                                    ref_img.friend = ref_img.id
+                                    ref_img.save()
+                                else:
+                                    Upload.objects.create(pic=pic_path, user=user_id, project=0, imageType=img.imageType,
+                                        shortfilename=os.path.basename(pic_path), final=img.final, shared=1, shared_by=shared_by,
+                                        shared_path=img.pic.path, friend=ref_img.id, active=img.active)
                             else:
                                 Upload.objects.create(pic=pic_path, user=user_id, project=0, imageType=img.imageType,
-                                    shortfilename=os.path.basename(pic_path), final=img.final, shared=1, shared_by=shared_by,
-                                    shared_path=img.pic.path, friend=ref_img.id, active=img.active)
-                        else:
-                            Upload.objects.create(pic=pic_path, user=user_id, project=0, imageType=img.imageType,
-                                shortfilename=os.path.basename(pic_path), final=img.final, shared=1,
-                                shared_by=shared_by, shared_path=img.pic.path)
+                                    shortfilename=os.path.basename(pic_path), final=img.final, shared=1,
+                                    shared_by=shared_by, shared_path=img.pic.path)
 
+                    # send notification to new user
                     if shared_id != user_id:
                         q = Queue('share_notification', connection=Redis())
                         job = q.enqueue_call(send_share_notify, args=(user_id.username, os.path.basename(pic_path), shared_by,), timeout=-1)
@@ -1955,8 +1997,8 @@ def accept_shared_data(request):
                     os.link(img.shared_path, img.pic.path)
 
                     # copy slices
-                    path_to_src = img.shared_path.replace('images', 'sliceviewer', 1)
-                    path_to_dest = img.pic.path.replace('images', 'sliceviewer', 1)
+                    path_to_src = img.shared_path.replace('/images/', '/sliceviewer/', 1)
+                    path_to_dest = img.pic.path.replace('/images/', '/sliceviewer/', 1)
                     if os.path.exists(path_to_src):
                         copytree(path_to_src, path_to_dest, copy_function=os.link)
 
@@ -2046,11 +2088,11 @@ def delete_demo(request):
 def download_demo(request):
     if request.method == 'GET':
         id = request.GET.get('id')
-        demo_files = glob.glob(BASE_DIR + '/media/data/*')
+        demo_files = glob.glob(BASE_DIR + '/media/images/*')
         demo_files = [os.path.basename(x) for x in demo_files]
         max_str = max(demo_files, key=len)
         if id[:len(max_str)] in demo_files:
-            path_to_file = BASE_DIR + '/media/data/' + id
+            path_to_file = BASE_DIR + '/media/images/' + id
             wrapper = FileWrapper(open(path_to_file, 'rb'))
             imgsize = os.path.getsize(path_to_file)
             if imgsize < 5000000000:
@@ -2077,7 +2119,7 @@ def visualization_demo(request):
 def sliceviewer_demo(request):
     if request.method == 'GET':
         id = request.GET.get('id')
-        demo_files = glob.glob(BASE_DIR + '/media/data/*')
+        demo_files = glob.glob(BASE_DIR + '/media/images/*')
         demo_files = [os.path.basename(x) for x in demo_files]
         max_str = max(demo_files, key=len)
         if id[:len(max_str)] in demo_files:
@@ -2397,7 +2439,7 @@ def run(request):
 
                 # processing message
                 if lenq==0 and ((config['FIRST_QUEUE_HOST'] and queue_name=='A') or (config['SECOND_QUEUE_HOST'] and queue_name=='B')):
-                    raw.message = 'Waiting for the process to start'
+                    raw.message = 'Waiting for resources'
                     raw.status = 2
                 elif lenq==0:
                     raw.message = 'Processing'
