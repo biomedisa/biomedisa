@@ -78,7 +78,7 @@ function toggle(value) {
 </script>
 
 <script>
-function deleteFunction(id, proj) {
+function deleteFunction(id) {
   $.getJSON("/delete/", { id:id }, function(json){
     if (json['success'] == true) {
       setTimeout(function(){
@@ -143,6 +143,20 @@ function createFunction(id) {
   });
 }
 
+function reactivateFunction(id) {
+  $.getJSON("/reactivate/", { id:id }, function(json){
+    if (json['success'] == true) {
+      if ('msg' in json) {
+        alert(json['msg']);
+      } else {
+          window.location.reload();
+      }
+    } else {
+      alert("Something went wrong... ");
+    }
+  });
+}
+
 function runFunction(raw, label) {
   $.getJSON("/run/", { raw:raw, label:label }, function(json){
     if (json['success'] == true) {
@@ -184,15 +198,14 @@ function addClickHandlers() {
     var res = (this.id).split(",")
     var id = parseInt(res[0])
     var status = parseInt(res[1])
-    var proj = parseInt(res[2])
-    var msg = res[3]
+    var msg = res[2]
 
     if (status > 0) {
       alert("You are not allowed to delete processing files!")
     } else {
       var r = confirm(msg);
       if (r == true) {
-        deleteFunction(id, proj);
+        deleteFunction(id);
       }
     }
   });
@@ -252,6 +265,13 @@ function addClickHandlers() {
 
   $(".refresh_link").click( function() {
     refreshFunction();
+  });
+
+  $(".reactivate_link").click( function() {
+    var r = confirm("Reactivate file?");
+    if (r == true) {
+      reactivateFunction(this.id);
+    }
   });
 }
 $(document).ready(addClickHandlers);
@@ -332,21 +352,34 @@ $(document).ready(addClickHandlers);
               {% if img.imageType == 1 %}
                 <div id="img{{ img.id }}" >
                   <p>
+                  {% if img.log == 2 %}
+                  <a><img src="/static/file_image_tmp.svg" title="image" style="width:50px;height:50px;border:0;"></a>
+                  <span class="delete_link" id="{{img.id}},{{img.status}},Delete File?"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+                  <span class="reactivate_link" id="{{img.id}}"><img src="/static/accept.jpeg" title="reactivate" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+                  {{ img.shortfilename }}
+                  {% else %}
                   <a href=# onclick="visualizationFunction({{img.id}})"><img src="/static/file_image.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
-                  <span class="delete_link" id="{{img.id}},{{img.status}},{{ img.project }},Delete File?"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+                  <span class="delete_link" id="{{img.id}},{{img.status}},Delete File?"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
                   <a href="/download/{{img.id}}"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
                   <a href=# onclick="sliceviewerFunction({{img.id}})"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
                   <span class="move_link" id="{{img.id}},{{img.status}}"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
                   <span class="share_link" id="{{img.id}}"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
                   <input type="checkbox" name="selected" value="{{img.id}}"/> </br>
                   <span class="rename_link" id="{{img.id}},{{img.shortfilename}}" title="rename">{{ img.shortfilename }}</span>
+                  {% endif %}
                   </p>
                 </div>
               {% elif img.imageType == 2 %}
                 <div id="img{{ img.id }}" >
                   <p>
+                  {% if img.log == 2 %}
+                  <a><img src="/static/file_label_tmp.svg" title="label" style="width:50px;height:50px;border:0;"></a>
+                  <span class="delete_link" id="{{img.id}},{{img.status}},Delete File?"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+                  <span class="reactivate_link" id="{{img.id}}"><img src="/static/accept.jpeg" title="reactivate" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+                  {{ img.shortfilename }}
+                  {% else %}
                   <a href=# onclick="visualizationFunction({{img.id}})"><img src="/static/file_label.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
-                  <span class="delete_link" id="{{img.id}},{{img.status}},{{ img.project }},Delete File?"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+                  <span class="delete_link" id="{{img.id}},{{img.status}},Delete File?"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
                   <a href="/download/{{img.id}}"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
                   <a href=# onclick="sliceviewerFunction({{img.id}})"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
                   <span class="move_link" id="{{img.id}},{{img.status}}"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
@@ -354,50 +387,78 @@ $(document).ready(addClickHandlers);
                   <a href="/settings/{{img.id}}"><img src="/static/einst_filled.jpg" title="settings" width="20" height="20" onMouseOver="this.src='/static/einst2.jpg'" onMouseOut="this.src='/static/einst_filled.jpg'"></a>
                   <input type="checkbox" name="selected" value="{{img.id}}"/> </br>
                   <span class="rename_link" id="{{img.id}},{{img.shortfilename}}" title="rename">{{ img.shortfilename }}</span>
+                  {% endif %}
                   </p>
                 </div>
               {% elif img.imageType == 4 %}
                 <div id="img{{ img.id }}" >
                   <p>
+                  {% if img.log == 2 %}
+                  <a><img src="/static/file_ai_tmp.svg" title="network" style="width:50px;height:50px;border:0;"></a>
+                  <span class="delete_link" id="{{img.id}},{{img.status}},Delete File?"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+                  <span class="reactivate_link" id="{{img.id}}"><img src="/static/accept.jpeg" title="reactivate" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+                  {{ img.shortfilename }}
+                  {% else %}
                   <a href='#'><img src="/static/file_ai.svg" title="network" style="width:50px;height:50px;border:0;"></a>
-                  <span class="delete_link" id="{{img.id}},{{img.status}},{{ img.project }},Delete File?"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+                  <span class="delete_link" id="{{img.id}},{{img.status}},Delete File?"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
                   <a href="/download/{{img.id}}"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
                   <span class="move_link" id="{{img.id}},{{img.status}}"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
                   <span class="share_link" id="{{img.id}}"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
                   <a href="/settings/prediction/{{img.id}}"><img src="/static/einst_filled.jpg" title="settings" width="20" height="20" onMouseOver="this.src='/static/einst2.jpg'" onMouseOut="this.src='/static/einst_filled.jpg'"></a>
                   <input type="checkbox" name="selected" value="{{img.id}}"/> </br>
                   <span class="rename_link" id="{{img.id}},{{img.shortfilename}}" title="rename">{{ img.shortfilename }}</span>
+                  {% endif %}
                   </p>
                 </div>
               {% elif img.imageType == 5 %}
                 <div id="img{{ img.id }}" >
                   <p>
+                  {% if img.log == 2 %}
+                  <a><img src="/static/file_mesh_tmp.svg" title="mesh" style="width:50px;height:50px;border:0;"></a>
+                  <span class="delete_link" id="{{img.id}},{{img.status}},Delete File?"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+                  <span class="reactivate_link" id="{{img.id}}"><img src="/static/accept.jpeg" title="reactivate" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+                  {{ img.shortfilename }}
+                  {% else %}
                   <a href=# onclick="visualizationFunction({{img.id}})"><img src="/static/file_mesh.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
-                  <span class="delete_link" id="{{img.id}},{{img.status}},{{ img.project }},Delete File?"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+                  <span class="delete_link" id="{{img.id}},{{img.status}},Delete File?"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
                   <a href="/download/{{img.id}}"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
                   <span class="move_link" id="{{img.id}},{{img.status}}"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
                   <span class="share_link" id="{{img.id}}"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
                   <input type="checkbox" name="selected" value="{{img.id}}"/> </br>
                   <span class="rename_link" id="{{img.id}},{{img.shortfilename}}" title="rename">{{ img.shortfilename }}</span>
+                  {% endif %}
                   </p>
                 </div>
               {% elif img.imageType == 6 %}
                 <div id="img{{ img.id }}" >
                   <p>
+                  {% if img.log == 2 %}
+                  <a><img src="/static/file_log_tmp.svg" title="log" style="width:50px;height:50px;border:0;"></a>
+                  <span class="delete_link" id="{{img.id}},{{img.status}},Delete File?"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+                  <span class="reactivate_link" id="{{img.id}}"><img src="/static/accept.jpeg" title="reactivate" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+                  {{ img.shortfilename }}
+                  {% else %}
                   <a href=# onclick="viewFunction({{img.id}})"><img src="/static/file_log.svg" title="accuracy" style="width:50px;height:50px;border:0;"></a>
-                  <span class="delete_link" id="{{img.id}},{{img.status}},{{ img.project }},Delete File?"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+                  <span class="delete_link" id="{{img.id}},{{img.status}},Delete File?"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
                   <a href="/download/{{img.id}}"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
                   <span class="move_link" id="{{img.id}},{{img.status}}"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
                   <span class="share_link" id="{{img.id}}"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
                   <input type="checkbox" name="selected" value="{{img.id}}"/> </br>
                   <span class="rename_link" id="{{img.id}},{{img.shortfilename}}" title="rename">{{ img.shortfilename }}</span>
+                  {% endif %}
                   </p>
                 </div>
               {% elif img.active %}
                 <div id="img{{ img.id }}" >
                   <p>
+                  {% if img.log == 2 %}
+                  <a><img src="/static/file_final_tmp.svg" title="final" style="width:50px;height:50px;border:0;"></a>
+                  <span class="delete_link" id="{{img.id}},{{img.status}},Delete File?"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+                  <span class="reactivate_link" id="{{img.id}}"><img src="/static/accept.jpeg" title="reactivate" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+                  {{ img.shortfilename }}
+                  {% else %}
                   <a href=# onclick="visualizationFunction({{img.id}})"><img src="/static/file_final.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
-                  <span class="delete_link" id="{{img.id}},{{img.status}},{{ img.project }},Delete File?"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+                  <span class="delete_link" id="{{img.id}},{{img.status}},Delete File?"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
                   <a href="/download/{{img.id}}"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
                   <a href=# onclick="sliceviewerFunction({{img.id}})"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
                   <span class="move_link" id="{{img.id}},{{img.status}}"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
@@ -418,6 +479,7 @@ $(document).ready(addClickHandlers);
                       <option value="9">cropped</option>
                   </select>
                   <span class="rename_link" id="{{img.id}},{{img.shortfilename}}" title="rename">{{ img.shortfilename }}</span>
+                  {% endif %}
                   </br>
                   {% if messages %}
                     <ul class="messages">
@@ -435,12 +497,12 @@ $(document).ready(addClickHandlers);
 
       {% for img in images %}
           {% if img.project == k.1 %}
-              {% if img.log %}
+              {% if img.log == 1 %}
                   <tr><td>
                   <div id="msg{{ img.id }}">
                   <p>
                   <strong>Error:</strong> {{img.shortfilename}}
-                  <span class="delete_link" id="{{img.id}},{{img.status}},{{ img.project }},Remove Message?"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></a>
+                  <span class="delete_link" id="{{img.id}},{{img.status}},Remove Message?"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></a>
                   </p>
                   </div>
                   </td></tr>

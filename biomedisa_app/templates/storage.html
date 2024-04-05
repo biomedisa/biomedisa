@@ -116,6 +116,19 @@ function createFunction(id) {
   });
 }
 
+function reactivateFunction(id) {
+  $.getJSON("/reactivate/", { id:id }, function(json){
+    if (json['success'] == true) {
+      if ('msg' in json) {
+        alert(json['msg']);
+      } else {
+          window.location.reload();
+      }
+    } else {
+      alert("Something went wrong... ");
+    }
+  });
+}
 
 function addClickHandlers() {
   $(".delete_link").click( function() {
@@ -162,6 +175,13 @@ function addClickHandlers() {
     var r = confirm("Accept file shared by " + shared_by + "?");
     if (r == true) {
       acceptFunction(id);
+    }
+  });
+
+  $(".reactivate_link").click( function() {
+    var r = confirm("Reactivate file?");
+    if (r == true) {
+      reactivateFunction(this.id);
     }
   });
 }
@@ -232,6 +252,12 @@ $(document).ready(addClickHandlers);
           <span class="accept_link" id="{{img.id}},'{{img.shared_by}}'"><img src="/static/accept.jpeg" title="accept" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
           {{ img.shortfilename }}
           <span style="float:right;"> </br> </br> {{ img.upload_date }}</span>
+          {% elif img.log == 2 %}
+          <a><img src="/static/file_image_tmp.svg" title="image" style="width:50px;height:50px;border:0;"></a>
+          <span class="delete_link" id="{{img.id}}"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+          <span class="reactivate_link" id="{{img.id}}"><img src="/static/accept.jpeg" title="reactivate" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+          {{ img.shortfilename }}
+          <span style="float:right;"> </br> </br> {{ img.upload_date }}</span>
           {% else %}
           <a href=# onclick="visualizationFunction({{img.id}})"><img src="/static/file_image.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
           <span class="delete_link" id="{{img.id}}"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
@@ -252,6 +278,12 @@ $(document).ready(addClickHandlers);
           <a><img src="/static/file_label_tmp.svg" title="label" style="width:50px;height:50px;border:0;"></a>
           <span class="delete_link" id="{{img.id}}"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
           <span class="accept_link" id="{{img.id}},'{{img.shared_by}}'"><img src="/static/accept.jpeg" title="accept" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+          {{ img.shortfilename }}
+          <span style="float:right;"> </br> </br> {{ img.upload_date }}</span>
+          {% elif img.log == 2 %}
+          <a><img src="/static/file_label_tmp.svg" title="label" style="width:50px;height:50px;border:0;"></a>
+          <span class="delete_link" id="{{img.id}}"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+          <span class="reactivate_link" id="{{img.id}}"><img src="/static/accept.jpeg" title="reactivate" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
           {{ img.shortfilename }}
           <span style="float:right;"> </br> </br> {{ img.upload_date }}</span>
           {% else %}
@@ -276,6 +308,12 @@ $(document).ready(addClickHandlers);
           <span class="accept_link" id="{{img.id}},'{{ img.shared_by }}'"><img src="/static/accept.jpeg" title="accept" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
           {{ img.shortfilename }}
           <span style="float:right;"> </br> </br> {{ img.upload_date }}</span>
+          {% elif img.log == 2 %}
+          <a><img src="/static/file_ai_tmp.svg" title="network" style="width:50px;height:50px;border:0;"></a>
+          <span class="delete_link" id="{{img.id}}"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+          <span class="reactivate_link" id="{{img.id}}"><img src="/static/accept.jpeg" title="reactivate" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+          {{ img.shortfilename }}
+          <span style="float:right;"> </br> </br> {{ img.upload_date }}</span>
           {% else %}
           <a href='#'><img src="/static/file_ai.svg" title="network" style="width:50px;height:50px;border:0;"></a>
           <span class="delete_link" id="{{img.id}}"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
@@ -295,6 +333,12 @@ $(document).ready(addClickHandlers);
           <a><img src="/static/file_mesh_tmp.svg" title="mesh" style="width:50px;height:50px;border:0;"></a>
           <span class="delete_link" id="{{img.id}}"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
           <span class="accept_link" id="{{img.id}},'{{img.shared_by}}'"><img src="/static/accept.jpeg" title="accept" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+          {{ img.shortfilename }}
+          <span style="float:right;"> </br> </br> {{ img.upload_date }}</span>
+          {% elif img.log == 2 %}
+          <a><img src="/static/file_mesh_tmp.svg" title="mesh" style="width:50px;height:50px;border:0;"></a>
+          <span class="delete_link" id="{{img.id}}"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+          <span class="reactivate_link" id="{{img.id}}"><img src="/static/accept.jpeg" title="reactivate" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
           {{ img.shortfilename }}
           <span style="float:right;"> </br> </br> {{ img.upload_date }}</span>
           {% else %}
@@ -318,6 +362,12 @@ $(document).ready(addClickHandlers);
           <span class="accept_link" id="{{img.id}},'{{img.shared_by}}'"><img src="/static/accept.jpeg" title="accept" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
           {{ img.shortfilename }}
           <span style="float:right;"> </br> </br> {{ img.upload_date }}</span>
+          {% elif img.log == 2 %}
+          <a><img src="/static/file_log_tmp.svg" title="log" style="width:50px;height:50px;border:0;"></a>
+          <span class="delete_link" id="{{img.id}}"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+          <span class="reactivate_link" id="{{img.id}}"><img src="/static/accept.jpeg" title="reactivate" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+          {{ img.shortfilename }}
+          <span style="float:right;"> </br> </br> {{ img.upload_date }}</span>
           {% else %}
           <a href=# onclick="viewFunction({{img.id}})"><img src="/static/file_log.svg" title="accuracy" style="width:50px;height:50px;border:0;"></a>
           <span class="delete_link" id="{{img.id}}"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
@@ -337,6 +387,10 @@ $(document).ready(addClickHandlers);
           <a><img src="/static/file_final_tmp.svg" title="final" style="width:50px;height:50px;border:0;"></a>
           <span class="delete_link" id="{{img.id}}"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
           <span class="accept_link" id="{{img.id}},'{{ img.shared_by }}'"><img src="/static/accept.jpeg" title="accept" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+          {% elif img.log == 2 %}
+          <a><img src="/static/file_final_tmp.svg" title="final" style="width:50px;height:50px;border:0;"></a>
+          <span class="delete_link" id="{{img.id}}"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+          <span class="reactivate_link" id="{{img.id}}"><img src="/static/accept.jpeg" title="reactivate" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
           {{ img.shortfilename }}
           <span style="float:right;"> </br> </br> {{ img.upload_date }}</span>
           {% else %}
