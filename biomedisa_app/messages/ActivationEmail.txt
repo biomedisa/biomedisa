@@ -1,7 +1,7 @@
 Dear {{username}},
 
-to complete your registration process, please confirm your e-mail with the confirmation link below.
+to complete your registration process, please confirm your email with the confirmation link below.
 
 {{activation_link}}
 
-This link is only valid until {{key_expires}}.
+This link is only valid until {{key_expires}} (UTC).

@@ -108,6 +108,8 @@ urlpatterns = [
     # move
     url(r'^move/$', views.move, name='move'),
     url(r'^rename/$', views.rename_file, name='rename_file'),
+    # reactivate
+    url(r'^reactivate/$', views.reactivate_file, name='reactivate_file'),
     # share data
     url(r'^share/$', views.share_data, name='share_data'),
     url(r'^create/(?P<id>\d+)/$', views.create_download_link, name='create_download_link'),

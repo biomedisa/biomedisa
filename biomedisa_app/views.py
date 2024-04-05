@@ -2558,7 +2558,7 @@ def remove_from_queue(request):
             pass
     return JsonResponse(results)
 
-# remove file from carantine
+# remove file from carantine (log=2)
 @login_required
 def reactivate_file(request):
     results = {'success':False}
@@ -2566,7 +2566,7 @@ def reactivate_file(request):
         if request.method == 'GET':
             id = int(request.GET.get('id'))
             image = get_object_or_404(Upload, pk=id)
-            if image.user == request.user:
+            if image.user == request.user and image.log == 2:
                 image.upload_date = timezone.localtime()
                 image.log = 0
                 image.save()
