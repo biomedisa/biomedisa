@@ -201,35 +201,25 @@ $(document).ready(addClickHandlers);
 <div class="fbg">
   <div class="fbg_resize">
 
-      <h2 style="text-align:left;">
-      Storage
-      <span style="float:right;">{{datasize}} GB / {{storage_size}} GB</span>
-      </h2>
+  <h2 style="text-align:left;">
+  Storage
+  <span style="float:right;">{{datasize}} GB / {{storage_size}} GB</span>
+  </h2>
 
-      {% if storage_full == 0 %}
-      <div id="alert-box"></div>
-      <div id="image-box" class="not-visible"></div>
-      <br>
-      <form action="#" method="post" enctype="multipart/form-data" id="upload-form">
-        {% csrf_token %} {{ form }}
-      </form>
-
-      <br>
-      <div id="progress-box" class="not-visible"></div>
-      <div id="cancel-box" class="not-visible">
-        <button id="cancel-btn" class="btn btn-danger">cancel</button>
-      </div>
-
+  {% if storage_full == 0 %}
+  <div id="alert-box"></div>
+  <div id="image-box" class="not-visible"></div>
+  <br>
+  <form action="#" method="post" enctype="multipart/form-data" id="upload-form">
+    {% csrf_token %} {{ form }}
+  </form>
+  <br>
+  <div id="progress-box" class="not-visible"></div>
+  <div id="cancel-box" class="not-visible">
+    <button id="cancel-btn" class="btn btn-danger">cancel</button>
+  </div>
   {% else %}
   <p>You've exceeded your storage limit! For uploading additional data, either remove data or ask for more space.</p>
-  {% endif %}
-
-  {% if messages %}
-    <ul class="messages">
-      {% for message in messages %}
-        <p class="warning">{{ message }}</p>
-      {% endfor %}
-    </ul>
   {% endif %}
 
   </br>
@@ -430,3 +420,4 @@ $(document).ready(addClickHandlers);
 <script>alertFunction("{{state}}")</script>
 {% endif %}
 {% endblock %}
+
