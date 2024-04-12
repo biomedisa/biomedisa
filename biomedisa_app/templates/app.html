@@ -287,6 +287,16 @@ $(document).ready(addClickHandlers);
 <div class="fbg">
   <div class="fbg_resize">
 
+  {% if messages %}
+  {% for message in messages %}
+  <div class="messagebox">
+    <ul class="messages">
+        <li class="success alert">{{ message }}</li>
+    </ul>
+  </div>
+  {% endfor %}
+  {% endif %}
+
   <h2 style="text-align:left;">
   Upload
   <span style="float:right;">{{datasize}} GB / {{storage_size}} GB</span>
@@ -299,14 +309,6 @@ $(document).ready(addClickHandlers);
       </form>
   {% else %}
       <p>You've exceeded your storage limit! For uploading additional data, either remove some data or ask for more space.</p>
-  {% endif %}
-
-  {% if messages %}
-      <ul class="messages">
-      {% for message in messages %}
-          <p class="warning">{{ message }}</p>
-      {% endfor %}
-      </ul>
   {% endif %}
 
   </br>
@@ -481,13 +483,6 @@ $(document).ready(addClickHandlers);
                   <span class="rename_link" id="{{img.id}},{{img.shortfilename}}" title="rename">{{ img.shortfilename }}</span>
                   {% endif %}
                   </br>
-                  {% if messages %}
-                    <ul class="messages">
-                      {% for message in messages %}
-                        <li class="success alert">{{ message }}</li>
-                      {% endfor %}
-                    </ul>
-                  {% endif %}
                   </p>
                 </div>
               {% endif %}
@@ -546,3 +541,4 @@ $(document).ready(addClickHandlers);
 <script>alertFunction("{{state}}")</script>
 {% endif %}
 {% endblock %}
+

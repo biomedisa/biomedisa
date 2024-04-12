@@ -719,7 +719,7 @@ def settings(request, id):
                     if cd['early_stopping'] and image.validation_split == 0.0:
                         image.validation_split = 0.8
                     image.save()
-                    messages.error(request, 'Your settings were changed.')
+                    messages.success(request, 'Your settings were changed.')
                 return redirect(settings, id)
         else:
             settings_form = SettingsForm(initial=initial)
@@ -743,7 +743,7 @@ def settings_prediction(request, id):
                     for key in cd.keys():
                         image.__dict__[key] = cd[key]
                     image.save()
-                    messages.error(request, 'Your settings were changed.')
+                    messages.success(request, 'Your settings were changed.')
                 return redirect(settings_prediction, id)
         else:
             settings_form = SettingsPredictionForm(initial=initial)
@@ -777,7 +777,7 @@ def update_profile(request):
                 profile.storage_size = cd['storage_size']
             user_form.save()
             profile.save()
-            messages.error(request, 'Profile successfully updated!')
+            messages.success(request, 'Profile successfully updated!')
             return redirect(update_profile)
         else:
             messages.error(request, 'Please correct the error below.')
@@ -1746,6 +1746,10 @@ def app(request):
         datasize = round(datasize, 3)
     else:
         datasize = int(datasize)
+
+    # show messages
+    if Upload.objects.filter(user=request.user, log=2).exists():
+        messages.success(request, 'You have data that is older than three years (transparent files) and will be deleted on April 19 at 6:00 am (UTC) if it is not reactivated by then.')
 
     return render(request, 'app.html', {'state':state, 'loop_times':looptimes, 'form':img, 'images':images,
             'datasize':datasize, 'storage_full':storage_full, 'storage_size':storage_size,
