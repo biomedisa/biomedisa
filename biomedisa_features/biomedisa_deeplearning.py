@@ -195,18 +195,12 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
         else:
             normalization_parameters = np.array([[mu],[sig]])
         allLabels = np.array(meta.get('labels'))
-        header = np.array(meta.get('header'))
-        try:
-            extension = meta.get('extension').asstr()[()]
-        except:
-            extension = str(np.array(meta.get('extension')))
+        # check if amira header is available in the network
+        if header is None and meta.get('header') is not None:
+            header = [np.array(meta.get('header'))]
+            extension = '.am'
         crop_data = True if 'cropping_weights' in hf else False
         hf.close()
-
-        # if header is not Amira falling back to Multi-TIFF
-        if extension != '.am':
-            extension = '.tif'
-            header = None
 
         # create path_to_final
         if bm.path_to_images:
@@ -229,7 +223,7 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
                 bm.batch_size, bm.debug_cropping, bm.save_cropped, img_data, bm.x_range, bm.y_range, bm.z_range)
 
         # load prediction data
-        img, img_header, z_shape, y_shape, x_shape, region_of_interest = load_prediction_data(bm.path_to_images,
+        img, img_header, z_shape, y_shape, x_shape, region_of_interest, img_extension = load_prediction_data(bm.path_to_images,
             channels, bm.x_scale, bm.y_scale, bm.z_scale, bm.no_scaling, normalize, normalization_parameters,
             region_of_interest, img_data, img_header, img_extension)
 
@@ -237,7 +231,7 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
         results = predict_semantic_segmentation(bm, img, bm.path_to_model,
             bm.z_patch, bm.y_patch, bm.x_patch, z_shape, y_shape, x_shape, bm.compression, header,
             img_header, bm.stride_size, allLabels, bm.batch_size, region_of_interest,
-            bm.no_scaling)
+            bm.no_scaling, extension, img_extension)
 
         # results
         if cropped_volume is not None:

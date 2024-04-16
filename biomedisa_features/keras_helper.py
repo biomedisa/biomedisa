@@ -42,7 +42,8 @@ from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.callbacks import Callback, ModelCheckpoint, EarlyStopping
 from biomedisa_features.DataGenerator import DataGenerator
 from biomedisa_features.PredictDataGenerator import PredictDataGenerator
-from biomedisa_features.biomedisa_helper import img_resize, load_data, save_data, set_labels_to_zero, id_generator
+from biomedisa_features.biomedisa_helper import (
+    img_resize, load_data, save_data, set_labels_to_zero, id_generator, unique_file_path)
 import matplotlib.pyplot as plt
 import tensorflow as tf
 import numpy as np
@@ -996,10 +997,7 @@ def load_prediction_data(path_to_img, channels, x_scale, y_scale, z_scale,
         InputError.message = f'Number of channels must be {channels}.'
         raise InputError()
 
-    if img_extension != '.am':
-        img_header = None
-    else:
-        img_header = img_header[0]
+    # image shape
     z_shape, y_shape, x_shape, _ = img.shape
 
     # automatic cropping of image to region of interest
@@ -1028,12 +1026,12 @@ def load_prediction_data(path_to_img, channels, x_scale, y_scale, z_scale,
         img[img<0] = 0
         img[img>1] = 1
 
-    return img, img_header, z_shape, y_shape, x_shape, region_of_interest
+    return img, img_header, z_shape, y_shape, x_shape, region_of_interest, img_extension
 
 def predict_semantic_segmentation(bm, img, path_to_model,
     z_patch, y_patch, x_patch, z_shape, y_shape, x_shape, compress, header,
     img_header, stride_size, allLabels, batch_size, region_of_interest,
-    no_scaling):
+    no_scaling, extension, img_extension):
 
     results = {}
 
@@ -1145,28 +1143,35 @@ def predict_semantic_segmentation(bm, img, path_to_model,
     label = get_labels(label, allLabels)
     results['regular'] = label
 
+    # use header file
+    if bm.header_file and os.path.exists(bm.header_file):
+        _, header = load_data(bm.header_file)
+        if header is not None:
+
+            # update file extension
+            extension = os.path.splitext(bm.header_file)[1]
+            if extension == '.gz':
+                extension = '.nii.gz'
+            bm.path_to_final = os.path.splitext(bm.path_to_final)[0] + extension
+            if bm.django_env and not bm.remote:
+                bm.path_to_final = unique_file_path(bm.path_to_final)
+
+            # update header info
+            if img_header is not None and extension==img_extension!='.am':
+                header.set_voxel_spacing(img_header.get_voxel_spacing())
+                header.set_offset(img_header.get_offset())
+            results['header'] = header
+
     # handle amira header
-    if header is not None:
-        header = get_image_dimensions(header, label)
-        if img_header is not None:
+    if header is not None and extension == '.am':
+        header = get_image_dimensions(header[0], label)
+        if img_header is not None and extension==img_extension=='.am':
             try:
-                header = get_physical_size(header, img_header)
+                header = get_physical_size(header, img_header[0])
             except:
                 pass
         header = [header]
         results['header'] = header
-
-    # use header file
-    # ToDo: header.set_voxel_spacing(), header.set_offset()
-    if bm.header_file and os.path.exists(bm.header_file):
-        _, header = load_data(bm.header_file)
-        if header is not None:
-            new_extension = os.path.splitext(bm.header_file)[1]
-            if new_extension == '.gz':
-                new_extension = '.nii.gz'
-            filename, old_extension = os.path.splitext(bm.path_to_final)
-            bm.path_to_final = filename + new_extension
-            results['header'] = header
 
     # save result
     if bm.path_to_images:
