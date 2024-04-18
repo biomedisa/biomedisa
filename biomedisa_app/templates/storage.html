@@ -377,6 +377,8 @@ $(document).ready(addClickHandlers);
           <a><img src="/static/file_final_tmp.svg" title="final" style="width:50px;height:50px;border:0;"></a>
           <span class="delete_link" id="{{img.id}}"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
           <span class="accept_link" id="{{img.id}},'{{ img.shared_by }}'"><img src="/static/accept.jpeg" title="accept" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+          {{ img.shortfilename }}
+          <span style="float:right;"> </br> </br> {{ img.upload_date }}</span>
           {% elif img.log == 2 %}
           <a><img src="/static/file_final_tmp.svg" title="final" style="width:50px;height:50px;border:0;"></a>
           <span class="delete_link" id="{{img.id}}"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
