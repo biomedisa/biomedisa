@@ -420,6 +420,7 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
         label = label_in[0]
     else:
         label = label_in
+    label_dim = label.shape
     label = set_labels_to_zero(label, labels_to_compute, labels_to_remove)
     if crop_data:
         argmin_z,argmax_z,argmin_y,argmax_y,argmin_x,argmax_x = predict_blocksize(label, x_puffer, y_puffer, z_puffer)
@@ -448,8 +449,11 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
         img = img_in[0]
     else:
         img = img_in
+    if label_dim != img.shape:
+        InputError.message = f'Dimensions of "{os.path.basename(img_names[0])}" and "{os.path.basename(label_names[0])}" do not match'
+        raise InputError()
 
-    # handle all images having channels >=1
+    # ensure images have channels >=1
     if len(img.shape)==3:
         z_shape, y_shape, x_shape = img.shape
         img = img.reshape(z_shape, y_shape, x_shape, 1)
@@ -495,6 +499,7 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
                     raise InputError()
             else:
                 a = label_in[k]
+            label_dim = a.shape
             a = set_labels_to_zero(a, labels_to_compute, labels_to_remove)
             if crop_data:
                 argmin_z,argmax_z,argmin_y,argmax_y,argmin_x,argmax_x = predict_blocksize(a, x_puffer, y_puffer, z_puffer)
@@ -511,6 +516,9 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
                     raise InputError()
             else:
                 a = img_in[k]
+            if label_dim != a.shape:
+                InputError.message = f'Dimensions of "{os.path.basename(img_names[k])}" and "{os.path.basename(label_names[k])}" do not match'
+                raise InputError()
             if len(a.shape)==3:
                 z_shape, y_shape, x_shape = a.shape
                 a = a.reshape(z_shape, y_shape, x_shape, 1)
