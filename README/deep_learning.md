@@ -21,7 +21,7 @@ biomedisa_features.deep_learning(
     stride_size=32,
     validation_stride_size=32,
     validation_freq=1,
-    batch_size=24,
+    batch_size=None,
     early_stopping=0,
     balance=False,
     flip_x=False,
@@ -91,7 +91,7 @@ biomedisa_features.deep_learning(
 + **stride_size [1-64]**: Stride size for patches (default: 32).
 + **validation_stride_size [1-64]**: Stride size for validation patches (default: 32).
 + **validation_freq INT**: Epochs performed before validation (default: 1).
-+ **batch_size INT**: Batch size (default: 24). If you have a memory error, try reducing to 6, for example.
++ **batch_size INT**: Batch size (default: None). If not specified, it will be adjusted to the available GPU memory, with a minimum of 6 and a maximum of 24.
 + **early_stopping INT**: Stop training if there is no improvement after specified number of epochs.
 + **balance**: Balance foreground and background training patches (default: False).
 + **flip_x**: Randomly flip x-axis during training (default: False).
