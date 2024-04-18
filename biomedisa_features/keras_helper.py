@@ -45,6 +45,7 @@ from biomedisa_features.PredictDataGenerator import PredictDataGenerator
 from biomedisa_features.biomedisa_helper import (
     img_resize, load_data, save_data, set_labels_to_zero, id_generator, unique_file_path)
 import matplotlib.pyplot as plt
+import SimpleITK as sitk
 import tensorflow as tf
 import numpy as np
 import cv2
@@ -1167,6 +1168,7 @@ def predict_semantic_segmentation(bm, img, path_to_model,
             # update header info
             if img_header is not None and extension==img_extension!='.am':
                 header.set_voxel_spacing(img_header.get_voxel_spacing())
+                header.set_direction(img_header.get_direction())
                 header.set_offset(img_header.get_offset())
             results['header'] = header
 
@@ -1184,6 +1186,14 @@ def predict_semantic_segmentation(bm, img, path_to_model,
     # save result
     if bm.path_to_images:
         save_data(bm.path_to_final, label, header=header, compress=compress)
+
+    # delete 3D Slicer MetaData
+    if header is not None and extension!='.am':
+        simg = sitk.ReadImage(bm.path_to_final)
+        for key in simg.GetMetaDataKeys():
+            if re.match(r'Segment\d+_Extent$', key) or key=='Segmentation_ConversionParameters':
+                simg.EraseMetaData(key)
+        sitk.WriteImage(simg, bm.path_to_final, useCompression=True)
 
     return results
 

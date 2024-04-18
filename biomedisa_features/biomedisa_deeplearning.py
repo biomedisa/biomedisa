@@ -161,8 +161,6 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
         if gpu_memory:
             if bm.predict:
                 gpu_memory = gpu_memory[:1]
-            for i, mem in enumerate(gpu_memory):
-                print("GPU", i, ":", mem, "MB free memory")
             if 14000 < np.sum(gpu_memory) < 28000:
                 bm.batch_size = 12
             elif 28000 <= np.sum(gpu_memory):
