@@ -41,9 +41,20 @@ import traceback
 import argparse
 import h5py
 import time
+import subprocess
 
 class Biomedisa(object):
      pass
+
+def get_gpu_memory():
+    try:
+        result = subprocess.check_output(['nvidia-smi', '--query-gpu=memory.free', '--format=csv,nounits,noheader'], encoding='utf-8')
+        # Convert lines to list
+        gpu_memory = [int(x) for x in result.strip().split('\n')]
+        return gpu_memory
+    except Exception as e:
+        print("Error getting GPU memory:", e)
+        return None
 
 def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=None,
     path_to_images=None, path_to_labels=None, val_images=None, val_labels=None,
@@ -53,7 +64,7 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
     network_filters='32-64-128-256-512', resnet=False, debug_cropping=False,
     save_cropped=False, epochs=100, no_normalization=False, rotate=0.0, validation_split=0.0,
     learning_rate=0.01, stride_size=32, validation_stride_size=32, validation_freq=1,
-    batch_size=24, x_scale=256, y_scale=256, z_scale=256, no_scaling=False, early_stopping=0,
+    batch_size=None, x_scale=256, y_scale=256, z_scale=256, no_scaling=False, early_stopping=0,
     pretrained_model=None, fine_tune=False, classification=False, workers=1, cropping_epochs=50,
     x_range=None, y_range=None, z_range=None, header=None, extension='.tif',
     img_header=None, img_extension='.tif', average_dice=False, django_env=False,
@@ -142,6 +153,20 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
     bm.x_scale = bm.x_scale - (bm.x_scale - bm.x_patch) % bm.stride_size
     bm.y_scale = bm.y_scale - (bm.y_scale - bm.y_patch) % bm.stride_size
     bm.z_scale = bm.z_scale - (bm.z_scale - bm.z_patch) % bm.stride_size
+
+    # adapt batch size to available gpu memory
+    if bm.batch_size is None:
+        bm.batch_size = 6
+        gpu_memory = get_gpu_memory()
+        if gpu_memory:
+            if bm.predict:
+                gpu_memory = gpu_memory[:1]
+            for i, mem in enumerate(gpu_memory):
+                print("GPU", i, ":", mem, "MB free memory")
+            if 14000 < np.sum(gpu_memory) < 28000:
+                bm.batch_size = 12
+            elif 28000 <= np.sum(gpu_memory):
+                bm.batch_size = 24
 
     if bm.train:
 
@@ -342,8 +367,8 @@ if __name__ == '__main__':
                         help='Stride size for validation patches')
     parser.add_argument('-vf','--validation_freq', type=int, default=1,
                         help='Epochs performed before validation')
-    parser.add_argument('-bs','--batch_size', type=int, default=24,
-                        help='batch size')
+    parser.add_argument('-bs','--batch_size', type=int, default=None,
+                        help='Number of samples processed in a batch')
     parser.add_argument('-vi','--val_images', type=str, metavar='PATH', default=None,
                         help='Location of validation image data (tarball, directory, or file)')
     parser.add_argument('-vl','--val_labels', type=str, metavar='PATH', default=None,
