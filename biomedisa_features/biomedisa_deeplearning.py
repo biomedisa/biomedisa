@@ -52,8 +52,7 @@ def get_gpu_memory():
         # Convert lines to list
         gpu_memory = [int(x) for x in result.strip().split('\n')]
         return gpu_memory
-    except Exception as e:
-        print("Error getting GPU memory:", e)
+    except:
         return None
 
 def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=None,

@@ -111,12 +111,15 @@ def create_slices(path_to_data, path_to_label, on_site=False):
             path_to_dir, extension = os.path.splitext(path_to_data)
             if extension == '.gz':
                 path_to_dir, extension = os.path.splitext(path_to_dir)
-            if extension == '.tar':
+            if extension == '.tar' or os.path.isdir(path_to_data):
                 # extract files
-                path_to_dir = BASE_DIR + '/tmp/' + id_generator(40)
-                tar = tarfile.open(path_to_data)
-                tar.extractall(path=path_to_dir)
-                tar.close()
+                if extension == '.tar':
+                    path_to_dir = BASE_DIR + '/tmp/' + id_generator(40)
+                    tar = tarfile.open(path_to_data)
+                    tar.extractall(path=path_to_dir)
+                    tar.close()
+                else:
+                    path_to_dir = path_to_data
                 # load files
                 img_names = []
                 for data_type in ['.tif','.tiff','.am','.hdr','.mhd','.mha','.nrrd','.nii','.nii.gz']:
@@ -134,7 +137,7 @@ def create_slices(path_to_data, path_to_label, on_site=False):
                     tmp = img_resize(tmp, z_scale, y_scale, x_scale)
                     raw = np.append(raw, tmp, axis=0)
                 # remove extracted files
-                if os.path.isdir(path_to_dir):
+                if extension == '.tar' and os.path.isdir(path_to_dir):
                     shutil.rmtree(path_to_dir)
             else:
                 raw, _ = load_data(path_to_data, 'create_slices')
@@ -170,12 +173,15 @@ def create_slices(path_to_data, path_to_label, on_site=False):
                 path_to_dir, extension = os.path.splitext(path_to_label)
                 if extension == '.gz':
                     path_to_dir, extension = os.path.splitext(path_to_dir)
-                if extension == '.tar':
+                if extension == '.tar' or os.path.isdir(path_to_label):
                     # extract files
-                    path_to_dir = BASE_DIR + '/tmp/' + id_generator(40)
-                    tar = tarfile.open(path_to_label)
-                    tar.extractall(path=path_to_dir)
-                    tar.close()
+                    if extension == '.tar':
+                        path_to_dir = BASE_DIR + '/tmp/' + id_generator(40)
+                        tar = tarfile.open(path_to_label)
+                        tar.extractall(path=path_to_dir)
+                        tar.close()
+                    else:
+                        path_to_dir = path_to_label
                     # load files
                     img_names = []
                     for data_type in ['.tif','.tiff','.am','.hdr','.mhd','.mha','.nrrd','.nii','.nii.gz']:
@@ -190,7 +196,7 @@ def create_slices(path_to_data, path_to_label, on_site=False):
                         arr = img_resize(arr, z_scale, y_scale, x_scale, labels=True)
                         mask = np.append(mask, arr, axis=0)
                     # remove extracted files
-                    if os.path.isdir(path_to_dir):
+                    if extension == '.tar' and os.path.isdir(path_to_dir):
                         shutil.rmtree(path_to_dir)
                 else:
                     mask, _ = load_data(path_to_label, 'create_slices')
@@ -223,17 +229,22 @@ def create_slices(path_to_data, path_to_label, on_site=False):
 
                     # allocate memory
                     zsh, ysh, xsh = raw.shape
-                    out = np.empty((ysh, xsh, 3), dtype=np.uint8)
+                    if extension == '.tar' or os.path.isdir(path_to_label):
+                        x_shape = 2*xsh
+                    else:
+                        x_shape = xsh
+                    out = np.empty((ysh, x_shape, 3), dtype=np.uint8)
                     gradient = np.empty((ysh, xsh), dtype=np.uint8)
 
                     # save preview slice by slice
                     for k in range(zsh):
                         raw_tmp = raw[k]
                         mask_tmp = mask[k]
+                        out.fill(0)
 
                         # create output slice
                         for l in range(3):
-                            out[:,:,l] = raw_tmp
+                            out[:,:xsh,l] = raw_tmp
 
                         if np.any(mask_tmp):
 
@@ -252,7 +263,9 @@ def create_slices(path_to_data, path_to_label, on_site=False):
                             for j, label in enumerate(labels):
                                 C = Color[j]
                                 tmp = np.logical_and(gradient>0, mask_tmp==label)
-                                out[:,:][tmp] = C
+                                out[:,:xsh][tmp] = C
+                                if extension == '.tar' or os.path.isdir(path_to_label):
+                                    out[:,xsh:][mask_tmp==label] = C
 
                         # save slice
                         im = Image.fromarray(out)

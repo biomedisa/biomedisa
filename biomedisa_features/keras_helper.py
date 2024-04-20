@@ -423,6 +423,8 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
         label = label_in
     label_dim = label.shape
     label = set_labels_to_zero(label, labels_to_compute, labels_to_remove)
+    label_values, counts = np.unique(label, return_counts=True)
+    print(f'{os.path.basename(label_names[0])}:', 'Labels:', label_values[1:], 'Sizes:', counts[1:])
     if crop_data:
         argmin_z,argmax_z,argmin_y,argmax_y,argmin_x,argmax_x = predict_blocksize(label, x_puffer, y_puffer, z_puffer)
         label = np.copy(label[argmin_z:argmax_z,argmin_y:argmax_y,argmin_x:argmax_x], order='C')
@@ -502,6 +504,8 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
                 a = label_in[k]
             label_dim = a.shape
             a = set_labels_to_zero(a, labels_to_compute, labels_to_remove)
+            label_values, counts = np.unique(a, return_counts=True)
+            print(f'{os.path.basename(label_names[k])}:', 'Labels:', label_values[1:], 'Sizes:', counts[1:])
             if crop_data:
                 argmin_z,argmax_z,argmin_y,argmax_y,argmin_x,argmax_x = predict_blocksize(a, x_puffer, y_puffer, z_puffer)
                 a = np.copy(a[argmin_z:argmax_z,argmin_y:argmax_y,argmin_x:argmax_x], order='C')
