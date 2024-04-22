@@ -389,12 +389,10 @@ def logout_user(request):
 
 # 12. send email notification
 def sendEmail(datas):
-    c = datas['context']
-    f = open(BASE_DIR + '/biomedisa_app/messages' + datas['email_path'], 'r')
-    t = Template(f.read())
-    f.close()
-    message = t.render(c)
-    send_mail(datas['email_subject'], message, 'Biomedisa <%s>' %(config['EMAIL']), [datas['email']], fail_silently=True)
+    if config['EMAIL_USER'] and config['EMAIL_PASSWORD']:
+        with open(BASE_DIR + '/biomedisa_app/messages' + datas['email_path'], 'r') as temp:
+            message = Template(temp.read()).render(datas['context'])
+        send_mail(datas['email_subject'], message, f'Biomedisa <{config["EMAIL"]}>', [datas['email']], fail_silently=True)
 
 # 13. create random string
 def generate_activation_key():
@@ -2669,7 +2667,7 @@ def send_error_message(username, image_name, error_msg):
         datas['email'] = recipient
         datas['email_path'] = '/ErrorEmail.txt'
         datas['email_subject'] = 'Segmentation error'
-        datas['context'] = Context({'host':config['SERVER'], 'error_msg':error_msg, 'username':username, 'image_name':image_name})
+        datas['context'] = Context({'host':config['SERVER'], 'error_msg':error_msg.replace('"',''), 'username':username, 'image_name':image_name})
 
         # send notification
         sendEmail(datas)
