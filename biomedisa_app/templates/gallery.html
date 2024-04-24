@@ -1283,6 +1283,67 @@ $(document).ready(addClickHandlers);
     </div>
     </td>
 
+    <td>
+    <div class="col c1">
+      <h2><span>Wheat roots in soil</span></h2>
+
+      <p>
+      <div>
+      <a href="https://biomedisa.info/static/fertiliser_band.png"><img src="/static/fertiliser_band.png" title="roots" style="width:242px;height:136px;border:0;"></a>
+      </div>
+      </p>
+
+      <p>
+      <div>
+      <a><img src="/static/file_ai.svg" style="width:50px;height:50px;border:0;"></a>
+      <a href=# onclick="alertFunction('...dancing on rainbows.')"><img src="/static/icon-deletelink.svg" title="delete" style="width:20px;height:20px;border:0;"></a>
+      <a href="/download/demo/?id=roots_network.h5"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+      <a href=#><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
+      <a href=# onclick="alertFunction('Move data to long term storage')"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;"></a>
+      {% if user.is_authenticated %}
+      <span class="share_link" id='roots_network.h5'><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span></br>
+      {% else %}
+      <a href=# onclick="alertFunction('Share data with other users or create a download link')"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;"></a></br>
+      {% endif %}
+      roots_network.h5
+      </div>
+      </p>
+
+      <p>
+      <div>
+      <a href="/visualization_demo/?id=roots_ultisol_dap_sample.tif" target="_blank"><img src="/static/file_image.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
+      <a href=# onclick="alertFunction('You can not delete the data.')"><img src="/static/icon-deletelink.svg" title="delete" style="width:20px;height:20px;border:0;"></a>
+      <a href="/download/demo/?id=roots_ultisol_dap_sample.tif"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+      <a href=# onclick="sliceViewer('roots_ultisol_dap_sample.tif')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
+      <a href=# onclick="alertFunction('Move data to long term storage')"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;"></a>
+      {% if user.is_authenticated %}
+      <span class="share_link" id='roots_ultisol_dap_sample.tif'><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span></br>
+      {% else %}
+      <a href=# onclick="alertFunction('Share data with other users or create a download link')"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;"></a></br>
+      {% endif %}
+      roots_ultisol_dap_sample.tif
+      </div>
+      </p>
+
+      <p>
+      <div>
+      <a href="/visualization_demo/?id=final.roots_ultisol_dap_sample.tif" target="_blank"><img src="/static/file_final.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
+      <a href=# onclick="alertFunction('You tried hard.')"><img src="/static/icon-deletelink.svg" title="delete" style="width:20px;height:20px;border:0;"></a>
+      <a href="/download/demo/?id=final.roots_ultisol_dap_sample.tif"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+      <a href=# onclick="sliceViewer('final.roots_ultisol_dap_sample.tif')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
+      <a href=# onclick="alertFunction('Move data to long term storage')"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;"></a>
+      {% if user.is_authenticated %}
+      <span class="share_link" id='final.roots_ultisol_dap_sample.tif'><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span></br>
+      {% else %}
+      <a href=# onclick="alertFunction('Share data with other users or create a download link')"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;"></a></br>
+      {% endif %}
+      final.roots_ultisol_dap_sample.tif
+      </div>
+      </p>
+
+    </div>
+    </td>
+
     </tr>
 
     <div class="clr"></div>
