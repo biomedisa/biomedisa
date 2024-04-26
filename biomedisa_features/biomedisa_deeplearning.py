@@ -42,6 +42,7 @@ import argparse
 import h5py
 import time
 import subprocess
+import glob
 
 class Biomedisa(object):
      pass
@@ -224,40 +225,77 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
         crop_data = True if 'cropping_weights' in hf else False
         hf.close()
 
-        # create path_to_final
-        if bm.path_to_images:
-            filename = os.path.basename(bm.path_to_images)
-            filename = os.path.splitext(filename)[0]
-            if filename[-4:] in ['.nii','.tar']:
-                filename = filename[:-4]
-            bm.path_to_cropped_image = os.path.dirname(bm.path_to_images) + '/' + filename + '.cropped.tif'
+        # extract image files
+        img_dir = None
+        if bm.path_to_images is not None and (os.path.splitext(bm.path_to_images)[1]=='.tar' or bm.path_to_images[-7:]=='.tar.gz'):
+            path_to_dir = os.path.dirname(bm.path_to_images) + '/final.'+os.path.basename(bm.path_to_images)
+            if path_to_dir[-3:]=='.gz':
+                path_to_dir = path_to_dir[:-3]
             if bm.django_env and not bm.remote:
-                bm.path_to_cropped_image = unique_file_path(bm.path_to_cropped_image)
-            filename = 'final.' + filename
-            bm.path_to_final = os.path.dirname(bm.path_to_images) + '/' + filename + extension
-            if bm.django_env and not bm.remote:
-                bm.path_to_final = unique_file_path(bm.path_to_final)
+                path_to_dir = unique_file_path(path_to_dir)
+            img_dir = BASE_DIR + '/tmp/' + id_generator(40)
+            tar = tarfile.open(bm.path_to_images)
+            tar.extractall(path=img_dir)
+            tar.close()
+            bm.path_to_images = img_dir
+            bm.save_cropped = False
 
-        # crop data
-        region_of_interest, cropped_volume = None, None
-        if crop_data:
-            region_of_interest, cropped_volume = ch.crop_data(bm.path_to_images, bm.path_to_model, bm.path_to_cropped_image,
-                bm.batch_size, bm.debug_cropping, bm.save_cropped, img_data, bm.x_range, bm.y_range, bm.z_range)
+        # list of images
+        path_to_finals = []
+        if bm.path_to_images is not None and os.path.isdir(bm.path_to_images):
+            files = glob.glob(bm.path_to_images+'/**/*', recursive=True)
+            bm.path_to_images = [f for f in files if os.path.isfile(f)]
+        else:
+            bm.path_to_images = [bm.path_to_images]
 
-        # load prediction data
-        img, img_header, z_shape, y_shape, x_shape, region_of_interest, img_extension = load_prediction_data(bm.path_to_images,
-            channels, bm.x_scale, bm.y_scale, bm.z_scale, bm.no_scaling, normalize, normalization_parameters,
-            region_of_interest, img_data, img_header, img_extension)
+        # loop over all images
+        for bm.path_to_image in bm.path_to_images:
 
-        # make prediction
-        results = predict_semantic_segmentation(bm, img, bm.path_to_model,
-            bm.z_patch, bm.y_patch, bm.x_patch, z_shape, y_shape, x_shape, bm.compression, header,
-            img_header, bm.stride_size, allLabels, bm.batch_size, region_of_interest,
-            bm.no_scaling, extension, img_extension)
+            # create path_to_final
+            if bm.path_to_image:
+                filename = os.path.basename(bm.path_to_image)
+                filename = os.path.splitext(filename)[0]
+                if filename[-4:] == '.nii':
+                    filename = filename[:-4]
+                bm.path_to_cropped_image = os.path.dirname(bm.path_to_image) + '/' + filename + '.cropped.tif'
+                if bm.django_env and not bm.remote:
+                    bm.path_to_cropped_image = unique_file_path(bm.path_to_cropped_image)
+                filename = 'final.' + filename
+                bm.path_to_final = os.path.dirname(bm.path_to_image) + '/' + filename + extension
+                if bm.django_env and not bm.remote:
+                    bm.path_to_final = unique_file_path(bm.path_to_final)
+                path_to_finals.append(bm.path_to_final)
 
-        # results
-        if cropped_volume is not None:
-            results['cropped_volume'] = cropped_volume
+            # crop data
+            region_of_interest, cropped_volume = None, None
+            if crop_data:
+                region_of_interest, cropped_volume = ch.crop_data(bm.path_to_image, bm.path_to_model, bm.path_to_cropped_image,
+                    bm.batch_size, bm.debug_cropping, bm.save_cropped, img_data, bm.x_range, bm.y_range, bm.z_range)
+
+            # load prediction data
+            img, img_header, z_shape, y_shape, x_shape, region_of_interest, img_extension = load_prediction_data(bm.path_to_image,
+                channels, bm.x_scale, bm.y_scale, bm.z_scale, bm.no_scaling, normalize, normalization_parameters,
+                region_of_interest, img_data, img_header, img_extension)
+
+            # make prediction
+            results = predict_semantic_segmentation(bm, img, bm.path_to_model,
+                bm.z_patch, bm.y_patch, bm.x_patch, z_shape, y_shape, x_shape, bm.compression, header,
+                img_header, bm.stride_size, allLabels, bm.batch_size, region_of_interest,
+                bm.no_scaling, extension, img_extension)
+
+            # results
+            if cropped_volume is not None:
+                results['cropped_volume'] = cropped_volume
+
+        # write tar file and delete extracted image files
+        if img_dir is not None and os.path.exists(img_dir):
+            with tarfile.open(path_to_dir, 'w') as tar:
+                for file_path in path_to_finals:
+                    file_name = os.path.basename(file_path)
+                    tar.add(file_path, arcname=file_name)
+            shutil.rmtree(img_dir)
+            bm.path_to_final = path_to_dir
+            bm.path_to_cropped_image = None
 
     # computation time
     t = int(time.time() - TIC)
