@@ -2667,7 +2667,7 @@ def send_error_message(username, image_name, error_msg):
         datas['email'] = recipient
         datas['email_path'] = '/ErrorEmail.txt'
         datas['email_subject'] = 'Segmentation error'
-        datas['context'] = Context({'host':config['SERVER'], 'error_msg':error_msg.replace('"',''), 'username':username, 'image_name':image_name})
+        datas['context'] = Context({'host':config['SERVER'], 'error_msg':str(error_msg).replace('"',''), 'username':username, 'image_name':image_name})
 
         # send notification
         sendEmail(datas)

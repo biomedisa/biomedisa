@@ -1162,12 +1162,13 @@ def predict_semantic_segmentation(bm, img, path_to_model,
         if header is not None:
 
             # update file extension
-            extension = os.path.splitext(bm.header_file)[1]
-            if extension == '.gz':
-                extension = '.nii.gz'
-            bm.path_to_final = os.path.splitext(bm.path_to_final)[0] + extension
-            if bm.django_env and not bm.remote:
-                bm.path_to_final = unique_file_path(bm.path_to_final)
+            if bm.path_to_image:
+                extension = os.path.splitext(bm.header_file)[1]
+                if extension == '.gz':
+                    extension = '.nii.gz'
+                bm.path_to_final = os.path.splitext(bm.path_to_final)[0] + extension
+                if bm.django_env and not bm.remote and not bm.tmp_dir:
+                    bm.path_to_final = unique_file_path(bm.path_to_final)
 
             # update header info
             if img_header is not None and extension==img_extension!='.am':
@@ -1199,5 +1200,5 @@ def predict_semantic_segmentation(bm, img, path_to_model,
                     simg.EraseMetaData(key)
             sitk.WriteImage(simg, bm.path_to_final, useCompression=True)
 
-    return results
+    return results, bm
 
