@@ -144,7 +144,7 @@ results = deep_learning(img, predict=True,
         path_to_model='honeybees.h5', batch_size=6)
 
 # save result
-save_data('final.Head5.am', results['regular'])
+save_data('final.Head5.am', results['regular'], results['header'])
 ```
 
 #### Command-line based (prediction)
