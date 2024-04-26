@@ -226,18 +226,18 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
         hf.close()
 
         # extract image files
-        img_dir = None
+        bm.tmp_dir = None
         if bm.path_to_images is not None and (os.path.splitext(bm.path_to_images)[1]=='.tar' or bm.path_to_images[-7:]=='.tar.gz'):
             path_to_dir = os.path.dirname(bm.path_to_images) + '/final.'+os.path.basename(bm.path_to_images)
             if path_to_dir[-3:]=='.gz':
                 path_to_dir = path_to_dir[:-3]
             if bm.django_env and not bm.remote:
                 path_to_dir = unique_file_path(path_to_dir)
-            img_dir = BASE_DIR + '/tmp/' + id_generator(40)
+            bm.tmp_dir = BASE_DIR + '/tmp/' + id_generator(40)
             tar = tarfile.open(bm.path_to_images)
-            tar.extractall(path=img_dir)
+            tar.extractall(path=bm.tmp_dir)
             tar.close()
-            bm.path_to_images = img_dir
+            bm.path_to_images = bm.tmp_dir
             bm.save_cropped = False
 
         # list of images
@@ -258,13 +258,12 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
                 if filename[-4:] == '.nii':
                     filename = filename[:-4]
                 bm.path_to_cropped_image = os.path.dirname(bm.path_to_image) + '/' + filename + '.cropped.tif'
-                if bm.django_env and not bm.remote:
+                if bm.django_env and not bm.remote and not bm.tmp_dir:
                     bm.path_to_cropped_image = unique_file_path(bm.path_to_cropped_image)
                 filename = 'final.' + filename
                 bm.path_to_final = os.path.dirname(bm.path_to_image) + '/' + filename + extension
-                if bm.django_env and not bm.remote:
+                if bm.django_env and not bm.remote and not bm.tmp_dir:
                     bm.path_to_final = unique_file_path(bm.path_to_final)
-                path_to_finals.append(bm.path_to_final)
 
             # crop data
             region_of_interest, cropped_volume = None, None
@@ -278,7 +277,7 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
                 region_of_interest, img_data, img_header, img_extension)
 
             # make prediction
-            results = predict_semantic_segmentation(bm, img, bm.path_to_model,
+            results, bm = predict_semantic_segmentation(bm, img, bm.path_to_model,
                 bm.z_patch, bm.y_patch, bm.x_patch, z_shape, y_shape, x_shape, bm.compression, header,
                 img_header, bm.stride_size, allLabels, bm.batch_size, region_of_interest,
                 bm.no_scaling, extension, img_extension)
@@ -287,13 +286,17 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
             if cropped_volume is not None:
                 results['cropped_volume'] = cropped_volume
 
+            # path to results
+            if bm.path_to_image:
+                path_to_finals.append(bm.path_to_final)
+
         # write tar file and delete extracted image files
-        if img_dir is not None and os.path.exists(img_dir):
+        if bm.tmp_dir is not None and os.path.exists(bm.tmp_dir):
             with tarfile.open(path_to_dir, 'w') as tar:
                 for file_path in path_to_finals:
                     file_name = os.path.basename(file_path)
                     tar.add(file_path, arcname=file_name)
-            shutil.rmtree(img_dir)
+            shutil.rmtree(bm.tmp_dir)
             bm.path_to_final = path_to_dir
             bm.path_to_cropped_image = None
 
