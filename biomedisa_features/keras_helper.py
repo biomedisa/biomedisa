@@ -1188,16 +1188,16 @@ def predict_semantic_segmentation(bm, img, path_to_model,
         results['header'] = header
 
     # save result
-    if bm.path_to_images:
+    if bm.path_to_image:
         save_data(bm.path_to_final, label, header=header, compress=compress)
 
-    # delete 3D Slicer MetaData
-    if header is not None and extension!='.am':
-        simg = sitk.ReadImage(bm.path_to_final)
-        for key in simg.GetMetaDataKeys():
-            if re.match(r'Segment\d+_Extent$', key) or key=='Segmentation_ConversionParameters':
-                simg.EraseMetaData(key)
-        sitk.WriteImage(simg, bm.path_to_final, useCompression=True)
+        # delete 3D Slicer MetaData
+        if header is not None and extension!='.am':
+            simg = sitk.ReadImage(bm.path_to_final)
+            for key in simg.GetMetaDataKeys():
+                if re.match(r'Segment\d+_Extent$', key) or key=='Segmentation_ConversionParameters':
+                    simg.EraseMetaData(key)
+            sitk.WriteImage(simg, bm.path_to_final, useCompression=True)
 
     return results
 
