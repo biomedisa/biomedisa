@@ -976,9 +976,20 @@ def send_data_to_host(src, dst):
     else:
         return 1
 
+def get_subhost_and_pid(file_path):
+    with open(file_path, 'r') as qsubfile:
+        subhost, qsub_pid = qsubfile.read().split(',')
+    subhost = subhost.split('.')[0]
+    return subhost, qsub_pid
+
 def qsub_start(host, host_base, queue_id):
-    # check compute server is running
+    # check logfile exists
     qsub = subprocess.Popen(['scp', host + ':' + host_base + f'/log/qsub_{queue_id}', BASE_DIR + f'/log/qsub_{queue_id}']).wait()
+
+    # check compute server is running
+    if qsub==0:
+        subhost, qsub_pid = get_subhost_and_pid(BASE_DIR + f'/log/qsub_{queue_id}')
+        qsub = subprocess.Popen(['ssh', '-t', host, 'ssh', subhost, 'test', '-e', host_base]).wait()
 
     # request compute server
     if qsub!=0:
@@ -990,21 +1001,32 @@ def qsub_start(host, host_base, queue_id):
         time.sleep(3)
 
     # get pid and subhost
-    with open(BASE_DIR + f'/log/qsub_{queue_id}', 'r') as qsubfile:
-        subhost, qsub_pid = qsubfile.read().split(',')
-    subhost = subhost.split('.')[0]
+    subhost, qsub_pid = get_subhost_and_pid(BASE_DIR + f'/log/qsub_{queue_id}')
 
     return subhost, qsub_pid
 
 def qsub_stop(host, host_base, queue_id, queue_name, subhost, qsub_pid):
-    # stop server if queue is empty
+    # queue length
     q = Queue(queue_name, connection=Redis())
-    if len(q)==0:
-        # remove qsub file
-        subprocess.Popen(['ssh', host, 'rm', host_base + f'/log/qsub_{queue_id}']).wait()
 
-        # stop process on remote server
-        subprocess.Popen(['ssh', '-t', host, 'ssh', subhost, 'kill', qsub_pid]).wait()
+    # stop server if queue is empty
+    if len(q)==0:
+
+        # check compute server is running
+        if not subhost:
+            qsub = subprocess.Popen(['scp', host + ':' + host_base + f'/log/qsub_{queue_id}', BASE_DIR + f'/log/qsub_{queue_id}']).wait()
+
+            # get pid and subhost
+            if qsub==0:
+                subhost, qsub_pid = get_subhost_and_pid(BASE_DIR + f'/log/qsub_{queue_id}')
+
+        # stop remote process
+        if subhost and qsub_pid:
+            # remove qsub file
+            subprocess.Popen(['ssh', host, 'rm', host_base + f'/log/qsub_{queue_id}']).wait()
+
+            # stop process on remote server
+            subprocess.Popen(['ssh', '-t', host, 'ssh', subhost, 'kill', qsub_pid]).wait()
 
 # init_keras_3D
 def init_keras_3D(image, label, predict, img_list=None, label_list=None,
@@ -1020,33 +1042,37 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
         message = 'Files have been removed.'
         Upload.objects.create(user=image.user, project=image.project, log=1, imageType=None, shortfilename=message)
 
+    # get worker name
+    worker_name = 'first_worker'
+    job = get_current_job()
+    if job is not None:
+        worker_name = job.worker_name
+
+    # get queue configuration
+    my_env = None
+    if 'first_worker' in worker_name:
+        QUEUE, queue_id, queue_name = 'FIRST', 1, 'first_queue'
+    elif 'second_worker' in worker_name:
+        QUEUE, queue_id, queue_name = 'SECOND', 2, 'second_queue'
+    elif 'third_worker' in worker_name:
+        QUEUE, queue_id, queue_name = 'THIRD', 3, 'third_queue'
+        if image.queue == 1:
+            image.queue = 3
+            image.save()
+
+    # get host information
+    host_base = BASE_DIR
+    subhost, qsub_pid = None, None
+    host = config[f'{QUEUE}_QUEUE_HOST']
+    if host and f'{QUEUE}_QUEUE_BASE_DIR' in config:
+        host_base = config[f'{QUEUE}_QUEUE_BASE_DIR']
+
     # check if aborted
     if image.status > 0:
 
         # set status to processing
         image.status = 2
         image.save()
-
-        # get worker name
-        worker_name = 'first_worker'
-        job = get_current_job()
-        if job is not None:
-            worker_name = job.worker_name
-
-        # get queue configuration
-        my_env = None
-        if 'first_worker' in worker_name:
-            QUEUE, queue_id, queue_name = 'FIRST', 1, 'first_queue'
-        elif 'second_worker' in worker_name:
-            QUEUE, queue_id, queue_name = 'SECOND', 2, 'second_queue'
-        elif 'third_worker' in worker_name:
-            QUEUE, queue_id, queue_name = 'THIRD', 3, 'third_queue'
-            if image.queue == 1:
-                image.queue = 3
-                image.save()
-
-        # get host information
-        host = config[f'{QUEUE}_QUEUE_HOST']
 
         # search for failed jobs in queue
         q = Queue('check_queue', connection=Redis())
@@ -1074,11 +1100,6 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
             gpu_ids = gpu_ids[:-1]
             my_env = os.environ.copy()
             my_env['CUDA_VISIBLE_DEVICES'] = gpu_ids
-
-        # host base directory
-        host_base = BASE_DIR
-        if host and f'{QUEUE}_QUEUE_BASE_DIR' in config:
-            host_base = config[f'{QUEUE}_QUEUE_BASE_DIR']
 
         # command
         cmd = ['python3','biomedisa_deeplearning.py']
@@ -1165,7 +1186,6 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
                         success+=send_data_to_host(path, host+':'+path.replace(BASE_DIR,host_base))
 
             # qsub start
-            subhost = None
             if f'{QUEUE}_QUEUE_QSUB' in config and config[f'{QUEUE}_QUEUE_QSUB']:
                 subhost, qsub_pid = qsub_start(host, host_base, queue_id)
 
@@ -1253,10 +1273,6 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
                 if stopped == 0:
                     subprocess.Popen(['ssh', host, 'rm', host_base + f'/log/pid_{queue_id}']).wait()
 
-            # qsub stop
-            if f'{QUEUE}_QUEUE_QSUB' in config and config[f'{QUEUE}_QUEUE_QSUB']:
-                qsub_stop(host, host_base, queue_id, queue_name, subhost, qsub_pid)
-
         # local server
         else:
             # check if aborted
@@ -1275,6 +1291,10 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
 
                 # start deep learning
                 subprocess.Popen(cmd, cwd=cwd, env=my_env).wait()
+
+    # qsub stop
+    if f'{QUEUE}_QUEUE_QSUB' in config and config[f'{QUEUE}_QUEUE_QSUB']:
+        qsub_stop(host, host_base, queue_id, queue_name, subhost, qsub_pid)
 
 # 25. features
 def features(request, action):
@@ -2181,6 +2201,31 @@ def init_random_walk(image, label):
         message = 'Files have been removed.'
         Upload.objects.create(user=image.user, project=image.project, log=1, imageType=None, shortfilename=message)
 
+    # get worker name
+    worker_name = 'first_worker'
+    job = get_current_job()
+    if job is not None:
+        worker_name = job.worker_name
+
+    # get queue configuration
+    my_env = None
+    if 'first_worker' in worker_name:
+        QUEUE, queue_id, queue_name = 'FIRST', 1, 'first_queue'
+    elif 'second_worker' in worker_name:
+        QUEUE, queue_id, queue_name = 'SECOND', 2, 'second_queue'
+    elif 'third_worker' in worker_name:
+        QUEUE, queue_id, queue_name = 'THIRD', 3, 'third_queue'
+        if image.queue == 1:
+            image.queue = 3
+            image.save()
+
+    # get host information
+    host_base = BASE_DIR
+    subhost, qsub_pid = None, None
+    host = config[f'{QUEUE}_QUEUE_HOST']
+    if host and f'{QUEUE}_QUEUE_BASE_DIR' in config:
+        host_base = config[f'{QUEUE}_QUEUE_BASE_DIR']
+
     # check if aborted
     if image.status > 0:
 
@@ -2191,27 +2236,6 @@ def init_random_walk(image, label):
         # create biomedisa
         bm = Biomedisa()
         bm.success = True
-
-        # get worker name
-        worker_name = 'first_worker'
-        job = get_current_job()
-        if job is not None:
-            worker_name = job.worker_name
-
-        # get queue configuration
-        my_env = None
-        if 'first_worker' in worker_name:
-            QUEUE, queue_id, queue_name = 'FIRST', 1, 'first_queue'
-        elif 'second_worker' in worker_name:
-            QUEUE, queue_id, queue_name = 'SECOND', 2, 'second_queue'
-        elif 'third_worker' in worker_name:
-            QUEUE, queue_id, queue_name = 'THIRD', 3, 'third_queue'
-            if image.queue == 1:
-                image.queue = 3
-                image.save()
-
-        # get host information
-        host = config[f'{QUEUE}_QUEUE_HOST']
 
         # get cluster information
         cluster = False
@@ -2253,11 +2277,6 @@ def init_random_walk(image, label):
                     raise Exception('Number of GPUs must be given if running on a remote host.')
                 else:
                     ngpus = str(bm.available_devices)
-
-        # host base directory
-        host_base = BASE_DIR
-        if host and f'{QUEUE}_QUEUE_BASE_DIR' in config:
-            host_base = config[f'{QUEUE}_QUEUE_BASE_DIR']
 
         # command
         cmd = ['mpiexec', '-np', ngpus, 'python3', 'biomedisa_interpolation.py']
@@ -2303,7 +2322,6 @@ def init_random_walk(image, label):
             success+=send_data_to_host(label.pic.path, host+':'+label.pic.path.replace(BASE_DIR,host_base))
 
             # qsub start
-            subhost = None
             if f'{QUEUE}_QUEUE_QSUB' in config and config[f'{QUEUE}_QUEUE_QSUB']:
                 subhost, qsub_pid = qsub_start(host, host_base, queue_id)
 
@@ -2381,10 +2399,6 @@ def init_random_walk(image, label):
                 if stopped == 0:
                     subprocess.Popen(['ssh', host, 'rm', host_base + f'/log/pid_{queue_id}']).wait()
 
-            # qsub stop
-            if f'{QUEUE}_QUEUE_QSUB' in config and config[f'{QUEUE}_QUEUE_QSUB']:
-                qsub_stop(host, host_base, queue_id, queue_name, subhost, qsub_pid)
-
         # local server
         else:
             # check if aborted
@@ -2397,6 +2411,10 @@ def init_random_walk(image, label):
 
                 # start interpolation
                 subprocess.Popen(cmd, cwd=cwd, env=my_env).wait()
+
+    # qsub stop
+    if f'{QUEUE}_QUEUE_QSUB' in config and config[f'{QUEUE}_QUEUE_QSUB']:
+        qsub_stop(host, host_base, queue_id, queue_name, subhost, qsub_pid)
 
 # 43. run random walks
 @login_required

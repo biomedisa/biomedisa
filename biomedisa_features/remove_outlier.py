@@ -276,15 +276,16 @@ def init_remove_outlier(image_id, final_id, friend_id, label_id, fill_holes=True
     except Upload.DoesNotExist:
         success = False
 
-    if success:
+    # get host information
+    host = ''
+    host_base = BASE_DIR
+    subhost, qsub_pid = None, None
+    if 'REMOTE_QUEUE_HOST' in config:
+        host = config['REMOTE_QUEUE_HOST']
+    if host and 'REMOTE_QUEUE_BASE_DIR' in config:
+        host_base = config['REMOTE_QUEUE_BASE_DIR']
 
-        # get host information
-        host = ''
-        host_base = BASE_DIR
-        if 'REMOTE_QUEUE_HOST' in config:
-            host = config['REMOTE_QUEUE_HOST']
-        if host and 'REMOTE_QUEUE_BASE_DIR' in config:
-            host_base = config['REMOTE_QUEUE_BASE_DIR']
+    if success:
 
         # remote server
         if host:
@@ -317,7 +318,6 @@ def init_remove_outlier(image_id, final_id, friend_id, label_id, fill_holes=True
             if success==0:
 
                 # qsub start
-                subhost = None
                 if 'REMOTE_QUEUE_QSUB' in config and config['REMOTE_QUEUE_QSUB']:
                     subhost, qsub_pid = qsub_start(host, host_base, 6)
 
@@ -352,10 +352,6 @@ def init_remove_outlier(image_id, final_id, friend_id, label_id, fill_holes=True
                     # remove config file
                     subprocess.Popen(['ssh', host, 'rm', host_base + '/log/config_6']).wait()
 
-                # qsub stop
-                if 'REMOTE_QUEUE_QSUB' in config and config['REMOTE_QUEUE_QSUB']:
-                    qsub_stop(host, host_base, 6, 'cleanup', subhost, qsub_pid)
-
         # local server
         else:
             try:
@@ -364,6 +360,10 @@ def init_remove_outlier(image_id, final_id, friend_id, label_id, fill_holes=True
                     no_compression=(False if label.compression else True))
             except Exception as e:
                 print(traceback.format_exc())
+
+    # qsub stop
+    if 'REMOTE_QUEUE_QSUB' in config and config['REMOTE_QUEUE_QSUB']:
+        qsub_stop(host, host_base, 6, 'cleanup', subhost, qsub_pid)
 
 if __name__ == '__main__':
 
