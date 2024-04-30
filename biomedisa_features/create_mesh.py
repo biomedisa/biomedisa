@@ -125,8 +125,8 @@ def save_mesh(path_to_result, labels, x_res=1, y_res=1, z_res=1,
         imageData = vtk.vtkImageData()
         imageData.SetOrigin(0, 0, 0)
         imageData.SetSpacing(x_res, y_res, z_res)
-        #imageData.SetDimensions(zsh, ysh, xsh)
-        imageData.SetExtent(0,xsh-1,0,ysh-1,0,zsh-1)
+        imageData.SetDimensions(xsh, ysh, zsh)
+        #imageData.SetExtent(0,xsh-1,0,ysh-1,0,zsh-1)
         imageData.GetPointData().SetScalars(sc)
 
         # get poly data
@@ -195,7 +195,7 @@ def get_voxel_spacing(header, data, extension):
             xres, yres, zres = 1, 1, 1
 
     elif extension in ['.hdr', '.mhd', '.mha', '.nrrd', '.nii', '.nii.gz']:
-        xres, yres, zres = header.get_voxel_spacing()
+        xres, yres, zres = header.GetSpacing()
     elif extension == '.zip':
         header = header[0][0]
         try:
