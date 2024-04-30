@@ -1171,10 +1171,19 @@ def predict_semantic_segmentation(bm, img, path_to_model,
                     bm.path_to_final = unique_file_path(bm.path_to_final)
 
             # update header info
-            if img_header is not None and extension==img_extension!='.am':
-                header.set_voxel_spacing(img_header.get_voxel_spacing())
-                header.set_direction(img_header.get_direction())
-                header.set_offset(img_header.get_offset())
+            if extension != '.am':
+
+                # build new header
+                if img_header is None:
+                    zsh, ysh, xsh = label.shape
+                    img_header = sitk.Image(xsh, ysh, zsh, header.GetPixelID())
+
+                # copy metadata
+                for key in header.GetMetaDataKeys():
+                    if not (re.match(r'Segment\d+_Extent$', key) or key=='Segmentation_ConversionParameters'):
+                        img_header.SetMetaData(key, header.GetMetaData(key))
+                header = img_header
+
             results['header'] = header
 
     # handle amira header
@@ -1191,14 +1200,6 @@ def predict_semantic_segmentation(bm, img, path_to_model,
     # save result
     if bm.path_to_image:
         save_data(bm.path_to_final, label, header=header, compress=compress)
-
-        # delete 3D Slicer MetaData
-        if header is not None and extension!='.am':
-            simg = sitk.ReadImage(bm.path_to_final)
-            for key in simg.GetMetaDataKeys():
-                if re.match(r'Segment\d+_Extent$', key) or key=='Segmentation_ConversionParameters':
-                    simg.EraseMetaData(key)
-            sitk.WriteImage(simg, bm.path_to_final, useCompression=True)
 
     return results, bm
 

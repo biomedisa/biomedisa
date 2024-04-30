@@ -276,9 +276,8 @@ def load_data(path_to_data, process='None', return_extension=False):
 
     elif extension in ['.hdr', '.mhd', '.mha', '.nrrd', '.nii', '.nii.gz']:
         try:
-            data, header = load(path_to_data)
-            data = np.swapaxes(data, 0, 2)
-            data = np.copy(data, order='C')
+            header = sitk.ReadImage(path_to_data)
+            data = sitk.GetArrayViewFromImage(header).copy()
         except Exception as e:
             print(e)
             data, header = None, None
@@ -493,11 +492,9 @@ def save_data(path_to_final, final, header=None, final_image_type=None, compress
     elif final_image_type == '.nc':
         np_to_nc(path_to_final, final, header)
     elif final_image_type in ['.hdr', '.mhd', '.mha', '.nrrd', '.nii', '.nii.gz']:
-        final = np.swapaxes(final, 0, 2)
-        save(final, path_to_final, header)
-        if final_image_type == '.nrrd':
-            simg = sitk.ReadImage(path_to_final)
-            sitk.WriteImage(simg, path_to_final, useCompression=True)
+        simg = sitk.GetImageFromArray(final)
+        simg.CopyInformation(header)
+        sitk.WriteImage(simg, path_to_final, useCompression=compress)
     elif final_image_type in ['.zip', 'directory', '']:
         # make results directory
         if final_image_type == '.zip':
