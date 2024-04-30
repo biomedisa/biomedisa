@@ -38,7 +38,7 @@ function toggleAccordion(qsid) {
 
           <button id="qs2" class="accordion" onclick="toggleAccordion(this.id);"> <b> 2) What are the two most common user errors using Interpolation?</b> </button>
           <div id="ans2" class="panel">
-              <p><b>1. Not all labels are assigned in each pre-segmented slice:</b> the non-labeld area in pre-segmented slices corresponds to the background label, therefore all structures must be labeled simultaneously in the pre-segmented slices. Otherwise, this area is assigned to the background.</p>
+              <p><b>1. Not all labels are assigned in each pre-segmented slice:</b> the non-labeled area in pre-segmented slices corresponds to the background label, therefore all structures must be labeled simultaneously in the pre-segmented slices. Otherwise, this area is assigned to the background.</p>
               <p><b>2. Not using “All axes” if pre-segmenting slices with different orientations:</b> If the pre-segmentation is not exclusively in the xy plane, then the “All axes” function must be enabled in the settings. In this case, there must also be at least one empty slice between pre-segmented slices. </p>
           </div>
 
@@ -52,9 +52,10 @@ function toggleAccordion(qsid) {
 
           <button id="qs4" class="accordion" onclick="toggleAccordion(this.id);"> <b> 4) How to use Biomedisa AI?</b> </button>
           <div id="ans4" class="panel">
-<p><b>Training:</b> To train a deep neural network, simply select multiple image files along with their corresponding fully segmented label files, ensuring each pair resides within a distinct project. Alternatively, streamline the process by uploading both image and label files in TAR format (<b>.tar</b> or <b>.tar.gz</b>). Ensure the image file names match their corresponding label file names, such as "brain_1.tif" and "brain_1.labels.tif," as exemplified in our <a href="https://biomedisa.info/gallery/" title="gallery">gallery</a>. Once organized, initiate the training process by clicking the AI button <img src="/static/ai_logo.svg" title="train" style="width:18px;height:18px;border:0;">.</p>
-<p><b>Validation:</b> Optionally, optimize your training data with validation splitting in the settings. A validation split of 0.8 allocates 80% for training and 20% for network validation after each epoch, saving only the best-performing network state. For more convenience, upload validation images and labels separately in TAR files, mirroring the training data structure, and enable "Validation Data" in the settings.</p>
-<p><b>Prediction:</b> Upon completion of training, select the trained network and specify one or more images for segmentation prediction. Execute the prediction by pressing the predict button <img src="/static/predict.svg" title="predict" style="width:18px;height:18px;border:0;">.</p>
+<p><b>Training:</b> To train a deep neural network, simply select multiple image files along with their corresponding fully segmented label files, ensuring each pair resides within a distinct project. Alternatively, streamline the process by uploading both image and label files in TAR format (<b>.tar</b> or <b>.tar.gz</b>), respectively. Ensure the image file names match their corresponding label file names, such as "brain_1.tif" and "brain_1.labels.tif," as exemplified in our <a href="https://biomedisa.info/gallery/" title="gallery">gallery</a>. Once organized, initiate the training process by clicking the AI button <img src="/static/ai_logo.svg" title="train" style="width:18px;height:18px;border:0;">.</p>
+<p><b>Validation:</b> Optionally enable validation splitting in the settings. A validation split of 0.8 allocates 80% for training and 20% for network validation after each epoch, saving only the best-performing network state. For more convenience, upload validation images and labels separately in TAR files, mirroring the training data structure, and enable "Validation Data" in the settings.</p>
+<p><b>Data augmentation:</b> During training, you have the option to augment your dataset to prevent overfitting by enabling random flips along the XYZ axes or data rotation in the settings. Ensure that these augmentations maintain a natural representation; for instance, refrain from mirroring across the X-axis if asymmetry between left and right sides exists.</p>
+<p><b>Prediction:</b> Upon completion of training, select the trained network and specify one or more images for prediction. For more convenience when segmenting multiple images, they can also be uploaded in a TAR file. Execute the prediction by pressing the predict button <img src="/static/predict.svg" title="predict" style="width:18px;height:18px;border:0;">.</p>
           </div>
 
           <button id="qs5" class="accordion" onclick="toggleAccordion(this.id);"> <b> 5) What are the two most common user errors using Biomedisa AI?</b> </button>
@@ -115,17 +116,17 @@ function toggleAccordion(qsid) {
               <li> <b>Automatic cropping (AI)</b> train additional network to crop data automatically to region of interest </li>
               <li> <b>Validation data (AI)</b> data will be used for validation of the network after each epoch </li>
               <li> <b>Early stopping (AI)</b> training is terminated when the accuracy has not increased in 10 epochs </li>
-              <li> <b>Flip x-axis (AI)</b> randomly flipps the patches horizontally</li>
-              <li> <b>Flip y-axis (AI)</b> randomly flipps the patches along y-axis </li>
-              <li> <b>Flip z-axis (AI)</b> randomly flipps the patches along z-axis</li>
+              <li> <b>Flip x-axis (AI)</b> randomly flips the patches horizontally</li>
+              <li> <b>Flip y-axis (AI)</b> randomly flips the patches along y-axis </li>
+              <li> <b>Flip z-axis (AI)</b> randomly flips the patches along z-axis</li>
               <li> <b>ResNet convolutional blocks (AI)</b> use U-resnet instead of standard U-net</li>
               <li> <b>Network architecture (AI)</b> number of filters per layer up to the deepest</li>
-              <li> <b>Rotate (AI)</b> randomly rotates the image (&#x00B1) during traing (maximum is 180 degrees)</li>
+              <li> <b>Rotate (AI)</b> randomly rotates the image (&#x00B1) during training (maximum is 180 degrees)</li>
               <li> <b>Number of epochs (AI)</b> the number of epochs (how often the network "sees" a patch) </li>
               <li> <b>Batch size (AI)</b> the number of samples used in each step to update the weights of the network</li>
-              <li> <b>X Scale</b> x-axis of the images is sclaed to this size before training </li>
-              <li> <b>Y Scale</b> y-axis of the images is sclaed to this size before training </li>
-              <li> <b>Z Scale</b> z-axis of the images is sclaed to this size before training </li>
+              <li> <b>X Scale</b> x-axis of the images is scaled to this size before training </li>
+              <li> <b>Y Scale</b> y-axis of the images is scaled to this size before training </li>
+              <li> <b>Z Scale</b> z-axis of the images is scaled to this size before training </li>
               <li> <b>Stride size (AI)</b> the stride made to create overlapping patches of size 64x64x64</li>
               <li> <b>Validation split (AI)</b> e.g. 0.8 splits your data into 80% training data and 20% validation data</li>
               <li> <b>Validation frequency (AI)</b> epochs performed before validation</li>
@@ -153,7 +154,7 @@ function toggleAccordion(qsid) {
 
           <button id="qs16" class="accordion" onclick="toggleAccordion(this.id);"> <b> 16) When does Biomedisa not work?</b> </button>
           <div id="ans16" class="panel">
-              <p> If you can't see seperate structures in your data, Biomedisa usually can't see them either. </p>
+              <p> If you can't see separate structures in your data, Biomedisa usually can't see them either. </p>
           </div>
 
           <button id="qs17" class="accordion" onclick="toggleAccordion(this.id);"> <b> 17) How to install Biomedisa?</b> </button>
