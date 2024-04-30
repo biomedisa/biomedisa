@@ -145,7 +145,7 @@ def fill(image, threshold=0.9):
 
     return image_i
 
-def main_helper(path_to_labels, path_to_reference=None, img_id=None, friend_id=None, fill_holes=True,
+def main_helper(path_to_labels, img_id=None, friend_id=None, fill_holes=True,
     clean_threshold=0.9, fill_threshold=0.9, remote=False, no_compression=False):
 
     # compression
@@ -165,8 +165,6 @@ def main_helper(path_to_labels, path_to_reference=None, img_id=None, friend_id=N
 
     # load data
     final, header = load_data(path_to_labels, 'cleanup')
-    if extension not in ['.tif','.am']:
-        _, header = load_data(path_to_reference, 'cleanup')
 
     # process data
     final_cleaned = clean(final, clean_threshold)
@@ -237,7 +235,7 @@ def post_processing(path_to_cleaned, path_to_filled, path_to_cleaned_filled, img
             silent_remove(path_to_filled)
             silent_remove(path_to_cleaned_filled)
 
-def init_remove_outlier(image_id, final_id, friend_id, label_id, fill_holes=True):
+def init_remove_outlier(image_id, final_id, label_id, fill_holes=True):
     '''
     Runs clean() and fill() within django environment/webbrowser version
 
@@ -247,10 +245,8 @@ def init_remove_outlier(image_id, final_id, friend_id, label_id, fill_holes=True
         Django id of image data used for creating slice preview
     final_id: int
         Django id of result data to be processed
-    friend_id: int
-        Django id of reference object used for assigning result
     label_id: int
-        Django id of label data used for configuration parameters and header information
+        Django id of label data used for configuration parameters
     fill_holes: bool
         Fill holes and save as an optional result
 
@@ -270,7 +266,6 @@ def init_remove_outlier(image_id, final_id, friend_id, label_id, fill_holes=True
     try:
         image = Upload.objects.get(pk=image_id)
         final = Upload.objects.get(pk=final_id)
-        friend = Upload.objects.get(pk=friend_id)
         label = Upload.objects.get(pk=label_id)
         success = True
     except Upload.DoesNotExist:
@@ -292,7 +287,7 @@ def init_remove_outlier(image_id, final_id, friend_id, label_id, fill_holes=True
 
             # command
             cmd = ['python3', host_base+'/biomedisa_features/remove_outlier.py', final.pic.path.replace(BASE_DIR,host_base)]
-            cmd += [f'-iid={image.id}', f'-fid={friend.id}', '-r']
+            cmd += [f'-iid={image.id}', f'-fid={final.friend}', '-r']
 
             # command (append only on demand)
             if fill_holes:
@@ -303,17 +298,12 @@ def init_remove_outlier(image_id, final_id, friend_id, label_id, fill_holes=True
                 cmd += [f'-c={label.delete_outliers}']
             if label.fill_holes != 0.9:
                 cmd += [f'-f={label.fill_holes}']
-            if label.imageType != 4:
-                cmd += [f'--path_to_reference={label.pic.path.replace(BASE_DIR,host_base)}']
 
             # create user directory
             subprocess.Popen(['ssh', host, 'mkdir', '-p', host_base+'/private_storage/images/'+image.user.username]).wait()
 
             # send data to host
-            success=0
-            success+=send_data_to_host(final.pic.path, host+':'+final.pic.path.replace(BASE_DIR,host_base))
-            if label.imageType != 4:
-                success+=send_data_to_host(label.pic.path, host+':'+label.pic.path.replace(BASE_DIR,host_base))
+            success = send_data_to_host(final.pic.path, host+':'+final.pic.path.replace(BASE_DIR,host_base))
 
             if success==0:
 
@@ -347,7 +337,7 @@ def init_remove_outlier(image_id, final_id, friend_id, label_id, fill_holes=True
                         subprocess.Popen(['scp', host+':'+cleaned_filled_on_host, path_to_cleaned_filled]).wait()
 
                     # post processing
-                    post_processing(path_to_cleaned, path_to_filled, path_to_cleaned_filled, image_id, friend_id, fill_holes)
+                    post_processing(path_to_cleaned, path_to_filled, path_to_cleaned_filled, image_id, final.friend, fill_holes)
 
                     # remove config file
                     subprocess.Popen(['ssh', host, 'rm', host_base + '/log/config_6']).wait()
@@ -355,7 +345,7 @@ def init_remove_outlier(image_id, final_id, friend_id, label_id, fill_holes=True
         # local server
         else:
             try:
-                main_helper(final.pic.path, path_to_reference=label.pic.path, img_id=image_id, friend_id=friend_id,
+                main_helper(final.pic.path, img_id=image_id, friend_id=final.friend,
                     fill_holes=fill_holes, clean_threshold=label.delete_outliers, fill_threshold=label.fill_holes, remote=False,
                     no_compression=(False if label.compression else True))
             except Exception as e:
@@ -378,8 +368,6 @@ if __name__ == '__main__':
     # optional arguments
     parser.add_argument('-v', '--version', action='version', version=f'{biomedisa.__version__}',
                         help='Biomedisa version')
-    parser.add_argument('--path_to_reference', type=str, default=None,
-                        help='Reference data for header information')
     parser.add_argument('-fh','--fill_holes', action='store_true', default=False,
                         help='Fill holes and save as an optional result')
     parser.add_argument('-c', '--clean_threshold', type=float, default=0.9,

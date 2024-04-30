@@ -110,7 +110,7 @@ def reduce_blocksize(raw, slices):
 
 def activeContour(data, labelData, alpha=1.0, smooth=1, steps=3,
     path_to_data=None, path_to_labels=None, no_compression=False,
-    ignore='none', only='all', simple=False, path_to_reference=None,
+    ignore='none', only='all', simple=False,
     img_id=None, friend_id=None, remote=False):
 
     # create biomedisa
@@ -147,8 +147,6 @@ def activeContour(data, labelData, alpha=1.0, smooth=1, steps=3,
 
     # pre-processing
     bm = pre_processing(bm)
-    if bm.final_image_type not in ['.tif','.am']:
-        _, bm.header = load_data(path_to_reference, 'acwe')
 
     # create path_to_acwe
     if bm.path_to_data:
@@ -206,7 +204,7 @@ def activeContour(data, labelData, alpha=1.0, smooth=1, steps=3,
 
         # post processing
         if bm.django_env:
-            post_processing(path_to_acwe, bm.img_id, bm.friend_id, bm.simple, bm.path_to_data, bm.remote)
+            post_processing(path_to_acwe, bm.img_id, bm.friend_id, bm.simple, bm.remote)
 
         return final
 
@@ -234,7 +232,7 @@ def refinement(bm):
                 result[k] = np.logical_and(d==0, p1 > p2) * l
     return result
 
-def post_processing(path_to_acwe, image_id=None, friend_id=None, simple=False, path_to_data=None, remote=False):
+def post_processing(path_to_acwe, image_id=None, friend_id=None, simple=False, remote=False):
     if remote:
         with open(BASE_DIR + '/log/config_4', 'w') as configfile:
             print(path_to_acwe, 'phantom', file=configfile)
@@ -260,7 +258,7 @@ def post_processing(path_to_acwe, image_id=None, friend_id=None, simple=False, p
             # create slices
             if len(image)>0:
                 q = Queue('slices', connection=Redis())
-                job = q.enqueue_call(create_slices, args=(path_to_data, path_to_acwe,), timeout=-1)
+                job = q.enqueue_call(create_slices, args=(image[0].pic.path, path_to_acwe,), timeout=-1)
         else:
             silent_remove(path_to_acwe)
 
@@ -275,7 +273,7 @@ def init_active_contour(image_id, friend_id, label_id, simple=False):
     friend_id: int
         Django id of result data to be processed
     label_id: int
-        Django id of label data used for configuration parameters and header information
+        Django id of label data used for configuration parameters
     simple: bool
         Use simplified version of active contour
 
@@ -334,8 +332,6 @@ def init_active_contour(image_id, friend_id, label_id, simple=False):
                 cmd += [f'-st={label.ac_steps}']
             if label.ac_alpha != 1.0:
                 cmd += [f'-a={label.ac_alpha}']
-            if label.imageType != 4:
-                cmd += [f'--path_to_reference={label.pic.path.replace(BASE_DIR,host_base)}']
 
             # create user directory
             subprocess.Popen(['ssh', host, 'mkdir', '-p', host_base+'/private_storage/images/'+image.user.username]).wait()
@@ -344,8 +340,6 @@ def init_active_contour(image_id, friend_id, label_id, simple=False):
             success=0
             success+=send_data_to_host(image.pic.path, host+':'+image.pic.path.replace(BASE_DIR,host_base))
             success+=send_data_to_host(friend.pic.path, host+':'+friend.pic.path.replace(BASE_DIR,host_base))
-            if label.imageType != 4:
-                success+=send_data_to_host(label.pic.path, host+':'+label.pic.path.replace(BASE_DIR,host_base))
 
             if success==0:
 
@@ -374,7 +368,7 @@ def init_active_contour(image_id, friend_id, label_id, simple=False):
                     subprocess.Popen(['scp', host+':'+acwe_on_host, path_to_acwe]).wait()
 
                     # post processing
-                    post_processing(path_to_acwe, image_id=image_id, friend_id=friend_id, simple=simple, path_to_data=image.pic.path)
+                    post_processing(path_to_acwe, image_id=image_id, friend_id=friend_id, simple=simple)
 
                     # remove config file
                     subprocess.Popen(['ssh', host, 'rm', host_base + '/log/config_4']).wait()
@@ -383,7 +377,7 @@ def init_active_contour(image_id, friend_id, label_id, simple=False):
         else:
             try:
                 activeContour(None, None, path_to_data=image.pic.path, path_to_labels=friend.pic.path,
-                    path_to_reference=label.pic.path, alpha=label.ac_alpha, smooth=label.ac_smooth, steps=label.ac_steps,
+                    alpha=label.ac_alpha, smooth=label.ac_smooth, steps=label.ac_steps,
                     no_compression=(False if label.compression else True),
                     simple=simple, img_id=image_id, friend_id=friend_id, remote=False)
             except Exception as e:
@@ -408,8 +402,6 @@ if __name__ == '__main__':
     # optional arguments
     parser.add_argument('-v', '--version', action='version', version=f'{biomedisa.__version__}',
                         help='Biomedisa version')
-    parser.add_argument('--path_to_reference', type=str, default=None,
-                        help='Reference data for header information')
     parser.add_argument('-si','--simple', action='store_true', default=False,
                         help='Simplified version of active contour')
     parser.add_argument('-a', '--alpha', type=float, default=1.0,

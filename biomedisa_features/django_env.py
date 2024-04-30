@@ -138,15 +138,17 @@ def post_processing(path_to_final, time_str, server_name, remote, queue, dice=1.
                     log=1, imageType=None, shortfilename='Bad result! Activate "All axes" if you labeled axes other than the xy-plane.')
 
             # acwe
-            q = Queue('acwe', connection=Redis())
-            job = q.enqueue_call(init_active_contour, args=(img_id, final.id, label_id, True,), timeout=-1)
-            job = q.enqueue_call(init_active_contour, args=(img_id, final.id, label_id,), timeout=-1)
+            if not (os.path.splitext(path_to_final)[1]=='.tar' or path_to_final[-7:]=='.tar.gz'):
+                q = Queue('acwe', connection=Redis())
+                job = q.enqueue_call(init_active_contour, args=(img_id, final.id, label_id, True,), timeout=-1)
+                job = q.enqueue_call(init_active_contour, args=(img_id, final.id, label_id,), timeout=-1)
 
             # cleanup
-            q = Queue('cleanup', connection=Redis())
-            job = q.enqueue_call(init_remove_outlier, args=(img_id, final.id, final.id, label_id,), timeout=-1)
-            if smooth:
-                job = q.enqueue_call(init_remove_outlier, args=(img_id, smooth_obj.id, final.id, label_id, False,), timeout=-1)
+            if not (os.path.splitext(path_to_final)[1]=='.tar' or path_to_final[-7:]=='.tar.gz'):
+                q = Queue('cleanup', connection=Redis())
+                job = q.enqueue_call(init_remove_outlier, args=(img_id, final.id, label_id,), timeout=-1)
+                if smooth:
+                    job = q.enqueue_call(init_remove_outlier, args=(img_id, smooth_obj.id, label_id, False,), timeout=-1)
 
             # create slices
             q = Queue('slices', connection=Redis())
