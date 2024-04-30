@@ -1768,8 +1768,8 @@ def app(request):
     # show messages
     if Upload.objects.filter(user=request.user, log=2).exists():
         messages.success(request, 'You have data that is older than three years (transparent files) and will be deleted on April 19 at 6:00 am (UTC) if it is not reactivated by then.')
-    if os.path.isfile(BASE_DIR + '/biomedisa_app/messages/NotificationAllUsers.txt'):
-        lines = open(BASE_DIR + '/biomedisa_app/messages/NotificationAllUsers.txt', 'r').readlines()
+    if os.path.isfile(BASE_DIR + '/biomedisa_app/messages/NotificationsAllUsers.txt'):
+        lines = open(BASE_DIR + '/biomedisa_app/messages/NotificationsAllUsers.txt', 'r').readlines()
         for line in lines:
             messages.success(request, line)
 
