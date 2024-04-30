@@ -226,6 +226,15 @@ def init_create_mesh(id):
         message = 'File has been removed.'
         Upload.objects.create(user=img.user, project=img.project, log=1, imageType=None, shortfilename=message)
 
+    # get host information
+    host = ''
+    host_base = BASE_DIR
+    subhost, qsub_pid = None, None
+    if 'REMOTE_QUEUE_HOST' in config:
+        host = config['REMOTE_QUEUE_HOST']
+    if host and 'REMOTE_QUEUE_BASE_DIR' in config:
+        host_base = config['REMOTE_QUEUE_BASE_DIR']
+
     # check if aborted
     if img.status > 0:
 
@@ -238,14 +247,6 @@ def init_create_mesh(id):
             # set status to processing
             img.status = 2
             img.save()
-
-            # get host information
-            host = ''
-            host_base = BASE_DIR
-            if 'REMOTE_QUEUE_HOST' in config:
-                host = config['REMOTE_QUEUE_HOST']
-            if host and 'REMOTE_QUEUE_BASE_DIR' in config:
-                host_base = config['REMOTE_QUEUE_BASE_DIR']
 
             # create path to result
             filename, extension = os.path.splitext(img.pic.path)
@@ -267,10 +268,9 @@ def init_create_mesh(id):
                 subprocess.Popen(['ssh', host, 'mkdir', '-p', host_base+'/private_storage/images/'+img.user.username]).wait()
 
                 # send data to host
-                success=send_data_to_host(img.pic.path, host+':'+img.pic.path.replace(BASE_DIR,host_base))
+                success = send_data_to_host(img.pic.path, host+':'+img.pic.path.replace(BASE_DIR,host_base))
 
                 # qsub start
-                subhost = None
                 if 'REMOTE_QUEUE_QSUB' in config and config['REMOTE_QUEUE_QSUB']:
                     subhost, qsub_pid = qsub_start(host, host_base, 7)
 
@@ -311,10 +311,6 @@ def init_create_mesh(id):
                             Upload.objects.create(user=img.user, project=img.project,
                                 log=1, imageType=None, shortfilename='Invalid label data.')
 
-                # qsub stop
-                if 'REMOTE_QUEUE_QSUB' in config and config['REMOTE_QUEUE_QSUB']:
-                    qsub_stop(host, host_base, 7, 'create_mesh', subhost, qsub_pid)
-
             # local server
             else:
 
@@ -345,6 +341,10 @@ def init_create_mesh(id):
         img.status = 0
         img.pid = 0
         img.save()
+
+    # qsub stop
+    if 'REMOTE_QUEUE_QSUB' in config and config['REMOTE_QUEUE_QSUB']:
+        qsub_stop(host, host_base, 7, 'create_mesh', subhost, qsub_pid)
 
 if __name__ == "__main__":
 
