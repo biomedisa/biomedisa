@@ -65,12 +65,13 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
     save_cropped=False, epochs=100, no_normalization=False, rotate=0.0, validation_split=0.0,
     learning_rate=0.01, stride_size=32, validation_stride_size=32, validation_freq=1,
     batch_size=None, x_scale=256, y_scale=256, z_scale=256, no_scaling=False, early_stopping=0,
-    pretrained_model=None, fine_tune=False, classification=False, workers=1, cropping_epochs=50,
+    pretrained_model=None, fine_tune=False, workers=1, cropping_epochs=50,
     x_range=None, y_range=None, z_range=None, header=None, extension='.tif',
     img_header=None, img_extension='.tif', average_dice=False, django_env=False,
     path=None, success=True, return_probs=False, patch_normalization=False,
     z_patch=64, y_patch=64, x_patch=64, path_to_logfile=None, img_id=None, label_id=None,
-    remote=False, queue=0, username=None, shortfilename=None, dice_loss=False):
+    remote=False, queue=0, username=None, shortfilename=None, dice_loss=False,
+    acwe=False, acwe_alpha=1.0, acwe_smooth=1, acwe_steps=3, clean=None, fill=None):
 
     # create biomedisa
     bm = Biomedisa()
@@ -238,7 +239,8 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
             tar.extractall(path=bm.tmp_dir)
             tar.close()
             bm.path_to_images = bm.tmp_dir
-            bm.save_cropped = False
+            bm.save_cropped, bm.acwe = False, False
+            bm.clean, bm.fill = None, None
 
         # list of images
         path_to_finals = []
@@ -272,7 +274,7 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
                     bm.batch_size, bm.debug_cropping, bm.save_cropped, img_data, bm.x_range, bm.y_range, bm.z_range)
 
             # load prediction data
-            img, img_header, z_shape, y_shape, x_shape, region_of_interest, img_extension = load_prediction_data(bm.path_to_image,
+            img, img_header, z_shape, y_shape, x_shape, region_of_interest, img_extension, img_data = load_prediction_data(bm.path_to_image,
                 channels, bm.x_scale, bm.y_scale, bm.z_scale, bm.no_scaling, normalize, normalization_parameters,
                 region_of_interest, img_data, img_header, img_extension)
 
@@ -280,7 +282,7 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
             results, bm = predict_semantic_segmentation(bm, img, bm.path_to_model,
                 bm.z_patch, bm.y_patch, bm.x_patch, z_shape, y_shape, x_shape, bm.compression, header,
                 img_header, bm.stride_size, allLabels, bm.batch_size, region_of_interest,
-                bm.no_scaling, extension, img_extension)
+                bm.no_scaling, extension, img_extension, img_data)
 
             # results
             if cropped_volume is not None:
@@ -357,6 +359,18 @@ if __name__ == '__main__':
                         help='Balance foreground and background training patches')
     parser.add_argument('-cd','--crop_data', action='store_true', default=False,
                         help='Crop data automatically to region of interest')
+    parser.add_argument('--acwe', action='store_true', default=False,
+                        help='Post-processing with active contour')
+    parser.add_argument('--acwe_alpha', metavar='ALPHA', type=float, default=1.0,
+                        help='Pushing force of active contour')
+    parser.add_argument('--acwe_smooth', metavar='SMOOTH', type=int, default=1,
+                        help='Smoothing steps of active contour')
+    parser.add_argument('--acwe_steps', metavar='STEPS', type=int, default=3,
+                        help='Iterations of active contour')
+    parser.add_argument('-c','--clean', nargs='?', type=float, const=0.1, default=None,
+                        help='Remove outliers, e.g. 0.5 means that objects smaller than 50 percent of the size of the largest object will be removed')
+    parser.add_argument('-f','--fill', nargs='?', type=float, const=0.9, default=None,
+                        help='Fill holes, e.g. 0.5 means that all holes smaller than 50 percent of the entire label will be filled')
     parser.add_argument('--flip_x', action='store_true', default=False,
                         help='Randomly flip x-axis during training')
     parser.add_argument('--flip_y', action='store_true', default=False,
@@ -425,8 +439,6 @@ if __name__ == '__main__':
                         help='Location of pretrained model (only encoder will be trained if specified)')
     parser.add_argument('-ft','--fine_tune', action='store_true', default=False,
                         help='Fine-tune the entire pretrained model. Choose a smaller learning rate, e.g. 0.0001')
-    parser.add_argument('-cl','--classification', action='store_true', default=False,
-                        help='Train a model for image classification. Validation works only with `-vt` option')
     parser.add_argument('-w','--workers', type=int, default=1,
                         help='Parallel workers for batch processing')
     parser.add_argument('-xr','--x_range', nargs="+", type=int, default=None,
