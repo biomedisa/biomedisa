@@ -165,16 +165,16 @@ def activeContour(data, labelData, alpha=1.0, smooth=1, steps=3,
         zsh, ysh, xsh = bm.data.shape
         tmp = np.zeros((2+zsh, 2+ysh, 2+xsh), dtype=bm.data.dtype)
         tmp[1:-1,1:-1,1:-1] = bm.data
-        bm.data = np.copy(tmp)
+        bm.data = np.copy(tmp, order='C')
         tmp = np.zeros((2+zsh, 2+ysh, 2+xsh), dtype=bm.labelData.dtype)
         tmp[1:-1,1:-1,1:-1] = bm.labelData
-        bm.labelData = np.copy(tmp)
+        bm.labelData = np.copy(tmp, order='C')
         zsh, ysh, xsh = bm.data.shape
 
         # reduce blocksize
         bm.data, bm.labelData, argmin_z, argmax_z, argmin_y, argmax_y, argmin_x, argmax_x = reduce_blocksize(bm.data, bm.labelData)
-        bm.labelData = np.copy(bm.labelData)
-        bm.data = np.copy(bm.data)
+        bm.labelData = np.copy(bm.labelData, order='C')
+        bm.data = np.copy(bm.data, order='C')
 
         # active contour
         if simple:
@@ -194,7 +194,7 @@ def activeContour(data, labelData, alpha=1.0, smooth=1, steps=3,
         # return to original data size
         final = np.zeros((zsh, ysh, xsh), dtype=np.uint8)
         final[argmin_z:argmax_z, argmin_y:argmax_y, argmin_x:argmax_x] = bm.labelData
-        final = np.copy(final[1:-1, 1:-1, 1:-1])
+        final = np.copy(final[1:-1, 1:-1, 1:-1], order='C')
 
         # save result
         if bm.django_env and not bm.remote:

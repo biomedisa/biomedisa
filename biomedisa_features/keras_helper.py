@@ -645,7 +645,7 @@ class Metrics(Callback):
                     m = rest % self.dim_img[2]
                     tmp_X = self.img[k:k+self.dim_patch[0],l:l+self.dim_patch[1],m:m+self.dim_patch[2]]
                     if self.patch_normalization:
-                        tmp_X = np.copy(tmp_X)
+                        tmp_X = np.copy(tmp_X, order='C')
                         for c in range(self.n_channels):
                             tmp_X[:,:,:,c] -= np.mean(tmp_X[:,:,:,c])
                             tmp_X[:,:,:,c] /= max(np.std(tmp_X[:,:,:,c]), 1e-6)
@@ -794,10 +794,10 @@ def train_semantic_segmentation(bm,
 
     elif bm.validation_split:
         split = round(zsh * bm.validation_split)
-        img_val = np.copy(img[split:])
-        label_val = np.copy(label[split:])
-        img = np.copy(img[:split])
-        label = np.copy(label[:split])
+        img_val = np.copy(img[split:], order='C')
+        label_val = np.copy(label[split:], order='C')
+        img = np.copy(img[:split], order='C')
+        label = np.copy(label[:split], order='C')
         zsh, ysh, xsh, _ = img.shape
 
     # list of IDs
@@ -1067,7 +1067,7 @@ def predict_semantic_segmentation(bm, img, path_to_model,
                 # get patch
                 tmp_X = img[k:k+z_patch,l:l+y_patch,m:m+x_patch]
                 if bm.patch_normalization:
-                    tmp_X = np.copy(tmp_X)
+                    tmp_X = np.copy(tmp_X, order='C')
                     for c in range(csh):
                         tmp_X[:,:,:,c] -= np.mean(tmp_X[:,:,:,c])
                         tmp_X[:,:,:,c] /= max(np.std(tmp_X[:,:,:,c]), 1e-6)
@@ -1098,7 +1098,7 @@ def predict_semantic_segmentation(bm, img, path_to_model,
             min_z,max_z,min_y,max_y,min_x,max_x,original_zsh,original_ysh,original_xsh = region_of_interest[:]
             tmp = np.zeros((original_zsh, original_ysh, original_xsh, nb_labels), dtype=np.float32)
             tmp[min_z:max_z,min_y:max_y,min_x:max_x] = probabilities
-            probabilities = np.copy(tmp)
+            probabilities = np.copy(tmp, order='C')
         results['probs'] = probabilities
 
     # get final
@@ -1114,7 +1114,7 @@ def predict_semantic_segmentation(bm, img, path_to_model,
         min_z,max_z,min_y,max_y,min_x,max_x,original_zsh,original_ysh,original_xsh = region_of_interest[:]
         tmp = np.zeros((original_zsh, original_ysh, original_xsh), dtype=np.uint8)
         tmp[min_z:max_z,min_y:max_y,min_x:max_x] = label
-        label = np.copy(tmp)
+        label = np.copy(tmp, order='C')
 
     # get result
     label = get_labels(label, allLabels)

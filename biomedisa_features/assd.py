@@ -1,6 +1,6 @@
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2023 Philipp Lösel. All rights reserved.              ##
+##  Copyright (c) 2024 Philipp Lösel. All rights reserved.              ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -108,10 +108,10 @@ def ASSD_one_label(a, b, label):
     # consider label of interest only
     tmp = np.zeros_like(a)
     tmp[a==label] = 1
-    a = np.copy(tmp)
+    a = np.copy(tmp, order='C')
     tmp = np.zeros_like(b)
     tmp[b==label] = 1
-    b = np.copy(tmp)
+    b = np.copy(tmp, order='C')
 
     # get gradients
     zsh, ysh, xsh = a.shape
@@ -131,10 +131,10 @@ def ASSD_one_label(a, b, label):
     b_size = np.sum(b_surface)
 
     # min distances from a_to_b
-    a_save = np.copy(a_surface)
+    a_save = np.copy(a_surface, order='C')
     a_surface[b_surface==1] = 0
-    a_surface = np.copy(a_surface)
-    b_surface = np.copy(b_surface)
+    a_surface = np.copy(a_surface, order='C')
+    b_surface = np.copy(b_surface, order='C')
     if np.sum(a_surface) == 0:
         distances_a_to_b = 0
     else:
@@ -147,8 +147,8 @@ def ASSD_one_label(a, b, label):
 
     # min distances from b_to_a
     b_surface[a_save==1] = 0
-    a_surface = np.copy(a_save)
-    b_surface = np.copy(b_surface)
+    a_surface = np.copy(a_save, order='C')
+    b_surface = np.copy(b_surface, order='C')
     if np.sum(b_surface) == 0:
         distances_b_to_a = 0
     else:

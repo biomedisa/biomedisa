@@ -1,6 +1,6 @@
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2022 Philipp Lösel. All rights reserved.              ##
+##  Copyright (c) 2024 Philipp Lösel. All rights reserved.              ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -72,7 +72,7 @@ if __name__ == '__main__':
 
     # data shape
     data, _ = load_data(path_to_data, 'split_volume')
-    shape = np.copy(np.array(data.shape))
+    shape = np.copy(np.array(data.shape), order='C')
     zsh, ysh, xsh = shape
     del data
 

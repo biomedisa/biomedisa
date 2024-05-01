@@ -123,7 +123,7 @@ def nc_to_np(base_dir, start=0, stop=None, show_keys=False):
             if n in f.variables.keys():
                 name = n
         output = f.variables[name]
-        output = np.copy(output)
+        output = np.copy(output, order='C')
         # remove tmp file
         if '.bz2' in base_dir:
             os.remove(newfilepath)
@@ -161,7 +161,7 @@ def nc_to_np(base_dir, start=0, stop=None, show_keys=False):
                     name = n
 
             a = f.variables[name]
-            a = np.copy(a)
+            a = np.copy(a, order='C')
 
             # remove tmp file
             if '.bz2' in filepath:

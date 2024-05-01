@@ -355,7 +355,7 @@ def load_data_to_crop(path_to_img, channels, x_scale, y_scale, z_scale,
     # read image data
     if img is None:
         img, _, _ = load_data(path_to_img, 'first_queue', return_extension=True)
-    img_data = np.copy(img)
+    img_data = np.copy(img, order='C')
     if img is None:
         InputError.message = "Invalid image data %s." %(os.path.basename(path_to_img))
         raise InputError()

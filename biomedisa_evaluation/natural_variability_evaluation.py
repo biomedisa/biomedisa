@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2023 Philipp Lösel. All rights reserved.              ##
+##  Copyright (c) 2024 Philipp Lösel. All rights reserved.              ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -194,10 +194,10 @@ if __name__ == "__main__":
                 b, _ = load_data(path_to_data)
 
                 # remove outliers
-                c = np.copy(b)
+                c = np.copy(b, order='C')
                 c = clean(c, 0.1)
                 c[b==3] = 3     # CX is not cleaned
-                b = np.copy(c)
+                b = np.copy(c, order='C')
 
                 # total Dice score
                 D[n,-1] = Dice_score(a,b)
@@ -299,7 +299,7 @@ if __name__ == "__main__":
 
                     # align honeybee data if scanned upside down
                     if args.honeybees and (sample in test_inv or sample in train_inv):
-                        image = np.copy(image[::-1,:,::-1])
+                        image = np.copy(image[::-1,:,::-1], order='C')
 
                 # bumblebees
                 if args.bumblebees:

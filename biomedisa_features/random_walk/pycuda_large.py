@@ -1,6 +1,6 @@
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2022 Philipp Lösel. All rights reserved.              ##
+##  Copyright (c) 2024 Philipp Lösel. All rights reserved.              ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -379,7 +379,7 @@ def walk(comm, raw, slices, indices, nbrw, sorw, blockmin, blockmax, name,
 
                         sub_zsh = data_block_max - data_block_min
                         sub_zsh_gpu = np.int32(sub_zsh)
-                        sub_raw = np.copy(raw[data_block_min:data_block_max])
+                        sub_raw = np.copy(raw[data_block_min:data_block_max], order='C')
                         sub_raw_gpu = gpuarray.to_gpu(sub_raw)
                         sub_hits = np.empty(sub_raw.shape, dtype=np.float32)
                         sub_hits_gpu = cuda.mem_alloc(sub_hits.nbytes)
@@ -446,13 +446,13 @@ def walk(comm, raw, slices, indices, nbrw, sorw, blockmin, blockmax, name,
             cuda.memcpy_dtoh(hits_smooth, hits_gpu)
             if label_counter == 0:
                 hits_smooth[hits_smooth<0] = 0
-                walkmap_smooth = np.copy(hits_smooth)
+                walkmap_smooth = np.copy(hits_smooth, order='C')
             else:
                 walkmap_smooth, final_smooth = max_to_label(hits_smooth, walkmap_smooth, final_smooth, blockmin, blockmax, segment)
 
         # get the label with the most hits
         if label_counter == 0:
-            walkmap = np.copy(hits)
+            walkmap = np.copy(hits, order='C')
         else:
             walkmap, final = max_to_label(hits, walkmap, final, blockmin, blockmax, segment)
             #update = hits[blockmin:blockmax] > walkmap[blockmin:blockmax]
