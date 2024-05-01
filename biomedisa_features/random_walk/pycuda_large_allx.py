@@ -1,6 +1,6 @@
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2022 Philipp Lösel. All rights reserved.              ##
+##  Copyright (c) 2024 Philipp Lösel. All rights reserved.              ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -36,7 +36,7 @@ from biomedisa_features.random_walk.gpu_kernels import (_build_kernel_uncertaint
         _build_kernel_max, _build_kernel_fill, _build_update_gpu, _build_curvature_gpu)
 
 def reduceBlocksize(slices):
-    testSlices = np.copy(slices)
+    testSlices = np.copy(slices, order='C')
     testSlices[testSlices==-1] = 0
     zsh, ysh, xsh = slices.shape
     argmin_x, argmax_x, argmin_y, argmax_y = xsh, 0, ysh, 0
@@ -418,13 +418,13 @@ def walk(comm, raw, slices, indices, nbrw, sorw, blockmin, blockmax, name,
             cuda.memcpy_dtoh(a_smooth, a_gpu)
             if label_counter == 0:
                 a_smooth[a_smooth<0] = 0
-                walkmap_smooth = np.copy(a_smooth)
+                walkmap_smooth = np.copy(a_smooth, order='C')
             else:
                 walkmap_smooth, final_smooth = max_to_label(a_smooth, walkmap_smooth, final_smooth, blockmin, blockmax, segment)
 
         if label_counter == 0:
             a[a<0] = 0
-            walkmap = np.copy(a)
+            walkmap = np.copy(a, order='C')
         else:
             walkmap, final = max_to_label(a, walkmap, final, blockmin, blockmax, segment)
 
