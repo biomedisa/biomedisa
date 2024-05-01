@@ -42,10 +42,10 @@ import time
 class Biomedisa(object):
      pass
 
-def smart_interpolation(data, labelData, nbrw=10, sorw=4000,
+def smart_interpolation(data, labelData, nbrw=10, sorw=4000, acwe=False, acwe_alpha=1.0, acwe_smooth=1, acwe_steps=3,
     path_to_data=None, path_to_labels=None, denoise=False, uncertainty=False, platform=None,
     allaxis=False, ignore='none', only='all', smooth=0, no_compression=False, return_hits=False,
-    img_id=None, label_id=None, remote=False, queue=0):
+    img_id=None, label_id=None, remote=False, queue=0, clean=None, fill=None):
 
     freeze_support()
 
@@ -138,11 +138,17 @@ def smart_interpolation(data, labelData, nbrw=10, sorw=4000,
                 filename = 'final.' + filename
                 bm.path_to_final = bm.path_to_data.replace(os.path.basename(bm.path_to_data), filename + bm.final_image_type)
 
-                # path to optional results
+                # paths to optional results
                 filename, extension = os.path.splitext(bm.path_to_final)
                 if extension == '.gz':
                     filename = filename[:-4]
                 bm.path_to_smooth = filename + '.smooth' + bm.final_image_type
+                bm.path_to_smooth_cleaned = filename + '.smooth.cleand' + bm.final_image_type
+                bm.path_to_cleaned = filename + '.cleaned' + bm.final_image_type
+                bm.path_to_filled = filename + '.filled' + bm.final_image_type
+                bm.path_to_cleaned_filled = filename + '.cleaned.filled' + bm.final_image_type
+                bm.path_to_refined = filename + '.refined' + bm.final_image_type
+                bm.path_to_acwe = filename + '.acwe' + bm.final_image_type
                 bm.path_to_uq = filename + '.uncertainty.tif'
 
             # data type
@@ -320,6 +326,14 @@ if __name__ == '__main__':
                         help='Number of random walks starting at each pre-segmented pixel')
     parser.add_argument('--sorw', type=int, default=4000,
                         help='Steps of a random walk')
+    parser.add_argument('--acwe', action='store_true', default=False,
+                        help='Post-processing with active contour')
+    parser.add_argument('--acwe_alpha', metavar='ALPHA', type=float, default=1.0,
+                        help='Pushing force of active contour')
+    parser.add_argument('--acwe_smooth', metavar='SMOOTH', type=int, default=1,
+                        help='Smoothing steps of active contour')
+    parser.add_argument('--acwe_steps', metavar='STEPS', type=int, default=3,
+                        help='Iterations of active contour')
     parser.add_argument('-nc', '--no_compression', action='store_true', default=False,
                         help='Disable compression of segmentation results')
     parser.add_argument('-allx', '--allaxis', action='store_true', default=False,
@@ -334,10 +348,14 @@ if __name__ == '__main__':
                         help='Segment only specific label(s), e.g. 1,3,5')
     parser.add_argument('-s', '--smooth', nargs='?', type=int, const=100, default=0,
                         help='Number of smoothing iterations for segmentation result')
+    parser.add_argument('-c','--clean', nargs='?', type=float, const=0.1, default=None,
+                        help='Remove outliers, e.g. 0.5 means that objects smaller than 50 percent of the size of the largest object will be removed')
+    parser.add_argument('-f','--fill', nargs='?', type=float, const=0.9, default=None,
+                        help='Fill holes, e.g. 0.5 means that all holes smaller than 50 percent of the entire label will be filled')
     parser.add_argument('-p', '--platform', default=None,
                         help='One of "cuda", "opencl_NVIDIA_GPU", "opencl_Intel_CPU"')
     parser.add_argument('-rh','--return_hits', action='store_true', default=False,
-                        help='Return hits from each label')
+                        help='Return hits from each label. Only works for small image data')
     parser.add_argument('-iid','--img_id', type=str, default=None,
                         help='Image ID within django environment/browser version')
     parser.add_argument('-lid','--label_id', type=str, default=None,

@@ -26,6 +26,8 @@
 ##                                                                      ##
 ##########################################################################
 
+from biomedisa_features.remove_outlier import clean, fill
+from biomedisa_features.active_contour import activeContour
 from biomedisa_features.biomedisa_helper import (_get_device, save_data, unique_file_path,
     sendToChild, _split_indices, get_labels, Dice_score)
 from mpi4py import MPI
@@ -188,6 +190,40 @@ def _diffusion_child(comm, bm=None):
             bm.path_to_final = unique_file_path(bm.path_to_final)
         if bm.path_to_data:
             save_data(bm.path_to_final, final_result, bm.header, bm.final_image_type, bm.compression)
+
+        # remove outliers
+        if bm.clean:
+            cleaned_result = clean(final_result, bm.clean)
+            results['cleaned'] = cleaned_result
+            if bm.path_to_data:
+                save_data(bm.path_to_cleaned, cleaned_result, bm.header, bm.final_image_type, bm.compression)
+            if bm.smooth:
+                smooth_cleaned = clean(smooth_result, bm.clean)
+                results['smooth_cleaned'] = smooth_cleaned
+                if bm.path_to_data:
+                    save_data(bm.path_to_smooth_cleaned, smooth_cleaned, bm.header, bm.final_image_type, bm.compression)
+        if bm.fill:
+            filled_result = fill(final_result, bm.fill)
+            results['filled'] = filled_result
+            if bm.path_to_data:
+                save_data(bm.path_to_filled, filled_result, bm.header, bm.final_image_type, bm.compression)
+        if bm.clean and bm.fill:
+            cleaned_filled_result = cleaned_result + (filled_result - final_result)
+            results['cleaned_filled'] = cleaned_filled_result
+            if bm.path_to_data:
+                save_data(bm.path_to_cleaned_filled, cleaned_filled_result, bm.header, bm.final_image_type, bm.compression)
+
+        # post-processing with active contour
+        if bm.acwe:
+            data = np.zeros((bm.zsh, bm.ysh, bm.xsh), dtype=bm.data.dtype)
+            data[bm.argmin_z:bm.argmax_z, bm.argmin_y:bm.argmax_y, bm.argmin_x:bm.argmax_x] = bm.data
+            acwe_result = activeContour(data[1:-1, 1:-1, 1:-1], final_result, bm.acwe_alpha, bm.acwe_smooth, bm.acwe_steps)
+            refined_result = activeContour(data[1:-1, 1:-1, 1:-1], final_result, simple=True)
+            results['acwe'] = acwe_result
+            results['refined'] = refined_result
+            if bm.path_to_data:
+                save_data(bm.path_to_acwe, acwe_result, bm.header, bm.final_image_type, bm.compression)
+                save_data(bm.path_to_refined, refined_result, bm.header, bm.final_image_type, bm.compression)
 
         # computation time
         t = int(time.time() - bm.TIC)

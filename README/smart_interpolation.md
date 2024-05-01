@@ -13,7 +13,13 @@ biomedisa_features.biomedisa_interpolation.smart_interpolation(
     only='all',
     smooth=0,
     platform=None,
-    return_hits=False
+    return_hits=False,
+    acwe=False,
+    acwe_alpha=1.0,
+    acwe_smooth=1,
+    acwe_steps=3,
+    clean=None,
+    fill=None
 )
 ```
 #### Parameters:
@@ -44,7 +50,13 @@ biomedisa_features.biomedisa_interpolation.smart_interpolation(
 + **only STR**: Segment only specific label(s), e.g. "1,3,5" (default: all).
 + **smooth INT**: Number of smoothing iterations for segmentation result (default: 0).
 + **platform STR**: One of "cuda", "opencl_NVIDIA_GPU", "opencl_Intel_CPU" (default: None).
-+ **return_hits**: Return number of hits from each label (default: False).
++ **return_hits**: Return hits from each label. Only works for small image data (default: False).
++ **acwe**: Post-processing with active contour (default: False).
++ **acwe_alpha FLOAT**: Pushing force of active contour (default: 1.0).
++ **acwe_smooth INT**: Smoothing steps of active contour (default: 1).
++ **acwe_steps INT**: Iterations of active contour (default: 3).
++ **clean FLOAT**: Remove outliers, e.g. 0.5 means that objects smaller than 50 percent of the size of the largest object will be removed (default: None).
++ **fill FLOAT**: Fill holes, e.g. 0.5 means that all holes smaller than 50 percent of the entire label will be filled (default: None).
 
 #### Multi-GPU (e.g. 4 GPUs)
 ```

@@ -46,7 +46,13 @@ biomedisa_features.deep_learning(
     patch_normalization=False,
     z_patch=64,
     y_patch=64,
-    x_patch=64
+    x_patch=64,
+    acwe=False,
+    acwe_alpha=1.0,
+    acwe_smooth=1,
+    acwe_steps=3,
+    clean=None,
+    fill=None
 )
 ```
 #### Parameters:
@@ -117,6 +123,12 @@ biomedisa_features.deep_learning(
 + **x_patch INT**: X-dimension of patch (default: 64).
 + **y_patch INT**: Y-dimension of patch (default: 64).
 + **z_patch INT**: Z-dimension of patch (default: 64).
++ **acwe**: Post-processing with active contour (default: False).
++ **acwe_alpha FLOAT**: Pushing force of active contour (default: 1.0).
++ **acwe_smooth INT**: Smoothing steps of active contour (default: 1).
++ **acwe_steps INT**: Iterations of active contour (default: 3).
++ **clean FLOAT**: Remove outliers, e.g. 0.5 means that objects smaller than 50 percent of the size of the largest object will be removed (default: None).
++ **fill FLOAT**: Fill holes, e.g. 0.5 means that all holes smaller than 50 percent of the entire label will be filled (default: None).
 
 #### Pass AMIRA/AVIZO header from image data to result
 Label header information from AMIRA/AVIZO files are automatically saved during training. In addition, you can pass image header information to your result, e.g. to preserve information about voxel size. 
