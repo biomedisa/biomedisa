@@ -44,6 +44,8 @@ from biomedisa_features.DataGenerator import DataGenerator
 from biomedisa_features.PredictDataGenerator import PredictDataGenerator
 from biomedisa_features.biomedisa_helper import (
     img_resize, load_data, save_data, set_labels_to_zero, id_generator, unique_file_path)
+from biomedisa_features.remove_outlier import clean, fill
+from biomedisa_features.active_contour import activeContour
 import matplotlib.pyplot as plt
 import SimpleITK as sitk
 import tensorflow as tf
@@ -294,47 +296,6 @@ def make_unet(input_shape, nb_labels, filters='32-64-128-256-512', resnet=False)
 
     model = Model(inputs=inputs, outputs=outputs)
 
-    return model
-
-def make_classification_model(input_shape, nb_labels):
-    """Build a 3D convolutional neural network model."""
-    inputs = Input(input_shape)
-
-    x = Conv3D(filters=32, kernel_size=3, activation="relu")(inputs)
-    x = MaxPool3D(pool_size=2)(x)
-    #try:
-    #    x = BatchNormalization(name=name, synchronized=True)(x)
-    #except:
-    #    x = BatchNormalization(name=name)(x)
-    #x = Dropout(0.25)(x)
-
-    x = Conv3D(filters=64, kernel_size=3, activation="relu")(x)
-    x = MaxPool3D(pool_size=2)(x)
-    try:
-        x = BatchNormalization(name=name, synchronized=True)(x)
-    except:
-        x = BatchNormalization(name=name)(x)
-    #x = Dropout(0.25)(x)
-
-    x = Conv3D(filters=256, kernel_size=3, activation="relu")(x)
-    x = MaxPool3D(pool_size=2)(x)
-    try:
-        x = BatchNormalization(name=name, synchronized=True)(x)
-    except:
-        x = BatchNormalization(name=name)(x)
-    #x = Dropout(0.25)(x)
-
-    #x = Flatten()(x)
-    x = GlobalAveragePooling3D()(x)
-    #x = Dense(units=1024, activation="relu")(x)
-    #x = Dropout(0.5)(x)
-
-    x = Dense(units=512, activation="relu")(x)
-    x = Dropout(0.25)(x)
-
-    outputs = Dense(units=nb_labels, activation="sigmoid")(x)
-
-    model = Model(inputs=inputs, outputs=outputs)
     return model
 
 def get_labels(arr, allLabels):
@@ -1002,6 +963,9 @@ def load_prediction_data(path_to_img, channels, x_scale, y_scale, z_scale,
         InputError.message = f'Invalid image data: {os.path.basename(path_to_img)}.'
         raise InputError()
 
+    # preserve original image data
+    img_data = img.copy()
+
     # handle all images having channels >=1
     if len(img.shape)==3:
         z_shape, y_shape, x_shape = img.shape
@@ -1039,12 +1003,12 @@ def load_prediction_data(path_to_img, channels, x_scale, y_scale, z_scale,
         img[img<0] = 0
         img[img>1] = 1
 
-    return img, img_header, z_shape, y_shape, x_shape, region_of_interest, img_extension
+    return img, img_header, z_shape, y_shape, x_shape, region_of_interest, img_extension, img_data
 
 def predict_semantic_segmentation(bm, img, path_to_model,
     z_patch, y_patch, x_patch, z_shape, y_shape, x_shape, compress, header,
     img_header, stride_size, allLabels, batch_size, region_of_interest,
-    no_scaling, extension, img_extension):
+    no_scaling, extension, img_extension, img_data):
 
     results = {}
 
@@ -1200,6 +1164,44 @@ def predict_semantic_segmentation(bm, img, path_to_model,
     # save result
     if bm.path_to_image:
         save_data(bm.path_to_final, label, header=header, compress=compress)
+
+        # paths to optional results
+        filename, extension = os.path.splitext(bm.path_to_final)
+        if extension == '.gz':
+            extension = '.nii.gz'
+            filename = filename[:-4]
+        path_to_cleaned = filename + '.cleaned' + extension
+        path_to_filled = filename + '.filled' + extension
+        path_to_cleaned_filled = filename + '.cleaned.filled' + extension
+        path_to_refined = filename + '.refined' + extension
+        path_to_acwe = filename + '.acwe' + extension
+
+    # remove outliers
+    if bm.clean:
+        cleaned_result = clean(label, bm.clean)
+        results['cleaned'] = cleaned_result
+        if bm.path_to_image:
+            save_data(path_to_cleaned, cleaned_result, header=header, compress=compress)
+    if bm.fill:
+        filled_result = clean(label, bm.fill)
+        results['filled'] = filled_result
+        if bm.path_to_image:
+            save_data(path_to_filled, filled_result, header=header, compress=compress)
+    if bm.clean and bm.fill:
+        cleaned_filled_result = cleaned_result + (filled_result - label)
+        results['cleaned_filled'] = cleaned_filled_result
+        if bm.path_to_image:
+            save_data(path_to_cleaned_filled, cleaned_filled_result, header=header, compress=compress)
+
+    # post-processing with active contour
+    if bm.acwe:
+        acwe_result = activeContour(img_data, label, bm.acwe_alpha, bm.acwe_smooth, bm.acwe_steps)
+        refined_result = activeContour(img_data, label, simple=True)
+        results['acwe'] = acwe_result
+        results['refined'] = refined_result
+        if bm.path_to_image:
+            save_data(path_to_acwe, acwe_result, header=header, compress=compress)
+            save_data(path_to_refined, refined_result, header=header, compress=compress)
 
     return results, bm
 
