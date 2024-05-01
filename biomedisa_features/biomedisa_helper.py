@@ -593,7 +593,7 @@ def _get_platform(bm):
     # select the first detected device
     if cl and bm.platform is None:
         for vendor in ['NVIDIA', 'Intel', 'AMD', 'Apple']:
-            for dev, device_type in [('CPU',cl.device_type.CPU), ('GPU',cl.device_type.GPU)]:
+            for dev, device_type in [('GPU',cl.device_type.GPU),('CPU',cl.device_type.CPU)]:
                 all_platforms = cl.get_platforms()
                 my_devices = []
                 for p in all_platforms:
