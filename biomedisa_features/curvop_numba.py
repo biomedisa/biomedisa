@@ -1,6 +1,6 @@
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2022 Philipp Lösel. All rights reserved.              ##
+##  Copyright (c) 2024 Philipp Lösel. All rights reserved.              ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -123,7 +123,7 @@ def dilation(start, final, _P3, zsh, ysh, xsh, label):
 
 def curvop(start, steps, label, allLabels):
     zsh, ysh, xsh = start.shape
-    final = np.copy(start)
+    final = np.copy(start, order='C')
     _P3 = np.zeros((9,3,3,3), dtype=np.int32)
     _P3[0,:,:,1] = 1
     _P3[1,:,1,:] = 1
@@ -137,12 +137,13 @@ def curvop(start, steps, label, allLabels):
     for k in range(steps):
         if k % 2 == 0:
             start, final = erosion(start, final, _P3, zsh, ysh, xsh, label)
-            start = np.copy(final)
+            start = np.copy(final, order='C')
             final, start = dilation(final, start, _P3, zsh, ysh, xsh, label)
-            final = np.copy(start)
+            final = np.copy(start, order='C')
         else:
             start, final = dilation(start, final, _P3, zsh, ysh, xsh, label)
-            start = np.copy(final)
+            start = np.copy(final, order='C')
             final, start = erosion(final, start, _P3, zsh, ysh, xsh, label)
-            final = np.copy(start)
+            final = np.copy(start, order='C')
     return start
+

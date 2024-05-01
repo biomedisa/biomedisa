@@ -1,6 +1,6 @@
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2022 Philipp Lösel. All rights reserved.              ##
+##  Copyright (c) 2024 Philipp Lösel. All rights reserved.              ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -326,7 +326,7 @@ def walk(comm, raw, slices, indices, nbrw, sorw, blockmin, blockmax,
                         sub_slices_cl = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=sub_slices)
                         sub_zsh = data_block_max - data_block_min
                         sub_zsh_cl = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=np.int32(sub_zsh))
-                        sub_raw = np.copy(raw[data_block_min:data_block_max])
+                        sub_raw = np.copy(raw[data_block_min:data_block_max], order='C')
                         sub_raw_cl = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=sub_raw)
                         sub_hits = np.empty(sub_raw.shape, dtype=np.int32)
                         sub_hits_cl = cl.Buffer(ctx, mf.WRITE_ONLY | mf.COPY_HOST_PTR, hostbuf=sub_hits)
@@ -379,7 +379,7 @@ def walk(comm, raw, slices, indices, nbrw, sorw, blockmin, blockmax,
 
         # get the label with the most hits
         if label_counter == 0:
-            walkmap = np.copy(hits)
+            walkmap = np.copy(hits, order='C')
         else:
             walkmap, final = max_to_label(hits, walkmap, final, blockmin, blockmax, segment)
             #update = hits[blockmin:blockmax] > walkmap[blockmin:blockmax]

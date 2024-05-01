@@ -58,11 +58,11 @@ def reduce_blocksize(data):
     argmax_y = min(argmax_y + 1, ysh-1) + 1
     argmin_z = max(argmin_z - 1, 0)
     argmax_z = min(argmax_z + 1, zsh-1) + 1
-    data = np.copy(data[argmin_z:argmax_z, argmin_y:argmax_y, argmin_x:argmax_x])
+    data = np.copy(data[argmin_z:argmax_z, argmin_y:argmax_y, argmin_x:argmax_x], order='C')
     return data, argmin_z, argmax_z, argmin_y, argmax_y, argmin_x, argmax_x
 
 def clean(image, threshold=0.9):
-    image_i = np.copy(image)
+    image_i = np.copy(image, order='C')
     allLabels = np.unique(image_i)
     mask = np.empty_like(image_i)
     s = [[[0,0,0], [0,1,0], [0,0,0]], [[0,1,0], [1,1,1], [0,1,0]], [[0,0,0], [0,1,0], [0,0,0]]]
@@ -101,7 +101,7 @@ def clean(image, threshold=0.9):
     return image_i
 
 def fill(image, threshold=0.9):
-    image_i = np.copy(image)
+    image_i = np.copy(image, order='C')
     allLabels = np.unique(image_i)
     mask = np.empty_like(image_i)
     s = [[[0,0,0], [0,1,0], [0,0,0]], [[0,1,0], [1,1,1], [0,1,0]], [[0,0,0], [0,1,0], [0,0,0]]]

@@ -89,7 +89,7 @@ def _diffusion_child(comm, bm=None):
         if ngpus > 1:
             final_zero = np.empty((bm.nol, zsh_tmp, ysh_tmp, xsh_tmp), dtype=np.float32)
             for k in range(bm.nol):
-                sendbuf = np.copy(walkmap[k])
+                sendbuf = np.copy(walkmap[k], order='C')
                 recvbuf = np.empty((zsh_tmp, ysh_tmp, xsh_tmp), dtype=np.float32)
                 comm.Barrier()
                 comm.Reduce([sendbuf, MPI.FLOAT], [recvbuf, MPI.FLOAT], root=0, op=MPI.SUM)
@@ -112,7 +112,7 @@ def _diffusion_child(comm, bm=None):
                 curvature_gpu = _build_curvature_gpu()
                 a_gpu = gpuarray.empty((zsh_tmp, ysh_tmp, xsh_tmp), dtype=np.float32)
                 b_gpu = gpuarray.zeros((zsh_tmp, ysh_tmp, xsh_tmp), dtype=np.float32)
-                final_smooth = np.copy(final_zero)
+                final_smooth = np.copy(final_zero, order='C')
                 for k in range(bm.nol):
                     a_gpu = gpuarray.to_gpu(final_smooth[k])
                     for l in range(bm.smooth):
@@ -301,7 +301,7 @@ def _diffusion_child(comm, bm=None):
 
         # send data
         for k in range(walkmap.shape[0]):
-            datatemporaer = np.copy(walkmap[k])
+            datatemporaer = np.copy(walkmap[k], order='C')
             comm.Barrier()
             comm.Reduce([datatemporaer, MPI.FLOAT], None, root=0, op=MPI.SUM)
 
