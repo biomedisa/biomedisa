@@ -988,8 +988,13 @@ def qsub_start(host, host_base, queue_id):
 
     # check compute server is running
     if qsub==0:
+        # get pid and subhost
         subhost, qsub_pid = get_subhost_and_pid(BASE_DIR + f'/log/qsub_{queue_id}')
+        # check whether the remote server is accessible
         qsub = subprocess.Popen(['ssh', '-t', host, 'ssh', subhost, 'test', '-e', host_base]).wait()
+        # remove qsub file
+        if qsub!=0:
+            subprocess.Popen(['ssh', host, 'rm', host_base + f'/log/qsub_{queue_id}']).wait()
 
     # request compute server
     if qsub!=0:
@@ -1009,8 +1014,8 @@ def qsub_stop(host, host_base, queue_id, queue_name, subhost, qsub_pid):
     # queue length
     q = Queue(queue_name, connection=Redis())
 
-    # stop server if queue is empty
-    if len(q)==0:
+    # stop server if queue is empty or training queue
+    if len(q)==0 or queue_id==3:
 
         # check compute server is running
         if not subhost:
