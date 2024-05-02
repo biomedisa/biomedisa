@@ -189,7 +189,7 @@ class Upload(models.Model):
     ac_alpha = models.FloatField("Active contour alpha", default=1.0)
     ac_smooth = models.IntegerField("Active contour smooth", default=1)
     ac_steps = models.IntegerField("Active contour steps", default=3)
-    delete_outliers = models.FloatField(default=0.9)
+    delete_outliers = models.FloatField(default=0.1)
     fill_holes = models.FloatField(default=0.9)
     ignore = models.CharField("ignore label", default='none', max_length=20)
     predict = models.BooleanField("Predict", default=False)

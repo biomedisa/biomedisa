@@ -61,7 +61,7 @@ def reduce_blocksize(data):
     data = np.copy(data[argmin_z:argmax_z, argmin_y:argmax_y, argmin_x:argmax_x], order='C')
     return data, argmin_z, argmax_z, argmin_y, argmax_y, argmin_x, argmax_x
 
-def clean(image, threshold=0.9):
+def clean(image, threshold=0.1):
     image_i = np.copy(image, order='C')
     allLabels = np.unique(image_i)
     mask = np.empty_like(image_i)
@@ -146,7 +146,7 @@ def fill(image, threshold=0.9):
     return image_i
 
 def main_helper(path_to_labels, img_id=None, friend_id=None, fill_holes=True,
-    clean_threshold=0.9, fill_threshold=0.9, remote=False, no_compression=False):
+    clean_threshold=0.1, fill_threshold=0.9, remote=False, no_compression=False):
 
     # compression
     if no_compression:
@@ -294,7 +294,7 @@ def init_remove_outlier(image_id, final_id, label_id, fill_holes=True):
                 cmd += ['-fh']
             if not label.compression:
                 cmd += ['-nc']
-            if label.delete_outliers != 0.9:
+            if label.delete_outliers != 0.1:
                 cmd += [f'-c={label.delete_outliers}']
             if label.fill_holes != 0.9:
                 cmd += [f'-f={label.fill_holes}']
@@ -370,7 +370,7 @@ if __name__ == '__main__':
                         help='Biomedisa version')
     parser.add_argument('-fh','--fill_holes', action='store_true', default=False,
                         help='Fill holes and save as an optional result')
-    parser.add_argument('-c', '--clean_threshold', type=float, default=0.9,
+    parser.add_argument('-c', '--clean_threshold', type=float, default=0.1,
                         help='Remove outliers, e.g. 0.5 means that objects smaller than 50 percent of the size of the largest object will be removed')
     parser.add_argument('-f', '--fill_threshold', type=float, default=0.9,
                         help='Fill holes, e.g. 0.5 means that all holes smaller than 50 percent of the entire label will be filled')
