@@ -190,7 +190,7 @@ def unique_file_path(path, dir_path=PRIVATE_STORAGE_ROOT+'/'):
         suffix = suffix.group()
         filename = os.path.basename(path)
         filename = filename[:-len(suffix)]
-        i = int(suffix[1:-len(extension)])
+        i = int(suffix[1:-len(extension)]) + 1
     else:
         suffix = extension
         i = 1
@@ -206,7 +206,7 @@ def unique_file_path(path, dir_path=PRIVATE_STORAGE_ROOT+'/'):
         filename = filename[:-len(addon)]
 
     # maximum lenght of path
-    pic_path = 'images/%s/%s' %(username, filename)
+    pic_path = f'images/{username}/{filename}'
     limit = 100 - len(addon) - len(suffix)
     path = dir_path + pic_path[:limit] + addon + suffix
 

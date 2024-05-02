@@ -32,6 +32,7 @@ from django.db import models
 from django import forms
 from django.contrib.auth.models import User
 from biomedisa_app.config import config
+from biomedisa_features.biomedisa_helper import unique_file_path
 from biomedisa.settings import PRIVATE_STORAGE_ROOT
 from django.dispatch import receiver
 from django.core.exceptions import ValidationError
@@ -72,17 +73,9 @@ def validate_file_size(value):
 
 def user_directory_path(instance, filename):
     filename = filename.encode('ascii', 'ignore').decode()
+    filename = unique_file_path(f'images/{instance.user}/{filename}')
     filename = os.path.basename(filename)
-    filename, extension = os.path.splitext(filename)
-    if extension == '.gz':
-        filename, extension = os.path.splitext(filename)
-        if extension == '.nii':
-            extension = '.nii.gz'
-        elif extension == '.tar':
-            extension = '.tar.gz'
-    filename = 'images/%s/%s' %(instance.user, filename)
-    limit = 100 - len(extension)
-    filename = filename[:limit] + extension
+    filename = f'images/{instance.user}/{filename}'
     return filename
 
 class CustomUserCreationForm(forms.Form):
