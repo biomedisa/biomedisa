@@ -496,9 +496,13 @@ if __name__ == '__main__':
     try:
         deep_learning(None, **kwargs)
     except InputError:
+        if any(InputError.img_names):
+            remove_extracted_data(InputError.img_names, InputError.label_names)
         print(traceback.format_exc())
         bm = _error_(bm, f'{InputError.message}')
     except ch.InputError:
+        if any(ch.InputError.img_names):
+            remove_extracted_data(ch.InputError.img_names, ch.InputError.label_names)
         print(traceback.format_exc())
         bm = _error_(bm, f'{ch.InputError.message}')
     except MemoryError:

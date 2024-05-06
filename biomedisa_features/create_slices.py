@@ -122,20 +122,22 @@ def create_slices(path_to_data, path_to_label, on_site=False):
                     path_to_dir = path_to_data
                 # load files
                 img_names = []
-                for data_type in ['.tif','.tiff','.am','.hdr','.mhd','.mha','.nrrd','.nii','.nii.gz']:
+                for data_type in ['.tif','.tiff','.am','.hdr','.mhd','.mha','.nrrd','.nii','.nii.gz','.zip','.mrc']:
                     img_names.extend(glob(path_to_dir+'/**/*'+data_type, recursive=True))
                 img_names = sorted(img_names)
-                raw, _ = load_data(img_names[0], 'create_slices')
-                zsh, ysh, xsh = raw.shape
-                scale = float(256) / float(max(zsh, ysh, xsh))
-                z_scale = int(zsh * scale)
-                y_scale = int(ysh * scale)
-                x_scale = int(xsh * scale)
-                raw = img_resize(raw, z_scale, y_scale, x_scale)
-                for name in img_names[1:]:
-                    tmp, _ = load_data(name, 'create_slices')
-                    tmp = img_resize(tmp, z_scale, y_scale, x_scale)
-                    raw = np.append(raw, tmp, axis=0)
+                raw = None
+                for name in img_names:
+                    arr, _ = load_data(name, 'create_slices')
+                    if arr is not None and raw is None:
+                        zsh, ysh, xsh = arr.shape
+                        scale = float(256) / float(max(zsh, ysh, xsh))
+                        z_scale = int(zsh * scale)
+                        y_scale = int(ysh * scale)
+                        x_scale = int(xsh * scale)
+                        raw = img_resize(arr, z_scale, y_scale, x_scale)
+                    elif arr is not None:
+                        arr = img_resize(arr, z_scale, y_scale, x_scale)
+                        raw = np.append(raw, arr, axis=0)
                 # remove extracted files
                 if extension == '.tar' and os.path.isdir(path_to_dir):
                     shutil.rmtree(path_to_dir)
@@ -184,17 +186,18 @@ def create_slices(path_to_data, path_to_label, on_site=False):
                         path_to_dir = path_to_label
                     # load files
                     img_names = []
-                    for data_type in ['.tif','.tiff','.am','.hdr','.mhd','.mha','.nrrd','.nii','.nii.gz']:
+                    for data_type in ['.tif','.tiff','.am','.hdr','.mhd','.mha','.nrrd','.nii','.nii.gz','.zip','.mrc']:
                         img_names.extend(glob(path_to_dir+'/**/*'+data_type, recursive=True))
                     img_names = sorted(img_names)
                     # load and scale label data to corresponding img data
                     mask = np.zeros((0, y_scale, x_scale), dtype=np.uint8)
                     for name in img_names:
                         arr, _ = load_data(name, 'create_slices')
-                        arr = color_to_gray(arr)
-                        arr = arr.astype(np.uint8)
-                        arr = img_resize(arr, z_scale, y_scale, x_scale, labels=True)
-                        mask = np.append(mask, arr, axis=0)
+                        if arr is not None:
+                            arr = color_to_gray(arr)
+                            arr = arr.astype(np.uint8)
+                            arr = img_resize(arr, z_scale, y_scale, x_scale, labels=True)
+                            mask = np.append(mask, arr, axis=0)
                     # remove extracted files
                     if extension == '.tar' and os.path.isdir(path_to_dir):
                         shutil.rmtree(path_to_dir)
