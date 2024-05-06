@@ -344,12 +344,14 @@ def read_img_list(img_list, label_list):
                 label_names.extend(glob(label_name+'/**/*'+data_type, recursive=True))
             img_names = sorted(img_names)
             label_names = sorted(label_names)
-            if len(img_names)==0 or len(label_names)==0:
+            if len(img_names)==0 or len(label_names)==0 or len(img_names)!=len(label_names):
                 if img_ext == '.tar' and os.path.exists(img_name):
                     shutil.rmtree(img_name)
                 if label_ext == '.tar' and os.path.exists(label_name):
                     shutil.rmtree(label_name)
-                if img_ext == '.tar':
+                if len(img_names)!=len(label_names):
+                    InputError.message = 'Number of image and label files must be the same'
+                elif img_ext == '.tar':
                     InputError.message = 'Invalid image TAR file'
                 elif label_ext == '.tar':
                     InputError.message = 'Invalid label TAR file'
