@@ -45,8 +45,10 @@ import tarfile
 import matplotlib.pyplot as plt
 
 class InputError(Exception):
-    def __init__(self, message=None):
+    def __init__(self, message=None, img_names=[], label_names=[]):
         self.message = message
+        self.img_names = img_names
+        self.label_names = label_names
 
 def save_history(history, path_to_model):
     # summarize history for accuracy
@@ -99,6 +101,8 @@ def load_cropping_training_data(normalize, img_list, label_list, x_scale, y_scal
     # read image lists
     if any(img_list):
         img_names, label_names = read_img_list(img_list, label_list)
+        InputError.img_names = img_names
+        InputError.label_names = label_names
 
     # load first label
     if any(img_list):
@@ -355,6 +359,8 @@ def load_data_to_crop(path_to_img, channels, x_scale, y_scale, z_scale,
     # read image data
     if img is None:
         img, _, _ = load_data(path_to_img, 'first_queue', return_extension=True)
+        InputError.img_names = [path_to_img]
+        InputError.label_names = []
     img_data = np.copy(img, order='C')
     if img is None:
         InputError.message = "Invalid image data %s." %(os.path.basename(path_to_img))
