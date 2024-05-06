@@ -63,8 +63,10 @@ import atexit
 import shutil
 
 class InputError(Exception):
-    def __init__(self, message=None):
+    def __init__(self, message=None, img_names=[], label_names=[]):
         self.message = message
+        self.img_names = img_names
+        self.label_names = label_names
 
 def save_history(history, path_to_model, val_dice, train_dice):
     # summarize history for accuracy
@@ -307,6 +309,8 @@ def get_labels(arr, allLabels):
 
 def read_img_list(img_list, label_list):
     # read filenames
+    InputError.img_names = []
+    InputError.label_names = []
     img_names, label_names = [], []
     for img_name, label_name in zip(img_list, label_list):
 
@@ -335,16 +339,24 @@ def read_img_list(img_list, label_list):
                 tar.close()
                 label_name = label_dir
 
-            for data_type in ['.am','.tif','.tiff','.hdr','.mhd','.mha','.nrrd','.nii','.nii.gz']:
+            for data_type in ['.am','.tif','.tiff','.hdr','.mhd','.mha','.nrrd','.nii','.nii.gz','.zip','.mrc']:
                 img_names.extend(glob(img_name+'/**/*'+data_type, recursive=True))
                 label_names.extend(glob(label_name+'/**/*'+data_type, recursive=True))
             img_names = sorted(img_names)
             label_names = sorted(label_names)
-            if len(img_names)==0:
-                InputError.message = "Invalid image data."
-                raise InputError()
-            if len(label_names)==0:
-                InputError.message = "Invalid label data."
+            if len(img_names)==0 or len(label_names)==0:
+                if img_ext == '.tar' and os.path.exists(img_name):
+                    shutil.rmtree(img_name)
+                if label_ext == '.tar' and os.path.exists(label_name):
+                    shutil.rmtree(label_name)
+                if img_ext == '.tar':
+                    InputError.message = 'Invalid image TAR file'
+                elif label_ext == '.tar':
+                    InputError.message = 'Invalid label TAR file'
+                elif len(img_names)==0:
+                    InputError.message = 'Invalid image data'
+                else:
+                    InputError.message = 'Invalid label data'
                 raise InputError()
         else:
             img_names.append(img_name)
@@ -371,6 +383,8 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
     # read image lists
     if any(img_list):
         img_names, label_names = read_img_list(img_list, label_list)
+        InputError.img_names = img_names
+        InputError.label_names = label_names
 
     # load first label
     if any(img_list):
@@ -957,6 +971,8 @@ def load_prediction_data(path_to_img, channels, x_scale, y_scale, z_scale,
     # read image data
     if img is None:
         img, img_header, img_extension = load_data(path_to_img, 'first_queue', return_extension=True)
+        InputError.img_names = [path_to_img]
+        InputError.label_names = []
 
     # verify validity
     if img is None:
