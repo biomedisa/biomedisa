@@ -53,7 +53,7 @@ import numpy as np
 import cv2
 import tarfile
 from random import shuffle
-from glob import glob
+import glob
 import random
 import numba
 import re
@@ -340,8 +340,8 @@ def read_img_list(img_list, label_list):
                 label_name = label_dir
 
             for data_type in ['.am','.tif','.tiff','.hdr','.mhd','.mha','.nrrd','.nii','.nii.gz','.zip','.mrc']:
-                img_names.extend(glob(img_name+'/**/*'+data_type, recursive=True))
-                label_names.extend(glob(label_name+'/**/*'+data_type, recursive=True))
+                img_names += [file for file in glob.glob(img_name+'/**/*'+data_type, recursive=True) if not os.path.basename(file).startswith('.')]
+                label_names += [file for file in glob.glob(label_name+'/**/*'+data_type, recursive=True) if not os.path.basename(file).startswith('.')]
             img_names = sorted(img_names)
             label_names = sorted(label_names)
             if len(img_names)==0 or len(label_names)==0 or len(img_names)!=len(label_names):

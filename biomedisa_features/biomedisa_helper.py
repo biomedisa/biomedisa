@@ -308,7 +308,9 @@ def load_data(path_to_data, process='None', return_extension=False):
 
         # load files
         if os.path.isdir(path_to_data):
-            files = glob.glob(path_to_data+'/**/*', recursive=True)
+            files = []
+            for data_type in ['.[pP][nN][gG]','.[tT][iI][fF]','.[tT][iI][fF][fF]','.[dD][cC][mM]','.[dD][iI][cC][oO][mM]','.[bB][mM][pP]','.[jJ][pP][gG]','.[jJ][pP][eE][gG]','.nc','.nc.bz2']:
+                files += [file for file in glob.glob(path_to_data+'/**/*'+data_type, recursive=True) if not os.path.basename(file).startswith('.')]
             nc_extension = False
             for file in files:
                 if os.path.splitext(file)[1] == '.nc' or os.path.splitext(os.path.splitext(file)[0])[1] == '.nc':
