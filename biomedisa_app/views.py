@@ -52,7 +52,7 @@ from biomedisa_features.create_mesh import init_create_mesh
 from biomedisa_features.process_image import init_process_image
 from biomedisa_features.create_slices import create_slices
 from biomedisa_features.biomedisa_helper import (load_data, save_data, id_generator,
-    unique_file_path, _get_platform, smooth_img_3x3, img_to_uint8)
+    _get_platform, smooth_img_3x3, img_to_uint8)
 from biomedisa_features.django_env import post_processing, create_error_object
 from django.utils.crypto import get_random_string
 from biomedisa_app.config import config
@@ -71,6 +71,7 @@ import zipfile
 import shutil, wget
 import subprocess
 import glob
+import re
 
 from redis import Redis
 from rq import Queue, Worker, get_current_job
@@ -918,6 +919,56 @@ def move(request):
                 results = {'success':True}
 
     return JsonResponse(results)
+
+# create a unique filename
+def unique_file_path(path, dir_path=PRIVATE_STORAGE_ROOT+'/'):
+
+    # get extension
+    username = os.path.basename(os.path.dirname(path))
+    filename = os.path.basename(path)
+    filename, extension = os.path.splitext(filename)
+    if extension == '.gz':
+        filename, extension = os.path.splitext(filename)
+        if extension == '.nii':
+            extension = '.nii.gz'
+        elif extension == '.tar':
+            extension = '.tar.gz'
+
+    # get suffix
+    suffix = re.search("-[0-999]"+extension, path)
+    if suffix:
+        suffix = suffix.group()
+        filename = os.path.basename(path)
+        filename = filename[:-len(suffix)]
+        i = int(suffix[1:-len(extension)]) + 1
+    else:
+        suffix = extension
+        i = 1
+
+    # get finaltype
+    addon = ''
+    for feature in ['.filled','.smooth','.acwe','.cleaned','.8bit','.refined', '.cropped',
+                    '.uncertainty','.smooth.cleaned','.cleaned.filled','.denoised']:
+        if filename[-len(feature):] == feature:
+            addon = feature
+
+    if addon:
+        filename = filename[:-len(addon)]
+
+    # maximum lenght of path
+    pic_path = f'images/{username}/{filename}'
+    limit = 100 - len(addon) - len(suffix)
+    path = dir_path + pic_path[:limit] + addon + suffix
+
+    # check if file already exists
+    file_already_exists = os.path.exists(path)
+    while file_already_exists:
+        limit = 100 - len(addon) - len('-') - len(str(i)) - len(extension)
+        path = dir_path + pic_path[:limit] + addon + '-' + str(i) + extension
+        file_already_exists = os.path.exists(path)
+        i += 1
+
+    return path
 
 @login_required
 def rename_file(request):

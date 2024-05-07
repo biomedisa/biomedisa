@@ -32,8 +32,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if not BASE_DIR in sys.path:
     sys.path.append(BASE_DIR)
 import biomedisa
-from biomedisa_features.biomedisa_helper import (load_data, save_data,
-    unique_file_path, silent_remove)
+from biomedisa_features.biomedisa_helper import load_data, save_data, silent_remove
 import numpy as np
 from scipy import ndimage
 import argparse
@@ -148,6 +147,12 @@ def fill(image, threshold=0.9):
 def main_helper(path_to_labels, img_id=None, friend_id=None, fill_holes=True,
     clean_threshold=0.1, fill_threshold=0.9, remote=False, no_compression=False):
 
+    # django environment
+    if img_id is not None:
+        django_env = True
+    else:
+        django_env = False
+
     # compression
     if no_compression:
         compression = False
@@ -173,7 +178,8 @@ def main_helper(path_to_labels, img_id=None, friend_id=None, fill_holes=True,
         final_cleaned_filled = final_cleaned + (final_filled - final)
 
     # unique_file_paths
-    if not remote:
+    if django_env and not remote:
+        from biomedisa_app.views import unique_file_path
         path_to_cleaned = unique_file_path(path_to_cleaned)
         path_to_filled = unique_file_path(path_to_filled)
         path_to_cleaned_filled = unique_file_path(path_to_cleaned_filled)
@@ -260,7 +266,7 @@ def init_remove_outlier(image_id, final_id, label_id, fill_holes=True):
     django.setup()
     from biomedisa_app.models import Upload
     from biomedisa_app.config import config
-    from biomedisa_app.views import send_data_to_host, qsub_start, qsub_stop
+    from biomedisa_app.views import send_data_to_host, qsub_start, qsub_stop, unique_file_path
 
     # get objects
     try:
@@ -358,7 +364,7 @@ def init_remove_outlier(image_id, final_id, label_id, fill_holes=True):
 if __name__ == '__main__':
 
     # initialize arguments
-    parser = argparse.ArgumentParser(description='Biomedisa active contour.',
+    parser = argparse.ArgumentParser(description='Biomedisa remove outliers.',
              formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     # required arguments
