@@ -28,7 +28,7 @@
 
 from biomedisa_features.remove_outlier import clean, fill
 from biomedisa_features.active_contour import activeContour
-from biomedisa_features.biomedisa_helper import (_get_device, save_data, _error_, unique_file_path,
+from biomedisa_features.biomedisa_helper import (_get_device, save_data, _error_,
     splitlargedata, read_labeled_slices_allx_large, read_labeled_slices_large, sendToChildLarge,
     Dice_score)
 from mpi4py import MPI
@@ -184,6 +184,7 @@ def _diffusion_child(comm, bm=None):
             final_result = final_result[1:-1, 1:-1, 1:-1]
             results['regular'] = final_result
             if bm.django_env and not bm.remote:
+                from biomedisa_app.views import unique_file_path
                 bm.path_to_final = unique_file_path(bm.path_to_final)
             if bm.path_to_data:
                 save_data(bm.path_to_final, final_result, bm.header, bm.final_image_type, bm.compression)
