@@ -26,11 +26,8 @@
 ##                                                                      ##
 ##########################################################################
 
-try:
-    from biomedisa_app.config import config
-except:
-    from biomedisa_app.config_example import config
-from biomedisa.settings import BASE_DIR, PRIVATE_STORAGE_ROOT
+import os
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 from biomedisa_features.amira_to_np.amira_helper import amira_to_np, np_to_amira
 from biomedisa_features.nc_reader import nc_to_np, np_to_nc
 from tifffile import imread, imwrite
@@ -39,7 +36,6 @@ import SimpleITK as sitk
 from PIL import Image
 import numpy as np
 import glob
-import os
 import random
 import cv2
 import time
@@ -47,7 +43,6 @@ import zipfile
 import numba
 import shutil
 import subprocess
-import re
 import math
 
 def silent_remove(filename):
@@ -170,55 +165,6 @@ def img_to_uint8(img):
         img *= 255.0
         img = img.astype(np.uint8)
     return img
-
-def unique_file_path(path, dir_path=PRIVATE_STORAGE_ROOT+'/'):
-
-    # get extension
-    username = os.path.basename(os.path.dirname(path))
-    filename = os.path.basename(path)
-    filename, extension = os.path.splitext(filename)
-    if extension == '.gz':
-        filename, extension = os.path.splitext(filename)
-        if extension == '.nii':
-            extension = '.nii.gz'
-        elif extension == '.tar':
-            extension = '.tar.gz'
-
-    # get suffix
-    suffix = re.search("-[0-999]"+extension, path)
-    if suffix:
-        suffix = suffix.group()
-        filename = os.path.basename(path)
-        filename = filename[:-len(suffix)]
-        i = int(suffix[1:-len(extension)]) + 1
-    else:
-        suffix = extension
-        i = 1
-
-    # get finaltype
-    addon = ''
-    for feature in ['.filled','.smooth','.acwe','.cleaned','.8bit','.refined', '.cropped',
-                    '.uncertainty','.smooth.cleaned','.cleaned.filled','.denoised']:
-        if filename[-len(feature):] == feature:
-            addon = feature
-
-    if addon:
-        filename = filename[:-len(addon)]
-
-    # maximum lenght of path
-    pic_path = f'images/{username}/{filename}'
-    limit = 100 - len(addon) - len(suffix)
-    path = dir_path + pic_path[:limit] + addon + suffix
-
-    # check if file already exists
-    file_already_exists = os.path.exists(path)
-    while file_already_exists:
-        limit = 100 - len(addon) - len('-') - len(str(i)) - len(extension)
-        path = dir_path + pic_path[:limit] + addon + '-' + str(i) + extension
-        file_already_exists = os.path.exists(path)
-        i += 1
-
-    return path
 
 def id_generator(size, chars='abcdefghijklmnopqrstuvwxyz0123456789'):
     return ''.join(random.choice(chars) for x in range(size))

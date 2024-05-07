@@ -28,7 +28,7 @@
 
 from biomedisa_features.remove_outlier import clean, fill
 from biomedisa_features.active_contour import activeContour
-from biomedisa_features.biomedisa_helper import (_get_device, save_data, unique_file_path,
+from biomedisa_features.biomedisa_helper import (_get_device, save_data,
     sendToChild, _split_indices, get_labels, Dice_score)
 from mpi4py import MPI
 import numpy as np
@@ -104,6 +104,9 @@ def _diffusion_child(comm, bm=None):
         grid = (int(x_grid), int(y_grid), int(zsh_tmp))
         xsh_gpu = np.int32(xsh_tmp)
         ysh_gpu = np.int32(ysh_tmp)
+
+        if bm.django_env:
+            from biomedisa_app.views import unique_file_path
 
         # smooth
         if bm.smooth:

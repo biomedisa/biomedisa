@@ -33,7 +33,7 @@ if not BASE_DIR in sys.path:
     sys.path.append(BASE_DIR)
 import biomedisa
 from biomedisa_features.curvop_numba import curvop, evolution
-from biomedisa_features.biomedisa_helper import (unique_file_path, load_data, save_data,
+from biomedisa_features.biomedisa_helper import (load_data, save_data,
     pre_processing, img_to_uint8, silent_remove)
 import numpy as np
 import numba
@@ -198,6 +198,7 @@ def activeContour(data, labelData, alpha=1.0, smooth=1, steps=3,
 
         # save result
         if bm.django_env and not bm.remote:
+            from biomedisa_app.views import unique_file_path
             path_to_acwe = unique_file_path(path_to_acwe)
         if bm.path_to_data:
             save_data(path_to_acwe, final, bm.header, bm.final_image_type, bm.compression)
@@ -287,7 +288,7 @@ def init_active_contour(image_id, friend_id, label_id, simple=False):
     django.setup()
     from biomedisa_app.models import Upload
     from biomedisa_app.config import config
-    from biomedisa_app.views import send_data_to_host, qsub_start, qsub_stop
+    from biomedisa_app.views import send_data_to_host, qsub_start, qsub_stop, unique_file_path
 
     # get objects
     try:

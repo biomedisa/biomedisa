@@ -32,7 +32,6 @@ from django.db import models
 from django import forms
 from django.contrib.auth.models import User
 from biomedisa_app.config import config
-from biomedisa_features.biomedisa_helper import unique_file_path
 from biomedisa.settings import PRIVATE_STORAGE_ROOT
 from django.dispatch import receiver
 from django.core.exceptions import ValidationError
@@ -72,6 +71,7 @@ def validate_file_size(value):
         return value
 
 def user_directory_path(instance, filename):
+    from biomedisa_app.views import unique_file_path
     filename = filename.encode('ascii', 'ignore').decode()
     filename = unique_file_path(f'images/{instance.user}/{filename}')
     filename = os.path.basename(filename)

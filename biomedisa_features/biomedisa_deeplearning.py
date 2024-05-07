@@ -33,7 +33,7 @@ sys.path.append(BASE_DIR)
 import biomedisa
 import biomedisa_features.crop_helper as ch
 from biomedisa_features.keras_helper import *
-from biomedisa_features.biomedisa_helper import _error_, unique_file_path
+from biomedisa_features.biomedisa_helper import _error_
 from tensorflow.python.framework.errors_impl import ResourceExhaustedError
 import tensorflow as tf
 import numpy as np
@@ -100,6 +100,8 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
 
     # django environment
     if bm.django_env:
+        from biomedisa_app.views import unique_file_path
+        from biomedisa_features.django_env import create_pid_object
 
         # path to image data
         if bm.train:
@@ -127,7 +129,7 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
         if bm.predict:
             project = os.path.splitext(os.path.basename(bm.path_to_model))[0]
 
-        from biomedisa_features.django_env import create_pid_object
+        # create pid object
         create_pid_object(os.getpid(), bm.remote, bm.queue, bm.img_id, (bm.path_to_model if bm.train else ''))
 
         # write in log file
