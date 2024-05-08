@@ -32,7 +32,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if not BASE_DIR in sys.path:
     sys.path.append(BASE_DIR)
 import numpy as np
-from biomedisa_features.biomedisa_helper import (load_data, save_data,
+from biomedisa_features.biomedisa_helper import (load_data, save_data, unique_file_path,
     img_to_uint8, smooth_img_3x3)
 from biomedisa_features.create_slices import create_slices
 from shutil import copytree
@@ -46,7 +46,7 @@ def init_process_image(id, process=None):
     django.setup()
     from biomedisa_app.models import Upload
     from biomedisa_app.config import config
-    from biomedisa_app.views import send_data_to_host, qsub_start, qsub_stop, unique_file_path
+    from biomedisa_app.views import send_data_to_host, qsub_start, qsub_stop
     from redis import Redis
     from rq import Queue
 

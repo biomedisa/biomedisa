@@ -43,7 +43,7 @@ from tensorflow.keras.callbacks import Callback, ModelCheckpoint, EarlyStopping
 from biomedisa_features.DataGenerator import DataGenerator
 from biomedisa_features.PredictDataGenerator import PredictDataGenerator
 from biomedisa_features.biomedisa_helper import (
-    img_resize, load_data, save_data, set_labels_to_zero, id_generator)
+    img_resize, load_data, save_data, set_labels_to_zero, id_generator, unique_file_path)
 from biomedisa_features.remove_outlier import clean, fill
 from biomedisa_features.active_contour import activeContour
 import matplotlib.pyplot as plt
@@ -1148,7 +1148,6 @@ def predict_semantic_segmentation(bm, img, path_to_model,
                 extension = '.nii.gz'
             bm.path_to_final = os.path.splitext(bm.path_to_final)[0] + extension
             if bm.django_env and not bm.remote and not bm.tmp_dir:
-                from biomedisa_app.views import unique_file_path
                 bm.path_to_final = unique_file_path(bm.path_to_final)
 
     # handle amira header
