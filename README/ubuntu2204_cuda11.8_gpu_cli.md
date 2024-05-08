@@ -21,12 +21,14 @@ sudo apt-get install libsm6 libxrender-dev unzip \
 ```
 
 #### Install pip packages
-You may only use `pip3 install --upgrade <package>` and add `export PATH=/home/$USER/.local/bin:${PATH}` to `~/.bashrc` if you only install Biomedisa for your user and do not have sudo rights, for example like on a supercomputer
 ```
-sudo -H pip3 install --upgrade pip setuptools testresources scikit-build
-sudo -H pip3 install --upgrade numpy scipy h5py colorama numpy-stl \
+pip3 install --upgrade pip setuptools testresources scikit-build
+pip3 install --upgrade numpy scipy h5py colorama numpy-stl \
     numba imagecodecs tifffile scikit-image opencv-python netCDF4 mrcfile \
     Pillow nibabel medpy SimpleITK mpi4py itk vtk matplotlib
+
+# Add 'export PATH=/$HOME/.local/bin:${PATH}' to '~/.bashrc'
+echo 'export PATH=/$HOME/.local/bin:${PATH}' >> ~/.bashrc
 ```
 
 #### Clone Biomedisa
@@ -54,7 +56,7 @@ sudo apt-get install --no-install-recommends cuda-11-8
 # Reboot. Check that GPUs are visible using the command
 nvidia-smi
 
-# Add the following lines to `~/.bashrc` (e.g. nano ~/.bashrc)
+# Add the following lines to '~/.bashrc' (e.g. nano ~/.bashrc)
 export CUDA_HOME=/usr/local/cuda-11.8
 export LD_LIBRARY_PATH=${CUDA_HOME}/lib64
 export PATH=${CUDA_HOME}/bin:${PATH}

@@ -969,10 +969,10 @@ def train_semantic_segmentation(bm,
 
 def load_prediction_data(path_to_img, channels, x_scale, y_scale, z_scale,
                         no_scaling, normalize, normalization_parameters, region_of_interest,
-                        img, img_header, img_extension):
+                        img, img_header):
     # read image data
     if img is None:
-        img, img_header, img_extension = load_data(path_to_img, 'first_queue', return_extension=True)
+        img, img_header = load_data(path_to_img, 'first_queue')
         InputError.img_names = [path_to_img]
         InputError.label_names = []
 
@@ -1021,12 +1021,12 @@ def load_prediction_data(path_to_img, channels, x_scale, y_scale, z_scale,
         img[img<0] = 0
         img[img>1] = 1
 
-    return img, img_header, z_shape, y_shape, x_shape, region_of_interest, img_extension, img_data
+    return img, img_header, z_shape, y_shape, x_shape, region_of_interest, img_data
 
 def predict_semantic_segmentation(bm, img, path_to_model,
     z_patch, y_patch, x_patch, z_shape, y_shape, x_shape, compress, header,
     img_header, stride_size, allLabels, batch_size, region_of_interest,
-    no_scaling, extension, img_extension, img_data):
+    no_scaling, extension, img_data):
 
     results = {}
 
@@ -1138,47 +1138,40 @@ def predict_semantic_segmentation(bm, img, path_to_model,
     label = get_labels(label, allLabels)
     results['regular'] = label
 
-    # use header file
+    # load header from file
     if bm.header_file and os.path.exists(bm.header_file):
         _, header = load_data(bm.header_file)
-        if header is not None:
-
-            # update file extension
-            if bm.path_to_image:
-                extension = os.path.splitext(bm.header_file)[1]
-                if extension == '.gz':
-                    extension = '.nii.gz'
-                bm.path_to_final = os.path.splitext(bm.path_to_final)[0] + extension
-                if bm.django_env and not bm.remote and not bm.tmp_dir:
-                    from biomedisa_app.views import unique_file_path
-                    bm.path_to_final = unique_file_path(bm.path_to_final)
-
-            # update header info
-            if extension != '.am':
-
-                # build new header
-                if img_header is None:
-                    zsh, ysh, xsh = label.shape
-                    img_header = sitk.Image(xsh, ysh, zsh, header.GetPixelID())
-
-                # copy metadata
-                for key in header.GetMetaDataKeys():
-                    if not (re.match(r'Segment\d+_Extent$', key) or key=='Segmentation_ConversionParameters'):
-                        img_header.SetMetaData(key, header.GetMetaData(key))
-                header = img_header
-
-            results['header'] = header
+        # update file extension
+        if header is not None and bm.path_to_image:
+            extension = os.path.splitext(bm.header_file)[1]
+            if extension == '.gz':
+                extension = '.nii.gz'
+            bm.path_to_final = os.path.splitext(bm.path_to_final)[0] + extension
+            if bm.django_env and not bm.remote and not bm.tmp_dir:
+                from biomedisa_app.views import unique_file_path
+                bm.path_to_final = unique_file_path(bm.path_to_final)
 
     # handle amira header
-    if header is not None and extension == '.am':
-        header = get_image_dimensions(header[0], label)
-        if img_header is not None and extension==img_extension=='.am':
-            try:
-                header = get_physical_size(header, img_header[0])
-            except:
-                pass
-        header = [header]
-        results['header'] = header
+    if header is not None:
+        if extension == '.am':
+            header = get_image_dimensions(header[0], label)
+            if img_header is not None:
+                try:
+                    header = get_physical_size(header, img_header[0])
+                except:
+                    pass
+            header = [header]
+        else:
+            # build new header
+            if img_header is None:
+                zsh, ysh, xsh = label.shape
+                img_header = sitk.Image(xsh, ysh, zsh, header.GetPixelID())
+            # copy metadata
+            for key in header.GetMetaDataKeys():
+                if not (re.match(r'Segment\d+_Extent$', key) or key=='Segmentation_ConversionParameters'):
+                    img_header.SetMetaData(key, header.GetMetaData(key))
+            header = img_header
+    results['header'] = header
 
     # save result
     if bm.path_to_image:

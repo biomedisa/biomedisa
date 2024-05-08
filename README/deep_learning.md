@@ -52,7 +52,8 @@ biomedisa_features.deep_learning(
     acwe_smooth=1,
     acwe_steps=3,
     clean=None,
-    fill=None
+    fill=None,
+    header_file=None
 )
 ```
 #### Parameters:
@@ -129,17 +130,17 @@ biomedisa_features.deep_learning(
 + **acwe_steps INT**: Iterations of active contour (default: 3).
 + **clean FLOAT**: Remove outliers, e.g. 0.5 means that objects smaller than 50 percent of the size of the largest object will be removed (default: None).
 + **fill FLOAT**: Fill holes, e.g. 0.5 means that all holes smaller than 50 percent of the entire label will be filled (default: None).
++ **header_file STR**: Location of header file, transfers header information to result (default: None).
 
 #### Pass AMIRA/AVIZO header from image data to result
-Label header information from AMIRA/AVIZO files are automatically saved during training. In addition, you can pass image header information to your result, e.g. to preserve information about voxel size. 
+Label header information from AMIRA/AVIZO training files are automatically preserved. In addition, you can pass image header information, e.g. to preserve information about voxel size. 
 ```python
 # load image data
-img, img_header, img_ext = load_data('image_data.am',
-        return_extension=True)
+img, img_header = load_data('image_data.am')
 
-# deep learning
+# automatic segmentation
 results = deep_learning(img, predict=True, img_header=img_header,
-        path_to_model='my_model.h5', img_extension=img_ext)
+        path_to_model='my_model.h5')
 
 # save result
 save_data('segmentation.am', results['regular'],
@@ -147,18 +148,20 @@ save_data('segmentation.am', results['regular'],
 ```
 
 #### Python example NRRD
-Label header information different from AMIRA/AVIZO are not saved during training. Load a reference label and pass the header to the result. 
+Label header information different from AMIRA/AVIZO is not automatically transferred. However, you can specify a header file to provide header information for the result. Additionally, you can pass image header information to your result, e.g. to preserve information about voxel size.
 ```python
-# load header from existing label file
-_, header = load_data('reference_label.nrrd')
+# load image data
+img, img_header = load_data('image_data.nrrd')
 
-# load image data to predict
-img, _ = load_data('image_data.tif')
-
-# deep learning
-results = deep_learning(img, predict=True, path_to_model='my_model.h5')
+# automatic segmentation
+results = deep_learning(img, predict=True, img_header=img_header,
+        path_to_model='my_model.h5', header_file='reference_label.nrrd')
 
 # save result
-save_data('segmentation.nrrd', results['regular'], header=header)
+save_data('segmentation.nrrd', results['regular'],
+        header=results['header'])
 ```
-
+Using command line it would be
+```
+python3 biomedisa_deeplearning 'image_data.nrrd' 'my_model.h5' header_file='reference_label.nrrd' --predict
+```
