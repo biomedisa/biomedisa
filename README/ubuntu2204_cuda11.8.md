@@ -24,13 +24,16 @@ sudo apt-get install libsm6 libxrender-dev libmysqlclient-dev pkg-config \
 ```
 
 #### Install pip packages
-Note: If you are not running Biomedisa with an Apache Server, you may only use `pip3 install --upgrade <package>` and add `export PATH=/home/$USER/.local/bin:${PATH}` to `~/.bashrc`.
+Note: If you run Biomedisa with an Apache Server (optional), you must install your packages system-wide using `sudo -H pip3 install --upgrade <package>`.
 ```
-sudo -H pip3 install --upgrade pip setuptools testresources scikit-build
-sudo -H pip3 install --upgrade numpy scipy h5py colorama wget numpy-stl \
+pip3 install --upgrade pip setuptools testresources scikit-build
+pip3 install --upgrade numpy scipy h5py colorama wget numpy-stl \
     numba imagecodecs tifffile scikit-image opencv-python netCDF4 mrcfile \
     Pillow nibabel medpy SimpleITK mpi4py itk vtk rq mysqlclient matplotlib
-sudo -H pip3 install django==3.2.6
+pip3 install django==3.2.6
+
+# Add 'export PATH=/$HOME/.local/bin:${PATH}' to '~/.bashrc'
+echo 'export PATH=/$HOME/.local/bin:${PATH}' >> ~/.bashrc
 ```
 
 #### Install MySQL database
@@ -111,7 +114,7 @@ sudo apt-get install --no-install-recommends cuda-11-8
 # Reboot. Check that GPUs are visible using the command
 nvidia-smi
 
-# Add the following lines to `~/.bashrc` (e.g. nano ~/.bashrc)
+# Add the following lines to '~/.bashrc' (e.g. nano ~/.bashrc)
 export CUDA_HOME=/usr/local/cuda-11.8
 export LD_LIBRARY_PATH=${CUDA_HOME}/lib64
 export PATH=${CUDA_HOME}/bin:${PATH}
