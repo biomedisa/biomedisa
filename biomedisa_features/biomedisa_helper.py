@@ -43,6 +43,7 @@ import zipfile
 import numba
 import shutil
 import subprocess
+import re
 import math
 
 def silent_remove(filename):
@@ -50,6 +51,56 @@ def silent_remove(filename):
         os.remove(filename)
     except OSError:
         pass
+
+# create a unique filename
+def unique_file_path(path, dir_path=BASE_DIR+'/private_storage/'):
+
+    # get extension
+    username = os.path.basename(os.path.dirname(path))
+    filename = os.path.basename(path)
+    filename, extension = os.path.splitext(filename)
+    if extension == '.gz':
+        filename, extension = os.path.splitext(filename)
+        if extension == '.nii':
+            extension = '.nii.gz'
+        elif extension == '.tar':
+            extension = '.tar.gz'
+
+    # get suffix
+    suffix = re.search("-[0-999]"+extension, path)
+    if suffix:
+        suffix = suffix.group()
+        filename = os.path.basename(path)
+        filename = filename[:-len(suffix)]
+        i = int(suffix[1:-len(extension)]) + 1
+    else:
+        suffix = extension
+        i = 1
+
+    # get finaltype
+    addon = ''
+    for feature in ['.filled','.smooth','.acwe','.cleaned','.8bit','.refined', '.cropped',
+                    '.uncertainty','.smooth.cleaned','.cleaned.filled','.denoised']:
+        if filename[-len(feature):] == feature:
+            addon = feature
+
+    if addon:
+        filename = filename[:-len(addon)]
+
+    # maximum lenght of path
+    pic_path = f'images/{username}/{filename}'
+    limit = 100 - len(addon) - len(suffix)
+    path = dir_path + pic_path[:limit] + addon + suffix
+
+    # check if file already exists
+    file_already_exists = os.path.exists(path)
+    while file_already_exists:
+        limit = 100 - len(addon) - len('-') - len(str(i)) - len(extension)
+        path = dir_path + pic_path[:limit] + addon + '-' + str(i) + extension
+        file_already_exists = os.path.exists(path)
+        i += 1
+
+    return path
 
 def Dice_score(ground_truth, result, average_dice=False):
     if average_dice:

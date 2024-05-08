@@ -32,7 +32,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if not BASE_DIR in sys.path:
     sys.path.append(BASE_DIR)
 import numpy as np
-from biomedisa_features.biomedisa_helper import load_data
+from biomedisa_features.biomedisa_helper import load_data, unique_file_path
 from biomedisa_features.django_env import create_pid_object
 from vtk.util.numpy_support import vtk_to_numpy, numpy_to_vtk
 from stl import mesh
@@ -215,7 +215,7 @@ def init_create_mesh(id):
     django.setup()
     from biomedisa_app.models import Upload
     from biomedisa_app.config import config
-    from biomedisa_app.views import send_data_to_host, qsub_start, qsub_stop, unique_file_path
+    from biomedisa_app.views import send_data_to_host, qsub_start, qsub_stop
 
     # get object
     try:
