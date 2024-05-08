@@ -272,7 +272,7 @@ Frequently asked questions can be found at: https://biomedisa.info/faq/.
 
 # Citation
 
-If you use the package or the online platform, please cite the following paper:
+If you use Biomedisa or the data, please cite the following paper:
 
 `Lösel, P.D. et al. Introducing Biomedisa as an open-source online platform for biomedical image segmentation. Nat. Commun. 11, 5577 (2020).` https://doi.org/10.1038/s41467-020-19303-w
 
