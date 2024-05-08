@@ -2,7 +2,7 @@
 -----------
 - [Overview](#overview)
 - [Hardware Requirements](#hardware-requirements)
-- [Installation (command-line based](#installation-command-line-based)
+- [Installation (command-line based)](#installation-command-line-based)
 - [Installation (browser based)](#installation-browser-based)
 - [Download Data](#download-data)
 - [Smart Interpolation](#smart-interpolation)
@@ -91,7 +91,7 @@ img1, _ = load_data('Head1.am')
 img2, _ = load_data('Head2.am')
 img_data = [img1, img2]
 
-# load label data
+# load label data and header information to be stored in the network file (optional)
 label1, _ = load_data('Head1.labels.am')
 label2, header, ext = load_data('Head2.labels.am',
         return_extension=True)
@@ -163,7 +163,9 @@ import sys
 sys.path.append(path_to_biomedisa)  # e.g. '/home/<user>/git/biomedisa'
 from biomedisa_features.biomedisa_helper import load_data, save_data
 
-# load data as numpy array (for DICOM, path_to_data must be a directory containing the slices)
+# load data as numpy array
+# for DICOM, PNG files, or similar formats, 'path_to_data' must reference
+# either a directory or a ZIP file containing the image slices
 data, header = load_data(path_to_data)
 
 # save data (for TIFF, header=None)
@@ -245,7 +247,7 @@ cd git/biomedisa
 git pull
 ```
 
-If you have installed the full version of Biomedisa (including MySQL database), you also need to update the database.
+If you have installed the browser based version of Biomedisa (including MySQL database), you also need to update the database.
 ```
 python manage.py migrate
 ```
@@ -270,9 +272,17 @@ Frequently asked questions can be found at: https://biomedisa.info/faq/.
 
 # Citation
 
-If you use the package or the online platform, please cite the following paper.
+If you use the package or the online platform, please cite the following paper:
 
-`Lösel, P.D. et al. Introducing Biomedisa as an open-source online platform for biomedical image segmentation. Nat. Commun. 11, 5577 (2020).`
+`Lösel, P.D. et al. Introducing Biomedisa as an open-source online platform for biomedical image segmentation. Nat. Commun. 11, 5577 (2020).` https://doi.org/10.1038/s41467-020-19303-w
+
+If you use Biomedisa's Deep Learning, you may also cite:
+
+`Lösel, P.D. et al. Natural variability in bee brain size and symmetry revealed by micro-CT imaging and deep learning. PLoS Comput. Biol. 19, e1011529 (2023).` https://doi.org/10.1371/journal.pcbi.1011529
+
+If you use Biomedisa's Smart Interpolation, you can also cite the initial description of this method:
+
+`Lösel, P. & Heuveline, V. Enhancing a diffusion algorithm for 4D image segmentation using local information. Proc. SPIE 9784, 97842L (2016).` https://doi.org/10.1117/12.2216202
 
 # License
 
