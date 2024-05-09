@@ -44,13 +44,16 @@ from multiprocessing import Process
 import shutil
 import os
 
-class Profile(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
+def default_storage_size():
     if 'STORAGE_SIZE' in config:
         storage_size = config['STORAGE_SIZE']
     else:
         storage_size = 1000
-    storage_size = models.IntegerField(default=storage_size)
+    return storage_size
+
+class Profile(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    storage_size = models.IntegerField(default=default_storage_size)
     notification = models.BooleanField(default=True)
     activation_key = models.TextField(null=True)
     key_expires = models.DateTimeField(null=True)
