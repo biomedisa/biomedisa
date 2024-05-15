@@ -41,10 +41,10 @@ import cv2
 import time
 import zipfile
 import numba
-import shutil
 import subprocess
 import re
 import math
+import tempfile
 
 def silent_remove(filename):
     try:
@@ -280,92 +280,85 @@ def load_data(path_to_data, process='None', return_extension=False):
             data, header = None, None
 
     elif extension == '.zip' or os.path.isdir(path_to_data):
-        # extract files
-        if extension=='.zip':
-            path_to_dir = BASE_DIR + '/tmp/' + id_generator(40)
-            try:
-                zip_ref = zipfile.ZipFile(path_to_data, 'r')
-                zip_ref.extractall(path=path_to_dir)
-                zip_ref.close()
-            except Exception as e:
-                print(e)
-                print('Using unzip package...')
+        with tempfile.TemporaryDirectory() as temp_dir:
+
+            # extract files
+            if extension=='.zip':
                 try:
-                    success = subprocess.Popen(['unzip',path_to_data,'-d',path_to_dir]).wait()
-                    if success != 0:
-                        if os.path.isdir(path_to_dir):
-                            shutil.rmtree(path_to_dir)
+                    zip_ref = zipfile.ZipFile(path_to_data, 'r')
+                    zip_ref.extractall(path=temp_dir)
+                    zip_ref.close()
+                except Exception as e:
+                    print(e)
+                    print('Using unzip package...')
+                    try:
+                        success = subprocess.Popen(['unzip',path_to_data,'-d',temp_dir]).wait()
+                        if success != 0:
+                            data, header = None, None
+                    except Exception as e:
+                        print(e)
                         data, header = None, None
-                except Exception as e:
-                    print(e)
-                    if os.path.isdir(path_to_dir):
-                        shutil.rmtree(path_to_dir)
-                    data, header = None, None
-            path_to_data = path_to_dir
+                path_to_data = temp_dir
 
-        # load files
-        if os.path.isdir(path_to_data):
-            files = []
-            for data_type in ['.[pP][nN][gG]','.[tT][iI][fF]','.[tT][iI][fF][fF]','.[dD][cC][mM]','.[dD][iI][cC][oO][mM]','.[bB][mM][pP]','.[jJ][pP][gG]','.[jJ][pP][eE][gG]','.nc','.nc.bz2']:
-                files += [file for file in glob.glob(path_to_data+'/**/*'+data_type, recursive=True) if not os.path.basename(file).startswith('.')]
-            nc_extension = False
-            for file in files:
-                if os.path.splitext(file)[1] == '.nc' or os.path.splitext(os.path.splitext(file)[0])[1] == '.nc':
-                    nc_extension = True
-            if nc_extension:
-                try:
-                    data, header = nc_to_np(path_to_data)
-                except Exception as e:
-                    print(e)
-                    data, header = None, None
-            else:
-                try:
-                    # remove unreadable files or directories
-                    for name in files:
-                        if os.path.isfile(name):
-                            try:
-                                img, _ = load(name)
-                            except:
+            # load files
+            if os.path.isdir(path_to_data):
+                files = []
+                for data_type in ['.[pP][nN][gG]','.[tT][iI][fF]','.[tT][iI][fF][fF]','.[dD][cC][mM]','.[dD][iI][cC][oO][mM]','.[bB][mM][pP]','.[jJ][pP][gG]','.[jJ][pP][eE][gG]','.nc','.nc.bz2']:
+                    files += [file for file in glob.glob(path_to_data+'/**/*'+data_type, recursive=True) if not os.path.basename(file).startswith('.')]
+                nc_extension = False
+                for file in files:
+                    if os.path.splitext(file)[1] == '.nc' or os.path.splitext(os.path.splitext(file)[0])[1] == '.nc':
+                        nc_extension = True
+                if nc_extension:
+                    try:
+                        data, header = nc_to_np(path_to_data)
+                    except Exception as e:
+                        print(e)
+                        data, header = None, None
+                else:
+                    try:
+                        # remove unreadable files or directories
+                        for name in files:
+                            if os.path.isfile(name):
+                                try:
+                                    img, _ = load(name)
+                                except:
+                                    files.remove(name)
+                            else:
                                 files.remove(name)
+                        files.sort()
+
+                        # get data size
+                        img, _ = load(files[0])
+                        if len(img.shape)==3:
+                            ysh, xsh, csh = img.shape[0], img.shape[1], img.shape[2]
+                            channel = 'last'
+                            if ysh < csh:
+                                csh, ysh, xsh = img.shape[0], img.shape[1], img.shape[2]
+                                channel = 'first'
                         else:
-                            files.remove(name)
-                    files.sort()
+                            ysh, xsh = img.shape[0], img.shape[1]
+                            csh, channel = 0, None
 
-                    # get data size
-                    img, _ = load(files[0])
-                    if len(img.shape)==3:
-                        ysh, xsh, csh = img.shape[0], img.shape[1], img.shape[2]
-                        channel = 'last'
-                        if ysh < csh:
-                            csh, ysh, xsh = img.shape[0], img.shape[1], img.shape[2]
-                            channel = 'first'
-                    else:
-                        ysh, xsh = img.shape[0], img.shape[1]
-                        csh, channel = 0, None
-
-                    # load data slice by slice
-                    data = np.empty((len(files), ysh, xsh), dtype=img.dtype)
-                    header, image_data_shape = [], []
-                    for k, file_name in enumerate(files):
-                        img, img_header = load(file_name)
-                        if csh==3:
-                            img = rgb2gray(img, channel)
-                        elif csh==1 and channel=='last':
-                            img = img[:,:,0]
-                        elif csh==1 and channel=='first':
-                            img = img[0,:,:]
-                        data[k] = img
-                        header.append(img_header)
-                    header = [header, files, data.dtype]
-                    data = np.swapaxes(data, 1, 2)
-                    data = np.copy(data, order='C')
-                except Exception as e:
-                    print(e)
-                    data, header = None, None
-
-        # remove extracted files
-        if extension=='.zip' and os.path.isdir(path_to_data):
-            shutil.rmtree(path_to_data)
+                        # load data slice by slice
+                        data = np.empty((len(files), ysh, xsh), dtype=img.dtype)
+                        header, image_data_shape = [], []
+                        for k, file_name in enumerate(files):
+                            img, img_header = load(file_name)
+                            if csh==3:
+                                img = rgb2gray(img, channel)
+                            elif csh==1 and channel=='last':
+                                img = img[:,:,0]
+                            elif csh==1 and channel=='first':
+                                img = img[0,:,:]
+                            data[k] = img
+                            header.append(img_header)
+                        header = [header, files, data.dtype]
+                        data = np.swapaxes(data, 1, 2)
+                        data = np.copy(data, order='C')
+                    except Exception as e:
+                        print(e)
+                        data, header = None, None
 
     elif extension == '.mrc':
         try:
@@ -495,34 +488,31 @@ def save_data(path_to_final, final, header=None, final_image_type=None, compress
         simg.CopyInformation(header)
         sitk.WriteImage(simg, path_to_final, useCompression=compress)
     elif final_image_type in ['.zip', 'directory', '']:
-        # make results directory
-        if final_image_type == '.zip':
-            results_dir = BASE_DIR + '/tmp/' + id_generator(40)
-            os.makedirs(results_dir)
-            os.chmod(results_dir, 0o770)
-        else:
-            results_dir = path_to_final
-            if not os.path.isdir(results_dir):
-                os.makedirs(results_dir)
-                os.chmod(results_dir, 0o770)
-        # save data as NC blocks
-        if os.path.splitext(header[1][0])[1] == '.nc':
-            np_to_nc(results_dir, final, header)
-            file_names = header[1]
-        # save data as PNG, TIF, DICOM slices
-        else:
-            header, file_names, final_dtype = header[0], header[1], header[2]
-            final = final.astype(final_dtype)
-            final = np.swapaxes(final, 2, 1)
-            for k, file in enumerate(file_names):
-                save(final[k], results_dir + '/' + os.path.basename(file), header[k])
-        # zip data
-        if final_image_type == '.zip':
-            with zipfile.ZipFile(path_to_final, 'w') as zip:
-                for file in file_names:
-                    zip.write(results_dir + '/' + os.path.basename(file), os.path.basename(file))
-            if os.path.isdir(results_dir):
-                shutil.rmtree(results_dir)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # make results directory
+            if final_image_type == '.zip':
+                results_dir = temp_dir
+            else:
+                results_dir = path_to_final
+                if not os.path.isdir(results_dir):
+                    os.makedirs(results_dir)
+                    os.chmod(results_dir, 0o770)
+            # save data as NC blocks
+            if os.path.splitext(header[1][0])[1] == '.nc':
+                np_to_nc(results_dir, final, header)
+                file_names = header[1]
+            # save data as PNG, TIF, DICOM slices
+            else:
+                header, file_names, final_dtype = header[0], header[1], header[2]
+                final = final.astype(final_dtype)
+                final = np.swapaxes(final, 2, 1)
+                for k, file in enumerate(file_names):
+                    save(final[k], results_dir + '/' + os.path.basename(file), header[k])
+            # zip data
+            if final_image_type == '.zip':
+                with zipfile.ZipFile(path_to_final, 'w') as zip:
+                    for file in file_names:
+                        zip.write(results_dir + '/' + os.path.basename(file), os.path.basename(file))
     else:
         imageSize = int(final.nbytes * 10e-7)
         bigtiff = True if imageSize > 2000 else False
