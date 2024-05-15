@@ -27,7 +27,7 @@
 ##########################################################################
 
 import os
-from biomedisa_features.keras_helper import read_img_list, remove_extracted_data
+from biomedisa_features.keras_helper import read_img_list
 from biomedisa_features.biomedisa_helper import img_resize, load_data, save_data, set_labels_to_zero
 from tensorflow.python.framework.errors_impl import ResourceExhaustedError
 from tensorflow.keras.applications import DenseNet121, densenet
@@ -43,12 +43,11 @@ from glob import glob
 import h5py
 import tarfile
 import matplotlib.pyplot as plt
+import tempfile
 
 class InputError(Exception):
-    def __init__(self, message=None, img_names=[], label_names=[]):
+    def __init__(self, message=None):
         self.message = message
-        self.img_names = img_names
-        self.label_names = label_names
 
 def save_history(history, path_to_model):
     # summarize history for accuracy
@@ -98,124 +97,122 @@ def make_densenet(inputshape):
 def load_cropping_training_data(normalize, img_list, label_list, x_scale, y_scale, z_scale,
     labels_to_compute, labels_to_remove, img_in, label_in, normalization_parameters=None, channels=None):
 
-    # read image lists
-    if any(img_list):
-        img_names, label_names = read_img_list(img_list, label_list)
-        InputError.img_names = img_names
-        InputError.label_names = label_names
+    # make temporary directories
+    with tempfile.TemporaryDirectory() as temp_img_dir:
+        with tempfile.TemporaryDirectory() as temp_label_dir:
 
-    # load first label
-    if any(img_list):
-        a, _, _ = load_data(label_names[0], 'first_queue', True)
-        if a is None:
-            InputError.message = f'Invalid label data "{os.path.basename(label_names[0])}"'
-            raise InputError()
-    elif type(label_in) is list:
-        a = label_in[0]
-    else:
-        a = label_in
-    a = a.astype(np.uint8)
-    a = set_labels_to_zero(a, labels_to_compute, labels_to_remove)
-    label_z = np.any(a,axis=(1,2))
-    label_y = np.any(a,axis=(0,2))
-    label_x = np.any(a,axis=(0,1))
-    label = np.append(label_z,label_y,axis=0)
-    label = np.append(label,label_x,axis=0)
+            # read image lists
+            if any(img_list):
+                img_names, label_names = read_img_list(img_list, label_list, temp_img_dir, temp_label_dir)
 
-    # load first img
-    if any(img_list):
-        img, _ = load_data(img_names[0], 'first_queue')
-        if img is None:
-            InputError.message = f'Invalid image data "{os.path.basename(img_names[0])}"'
-            raise InputError()
-    elif type(img_in) is list:
-        img = img_in[0]
-    else:
-        img = img_in
-    # handle all images having channels >=1
-    if len(img.shape)==3:
-        z_shape, y_shape, x_shape = img.shape
-        img = img.reshape(z_shape, y_shape, x_shape, 1)
-    if channels is None:
-        channels = img.shape[3]
-    if img.shape[3] != channels:
-        InputError.message = f'Number of channels must be {channels} for "{os.path.basename(img_names[0])}"'
-        raise InputError()
-    img = img.astype(np.float32)
-    img_z = img_resize(img, a.shape[0], y_scale, x_scale)
-    img_y = np.swapaxes(img_resize(img, z_scale, a.shape[1], x_scale),0,1)
-    img_x = np.swapaxes(img_resize(img, z_scale, y_scale, a.shape[2]),0,2)
-    img = np.append(img_z,img_y,axis=0)
-    img = np.append(img,img_x,axis=0)
-
-    # normalize image data
-    for c in range(channels):
-        img[:,:,:,c] -= np.amin(img[:,:,:,c])
-        img[:,:,:,c] /= np.amax(img[:,:,:,c])
-        if normalization_parameters is None:
-            normalization_parameters = np.zeros((2,channels))
-            normalization_parameters[0,c] = np.mean(img[:,:,:,c])
-            normalization_parameters[1,c] = np.std(img[:,:,:,c])
-        elif normalize:
-            mean, std = np.mean(img[:,:,:,c]), np.std(img[:,:,:,c])
-            img[:,:,:,c] = (img[:,:,:,c] - mean) / std
-            img[:,:,:,c] = img[:,:,:,c] * normalization_parameters[1,c] + normalization_parameters[0,c]
-
-    # loop over list of images
-    if any(img_list) or type(img_in) is list:
-        number_of_images = len(img_names) if any(img_list) else len(img_in)
-
-        for k in range(1, number_of_images):
-
-            # append label
-            if any(label_list):
-                a, _ = load_data(label_names[k], 'first_queue')
+            # load first label
+            if any(img_list):
+                a, _, _ = load_data(label_names[0], 'first_queue', True)
                 if a is None:
-                    InputError.message = f'Invalid label data "{os.path.basename(label_names[k])}"'
+                    InputError.message = f'Invalid label data "{os.path.basename(label_names[0])}"'
                     raise InputError()
+            elif type(label_in) is list:
+                a = label_in[0]
             else:
-                a = label_in[k]
+                a = label_in
             a = a.astype(np.uint8)
             a = set_labels_to_zero(a, labels_to_compute, labels_to_remove)
-            next_label_z = np.any(a,axis=(1,2))
-            next_label_y = np.any(a,axis=(0,2))
-            next_label_x = np.any(a,axis=(0,1))
-            label = np.append(label,next_label_z,axis=0)
-            label = np.append(label,next_label_y,axis=0)
-            label = np.append(label,next_label_x,axis=0)
+            label_z = np.any(a,axis=(1,2))
+            label_y = np.any(a,axis=(0,2))
+            label_x = np.any(a,axis=(0,1))
+            label = np.append(label_z,label_y,axis=0)
+            label = np.append(label,label_x,axis=0)
 
-            # append image
+            # load first img
             if any(img_list):
-                a, _ = load_data(img_names[k], 'first_queue')
-                if a is None:
-                    InputError.message = f'Invalid image data "{os.path.basename(img_names[k])}"'
+                img, _ = load_data(img_names[0], 'first_queue')
+                if img is None:
+                    InputError.message = f'Invalid image data "{os.path.basename(img_names[0])}"'
                     raise InputError()
+            elif type(img_in) is list:
+                img = img_in[0]
             else:
-                a = img_in[k]
-            if len(a.shape)==3:
-                z_shape, y_shape, x_shape = a.shape
-                a = a.reshape(z_shape, y_shape, x_shape, 1)
-            if a.shape[3] != channels:
-                InputError.message = f'Number of channels must be {channels} for "{os.path.basename(img_names[k])}"'
+                img = img_in
+            # handle all images having channels >=1
+            if len(img.shape)==3:
+                z_shape, y_shape, x_shape = img.shape
+                img = img.reshape(z_shape, y_shape, x_shape, 1)
+            if channels is None:
+                channels = img.shape[3]
+            if img.shape[3] != channels:
+                InputError.message = f'Number of channels must be {channels} for "{os.path.basename(img_names[0])}"'
                 raise InputError()
-            a = a.astype(np.float32)
-            img_z = img_resize(a, a.shape[0], y_scale, x_scale)
-            img_y = np.swapaxes(img_resize(a, z_scale, a.shape[1], x_scale),0,1)
-            img_x = np.swapaxes(img_resize(a, z_scale, y_scale, a.shape[2]),0,2)
-            next_img = np.append(img_z,img_y,axis=0)
-            next_img = np.append(next_img,img_x,axis=0)
-            for c in range(channels):
-                next_img[:,:,:,c] -= np.amin(next_img[:,:,:,c])
-                next_img[:,:,:,c] /= np.amax(next_img[:,:,:,c])
-                if normalize:
-                    mean, std = np.mean(next_img[:,:,:,c]), np.std(next_img[:,:,:,c])
-                    next_img[:,:,:,c] = (next_img[:,:,:,c] - mean) / std
-                    next_img[:,:,:,c] = next_img[:,:,:,c] * normalization_parameters[1,c] + normalization_parameters[0,c]
-            img = np.append(img, next_img, axis=0)
+            img = img.astype(np.float32)
+            img_z = img_resize(img, a.shape[0], y_scale, x_scale)
+            img_y = np.swapaxes(img_resize(img, z_scale, a.shape[1], x_scale),0,1)
+            img_x = np.swapaxes(img_resize(img, z_scale, y_scale, a.shape[2]),0,2)
+            img = np.append(img_z,img_y,axis=0)
+            img = np.append(img,img_x,axis=0)
 
-    # remove extracted data
-    if any(img_list):
-        remove_extracted_data(img_names, label_names)
+            # normalize image data
+            for c in range(channels):
+                img[:,:,:,c] -= np.amin(img[:,:,:,c])
+                img[:,:,:,c] /= np.amax(img[:,:,:,c])
+                if normalization_parameters is None:
+                    normalization_parameters = np.zeros((2,channels))
+                    normalization_parameters[0,c] = np.mean(img[:,:,:,c])
+                    normalization_parameters[1,c] = np.std(img[:,:,:,c])
+                elif normalize:
+                    mean, std = np.mean(img[:,:,:,c]), np.std(img[:,:,:,c])
+                    img[:,:,:,c] = (img[:,:,:,c] - mean) / std
+                    img[:,:,:,c] = img[:,:,:,c] * normalization_parameters[1,c] + normalization_parameters[0,c]
+
+            # loop over list of images
+            if any(img_list) or type(img_in) is list:
+                number_of_images = len(img_names) if any(img_list) else len(img_in)
+
+                for k in range(1, number_of_images):
+
+                    # append label
+                    if any(label_list):
+                        a, _ = load_data(label_names[k], 'first_queue')
+                        if a is None:
+                            InputError.message = f'Invalid label data "{os.path.basename(label_names[k])}"'
+                            raise InputError()
+                    else:
+                        a = label_in[k]
+                    a = a.astype(np.uint8)
+                    a = set_labels_to_zero(a, labels_to_compute, labels_to_remove)
+                    next_label_z = np.any(a,axis=(1,2))
+                    next_label_y = np.any(a,axis=(0,2))
+                    next_label_x = np.any(a,axis=(0,1))
+                    label = np.append(label,next_label_z,axis=0)
+                    label = np.append(label,next_label_y,axis=0)
+                    label = np.append(label,next_label_x,axis=0)
+
+                    # append image
+                    if any(img_list):
+                        a, _ = load_data(img_names[k], 'first_queue')
+                        if a is None:
+                            InputError.message = f'Invalid image data "{os.path.basename(img_names[k])}"'
+                            raise InputError()
+                    else:
+                        a = img_in[k]
+                    if len(a.shape)==3:
+                        z_shape, y_shape, x_shape = a.shape
+                        a = a.reshape(z_shape, y_shape, x_shape, 1)
+                    if a.shape[3] != channels:
+                        InputError.message = f'Number of channels must be {channels} for "{os.path.basename(img_names[k])}"'
+                        raise InputError()
+                    a = a.astype(np.float32)
+                    img_z = img_resize(a, a.shape[0], y_scale, x_scale)
+                    img_y = np.swapaxes(img_resize(a, z_scale, a.shape[1], x_scale),0,1)
+                    img_x = np.swapaxes(img_resize(a, z_scale, y_scale, a.shape[2]),0,2)
+                    next_img = np.append(img_z,img_y,axis=0)
+                    next_img = np.append(next_img,img_x,axis=0)
+                    for c in range(channels):
+                        next_img[:,:,:,c] -= np.amin(next_img[:,:,:,c])
+                        next_img[:,:,:,c] /= np.amax(next_img[:,:,:,c])
+                        if normalize:
+                            mean, std = np.mean(next_img[:,:,:,c]), np.std(next_img[:,:,:,c])
+                            next_img[:,:,:,c] = (next_img[:,:,:,c] - mean) / std
+                            next_img[:,:,:,c] = next_img[:,:,:,c] * normalization_parameters[1,c] + normalization_parameters[0,c]
+                    img = np.append(img, next_img, axis=0)
 
     # limit intensity range
     img[img<0] = 0
@@ -359,8 +356,6 @@ def load_data_to_crop(path_to_img, channels, x_scale, y_scale, z_scale,
     # read image data
     if img is None:
         img, _, _ = load_data(path_to_img, 'first_queue', return_extension=True)
-        InputError.img_names = [path_to_img]
-        InputError.label_names = []
     img_data = np.copy(img, order='C')
     if img is None:
         InputError.message = "Invalid image data %s." %(os.path.basename(path_to_img))
