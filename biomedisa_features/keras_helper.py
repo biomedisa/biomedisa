@@ -60,13 +60,11 @@ import re
 import time
 import h5py
 import atexit
-import shutil
+import tempfile
 
 class InputError(Exception):
-    def __init__(self, message=None, img_names=[], label_names=[]):
+    def __init__(self, message=None):
         self.message = message
-        self.img_names = img_names
-        self.label_names = label_names
 
 def save_history(history, path_to_model, val_dice, train_dice):
     # summarize history for accuracy
@@ -307,37 +305,33 @@ def get_labels(arr, allLabels):
         final[arr == k] = allLabels[k]
     return final
 
-def read_img_list(img_list, label_list):
+def read_img_list(img_list, label_list, temp_img_dir, temp_label_dir):
     # read filenames
-    InputError.img_names = []
-    InputError.label_names = []
     img_names, label_names = [], []
     for img_name, label_name in zip(img_list, label_list):
 
         # check for tarball
         img_dir, img_ext = os.path.splitext(img_name)
         if img_ext == '.gz':
-            img_dir, img_ext = os.path.splitext(img_dir)
+            img_ext = os.path.splitext(img_dir)[1]
 
         label_dir, label_ext = os.path.splitext(label_name)
         if label_ext == '.gz':
-            label_dir, label_ext = os.path.splitext(label_dir)
+            label_ext = os.path.splitext(label_dir)[1]
 
         if (img_ext == '.tar' and label_ext == '.tar') or (os.path.isdir(img_name) and os.path.isdir(label_name)):
 
             # extract files
             if img_ext == '.tar':
-                img_dir = BASE_DIR + '/tmp/' + id_generator(40)
                 tar = tarfile.open(img_name)
-                tar.extractall(path=img_dir)
+                tar.extractall(path=temp_img_dir)
                 tar.close()
-                img_name = img_dir
+                img_name = temp_img_dir
             if label_ext == '.tar':
-                label_dir = BASE_DIR + '/tmp/' + id_generator(40)
                 tar = tarfile.open(label_name)
-                tar.extractall(path=label_dir)
+                tar.extractall(path=temp_label_dir)
                 tar.close()
-                label_name = label_dir
+                label_name = temp_label_dir
 
             for data_type in ['.am','.tif','.tiff','.hdr','.mhd','.mha','.nrrd','.nii','.nii.gz','.zip','.mrc']:
                 img_names += [file for file in glob.glob(img_name+'/**/*'+data_type, recursive=True) if not os.path.basename(file).startswith('.')]
@@ -345,15 +339,11 @@ def read_img_list(img_list, label_list):
             img_names = sorted(img_names)
             label_names = sorted(label_names)
             if len(img_names)==0 or len(label_names)==0 or len(img_names)!=len(label_names):
-                if img_ext == '.tar' and os.path.exists(img_name):
-                    shutil.rmtree(img_name)
-                if label_ext == '.tar' and os.path.exists(label_name):
-                    shutil.rmtree(label_name)
                 if len(img_names)!=len(label_names):
                     InputError.message = 'Number of image and label files must be the same'
-                elif img_ext == '.tar':
+                elif img_ext == '.tar' and len(img_names)==0:
                     InputError.message = 'Invalid image TAR file'
-                elif label_ext == '.tar':
+                elif label_ext == '.tar' and len(label_names)==0:
                     InputError.message = 'Invalid label TAR file'
                 elif len(img_names)==0:
                     InputError.message = 'Invalid image data'
@@ -365,165 +355,151 @@ def read_img_list(img_list, label_list):
             label_names.append(label_name)
     return img_names, label_names
 
-def remove_extracted_data(img_list, label_list):
-    for img_name in img_list:
-        if BASE_DIR + '/tmp/' in img_name:
-            img_dir = img_name[:len(BASE_DIR + '/tmp/') + 40]
-            if os.path.exists(img_dir):
-                shutil.rmtree(img_dir)
-    for label_name in label_list:
-        if BASE_DIR + '/tmp/' in label_name:
-            label_dir = label_name[:len(BASE_DIR + '/tmp/') + 40]
-            if os.path.exists(label_dir):
-                shutil.rmtree(label_dir)
-
 def load_training_data(normalize, img_list, label_list, channels, x_scale, y_scale, z_scale, no_scaling,
         crop_data, labels_to_compute, labels_to_remove, img_in=None, label_in=None,
         normalization_parameters=None, allLabels=None, header=None, extension='.tif',
         x_puffer=25, y_puffer=25, z_puffer=25):
 
-    # read image lists
-    if any(img_list):
-        img_names, label_names = read_img_list(img_list, label_list)
-        InputError.img_names = img_names
-        InputError.label_names = label_names
+    # make temporary directories
+    with tempfile.TemporaryDirectory() as temp_img_dir:
+        with tempfile.TemporaryDirectory() as temp_label_dir:
 
-    # load first label
-    if any(img_list):
-        label, header, extension = load_data(label_names[0], 'first_queue', True)
-        if label is None:
-            InputError.message = f'Invalid label data "{os.path.basename(label_names[0])}"'
-            raise InputError()
-    elif type(label_in) is list:
-        label = label_in[0]
-    else:
-        label = label_in
-    label_dim = label.shape
-    label = set_labels_to_zero(label, labels_to_compute, labels_to_remove)
-    label_values, counts = np.unique(label, return_counts=True)
-    print(f'{os.path.basename(label_names[0])}:', 'Labels:', label_values[1:], 'Sizes:', counts[1:])
-    if crop_data:
-        argmin_z,argmax_z,argmin_y,argmax_y,argmin_x,argmax_x = predict_blocksize(label, x_puffer, y_puffer, z_puffer)
-        label = np.copy(label[argmin_z:argmax_z,argmin_y:argmax_y,argmin_x:argmax_x], order='C')
-    if not no_scaling:
-        label = img_resize(label, z_scale, y_scale, x_scale, labels=True)
-
-    # if header is not single data stream Amira Mesh falling back to Multi-TIFF
-    if extension != '.am':
-        if extension != '.tif':
-            print(f'Warning! Please use -hf or --header_file="path_to_training_label{extension}" for prediction to save your result as "{extension}"')
-        extension, header = '.tif', None
-    elif len(header) > 1:
-        print('Warning! Multiple data streams are not supported. Falling back to TIFF.')
-        extension, header = '.tif', None
-    else:
-        header = header[0]
-
-    # load first img
-    if any(img_list):
-        img, _ = load_data(img_names[0], 'first_queue')
-        if img is None:
-            InputError.message = f'Invalid image data "{os.path.basename(img_names[0])}"'
-            raise InputError()
-    elif type(img_in) is list:
-        img = img_in[0]
-    else:
-        img = img_in
-    if label_dim != img.shape:
-        InputError.message = f'Dimensions of "{os.path.basename(img_names[0])}" and "{os.path.basename(label_names[0])}" do not match'
-        raise InputError()
-
-    # ensure images have channels >=1
-    if len(img.shape)==3:
-        z_shape, y_shape, x_shape = img.shape
-        img = img.reshape(z_shape, y_shape, x_shape, 1)
-    if channels is None:
-        channels = img.shape[3]
-    if channels != img.shape[3]:
-        InputError.message = f'Number of channels must be {channels} for "{os.path.basename(img_names[0])}"'
-        raise InputError()
-
-    # crop data
-    if crop_data:
-        img = np.copy(img[argmin_z:argmax_z,argmin_y:argmax_y,argmin_x:argmax_x], order='C')
-
-    # scale/resize image data
-    img = img.astype(np.float32)
-    if not no_scaling:
-        img = img_resize(img, z_scale, y_scale, x_scale)
-
-    # normalize image data
-    for c in range(channels):
-        img[:,:,:,c] -= np.amin(img[:,:,:,c])
-        img[:,:,:,c] /= np.amax(img[:,:,:,c])
-        if normalization_parameters is None:
-            normalization_parameters = np.zeros((2,channels))
-            normalization_parameters[0,c] = np.mean(img[:,:,:,c])
-            normalization_parameters[1,c] = np.std(img[:,:,:,c])
-        elif normalize:
-            mean, std = np.mean(img[:,:,:,c]), np.std(img[:,:,:,c])
-            img[:,:,:,c] = (img[:,:,:,c] - mean) / std
-            img[:,:,:,c] = img[:,:,:,c] * normalization_parameters[1,c] + normalization_parameters[0,c]
-
-    # loop over list of images
-    if any(img_list) or type(img_in) is list:
-        number_of_images = len(img_names) if any(img_list) else len(img_in)
-
-        for k in range(1, number_of_images):
-
-            # append label
-            if any(label_list):
-                a, _ = load_data(label_names[k], 'first_queue')
-                if a is None:
-                    InputError.message = f'Invalid label data "{os.path.basename(label_names[k])}"'
-                    raise InputError()
-            else:
-                a = label_in[k]
-            label_dim = a.shape
-            a = set_labels_to_zero(a, labels_to_compute, labels_to_remove)
-            label_values, counts = np.unique(a, return_counts=True)
-            print(f'{os.path.basename(label_names[k])}:', 'Labels:', label_values[1:], 'Sizes:', counts[1:])
-            if crop_data:
-                argmin_z,argmax_z,argmin_y,argmax_y,argmin_x,argmax_x = predict_blocksize(a, x_puffer, y_puffer, z_puffer)
-                a = np.copy(a[argmin_z:argmax_z,argmin_y:argmax_y,argmin_x:argmax_x], order='C')
-            if not no_scaling:
-                a = img_resize(a, z_scale, y_scale, x_scale, labels=True)
-            label = np.append(label, a, axis=0)
-
-            # append image
+            # read image lists
             if any(img_list):
-                a, _ = load_data(img_names[k], 'first_queue')
-                if a is None:
-                    InputError.message = f'Invalid image data "{os.path.basename(img_names[k])}"'
-                    raise InputError()
-            else:
-                a = img_in[k]
-            if label_dim != a.shape:
-                InputError.message = f'Dimensions of "{os.path.basename(img_names[k])}" and "{os.path.basename(label_names[k])}" do not match'
-                raise InputError()
-            if len(a.shape)==3:
-                z_shape, y_shape, x_shape = a.shape
-                a = a.reshape(z_shape, y_shape, x_shape, 1)
-            if a.shape[3] != channels:
-                InputError.message = f'Number of channels must be {channels} for "{os.path.basename(img_names[k])}"'
-                raise InputError()
-            if crop_data:
-                a = np.copy(a[argmin_z:argmax_z,argmin_y:argmax_y,argmin_x:argmax_x], order='C')
-            a = a.astype(np.float32)
-            if not no_scaling:
-                a = img_resize(a, z_scale, y_scale, x_scale)
-            for c in range(channels):
-                a[:,:,:,c] -= np.amin(a[:,:,:,c])
-                a[:,:,:,c] /= np.amax(a[:,:,:,c])
-                if normalize:
-                    mean, std = np.mean(a[:,:,:,c]), np.std(a[:,:,:,c])
-                    a[:,:,:,c] = (a[:,:,:,c] - mean) / std
-                    a[:,:,:,c] = a[:,:,:,c] * normalization_parameters[1,c] + normalization_parameters[0,c]
-            img = np.append(img, a, axis=0)
+                img_names, label_names = read_img_list(img_list, label_list, temp_img_dir, temp_label_dir)
 
-    # remove extracted data
-    if any(img_list):
-        remove_extracted_data(img_names, label_names)
+            # load first label
+            if any(img_list):
+                label, header, extension = load_data(label_names[0], 'first_queue', True)
+                if label is None:
+                    InputError.message = f'Invalid label data "{os.path.basename(label_names[0])}"'
+                    raise InputError()
+            elif type(label_in) is list:
+                label = label_in[0]
+            else:
+                label = label_in
+            label_dim = label.shape
+            label = set_labels_to_zero(label, labels_to_compute, labels_to_remove)
+            label_values, counts = np.unique(label, return_counts=True)
+            print(f'{os.path.basename(label_names[0])}:', 'Labels:', label_values[1:], 'Sizes:', counts[1:])
+            if crop_data:
+                argmin_z,argmax_z,argmin_y,argmax_y,argmin_x,argmax_x = predict_blocksize(label, x_puffer, y_puffer, z_puffer)
+                label = np.copy(label[argmin_z:argmax_z,argmin_y:argmax_y,argmin_x:argmax_x], order='C')
+            if not no_scaling:
+                label = img_resize(label, z_scale, y_scale, x_scale, labels=True)
+
+            # if header is not single data stream Amira Mesh falling back to Multi-TIFF
+            if extension != '.am':
+                if extension != '.tif':
+                    print(f'Warning! Please use -hf or --header_file="path_to_training_label{extension}" for prediction to save your result as "{extension}"')
+                extension, header = '.tif', None
+            elif len(header) > 1:
+                print('Warning! Multiple data streams are not supported. Falling back to TIFF.')
+                extension, header = '.tif', None
+            else:
+                header = header[0]
+
+            # load first img
+            if any(img_list):
+                img, _ = load_data(img_names[0], 'first_queue')
+                if img is None:
+                    InputError.message = f'Invalid image data "{os.path.basename(img_names[0])}"'
+                    raise InputError()
+            elif type(img_in) is list:
+                img = img_in[0]
+            else:
+                img = img_in
+            if label_dim != img.shape:
+                InputError.message = f'Dimensions of "{os.path.basename(img_names[0])}" and "{os.path.basename(label_names[0])}" do not match'
+                raise InputError()
+
+            # ensure images have channels >=1
+            if len(img.shape)==3:
+                z_shape, y_shape, x_shape = img.shape
+                img = img.reshape(z_shape, y_shape, x_shape, 1)
+            if channels is None:
+                channels = img.shape[3]
+            if channels != img.shape[3]:
+                InputError.message = f'Number of channels must be {channels} for "{os.path.basename(img_names[0])}"'
+                raise InputError()
+
+            # crop data
+            if crop_data:
+                img = np.copy(img[argmin_z:argmax_z,argmin_y:argmax_y,argmin_x:argmax_x], order='C')
+
+            # scale/resize image data
+            img = img.astype(np.float32)
+            if not no_scaling:
+                img = img_resize(img, z_scale, y_scale, x_scale)
+
+            # normalize image data
+            for c in range(channels):
+                img[:,:,:,c] -= np.amin(img[:,:,:,c])
+                img[:,:,:,c] /= np.amax(img[:,:,:,c])
+                if normalization_parameters is None:
+                    normalization_parameters = np.zeros((2,channels))
+                    normalization_parameters[0,c] = np.mean(img[:,:,:,c])
+                    normalization_parameters[1,c] = np.std(img[:,:,:,c])
+                elif normalize:
+                    mean, std = np.mean(img[:,:,:,c]), np.std(img[:,:,:,c])
+                    img[:,:,:,c] = (img[:,:,:,c] - mean) / std
+                    img[:,:,:,c] = img[:,:,:,c] * normalization_parameters[1,c] + normalization_parameters[0,c]
+
+            # loop over list of images
+            if any(img_list) or type(img_in) is list:
+                number_of_images = len(img_names) if any(img_list) else len(img_in)
+
+                for k in range(1, number_of_images):
+
+                    # append label
+                    if any(label_list):
+                        a, _ = load_data(label_names[k], 'first_queue')
+                        if a is None:
+                            InputError.message = f'Invalid label data "{os.path.basename(label_names[k])}"'
+                            raise InputError()
+                    else:
+                        a = label_in[k]
+                    label_dim = a.shape
+                    a = set_labels_to_zero(a, labels_to_compute, labels_to_remove)
+                    label_values, counts = np.unique(a, return_counts=True)
+                    print(f'{os.path.basename(label_names[k])}:', 'Labels:', label_values[1:], 'Sizes:', counts[1:])
+                    if crop_data:
+                        argmin_z,argmax_z,argmin_y,argmax_y,argmin_x,argmax_x = predict_blocksize(a, x_puffer, y_puffer, z_puffer)
+                        a = np.copy(a[argmin_z:argmax_z,argmin_y:argmax_y,argmin_x:argmax_x], order='C')
+                    if not no_scaling:
+                        a = img_resize(a, z_scale, y_scale, x_scale, labels=True)
+                    label = np.append(label, a, axis=0)
+
+                    # append image
+                    if any(img_list):
+                        a, _ = load_data(img_names[k], 'first_queue')
+                        if a is None:
+                            InputError.message = f'Invalid image data "{os.path.basename(img_names[k])}"'
+                            raise InputError()
+                    else:
+                        a = img_in[k]
+                    if label_dim != a.shape:
+                        InputError.message = f'Dimensions of "{os.path.basename(img_names[k])}" and "{os.path.basename(label_names[k])}" do not match'
+                        raise InputError()
+                    if len(a.shape)==3:
+                        z_shape, y_shape, x_shape = a.shape
+                        a = a.reshape(z_shape, y_shape, x_shape, 1)
+                    if a.shape[3] != channels:
+                        InputError.message = f'Number of channels must be {channels} for "{os.path.basename(img_names[k])}"'
+                        raise InputError()
+                    if crop_data:
+                        a = np.copy(a[argmin_z:argmax_z,argmin_y:argmax_y,argmin_x:argmax_x], order='C')
+                    a = a.astype(np.float32)
+                    if not no_scaling:
+                        a = img_resize(a, z_scale, y_scale, x_scale)
+                    for c in range(channels):
+                        a[:,:,:,c] -= np.amin(a[:,:,:,c])
+                        a[:,:,:,c] /= np.amax(a[:,:,:,c])
+                        if normalize:
+                            mean, std = np.mean(a[:,:,:,c]), np.std(a[:,:,:,c])
+                            a[:,:,:,c] = (a[:,:,:,c] - mean) / std
+                            a[:,:,:,c] = a[:,:,:,c] * normalization_parameters[1,c] + normalization_parameters[0,c]
+                    img = np.append(img, a, axis=0)
 
     # limit intensity range
     img[img<0] = 0
@@ -973,8 +949,6 @@ def load_prediction_data(path_to_img, channels, x_scale, y_scale, z_scale,
     # read image data
     if img is None:
         img, img_header = load_data(path_to_img, 'first_queue')
-        InputError.img_names = [path_to_img]
-        InputError.label_names = []
 
     # verify validity
     if img is None:
@@ -1147,7 +1121,7 @@ def predict_semantic_segmentation(bm, img, path_to_model,
             if extension == '.gz':
                 extension = '.nii.gz'
             bm.path_to_final = os.path.splitext(bm.path_to_final)[0] + extension
-            if bm.django_env and not bm.remote and not bm.tmp_dir:
+            if bm.django_env and not bm.remote and not bm.tarfile:
                 bm.path_to_final = unique_file_path(bm.path_to_final)
 
     # handle amira header
