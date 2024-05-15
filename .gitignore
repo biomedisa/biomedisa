@@ -2,7 +2,6 @@ __pycache__/
 *.pyc
 config.py
 /log/*
-/tmp/*
 /media/*
 /private_storage/*
 /biomedisa_app/paraview

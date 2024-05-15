@@ -60,9 +60,17 @@ biomedisa_features.biomedisa_interpolation.smart_interpolation(
 
 #### Multi-GPU (e.g. 4 GPUs)
 ```
-# Ubuntu
-mpiexec -np 4 python3 biomedisa_interpolation.py ~/Downloads/NMB_F2875.tif ~/Downloads/labels.NMB_F2875.tif
+# change to the features directory
+cd git/biomedisa/biomedisa_features/
 
-# Windows
-mpiexec -np 4 python -u biomedisa_interpolation.py Downloads\NMB_F2875.tif Downloads\labels.NMB_F2875.tif
+mpiexec -np 4 python biomedisa_interpolation.py Downloads\NMB_F2875.tif Downloads\labels.NMB_F2875.tif
 ```
+
+#### If you encounter GPU or host memory issues, you can split your volume into smaller segments and merging the results. For instance, you could use 8 sub-volumes
+```
+# change to the features directory
+cd git/biomedisa/biomedisa_features/
+
+python split_volume.py Downloads\NMB_F2875.tif Downloads\labels.NMB_F2875.tif --split_x=2 --split_y=2 --split_z=2
+```
+
