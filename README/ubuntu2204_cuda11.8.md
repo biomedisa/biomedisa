@@ -1,4 +1,4 @@
-#  Ubuntu 22.04 LTS + CUDA 11.8 (full installation)
+#  Ubuntu 22.04 LTS + CUDA 11.8 (browser based)
 
 - [Install Python and pip](#install-python-and-pip)
 - [Install software dependencies](#install-software-dependencies)
@@ -32,8 +32,8 @@ pip3 install --upgrade numpy scipy h5py colorama wget numpy-stl \
     Pillow nibabel medpy SimpleITK mpi4py itk vtk rq mysqlclient matplotlib
 pip3 install django==3.2.6
 
-# Add 'export PATH=/$HOME/.local/bin:${PATH}' to '~/.bashrc'
-echo 'export PATH=/$HOME/.local/bin:${PATH}' >> ~/.bashrc
+# Add 'export PATH=${HOME}/.local/bin:${PATH}' to '~/.bashrc'
+echo 'export PATH=${HOME}/.local/bin:${PATH}' >> ~/.bashrc
 ```
 
 #### Install MySQL database
@@ -76,6 +76,11 @@ wait_timeout = 604800
 mkdir ~/git
 cd ~/git
 git clone https://github.com/biomedisa/biomedisa.git
+```
+
+#### Add the Biomedisa base directory to '~/.bashrc'
+```
+echo 'export PYTHONPATH=${HOME}/git/biomedisa:${PYTHONPATH}' >> ~/.bashrc
 ```
 
 #### Config Biomedisa
@@ -127,7 +132,7 @@ nvcc --version
 sudo -H "PATH=/usr/local/cuda-11.8/bin:${PATH}" pip3 install --upgrade pycuda
 
 # Verify that PyCUDA is working properly
-python3 ~/git/biomedisa/biomedisa_features/pycuda_test.py
+python3 ~/git/biomedisa/features/pycuda_test.py
 ```
 
 #### Install TensorFlow
@@ -166,4 +171,21 @@ Open Biomedisa in your local browser http://localhost:8080/ and log in as the `s
 
 #### Install Apache Server (optional)
 Follow the [installation instructions](https://github.com/biomedisa/biomedisa/blob/master/README/APACHE_SERVER.md).
+
+#### Update Biomedisa
+Change to the Biomedisa directory and make a pull request
+```
+cd git/biomedisa
+git pull
+```
+
+Update the database
+```
+python3 manage.py migrate
+```
+
+If you installed an [Apache Server](https://github.com/biomedisa/biomedisa/blob/master/README/APACHE_SERVER.md), you need to restart the server
+```
+sudo service apache2 restart
+```
 

@@ -16,7 +16,7 @@ sudo apt-get install python3 python3-dev python3-pip
 ```
 sudo apt-get install libsm6 libxrender-dev unzip \
     libboost-python-dev build-essential libssl-dev cmake \
-    openmpi-bin openmpi-doc libopenmpi-dev git libgl1 \
+    openmpi-bin openmpi-doc libopenmpi-dev libgl1 \
     ocl-icd-libopencl1 opencl-headers clinfo ocl-icd-opencl-dev lsb-core
 ```
 
@@ -34,22 +34,15 @@ Follow installation instructions (ignore "Missing optional prerequisites -- Unsu
 pip3 install --upgrade pip setuptools testresources scikit-build wheel
 pip3 install --upgrade numpy scipy h5py colorama numpy-stl \
     numba imagecodecs tifffile scikit-image opencv-python netCDF4 mrcfile \
-    Pillow nibabel medpy SimpleITK mpi4py itk vtk matplotlib pyopencl
+    Pillow nibabel medpy SimpleITK mpi4py itk vtk matplotlib pyopencl biomedisa
 
-# Add 'export PATH=/$HOME/.local/bin:${PATH}' to '~/.bashrc'
-echo 'export PATH=/$HOME/.local/bin:${PATH}' >> ~/.bashrc
-```
-
-#### Clone Biomedisa
-```
-mkdir ~/git
-cd ~/git
-git clone https://github.com/biomedisa/biomedisa.git
+# Add 'export PATH=${HOME}/.local/bin:${PATH}' to '~/.bashrc'
+echo 'export PATH=${HOME}/.local/bin:${PATH}' >> ~/.bashrc
 ```
 
 #### Biomedisa example
 Download test files from [Gallery](https://biomedisa.info/gallery/).
 ```
-python3 git/biomedisa/demo/biomedisa_interpolation.py Downloads/tumor.tif Downloads/labels.tumor.tif --platform opencl_Intel_CPU
+python3 -m biomedisa.interpolation Downloads/tumor.tif Downloads/labels.tumor.tif --platform=opencl_Intel_CPU
 ```
 

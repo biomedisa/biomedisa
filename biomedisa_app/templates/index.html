@@ -64,15 +64,8 @@ function toggleAccordion(qsid) {
           <div id="ans1" class="panel">
 <pre>
 <code>
-<span style='color: #0051b8;'># change this line to your biomedisa directory</span>
-path_to_biomedisa = <span style='color: #f900ff;'>'/home/philipp/git/biomedisa'</span>
-
-<span style='color: #0051b8;'># load libraries</span>
-<span style='color: #7f03be;'>import</span> sys
-sys.path.append(path_to_biomedisa)
-<span style='color: #7f03be;'>from</span> <span style='color: #43cbaf;'>biomedisa_features.biomedisa_helper</span> <span style='color: #7f03be;'>import</span> load_data, save_data
-<span style='color: #7f03be;'>from</span> <span style='color: #43cbaf;'>biomedisa_features.biomedisa_interpolation</span> <span style='color: #7f03be;'>import</span> (
-smart_interpolation)
+<span style='color: #7f03be;'>from</span> <span style='color: #43cbaf;'>biomedisa.features.biomedisa_helper</span> <span style='color: #7f03be;'>import</span> load_data, save_data
+<span style='color: #7f03be;'>from</span> <span style='color: #43cbaf;'>biomedisa.interpolation</span> <span style='color: #7f03be;'>import</span> smart_interpolation
 
 <span style='color: #0051b8;'># load data</span>
 img, _ = load_data(<span style='color: #f900ff;'>'trigonopterus.tif'</span>)
@@ -98,14 +91,8 @@ save_data(<span style='color: #f900ff;'>'final.trigonopterus.smooth.am'</span>, 
           <div id="ans2" class="panel">
 <pre>
 <code>
-<span style='color: #0051b8;'># change this line to your biomedisa directory</span>
-path_to_biomedisa = <span style='color: #f900ff;'>'/home/philipp/git/biomedisa'</span>
-
-<span style='color: #0051b8;'># load libraries</span>
-<span style='color: #7f03be;'>import</span> sys
-sys.path.append(path_to_biomedisa)
-<span style='color: #7f03be;'>from</span> <span style='color: #43cbaf;'>biomedisa_features.biomedisa_helper</span> <span style='color: #7f03be;'>import</span> load_data
-<span style='color: #7f03be;'>from</span> <span style='color: #43cbaf;'>biomedisa_features.biomedisa_deeplearning</span> <span style='color: #7f03be;'>import</span> deep_learning
+<span style='color: #7f03be;'>from</span> <span style='color: #43cbaf;'>biomedisa.features.biomedisa_helper</span> <span style='color: #7f03be;'>import</span> load_data
+<span style='color: #7f03be;'>from</span> <span style='color: #43cbaf;'>biomedisa.deeplearning</span> <span style='color: #7f03be;'>import</span> deep_learning
 
 <span style='color: #0051b8;'># load image data</span>
 img1, _ = load_data(<span style='color: #f900ff;'>'Head1.am'</span>)
@@ -140,14 +127,8 @@ deep_learning(img_data, label_data, train=<span style='color: #f900ff;'>True</sp
           <div id="ans3" class="panel">
 <pre>
 <code>
-<span style='color: #0051b8;'># change this line to your biomedisa directory</span>
-path_to_biomedisa = <span style='color: #f900ff;'>'/home/philipp/git/biomedisa'</span>
-
-<span style='color: #0051b8;'># load libraries</span>
-<span style='color: #7f03be;'>import</span> sys
-sys.path.append(path_to_biomedisa)
-<span style='color: #7f03be;'>from</span> <span style='color: #43cbaf;'>biomedisa_features.biomedisa_helper</span> <span style='color: #7f03be;'>import</span> load_data, save_data
-<span style='color: #7f03be;'>from</span> <span style='color: #43cbaf;'>biomedisa_features.biomedisa_deeplearning</span> <span style='color: #7f03be;'>import</span> deep_learning
+<span style='color: #7f03be;'>from</span> <span style='color: #43cbaf;'>biomedisa.features.biomedisa_helper</span> <span style='color: #7f03be;'>import</span> load_data, save_data
+<span style='color: #7f03be;'>from</span> <span style='color: #43cbaf;'>biomedisa.deeplearning</span> <span style='color: #7f03be;'>import</span> deep_learning
 
 <span style='color: #0051b8;'># load data</span>
 img, _ = load_data(<span style='color: #f900ff;'>'Head5.am'</span>)

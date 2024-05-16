@@ -20,26 +20,16 @@ Download and install [Microsoft MPI](https://www.microsoft.com/en-us/download/de
 Select "msmpisetup.exe"
 ```
 
-#### Install Git
-Download and install [Git](https://github.com/git-for-windows/git/releases/download/v2.28.0.windows.1/Git-2.28.0-64-bit.exe).
-
-#### Clone Biomedisa
-Open Command Prompt (e.g. Windows Search `Command Prompt`).
-```
-mkdir git
-cd git
-git clone https://github.com/biomedisa/biomedisa.git
-```
-
 #### Install Anaconda3
 Download and install [Anaconda3](https://www.anaconda.com/products/individual#windows).
 
 #### Install Biomedisa environment
+Download [Biomedisa environment](https://raw.githubusercontent.com/biomedisa/biomedisa/master/conda_environment.yml).
 Open Anaconda Prompt (e.g. Windows Search `Anaconda Prompt`).
 ```
-conda env create -f git\biomedisa\conda_environment.yml
+conda env create -f C:\Users\%USERNAME%\Downloads\conda_environment.yml
 ```
-Note: If your computer didn't find the path `git\biomedisa\conda_environment.yml` the easiest way is to locate the file in the Biomedisa Git Repository and drag and drop it onto the Anaconda Prompt after typing `conda env create -f`.
+Note: If your computer didn't find `conda_environment.yml` the easiest way is to locate the file in your Download directory and drag and drop it onto the Anaconda Prompt after typing `conda env create -f`.
 
 #### Biomedisa examples
 Activate conda environment.
@@ -49,10 +39,10 @@ conda activate biomedisa
 Download test files from [Gallery](https://biomedisa.info/gallery/) and run
 ```
 # smart interpolation
-python git\biomedisa\biomedisa_features\biomedisa_interpolation.py Downloads\tumor.tif Downloads\labels.tumor.tif --platform opencl_NVIDIA_GPU
+python -m biomedisa.interpolation Downloads\tumor.tif Downloads\labels.tumor.tif --platform=opencl_NVIDIA_GPU
 
 # deep learning
-python git\biomedisa\biomedisa_features\biomedisa_deeplearning.py Downloads\testing_axial_crop_pat13.nii.gz Downloads\heart.h5 -p -bs 12
+python -m biomedisa.deeplearning Downloads\testing_axial_crop_pat13.nii.gz Downloads\heart.h5 -p -bs=12
 ```
 
 #### Remove Biomedisa environment
@@ -63,4 +53,9 @@ conda deactivate
 Remove the Biomedisa environment.
 ```
 conda remove --name biomedisa --all
+```
+Remove Biomedisa conda directory (Optional).
+```
+cd C:\Users\%USERNAME%\anaconda3\envs
+rmdir /s /q biomedisa
 ```
