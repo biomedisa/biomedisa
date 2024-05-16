@@ -24,8 +24,8 @@ Select "msmpisetup.exe"
 Download and install [Anaconda3](https://www.anaconda.com/products/individual#windows).
 
 #### Install Biomedisa environment
-Download [Biomedisa environment](https://raw.githubusercontent.com/biomedisa/biomedisa/master/conda_environment.yml).
-Open Anaconda Prompt (e.g. Windows Search `Anaconda Prompt`).
+Download [Biomedisa environment](https://biomedisa.info/media/conda_environment.yml).
+Open Anaconda Prompt (e.g. Windows Search `Anaconda Prompt`) and install Biomedisa:
 ```
 conda env create -f C:\Users\%USERNAME%\Downloads\conda_environment.yml
 ```
@@ -54,7 +54,7 @@ Remove the Biomedisa environment.
 ```
 conda remove --name biomedisa --all
 ```
-Remove Biomedisa conda directory (Optional).
+Remove Biomedisa conda directory (optional).
 ```
 cd C:\Users\%USERNAME%\anaconda3\envs
 rmdir /s /q biomedisa
