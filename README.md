@@ -32,7 +32,7 @@ Biomedisa (https://biomedisa.info) is a free and easy-to-use open-source applica
 + [Ubuntu 22.04](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu2204_cuda11.8.md)
 
 ## Download Data
-+ Download the data from our [gallery](https://biomedisa.info/gallery/)
++ Download test data from our [gallery](https://biomedisa.info/gallery/)
 
 ## Revisions
 2024.05.22
