@@ -1,15 +1,11 @@
 import os
-import sys
 import subprocess
 
-# from source base directory
+# base directory
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# pip base directory
-if not os.path.exists(os.path.join(BASE_DIR,'biomedisa_features')):
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-    # add BASE_DIR to PYTHONPATH for absolute imports
-    sys.path.append(BASE_DIR)
+# pip installation
+if not os.path.exists(os.path.join(BASE_DIR,'biomedisa/settings.py')):
 
     # metadata
     import importlib_metadata

@@ -249,3 +249,4 @@ dependencies:
       - pyqtchart==5.12
       - pyqtwebengine==5.12.1
       - pytools==2023.1.1
+      - biomedisa
