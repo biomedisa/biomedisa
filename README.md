@@ -148,7 +148,7 @@ python -m biomedisa.deeplearning C:\Users\%USERNAME%\Downloads\testing_axial_cro
 ## Biomedisa Features
 
 #### Load and save data (such as Amira Mesh, TIFF, NRRD, NIfTI or DICOM)
-For DICOM, PNG files, or similar formats, file path must reference either a directory or a ZIP file containing the image slices
+For DICOM, PNG files, or similar formats, file path must reference either a directory or a ZIP file containing the image slices.
 ```python
 from biomedisa.features.biomedisa_helper import load_data, save_data
 
