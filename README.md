@@ -148,16 +148,15 @@ python -m biomedisa.deeplearning C:\Users\%USERNAME%\Downloads\testing_axial_cro
 ## Biomedisa Features
 
 #### Load and save data (such as Amira Mesh, TIFF, NRRD, NIfTI or DICOM)
+For DICOM, PNG files, or similar formats, file path must reference either a directory or a ZIP file containing the image slices
 ```python
 from biomedisa.features.biomedisa_helper import load_data, save_data
 
 # load data as numpy array
-# for DICOM, PNG files, or similar formats, 'path_to_data' must reference
-# either a directory or a ZIP file containing the image slices
-data, header = load_data(path_to_data)
+data, header = load_data('temp.tif')
 
 # save data (for TIFF, header=None)
-save_data(path_to_data, data, header)
+save_data('temp.tif', data, header)
 ```
 
 #### Create STL mesh from segmentation (label values are saved as attributes)
@@ -166,20 +165,19 @@ from biomedisa.features.biomedisa_helper import load_data, save_data
 from biomedisa.mesh import get_voxel_spacing, save_mesh
 
 # load segmentation
-data, header, extension = load_data(path_to_data, return_extension=True)
+data, header, extension = load_data('final.Head5.am', return_extension=True)
 
 # get voxel spacing
 x_res, y_res, z_res = get_voxel_spacing(header, data, extension)
 print(f'Voxel spacing: x_spacing, y_spacing, z_spacing = {x_res}, {y_res}, {z_res}')
 
 # save stl file
-path_to_data = path_to_data.replace(os.path.splitext(path_to_data)[1],'.stl')
-save_mesh(path_to_data, data, x_res, y_res, z_res, poly_reduction=0.9, smoothing_iterations=15)
+save_mesh('final.Head5.stl', data, x_res, y_res, z_res, poly_reduction=0.9, smoothing_iterations=15)
 ```
 
 #### Create mesh directly
 ```
-python -m biomedisa.mesh <path_to_data>
+python -m biomedisa.mesh 'final.Head5.am'
 ```
 
 #### Options
