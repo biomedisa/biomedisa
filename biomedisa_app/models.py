@@ -1,6 +1,6 @@
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2024 Philipp Lösel. All rights reserved.              ##
+##  Copyright (c) 2019-2024 Philipp Lösel. All rights reserved.         ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -27,12 +27,11 @@
 ##########################################################################
 
 from __future__ import unicode_literals
-
 from django.db import models
 from django import forms
 from django.contrib.auth.models import User
 from biomedisa_app.config import config
-from biomedisa_features.biomedisa_helper import unique_file_path
+from biomedisa.features.biomedisa_helper import unique_file_path
 from biomedisa.settings import PRIVATE_STORAGE_ROOT
 from django.dispatch import receiver
 from django.core.exceptions import ValidationError

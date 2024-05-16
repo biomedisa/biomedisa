@@ -1,6 +1,6 @@
 ## Deep Learning
 ```python
-biomedisa_features.deep_learning(
+biomedisa.deeplearning.deep_learning(
     img_data,
     label_data=None,
     val_img_data=None,
@@ -135,6 +135,9 @@ biomedisa_features.deep_learning(
 #### Pass AMIRA/AVIZO header from image data to result
 Label header information from AMIRA/AVIZO training files are automatically preserved. In addition, you can pass image header information, e.g. to preserve information about voxel size. 
 ```python
+from biomedisa.features.biomedisa_helper import load_data, save_data
+from biomedisa.deeplearning import deep_learning
+
 # load image data
 img, img_header = load_data('image_data.am')
 
@@ -150,6 +153,9 @@ save_data('segmentation.am', results['regular'],
 #### Python example NRRD
 Label header information different from AMIRA/AVIZO is not automatically transferred. However, you can specify a header file to provide header information for the result. Additionally, you can pass image header information to your result, e.g. to preserve information about voxel size.
 ```python
+from biomedisa.features.biomedisa_helper import load_data, save_data
+from biomedisa.deeplearning import deep_learning
+
 # load image data
 img, img_header = load_data('image_data.nrrd')
 
@@ -163,5 +169,5 @@ save_data('segmentation.nrrd', results['regular'],
 ```
 Using command line it would be
 ```
-python3 biomedisa_deeplearning 'image_data.nrrd' 'my_model.h5' header_file='reference_label.nrrd' --predict
+python -m biomedisa.deeplearning 'image_data.nrrd' 'my_model.h5' --header_file='reference_label.nrrd' --predict
 ```

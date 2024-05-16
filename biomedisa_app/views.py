@@ -1,6 +1,6 @@
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2024 Philipp Lösel. All rights reserved.              ##
+##  Copyright (c) 2019-2024 Philipp Lösel. All rights reserved.         ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -48,12 +48,12 @@ from biomedisa_app.models import (UploadForm, Upload, StorageForm, Profile,
     UserForm, SettingsForm, SettingsPredictionForm, CustomUserCreationForm,
     Repository, Specimen, SpecimenForm, TomographicData, TomographicDataForm,
     ProcessedData)
-from biomedisa_features.create_mesh import init_create_mesh
-from biomedisa_features.process_image import init_process_image
-from biomedisa_features.create_slices import create_slices
-from biomedisa_features.biomedisa_helper import (load_data, save_data, id_generator,
+from biomedisa.mesh import init_create_mesh
+from biomedisa.features.process_image import init_process_image
+from biomedisa.features.create_slices import create_slices
+from biomedisa.features.biomedisa_helper import (load_data, save_data, id_generator,
     unique_file_path, _get_platform, smooth_img_3x3, img_to_uint8)
-from biomedisa_features.django_env import post_processing, create_error_object
+from biomedisa.features.django_env import post_processing, create_error_object
 from django.utils.crypto import get_random_string
 from biomedisa_app.config import config
 from biomedisa.settings import BASE_DIR, PRIVATE_STORAGE_ROOT
@@ -1107,7 +1107,7 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
             my_env['CUDA_VISIBLE_DEVICES'] = gpu_ids
 
         # command
-        cmd = ['python3','biomedisa_deeplearning.py']
+        cmd = ['python3','deeplearning.py']
         if predict:
             cmd += [image.pic.path.replace(BASE_DIR,host_base),
                     label.pic.path.replace(BASE_DIR,host_base),'-p','-sc']
@@ -1164,7 +1164,7 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
             cmd += [f'-hf={header_file.replace(BASE_DIR,host_base)}']
 
         # change working directory
-        cwd = host_base + '/biomedisa_features/'
+        cwd = host_base + '/biomedisa/'
 
         # remote server
         if host:
@@ -1205,7 +1205,7 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
                 image.save()
 
                 # start deep learning
-                cmd[1] = cwd+'biomedisa_deeplearning.py'
+                cmd[1] = cwd+'deeplearning.py'
                 if subhost:
                     cmd = ['ssh', '-t', host, 'ssh', subhost] + cmd
                 else:
@@ -2288,7 +2288,7 @@ def init_random_walk(image, label):
                     ngpus = str(bm.available_devices)
 
         # command
-        cmd = ['mpiexec', '-np', ngpus, 'python3', 'biomedisa_interpolation.py']
+        cmd = ['mpiexec', '-np', ngpus, 'python3', 'interpolation.py']
         cmd += [image.pic.path.replace(BASE_DIR,host_base), label.pic.path.replace(BASE_DIR,host_base)]
         cmd += [f'-iid={image.id}', f'-lid={label.id}']
 
@@ -2311,7 +2311,7 @@ def init_random_walk(image, label):
                 cmd = cmd[3:]
 
         # change working directory
-        cwd = host_base + '/biomedisa_features/'
+        cwd = host_base + '/biomedisa/'
         workers_host = host_base + '/log/workers_host'
 
         # cluster
@@ -2349,7 +2349,7 @@ def init_random_walk(image, label):
                 else:
                     cmd = ['ssh', host] + cmd
                 cmd += ['-r', f'-q={queue_id}']
-                cmd[cmd.index('biomedisa_interpolation.py')] = cwd + 'biomedisa_interpolation.py'
+                cmd[cmd.index('interpolation.py')] = cwd + 'interpolation.py'
                 subprocess.Popen(cmd).wait()
 
                 # get config files
@@ -2516,9 +2516,9 @@ def stop_running_job(pid, queue_id):
                 with open(BASE_DIR + f'/log/qsub_{queue_id}', 'r') as qsubfile:
                     subhost, _ = qsubfile.read().split(',')
                 subhost = subhost.split('.')[0]
-                cmd = ['ssh', '-t', host, 'ssh', subhost, 'python3', host_base+f'/biomedisa_features/pid.py', str(queue_id)]
+                cmd = ['ssh', '-t', host, 'ssh', subhost, 'python3', host_base+f'/biomedisa/features/pid.py', str(queue_id)]
             else:
-                cmd = ['ssh', host, 'python3', host_base+f'/biomedisa_features/pid.py', str(queue_id)]
+                cmd = ['ssh', host, 'python3', host_base+f'/biomedisa/features/pid.py', str(queue_id)]
             subprocess.Popen(cmd)
         else:
             subprocess.Popen(['kill', str(pid)])

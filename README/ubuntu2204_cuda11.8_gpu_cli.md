@@ -17,7 +17,7 @@ sudo apt-get install python3 python3-dev python3-pip
 ```
 sudo apt-get install libsm6 libxrender-dev unzip \
     libboost-python-dev build-essential libssl-dev cmake \
-    openmpi-bin openmpi-doc libopenmpi-dev git libgl1
+    openmpi-bin openmpi-doc libopenmpi-dev libgl1
 ```
 
 #### Install pip packages
@@ -25,17 +25,10 @@ sudo apt-get install libsm6 libxrender-dev unzip \
 pip3 install --upgrade pip setuptools testresources scikit-build
 pip3 install --upgrade numpy scipy h5py colorama numpy-stl \
     numba imagecodecs tifffile scikit-image opencv-python netCDF4 mrcfile \
-    Pillow nibabel medpy SimpleITK mpi4py itk vtk matplotlib
+    Pillow nibabel medpy SimpleITK mpi4py itk vtk matplotlib biomedisa
 
-# Add 'export PATH=/$HOME/.local/bin:${PATH}' to '~/.bashrc'
-echo 'export PATH=/$HOME/.local/bin:${PATH}' >> ~/.bashrc
-```
-
-#### Clone Biomedisa
-```
-mkdir ~/git
-cd ~/git
-git clone https://github.com/biomedisa/biomedisa.git
+# Add 'export PATH=${HOME}/.local/bin:${PATH}' to '~/.bashrc'
+echo 'export PATH=${HOME}/.local/bin:${PATH}' >> ~/.bashrc
 ```
 
 #### Install CUDA 11.8
@@ -66,10 +59,10 @@ source ~/.bashrc
 nvcc --version
 
 # Install PyCUDA or PyOpenCL
-sudo -H "PATH=/usr/local/cuda-11.8/bin:${PATH}" pip3 install --upgrade pycuda
+PATH=/usr/local/cuda-11.8/bin:${PATH} pip3 install --upgrade pycuda
 
 # Verify that PyCUDA is working properly
-python3 ~/git/biomedisa/biomedisa_features/pycuda_test.py
+python3 -m biomedisa.features.pycuda_test
 ```
 
 #### Install TensorFlow (optional)
@@ -89,16 +82,16 @@ sudo apt-get install --no-install-recommends libnvinfer8=8.5.3-1+cuda11.8 \
 sudo apt-mark hold libcudnn8 libcudnn8-dev libnvinfer-dev libnvinfer-plugin8 libnvinfer8 cuda-11-8
 
 # Install TensorFlow
-sudo -H pip3 install tensorflow==2.13.0
+pip3 install tensorflow==2.13.0
 ```
 
 #### Biomedisa examples
 Download test files from [Gallery](https://biomedisa.info/gallery/).
 ```
 # smart interpolation
-python3 git/biomedisa/demo/biomedisa_interpolation.py Downloads/tumor.tif Downloads/labels.tumor.tif
+python3 -m biomedisa.interpolation Downloads/tumor.tif Downloads/labels.tumor.tif
 
 # deep learning
-python3 git/biomedisa/demo/biomedisa_deeplearning.py Downloads/testing_axial_crop_pat13.nii.gz Downloads/heart.h5 -p -bs 12
+python3 -m biomedisa.deeplearning Downloads/testing_axial_crop_pat13.nii.gz Downloads/heart.h5 -p -bs=12
 ```
 
