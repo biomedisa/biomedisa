@@ -3,10 +3,10 @@
 - [Install Python and pip](#install-python-and-pip)
 - [Install software dependencies](#install-software-dependencies)
 - [Install pip packages](#install-pip-packages)
-- [Clone Biomedisa](#clone-biomedisa)
 - [Install CUDA 11.8](#install-cuda-11.8)
 - [Install TensorFlow (optional)](#install-tensorflow-optional)
 - [Biomedisa examples](#biomedisa-examples)
+- [Update Biomedisa](#update-biomedisa)
 
 #### Install Python and pip
 ```
@@ -86,7 +86,7 @@ pip3 install tensorflow==2.13.0
 ```
 
 #### Biomedisa examples
-Download test files from [Gallery](https://biomedisa.info/gallery/).
+Download test files from [Gallery](https://biomedisa.info/gallery/)
 ```
 # smart interpolation
 python3 -m biomedisa.interpolation Downloads/tumor.tif Downloads/labels.tumor.tif
@@ -95,3 +95,7 @@ python3 -m biomedisa.interpolation Downloads/tumor.tif Downloads/labels.tumor.ti
 python3 -m biomedisa.deeplearning Downloads/testing_axial_crop_pat13.nii.gz Downloads/heart.h5 -p -bs=12
 ```
 
+#### Update Biomedisa
+```
+pip3 install -U biomedisa
+```

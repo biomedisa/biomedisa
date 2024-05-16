@@ -4,8 +4,8 @@
 - [Install software dependencies](#install-software-dependencies)
 - [Intel CPU Runtime for OpenCL](#intel-cpu-runtime-for-opencl)
 - [Install pip packages](#install-pip-packages)
-- [Clone Biomedisa](#clone-biomedisa)
 - [Biomedisa example](#biomedisa-example)
+- [Update Biomedisa](#update-biomedisa)
 
 #### Install Python and pip
 ```
@@ -46,3 +46,7 @@ Download test files from [Gallery](https://biomedisa.info/gallery/).
 python3 -m biomedisa.interpolation Downloads/tumor.tif Downloads/labels.tumor.tif --platform=opencl_Intel_CPU
 ```
 
+#### Update Biomedisa
+```
+pip3 install -U biomedisa
+```
