@@ -9,6 +9,7 @@
 - [Install Anaconda3](#install-anaconda3)
 - [Install Biomedisa environment](#install-biomedisa-environment)
 - [Biomedisa examples](#biomedisa-examples)
+- [Update Biomedisa](#update-biomedisa)
 - [Remove Biomedisa environment](#remove-biomedisa-environment)
 
 #### Install Microsoft Visual Studio 2022
@@ -67,11 +68,11 @@ conda env create -f C:\Users\%USERNAME%\Downloads\conda_environment.yml
 Note: If your computer didn't find `conda_environment.yml` the easiest way is to locate the file in your Download directory and drag and drop it onto the Anaconda Prompt after typing `conda env create -f`.
 
 #### Biomedisa examples
-Activate conda environment.
+Activate conda environment:
 ```
 conda activate biomedisa
 ```
-Download test files from [Gallery](https://biomedisa.info/gallery/) and run
+Download test files from [Gallery](https://biomedisa.info/gallery/) and run:
 ```
 # smart interpolation
 python -m biomedisa.interpolation Downloads\tumor.tif Downloads\labels.tumor.tif
@@ -80,16 +81,26 @@ python -m biomedisa.interpolation Downloads\tumor.tif Downloads\labels.tumor.tif
 python -m biomedisa.deeplearning Downloads\testing_axial_crop_pat13.nii.gz Downloads\heart.h5 -p -bs=12
 ```
 
+#### Update Biomedisa
+Activate conda environment:
+```
+conda activate biomedisa
+```
+Update Biomedisa package:
+```
+pip install -U biomedisa
+```
+
 #### Remove Biomedisa environment
-Deactivate Biomedisa environment.
+Deactivate Biomedisa environment:
 ```
 conda deactivate
 ```
-Remove the Biomedisa environment.
+Remove the Biomedisa environment:
 ```
 conda remove --name biomedisa --all
 ```
-Remove Biomedisa conda directory (optional).
+Remove Biomedisa conda directory (optional):
 ```
 cd C:\Users\%USERNAME%\anaconda3\envs
 rmdir /s /q biomedisa
