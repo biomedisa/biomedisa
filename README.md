@@ -45,7 +45,7 @@ Install the Biomedisa package from the [Python Package Index](https://pypi.org/p
 ```
 python -m pip install -U biomedisa
 ```
-For smart interpolation and deep Learning modules, follow the [installation instructions](https://github.com/biomedisa/biomedisa#installation-command-line-based).
+For smart interpolation and deep Learning modules, follow the installation instructions above.
 
 ## Smart Interpolation
 + [Parameters and Examples](https://github.com/biomedisa/biomedisa/blob/master/README/smart_interpolation.md)
@@ -75,7 +75,7 @@ save_data('Downloads/final.trigonopterus.smooth.am', smooth_result, header=heade
 ```
 python -m biomedisa.interpolation C:\Users\%USERNAME%\Downloads\tumor.tif C:\Users\%USERNAME%\Downloads\labels.tumor.tif
 ```
-If pre-segmentation is not exclusively in the XY plane
+If pre-segmentation is not exclusively in the XY plane:
 ```
 python -m biomedisa.interpolation C:\Users\%USERNAME%\Downloads\tumor.tif C:\Users\%USERNAME%\Downloads\labels.tumor.tif --allaxis
 ```
@@ -114,11 +114,11 @@ deep_learning(img_data, label_data, train=True, batch_size=12,
 ```
 
 #### Command-line based (training)
-Start training with a batch size of 12
+Start training with a batch size of 12:
 ```
 python -m biomedisa.deeplearning C:\Users\%USERNAME%\Downloads\training_heart C:\Users\%USERNAME%\Downloads\training_heart_labels -t -bs=12
 ```
-Use validation data (optional)
+Monitor training progress using validation data:
 ```
 python -m biomedisa.deeplearning C:\Users\%USERNAME%\Downloads\training_heart C:\Users\%USERNAME%\Downloads\training_heart_labels -t -vi=C:\Users\%USERNAME%\Downloads\val_img -vl=C:\Users\%USERNAME%\Downloads\val_labels
 ```
