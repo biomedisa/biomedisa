@@ -9,6 +9,7 @@
 - [Quickstart](#quickstart)
 - [Smart Interpolation](#smart-interpolation)
 - [Deep Learning](#deep-learning)
+- [Mesh Generator](#mesh-generator)
 - [Biomedisa Features](#biomedisa-features)
 - [Authors](#authors)
 - [FAQ](#faq)
@@ -145,21 +146,11 @@ save_data('final.Head5.am', results['regular'], results['header'])
 python -m biomedisa.deeplearning C:\Users\%USERNAME%\Downloads\testing_axial_crop_pat13.nii.gz C:\Users\%USERNAME%\Downloads\heart.h5 -p
 ```
 
-## Biomedisa Features
+## Mesh Generator
++ [Parameters and Examples](https://github.com/biomedisa/biomedisa/blob/master/README/save_mesh.md)
 
-#### Load and save data (such as Amira Mesh, TIFF, NRRD, NIfTI or DICOM)
-For DICOM, PNG files, or similar formats, file path must reference either a directory or a ZIP file containing the image slices.
-```python
-from biomedisa.features.biomedisa_helper import load_data, save_data
-
-# load data as numpy array
-data, header = load_data('temp.tif')
-
-# save data (for TIFF, header=None)
-save_data('temp.tif', data, header)
-```
-
-#### Create STL mesh from segmentation (label values are saved as attributes)
+#### Python example
+Create STL mesh from segmentation (label values are saved as attributes)
 ```python
 from biomedisa.features.biomedisa_helper import load_data, save_data
 from biomedisa.mesh import get_voxel_spacing, save_mesh
@@ -175,21 +166,24 @@ print(f'Voxel spacing: x_spacing, y_spacing, z_spacing = {x_res}, {y_res}, {z_re
 save_mesh('final.Head5.stl', data, x_res, y_res, z_res, poly_reduction=0.9, smoothing_iterations=15)
 ```
 
-#### Create mesh directly
+#### Command-line based
 ```
 python -m biomedisa.mesh 'final.Head5.am'
 ```
 
-#### Options
-`--poly_reduction` or `-pr`: Reduce number of polygons by this factor (default: 0.9)
+## Biomedisa Features
 
-`--smoothing_iterations` or `-s`: Iteration steps for smoothing (default: 15)
+#### Load and save data (such as Amira Mesh, TIFF, NRRD, NIfTI or DICOM)
+For DICOM, PNG files, or similar formats, file path must reference either a directory or a ZIP file containing the image slices.
+```python
+from biomedisa.features.biomedisa_helper import load_data, save_data
 
-`--x_res` or `-xres`: Voxel spacing/resolution x-axis (default: None)
+# load data as numpy array
+data, header = load_data('temp.tif')
 
-`--y_res` or `-yres`: Voxel spacing/resolution y-axis (default: None)
-
-`--z_res` or `-zres`: Voxel spacing/resolution z-axis (default: None)
+# save data (for TIFF, header=None)
+save_data('temp.tif', data, header)
+```
 
 #### Resize data
 ```python
