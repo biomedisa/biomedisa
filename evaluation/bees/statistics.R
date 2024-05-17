@@ -14,7 +14,7 @@
 ##
 ## Lösel et al. Natural variability in bee brain size and symmetry revealed by micro-CT imaging and deep learning.
 ##
-## Preprint at http://biorxiv.org/lookup/doi/10.1101/2022.10.12.511944 (2022).
+## PLoS Comput. Biol. 19, e1011529 (2023). https://doi.org/10.1371/journal.pcbi.1011529
 ##
 ## ---------------------------
 
