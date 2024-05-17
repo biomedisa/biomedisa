@@ -375,8 +375,10 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
                     raise InputError()
             elif type(label_in) is list:
                 label = label_in[0]
+                label_names = [f'label_{i}' for i in range(1, len(label_in) + 1)]
             else:
                 label = label_in
+                label_names = ['label_1']
             label_dim = label.shape
             label = set_labels_to_zero(label, labels_to_compute, labels_to_remove)
             label_values, counts = np.unique(label, return_counts=True)
@@ -406,8 +408,10 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
                     raise InputError()
             elif type(img_in) is list:
                 img = img_in[0]
+                img_names = [f'img_{i}' for i in range(1, len(img_in) + 1)]
             else:
                 img = img_in
+                img_names = ['img_1']
             if label_dim != img.shape:
                 InputError.message = f'Dimensions of "{os.path.basename(img_names[0])}" and "{os.path.basename(label_names[0])}" do not match'
                 raise InputError()
