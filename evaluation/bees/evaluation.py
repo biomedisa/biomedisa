@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2024 Philipp Lösel. All rights reserved.              ##
+##  Copyright (c) 2019-2024 Philipp Lösel. All rights reserved.         ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -28,10 +28,8 @@
 ##########################################################################
 
 import os, sys
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(BASE_DIR)
-from biomedisa_features.biomedisa_helper import *
-from biomedisa_features.remove_outlier import clean
+from biomedisa.features.biomedisa_helper import *
+from biomedisa.features.remove_outlier import clean
 from scipy import ndimage
 from pandas import DataFrame
 import pandas as pd
@@ -42,6 +40,8 @@ import argparse
 import tarfile
 import glob
 import scipy
+
+MEDIA_URL = 'https://biomedisa.info/media/images/'
 
 # honeybees scanned upside down
 test_inv = ['Head10','Head17','Head27','Head29','Head32','Head36','Head38','Head39','Head41','Head43','Head69','Head71','Head75','Head84','Head95','Head98','S21','S25','S37','S38','S45','S55','S58']
@@ -110,14 +110,14 @@ if __name__ == "__main__":
 
         # download and extract image data
         if not os.path.isdir(path_to_images):
-            os.system(f'wget -nc --no-check-certificate https://biomedisa.info/download/demo/?id={dataset}_test_images.tar -O {path_to_images}.tar')
+            os.system(f'wget -nc --no-check-certificate {MEDIA_URL}{dataset}_test_images.tar -O {path_to_images}.tar')
             tar = tarfile.open(f'{path_to_images}.tar')
             tar.extractall(path=path_to_images)
             tar.close()
 
         # download trained network
         if not os.path.exists(path_to_model):
-            os.system(f'wget -nc --no-check-certificate https://biomedisa.info/download/demo/?id={dataset}_network.h5 -O {path_to_model}')
+            os.system(f'wget -nc --no-check-certificate {MEDIA_URL}{dataset}_network.h5 -O {path_to_model}')
 
         # create directory for results
         if not os.path.exists(path_to_results):
@@ -126,11 +126,8 @@ if __name__ == "__main__":
         # segment bee brains
         liste = glob.glob(path_to_images+'/**/*.am', recursive=True)
         for path_to_data in liste:
-
             if not os.path.exists(path_to_results+'/final.'+os.path.basename(path_to_data)):
-                cwd = BASE_DIR+'/demo/'
-                p = subprocess.Popen(['python3', 'biomedisa_deeplearning.py', path_to_data, path_to_model, '-p'], cwd=cwd)
-                p.wait()
+                subprocess.Popen([sys.executable, '-m', 'biomedisa.deeplearning', path_to_data, path_to_model, '-p']).wait()
                 move(os.path.dirname(path_to_data)+'/final.'+os.path.basename(path_to_data), path_to_results+'/final.'+os.path.basename(path_to_data))
 
     #=======================================================================================
@@ -149,14 +146,14 @@ if __name__ == "__main__":
 
         # download and extract reference data
         if not os.path.isdir(path_to_refs):
-            os.system(f'wget -nc --no-check-certificate https://biomedisa.info/download/demo/?id={dataset}_test_labels.tar -O {path_to_refs}.tar')
+            os.system(f'wget -nc --no-check-certificate {MEDIA_URL}{dataset}_test_labels.tar -O {path_to_refs}.tar')
             tar = tarfile.open(f'{path_to_refs}.tar')
             tar.extractall(path=path_to_refs)
             tar.close()
 
         # download and extract segmentation results (if not created)
         if not os.path.isdir(path_to_results):
-            os.system(f'wget -nc --no-check-certificate https://biomedisa.info/download/demo/?id={dataset}_test_results.tar -O {path_to_results}.tar')
+            os.system(f'wget -nc --no-check-certificate {MEDIA_URL}{dataset}_test_results.tar -O {path_to_results}.tar')
             tar = tarfile.open(f'{path_to_results}.tar')
             tar.extractall(path=path_to_results)
             tar.close()
@@ -164,7 +161,7 @@ if __name__ == "__main__":
        # calculate ASSD
         if args.assd:
             try:
-                from biomedisa_features.assd import ASSD_one_label
+                from biomedisa.features.assd import ASSD_one_label
             except:
                 print('Error: no CUDA device found. ASSD is not available.')
                 args.assd = False
@@ -247,22 +244,22 @@ if __name__ == "__main__":
 
         # download and extract data
         if not os.path.isdir(training_images):
-            os.system(f'wget -nc --no-check-certificate https://biomedisa.info/download/demo/?id={dataset}_training_images.tar -O {training_images}.tar')
+            os.system(f'wget -nc --no-check-certificate {MEDIA_URL}{dataset}_training_images.tar -O {training_images}.tar')
             tar = tarfile.open(f'{training_images}.tar')
             tar.extractall(path=training_images)
             tar.close()
         if not os.path.isdir(training_labels):
-            os.system(f'wget -nc --no-check-certificate https://biomedisa.info/download/demo/?id={dataset}_training_labels.tar -O {training_labels}.tar')
+            os.system(f'wget -nc --no-check-certificate {MEDIA_URL}{dataset}_training_labels.tar -O {training_labels}.tar')
             tar = tarfile.open(f'{training_labels}.tar')
             tar.extractall(path=training_labels)
             tar.close()
         if not os.path.isdir(test_images):
-            os.system(f'wget -nc --no-check-certificate https://biomedisa.info/download/demo/?id={dataset}_test_images.tar -O {test_images}.tar')
+            os.system(f'wget -nc --no-check-certificate {MEDIA_URL}{dataset}_test_images.tar -O {test_images}.tar')
             tar = tarfile.open(f'{test_images}.tar')
             tar.extractall(path=test_images)
             tar.close()
         if not os.path.isdir(test_labels):
-            os.system(f'wget -nc --no-check-certificate https://biomedisa.info/download/demo/?id={dataset}_test_labels.tar -O {test_labels}.tar')
+            os.system(f'wget -nc --no-check-certificate {MEDIA_URL}{dataset}_test_labels.tar -O {test_labels}.tar')
             tar = tarfile.open(f'{test_labels}.tar')
             tar.extractall(path=test_labels)
             tar.close()
