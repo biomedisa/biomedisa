@@ -35,10 +35,10 @@ Biomedisa (https://biomedisa.info) is a free and easy-to-use open-source applica
 + Download test data from our [gallery](https://biomedisa.info/gallery/)
 
 ## Revisions
-2024.05.22
+2024.5.22
 + Pip is the preferred installation method
 + Commands, module names and imports have been changed to conform to the Pip standard
-+ For versions <=2023.09.1 please check [README](https://github.com/biomedisa/biomedisa/blob/master/README/deprecated/README_2023.09.1.md)
++ For versions <=23.09.1 please check [README](https://github.com/biomedisa/biomedisa/blob/master/README/deprecated/README_2023.09.1.md)
 
 ## Quickstart
 Install the Biomedisa package from the [Python Package Index](https://pypi.org/project/biomedisa/):
