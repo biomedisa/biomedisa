@@ -246,6 +246,8 @@ class DataGenerator(tf.keras.utils.Sequence):
                 # get patch
                 tmp_X = self.img[k:k+self.dim[0],l:l+self.dim[1],m:m+self.dim[2]]
                 tmp_y = self.label[k:k+self.dim[0],l:l+self.dim[1],m:m+self.dim[2]]
+                tmp_X = tmp_X.copy()
+                tmp_y = tmp_y.copy()
 
                 # augmentation
                 if self.train:
@@ -286,7 +288,6 @@ class DataGenerator(tf.keras.utils.Sequence):
 
                 # patch normalization
                 if self.patch_normalization:
-                    tmp_X = np.copy(tmp_X, order='C')
                     for c in range(self.n_channels):
                         tmp_X[:,:,:,c] -= np.mean(tmp_X[:,:,:,c])
                         tmp_X[:,:,:,c] /= max(np.std(tmp_X[:,:,:,c]), 1e-6)
