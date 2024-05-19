@@ -129,7 +129,7 @@ source ~/.bashrc
 nvcc --version
 
 # Install PyCUDA
-sudo -H "PATH=/usr/local/cuda-11.8/bin:${PATH}" pip3 install --upgrade pycuda
+PATH=/usr/local/cuda-11.8/bin:${PATH} pip3 install --upgrade pycuda
 
 # Verify that PyCUDA is working properly
 python3 ~/git/biomedisa/features/pycuda_test.py
@@ -151,7 +151,7 @@ sudo apt-get install --no-install-recommends libnvinfer8=8.5.3-1+cuda11.8 \
 sudo apt-mark hold libcudnn8 libcudnn8-dev libnvinfer-dev libnvinfer-plugin8 libnvinfer8 cuda-11-8
 
 # Install TensorFlow
-sudo -H pip3 install tensorflow==2.13.0
+pip3 install tensorflow==2.13.0
 ```
 
 #### Run Biomedisa
