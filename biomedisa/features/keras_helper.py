@@ -758,8 +758,8 @@ def dice_coef_loss(nb_labels):
         for index in range(1,nb_labels):
             dice += dice_coef(y_true[:,:,:,:,index], y_pred[:,:,:,:,index])
         dice = dice / (nb_labels-1)
-        loss = -K.log(dice)
-        #loss = 1 - dice
+        #loss = -K.log(dice)
+        loss = 1 - dice
         return loss
     return loss_fn
 
@@ -1040,7 +1040,19 @@ def predict_semantic_segmentation(bm, img, path_to_model,
     predict_generator = PredictDataGenerator(img, list_IDs, **params)
 
     # load model
-    model = load_model(str(path_to_model))
+    if bm.dice_loss:
+        def loss_fn(y_true, y_pred):
+            dice = 0
+            for index in range(1,nb_labels):
+                dice += dice_coef(y_true[:,:,:,:,index], y_pred[:,:,:,:,index])
+            dice = dice / (nb_labels-1)
+            #loss = -K.log(dice)
+            loss = 1 - dice
+            return loss
+        custom_objects = {'dice_coef_loss': dice_coef_loss,'loss_fn': loss_fn}
+        model = load_model(path_to_model, custom_objects=custom_objects)
+    else:
+        model = load_model(path_to_model)
 
     # predict
     if nb_patches < 400:
