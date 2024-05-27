@@ -100,7 +100,7 @@ def save_history(history, path_to_model, val_dice, train_dice):
     # save history dictonary
     np.save(path_to_model.replace('.h5','.npy'), history)
 
-def predict_blocksize(labelData, x_puffer, y_puffer, z_puffer):
+def predict_blocksize(labelData, x_puffer=25, y_puffer=25, z_puffer=25):
     zsh, ysh, xsh = labelData.shape
     argmin_z, argmax_z, argmin_y, argmax_y, argmin_x, argmax_x = zsh, 0, ysh, 0, xsh, 0
     for k in range(zsh):
