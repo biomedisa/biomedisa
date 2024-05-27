@@ -4,6 +4,7 @@
 - [Install software dependencies](#install-software-dependencies)
 - [Intel CPU Runtime for OpenCL](#intel-cpu-runtime-for-opencl)
 - [Install pip packages](#install-pip-packages)
+- [Install Biomedisa from source (optional)](#install-biomedisa-from-source-optional)
 - [Biomedisa example](#biomedisa-example)
 - [Update Biomedisa](#update-biomedisa)
 
@@ -16,7 +17,7 @@ sudo apt-get install python3 python3-dev python3-pip
 ```
 sudo apt-get install libsm6 libxrender-dev unzip \
     libboost-python-dev build-essential libssl-dev cmake \
-    openmpi-bin openmpi-doc libopenmpi-dev libgl1 \
+    openmpi-bin openmpi-doc libopenmpi-dev git libgl1 \
     ocl-icd-libopencl1 opencl-headers clinfo ocl-icd-opencl-dev lsb-core
 ```
 
@@ -38,6 +39,20 @@ pip3 install --upgrade numpy scipy h5py colorama numpy-stl \
 
 # Add 'export PATH=${HOME}/.local/bin:${PATH}' to '~/.bashrc'
 echo 'export PATH=${HOME}/.local/bin:${PATH}' >> ~/.bashrc
+source ~/.bashrc
+```
+
+#### Install Biomedisa from source (optional)
+To develop Biomedisa, clone the repository and append its location to PYTHONPATH:
+```
+# Clone the Biomedisa repository
+mkdir ~/git
+cd ~/git
+git clone https://github.com/biomedisa/biomedisa.git
+
+#### Add the Biomedisa base directory to '~/.bashrc'
+echo 'export PYTHONPATH=${HOME}/git/biomedisa:${PYTHONPATH}' >> ~/.bashrc
+source ~/.bashrc
 ```
 
 #### Biomedisa example
