@@ -34,6 +34,7 @@ pip3 install django==3.2.6
 
 # Add 'export PATH=${HOME}/.local/bin:${PATH}' to '~/.bashrc'
 echo 'export PATH=${HOME}/.local/bin:${PATH}' >> ~/.bashrc
+source ~/.bashrc
 ```
 
 #### Install MySQL database
@@ -81,6 +82,7 @@ git clone https://github.com/biomedisa/biomedisa.git
 #### Add the Biomedisa base directory to '~/.bashrc'
 ```
 echo 'export PYTHONPATH=${HOME}/git/biomedisa:${PYTHONPATH}' >> ~/.bashrc
+source ~/.bashrc
 ```
 
 #### Config Biomedisa
