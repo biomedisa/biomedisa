@@ -167,8 +167,7 @@ def save_mesh(path_to_result, labels, x_res=1, y_res=1, z_res=1,
         mesh_final.attr[start:stop,0] = i+1
     mesh_final.save(path_to_result)
 
-def get_voxel_spacing(header, data, extension):
-
+def get_voxel_spacing(header, extension):
     if extension == '.am':
         # read header as string
         b = header[0].tobytes()
@@ -176,21 +175,23 @@ def get_voxel_spacing(header, data, extension):
             s = b.decode("utf-8")
         except:
             s = b.decode("latin1")
-
         # get physical size from image header
+        lattice = re.search('define Lattice (.*)\n', s)
         bounding_box = re.search('BoundingBox (.*),\n', s)
-        if bounding_box:
+        if bounding_box and lattice:
+            # get number of voxels
+            lattice = lattice.group(1)
+            xsh, ysh, zsh = lattice.split(' ')
+            xsh, ysh, zsh = float(xsh), float(ysh), float(zsh)
+            # get bounding box
             bounding_box = bounding_box.group(1)
             i0, i1, i2, i3, i4, i5 = bounding_box.split(' ')
-
-            # voxel spacing
-            zsh, ysh, xsh = data.shape
+            # calculate voxel spacing
             xres = (float(i1)-float(i0)) / xsh
             yres = (float(i3)-float(i2)) / ysh
             zres = (float(i5)-float(i4)) / zsh
         else:
             xres, yres, zres = 1, 1, 1
-
     elif extension in ['.hdr', '.mhd', '.mha', '.nrrd', '.nii', '.nii.gz']:
         xres, yres, zres = header.GetSpacing()
     elif extension == '.zip':
@@ -203,7 +204,6 @@ def get_voxel_spacing(header, data, extension):
     else:
         print('Warning: could not get voxel spacing. Using x_spacing, y_spacing, z_spacing = 1, 1, 1 instead.')
         xres, yres, zres = 1, 1, 1
-
     return xres, yres, zres
 
 def init_create_mesh(id):
@@ -324,7 +324,7 @@ def init_create_mesh(id):
                         log=1, imageType=None, shortfilename='Invalid label data.')
                 else:
                     # get voxel spacing
-                    xres, yres, zres = get_voxel_spacing(header, data, extension)
+                    xres, yres, zres = get_voxel_spacing(header, extension)
                     print(f'Voxel spacing: x_spacing, y_spacing, z_spacing = {xres}, {yres}, {zres}')
 
                     # create stl file
@@ -386,7 +386,7 @@ if __name__ == "__main__":
 
         # get voxel spacing
         if not all([bm.x_res, bm.y_res, bm.z_res]):
-            x_res, y_res, z_res = get_voxel_spacing(header, bm.labels, extension)
+            x_res, y_res, z_res = get_voxel_spacing(header, extension)
             if not bm.x_res:
                 bm.x_res = x_res
             if not bm.y_res:
