@@ -159,7 +159,7 @@ from biomedisa.mesh import get_voxel_spacing, save_mesh
 data, header, extension = load_data('final.Head5.am', return_extension=True)
 
 # get voxel spacing
-x_res, y_res, z_res = get_voxel_spacing(header, data, extension)
+x_res, y_res, z_res = get_voxel_spacing(header, extension)
 print(f'Voxel spacing: x_spacing, y_spacing, z_spacing = {x_res}, {y_res}, {z_res}')
 
 # save stl file

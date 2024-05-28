@@ -121,7 +121,7 @@ def predict_blocksize(labelData, x_puffer, y_puffer, z_puffer):
     argmax_z = argmax_z + z_puffer if argmax_z + z_puffer < zsh else zsh
     return argmin_z,argmax_z,argmin_y,argmax_y,argmin_x,argmax_x
 
-def get_image_dimensions(header, data):
+def set_image_dimensions(header, data):
 
     # read header as string
     b = header.tobytes()
@@ -148,7 +148,7 @@ def get_image_dimensions(header, data):
     new_header = np.frombuffer(b2, dtype=header.dtype)
     return new_header
 
-def get_physical_size(header, img_header):
+def set_physical_size(header, img_header):
 
     # read img_header as string
     b = img_header.tobytes()
@@ -1142,10 +1142,10 @@ def predict_semantic_segmentation(bm, img, path_to_model,
     # handle amira header
     if header is not None:
         if extension == '.am':
-            header = get_image_dimensions(header[0], label)
+            header = set_image_dimensions(header[0], label)
             if img_header is not None:
                 try:
-                    header = get_physical_size(header, img_header[0])
+                    header = set_physical_size(header, img_header[0])
                 except:
                     pass
             header = [header]
