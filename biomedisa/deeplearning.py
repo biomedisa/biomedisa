@@ -484,8 +484,15 @@ if __name__ == '__main__':
     parser.add_argument('-hf','--header_file', type=str, metavar='PATH', default=None,
                         help='Location of header file')
     bm = parser.parse_args()
-
     bm.success = True
+
+    # prediction or training
+    if not any([bm.train, bm.predict]):
+        bm.predict = False
+        bm.train = True
+        if os.path.splitext(bm.path)[1] == '.h5':
+            bm.predict = True
+            bm.train = False
     if bm.predict:
         bm.path_to_labels = None
         bm.path_to_model = bm.path
