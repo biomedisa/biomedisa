@@ -7,6 +7,7 @@
 - [Biomedisa examples](#biomedisa-examples)
 - [Update Biomedisa](#update-biomedisa)
 - [Remove Biomedisa environment](#remove-biomedisa-environment)
+- [Install Biomedisa from source (optional)](#install-biomedisa-from-source-optional)
 
 #### Install NVIDIA Driver
 Download and install [NVIDIA](https://www.nvidia.com/Download/Find.aspx?lang=en-us).  
@@ -68,3 +69,6 @@ Remove Biomedisa conda directory (optional):
 cd C:\Users\%USERNAME%\anaconda3\envs
 rmdir /s /q biomedisa
 ```
+
+#### Install Biomedisa from source (optional)
+To develop Biomedisa or for the latest version install Biomedisa from [source](https://github.com/biomedisa/biomedisa/blob/master/README/installation_from_source.md).

@@ -121,10 +121,10 @@ sudo apt-get install --no-install-recommends cuda-11-8
 # Reboot. Check that GPUs are visible using the command
 nvidia-smi
 
-# Add the following lines to '~/.bashrc' (e.g. nano ~/.bashrc)
-export CUDA_HOME=/usr/local/cuda-11.8
-export LD_LIBRARY_PATH=${CUDA_HOME}/lib64
-export PATH=${CUDA_HOME}/bin:${PATH}
+# Add the CUDA paths to your '~/.bashrc' file
+echo 'export CUDA_HOME=/usr/local/cuda-11.8' >> ~/.bashrc
+echo 'export LD_LIBRARY_PATH=${CUDA_HOME}/lib64' >> ~/.bashrc
+echo 'export PATH=${CUDA_HOME}/bin:${PATH}' >> ~/.bashrc
 
 # Reload .bashrc and verify that CUDA is installed properly
 source ~/.bashrc

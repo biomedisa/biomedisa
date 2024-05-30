@@ -10,6 +10,7 @@
 - [Biomedisa examples](#biomedisa-examples)
 - [Update Biomedisa](#update-biomedisa)
 - [Remove Biomedisa environment](#remove-biomedisa-environment)
+- [Install Biomedisa from source (optional)](#install-biomedisa-from-source-optional)
 
 #### Install Microsoft Visual Studio 2022
 Download and install [MS Visual Studio](https://visualstudio.microsoft.com/de/thank-you-downloading-visual-studio/?sku=Community&channel=Release&version=VS2022&source=VSLandingPage&passive=false&cid=2030). This [YouTube tutorial](https://www.youtube.com/watch?v=Ia4cMBDJXrI) explains this step in more detail.
@@ -99,3 +100,6 @@ Remove Biomedisa conda directory (optional):
 cd C:\Users\%USERNAME%\anaconda3\envs
 rmdir /s /q biomedisa
 ```
+
+#### Install Biomedisa from source (optional)
+To develop Biomedisa or for the latest version install Biomedisa from [source](https://github.com/biomedisa/biomedisa/blob/master/README/installation_from_source.md).

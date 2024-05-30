@@ -3,11 +3,11 @@
 - [Install Python and pip](#install-python-and-pip)
 - [Install software dependencies](#install-software-dependencies)
 - [Install pip packages](#install-pip-packages)
-- [Install Biomedisa from source (optional)](#install-biomedisa-from-source-optional)
 - [Install CUDA 11.8](#install-cuda-11.8)
 - [Install TensorFlow (optional)](#install-tensorflow-optional)
 - [Biomedisa examples](#biomedisa-examples)
 - [Update Biomedisa](#update-biomedisa)
+- [Install Biomedisa from source (optional)](#install-biomedisa-from-source-optional)
 
 #### Install Python and pip
 ```
@@ -18,7 +18,7 @@ sudo apt-get install python3 python3-dev python3-pip
 ```
 sudo apt-get install libsm6 libxrender-dev unzip \
     libboost-python-dev build-essential libssl-dev cmake \
-    openmpi-bin openmpi-doc libopenmpi-dev git libgl1
+    openmpi-bin openmpi-doc libopenmpi-dev libgl1
 ```
 
 #### Install pip packages
@@ -30,19 +30,6 @@ pip3 install --upgrade numpy scipy h5py colorama numpy-stl \
 
 # Add 'export PATH=${HOME}/.local/bin:${PATH}' to '~/.bashrc'
 echo 'export PATH=${HOME}/.local/bin:${PATH}' >> ~/.bashrc
-source ~/.bashrc
-```
-
-#### Install Biomedisa from source (optional)
-To develop Biomedisa, clone the repository and append its location to PYTHONPATH:
-```
-# Clone the Biomedisa repository
-mkdir ~/git
-cd ~/git
-git clone https://github.com/biomedisa/biomedisa.git
-
-#### Add the Biomedisa base directory to '~/.bashrc'
-echo 'export PYTHONPATH=${HOME}/git/biomedisa:${PYTHONPATH}' >> ~/.bashrc
 source ~/.bashrc
 ```
 
@@ -64,10 +51,10 @@ sudo apt-get install --no-install-recommends cuda-11-8
 # Reboot. Check that GPUs are visible using the command
 nvidia-smi
 
-# Add the following lines to '~/.bashrc' (e.g. nano ~/.bashrc)
-export CUDA_HOME=/usr/local/cuda-11.8
-export LD_LIBRARY_PATH=${CUDA_HOME}/lib64
-export PATH=${CUDA_HOME}/bin:${PATH}
+# Add the CUDA paths to your '~/.bashrc' file
+echo 'export CUDA_HOME=/usr/local/cuda-11.8' >> ~/.bashrc
+echo 'export LD_LIBRARY_PATH=${CUDA_HOME}/lib64' >> ~/.bashrc
+echo 'export PATH=${CUDA_HOME}/bin:${PATH}' >> ~/.bashrc
 
 # Reload .bashrc and verify that CUDA is installed properly
 source ~/.bashrc
@@ -114,3 +101,6 @@ python3 -m biomedisa.deeplearning Downloads/testing_axial_crop_pat13.nii.gz Down
 ```
 pip3 install -U biomedisa
 ```
+
+#### Install Biomedisa from source (optional)
+To develop Biomedisa or for the latest version install Biomedisa from [source](https://github.com/biomedisa/biomedisa/blob/master/README/installation_from_source.md).
