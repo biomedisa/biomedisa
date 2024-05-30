@@ -1,9 +1,7 @@
 # Install Biomedisa from source
 To develop Biomedisa or for the latest version, clone the repository and append its location to PYTHONPATH:
 
-#### Install Git
-**Windows:**  
-Download and install [Git](https://github.com/git-for-windows/git/releases/download/v2.45.1.windows.1/Git-2.45.1-64-bit.exe).  
+**Windows:** Download and install [Git](https://github.com/git-for-windows/git/releases/download/v2.45.1.windows.1/Git-2.45.1-64-bit.exe).  
 **Ubuntu:**
 ```
 sudo apt-get install git
@@ -21,7 +19,7 @@ git clone https://github.com/biomedisa/biomedisa.git
 Open Windows Search  
 Type `View advanced system settings`  
 Click `Environment Variables...`  
-Add the Biomedisa main directory (e.g. `C:\Users\%USERNAME%\git\biomedisa`) to the **System variable** `PYTHONPATH`
+Add the Biomedisa main directory (e.g. `C:\Users\%USERNAME%\git\biomedisa`) to the **System variable** `PYTHONPATH`  
 **Ubuntu:**
 ```
 echo 'export PYTHONPATH=${HOME}/git/biomedisa:${PYTHONPATH}' >> ~/.bashrc
