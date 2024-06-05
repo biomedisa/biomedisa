@@ -7,19 +7,19 @@ To develop Biomedisa or for the latest version, clone the repository and append 
 sudo apt-get install git
 ```
 
-#### Clone the Biomedisa repository
+#### Clone the Biomedisa repository (adjust the PYTHONPATH value accordingly in the next step)
 ```
-mkdir ~/git
-cd ~/git
+mkdir git
+cd git
 git clone https://github.com/biomedisa/biomedisa.git
 ```
 
-#### Add the Biomedisa base directory to the PYTHONPATH variable
+#### Add the Biomedisa base directory (e.g. C:\Users\%USERNAME%\git\biomedisa) to the PYTHONPATH variable
 **Windows:**  
 Open Windows Search  
 Type `View advanced system settings`  
 Click `Environment Variables...`  
-Add the Biomedisa main directory (e.g. `C:\Users\%USERNAME%\git\biomedisa`) to the **System variable** `PYTHONPATH`  
+If not existing, create the **System variable** `PYTHONPATH` with value `C:\Users\%USERNAME%\git\biomedisa`  
 **Ubuntu:**
 ```
 echo 'export PYTHONPATH=${HOME}/git/biomedisa:${PYTHONPATH}' >> ~/.bashrc
