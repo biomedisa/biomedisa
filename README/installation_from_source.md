@@ -14,7 +14,7 @@ cd git
 git clone https://github.com/biomedisa/biomedisa.git
 ```
 
-#### Add the Biomedisa base directory (e.g. C:\Users\USERNAME\git\biomedisa) to the PYTHONPATH variable
+#### Add the Biomedisa base directory (e.g., C:\Users\USERNAME\git\biomedisa) to the PYTHONPATH variable
 **Windows:**  
 Open Windows Search  
 Type `View advanced system settings`  
