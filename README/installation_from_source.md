@@ -14,12 +14,13 @@ cd git
 git clone https://github.com/biomedisa/biomedisa.git
 ```
 
-#### Add the Biomedisa base directory (e.g. C:\Users\%USERNAME%\git\biomedisa) to the PYTHONPATH variable
+#### Add the Biomedisa base directory (e.g. C:\Users\USERNAME\git\biomedisa) to the PYTHONPATH variable
 **Windows:**  
 Open Windows Search  
 Type `View advanced system settings`  
 Click `Environment Variables...`  
-If not existing, create the **System variable** `PYTHONPATH` with value `C:\Users\%USERNAME%\git\biomedisa`  
+If not existing, create the **System variable** `PYTHONPATH` with value `C:\Users\USERNAME\git\biomedisa` 
+Make sure you replace USERNAME with your name  
 **Ubuntu:**
 ```
 echo 'export PYTHONPATH=${HOME}/git/biomedisa:${PYTHONPATH}' >> ~/.bashrc
