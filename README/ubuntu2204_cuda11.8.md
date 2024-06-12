@@ -26,15 +26,15 @@ sudo apt-get install libsm6 libxrender-dev libmysqlclient-dev pkg-config \
 #### Install pip packages
 Note: If you run Biomedisa with an Apache Server (optional), you must install your packages system-wide using `sudo -H pip3 install --upgrade <package>`.
 ```
+# Add 'export PATH=${HOME}/.local/bin:${PATH}' to '~/.bashrc'
+echo 'export PATH=${HOME}/.local/bin:${PATH}' >> ~/.bashrc
+source ~/.bashrc
+
 pip3 install --upgrade pip setuptools testresources scikit-build
 pip3 install --upgrade numpy scipy h5py colorama wget numpy-stl \
     numba imagecodecs tifffile scikit-image opencv-python netCDF4 mrcfile \
     Pillow nibabel medpy SimpleITK mpi4py itk vtk rq mysqlclient matplotlib
 pip3 install django==3.2.6
-
-# Add 'export PATH=${HOME}/.local/bin:${PATH}' to '~/.bashrc'
-echo 'export PATH=${HOME}/.local/bin:${PATH}' >> ~/.bashrc
-source ~/.bashrc
 ```
 
 #### Install MySQL database
