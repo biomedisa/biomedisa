@@ -88,15 +88,15 @@ source ~/.bashrc
 #### Config Biomedisa
 Make `config.py` as a copy of `config_example.py`
 ```
-cp biomedisa/biomedisa_app/config_example.py biomedisa/biomedisa_app/config.py
+cp ~/git/biomedisa/biomedisa_app/config_example.py ~/git/biomedisa/biomedisa_app/config.py
 ```
-Adapt the following lines in `biomedisa/biomedisa_app/config.py`
+Adapt the following lines in `~/git/biomedisa/biomedisa_app/config.py`
 ```
 'SECRET_KEY' : 'vl[cihu8uN!FrJoDbEqUymgMR()n}y7744$2;YLDm3Q8;MMX-g', # some random string
 'DJANGO_DATABASE' : 'biomedisa_user_password', # password for the user 'biomedisa' that you created in the previous step
 'ALLOWED_HOSTS' : ['localhost', '0.0.0.0'], # you must tell django explicitly which hosts are allowed (e.g. your IP and/or the URL of your homepage when running an APACHE server)
 ```
-Migrate database and create superuser
+Migrate database and create a superuser
 ```
 cd ~/git/biomedisa
 python3 manage.py migrate
@@ -177,7 +177,7 @@ Follow the [installation instructions](https://github.com/biomedisa/biomedisa/bl
 #### Update Biomedisa
 Change to the Biomedisa directory and make a pull request
 ```
-cd git/biomedisa
+cd ~/git/biomedisa
 git pull
 ```
 
