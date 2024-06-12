@@ -26,7 +26,7 @@ sudo apt-get install libsm6 libxrender-dev libmysqlclient-dev pkg-config \
 #### Install pip packages
 Note: If you run Biomedisa with an Apache Server (optional), you must install your packages system-wide using `sudo -H pip3 install --upgrade <package>`.
 ```
-# Add 'export PATH=${HOME}/.local/bin:${PATH}' to '~/.bashrc'
+# Add '${HOME}/.local/bin' to the PATH variable
 echo 'export PATH=${HOME}/.local/bin:${PATH}' >> ~/.bashrc
 source ~/.bashrc
 
@@ -79,7 +79,7 @@ cd ~/git
 git clone https://github.com/biomedisa/biomedisa.git
 ```
 
-#### Add the Biomedisa base directory to 'PYTHONPATH'
+#### Add the Biomedisa base directory to the PYTHONPATH variable
 ```
 echo 'export PYTHONPATH=${HOME}/git/biomedisa:${PYTHONPATH}' >> ~/.bashrc
 source ~/.bashrc
@@ -96,7 +96,7 @@ Adapt the following lines in `~/git/biomedisa/biomedisa_app/config.py`:
 'DJANGO_DATABASE' : 'biomedisa_user_password', # password for the user 'biomedisa' that you created in the previous step
 'ALLOWED_HOSTS' : ['localhost', '0.0.0.0'], # you must tell django explicitly which hosts are allowed (e.g. your IP and/or the URL of your homepage when running an APACHE server)
 ```
-Migrate database and create a superuser:
+Migrate the database and create a superuser:
 ```
 cd ~/git/biomedisa
 python3 manage.py migrate
