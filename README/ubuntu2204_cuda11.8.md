@@ -79,24 +79,24 @@ cd ~/git
 git clone https://github.com/biomedisa/biomedisa.git
 ```
 
-#### Add the Biomedisa base directory to '~/.bashrc'
+#### Add the Biomedisa base directory to 'PYTHONPATH'
 ```
 echo 'export PYTHONPATH=${HOME}/git/biomedisa:${PYTHONPATH}' >> ~/.bashrc
 source ~/.bashrc
 ```
 
-#### Config Biomedisa
-Make `config.py` as a copy of `config_example.py`
+#### Configure Biomedisa
+Make `config.py` as a copy of `config_example.py`:
 ```
 cp ~/git/biomedisa/biomedisa_app/config_example.py ~/git/biomedisa/biomedisa_app/config.py
 ```
-Adapt the following lines in `~/git/biomedisa/biomedisa_app/config.py`
+Adapt the following lines in `~/git/biomedisa/biomedisa_app/config.py`:
 ```
 'SECRET_KEY' : 'vl[cihu8uN!FrJoDbEqUymgMR()n}y7744$2;YLDm3Q8;MMX-g', # some random string
 'DJANGO_DATABASE' : 'biomedisa_user_password', # password for the user 'biomedisa' that you created in the previous step
 'ALLOWED_HOSTS' : ['localhost', '0.0.0.0'], # you must tell django explicitly which hosts are allowed (e.g. your IP and/or the URL of your homepage when running an APACHE server)
 ```
-Migrate database and create a superuser
+Migrate database and create a superuser:
 ```
 cd ~/git/biomedisa
 python3 manage.py migrate
@@ -157,13 +157,13 @@ pip3 install tensorflow==2.13.0
 ```
 
 #### Run Biomedisa
-Start workers (this has to be done after each reboot)
+Start workers (this has to be done after each reboot):
 ```
 cd ~/git/biomedisa
 ./start_workers.sh
 ```
 
-Start Biomedisa locally
+Start Biomedisa locally:
 ```
 python3 manage.py runserver localhost:8080
 ```
@@ -175,18 +175,18 @@ Open Biomedisa in your local browser http://localhost:8080/ and log in as the `s
 Follow the [installation instructions](https://github.com/biomedisa/biomedisa/blob/master/README/APACHE_SERVER.md).
 
 #### Update Biomedisa
-Change to the Biomedisa directory and make a pull request
+Change to the Biomedisa directory and make a pull request:
 ```
 cd ~/git/biomedisa
 git pull
 ```
 
-Update the database
+Update the database:
 ```
 python3 manage.py migrate
 ```
 
-If you installed an [Apache Server](https://github.com/biomedisa/biomedisa/blob/master/README/APACHE_SERVER.md), you need to restart the server
+If you installed an [Apache Server](https://github.com/biomedisa/biomedisa/blob/master/README/APACHE_SERVER.md), you need to restart the server:
 ```
 sudo service apache2 restart
 ```
