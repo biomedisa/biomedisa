@@ -149,19 +149,18 @@ def smart_interpolation(data, labelData, nbrw=10, sorw=4000, acwe=False, acwe_al
                 bm.path_to_acwe = filename + '.acwe' + bm.final_image_type
                 bm.path_to_uq = filename + '.uncertainty.tif'
 
-            # data type
-            if bm.data.dtype == 'uint8':
-                pass
-            elif bm.data.dtype == 'int8':
+            # data types
+            if bm.data.dtype == 'int8':
                 bm.data = bm.data.astype(np.int16)
                 bm.data += 128
                 bm.data = bm.data.astype(np.uint8)
-            else:
-                bm.data = bm.data.astype(float)
+            elif bm.data.dtype != 'uint8':
+                bm.data = bm.data.astype(np.float32)
                 bm.data -= np.amin(bm.data)
                 bm.data /= np.amax(bm.data)
                 bm.data *= 255.0
-                bm.data = bm.data.astype(np.float32)
+            if bm.labelData.dtype in ['uint32','int64','uint64']:
+                bm.labelData = bm.labelData.astype(np.int32)
 
             # denoise image data
             if bm.denoise:
