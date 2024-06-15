@@ -19,13 +19,8 @@
         <script type="text/javascript" src="/static/sliceviewer/src/sliceviewer.js"></script>
         <script type="text/javascript">
         $(function() {
-            const paths = {{ paths|safe }};
-            images = [];
-            for (i = 0; i < paths.length; i++) {
-                images.push(paths[i]);
-            }
             $("#viewer").sliceviewer({
-                images: images, width: {{imshape_x}}, height: {{imshape_y}}
+                images: {{ paths|safe }}, width: {{imshape_x}}, height: {{imshape_y}}
             });
         })
         </script>
