@@ -1,37 +1,37 @@
 <!DOCTYPE html>
 <html lang="en">
-	<head>
-		<meta charset="UTF-8" />
-  		<title>Biomedisa</title>
-  		<link rel="shortcut icon" type="image/png" href="/static/biomedisa_icon.png"/>
-		<link rel="stylesheet" href="/static/sliceviewer/external/jquery.ui.core.css" type="text/css" />
-		<link rel="stylesheet" href="/static/sliceviewer/external/jquery.ui.slider.css" type="text/css" />
-		<link rel="stylesheet" href="/static/sliceviewer/external/jquery.ui.theme.css" type="text/css" />
-		<link rel="stylesheet" href="/static/sliceviewer/themes/sliceviewer.css" type="text/css" />
-		<style type="text/css"></style>
-		<script type="text/javascript" src="/static/sliceviewer/external/jquery.js"></script>
-		<script type="text/javascript" src="/static/sliceviewer/external/jquery.mousewheel.js"></script>
-		<script type="text/javascript" src="/static/sliceviewer/external/jquery.ui.core.js"></script>
-		<script type="text/javascript" src="/static/sliceviewer/external/jquery.ui.widget.js"></script>
-		<script type="text/javascript" src="/static/sliceviewer/external/jquery.ui.mouse.js"></script>
-		<script type="text/javascript" src="/static/sliceviewer/external/jquery.ui.slider.js"></script>
-		<script type="text/javascript" src="/static/sliceviewer/external/jquery.ui.touch-punch.js"></script>
-		<script type="text/javascript" src="/static/sliceviewer/src/sliceviewer.js"></script>
-		<script type="text/javascript">
-			$(function() {
-        images = [];
-        for (i = 0; i <= {{nos}}; i++) {
-            str = "{{ path_to_slices }}";
-            str = str + i + ".png";
-            images.push(str);
-        } 
-        $("#viewer").sliceviewer({
-            images: images, width: {{imshape_x}}, height: {{imshape_y}}
-        });
-			})
-		</script>
-	</head>
-	<body>
-		<div id="viewer" />
-	</body>
+    <head>
+        <meta charset="UTF-8" />
+        <title>Biomedisa</title>
+        <link rel="shortcut icon" type="image/png" href="/static/biomedisa_icon.png"/>
+        <link rel="stylesheet" href="/static/sliceviewer/external/jquery.ui.core.css" type="text/css" />
+        <link rel="stylesheet" href="/static/sliceviewer/external/jquery.ui.slider.css" type="text/css" />
+        <link rel="stylesheet" href="/static/sliceviewer/external/jquery.ui.theme.css" type="text/css" />
+        <link rel="stylesheet" href="/static/sliceviewer/themes/sliceviewer.css" type="text/css" />
+        <style type="text/css"></style>
+        <script type="text/javascript" src="/static/sliceviewer/external/jquery.js"></script>
+        <script type="text/javascript" src="/static/sliceviewer/external/jquery.mousewheel.js"></script>
+        <script type="text/javascript" src="/static/sliceviewer/external/jquery.ui.core.js"></script>
+        <script type="text/javascript" src="/static/sliceviewer/external/jquery.ui.widget.js"></script>
+        <script type="text/javascript" src="/static/sliceviewer/external/jquery.ui.mouse.js"></script>
+        <script type="text/javascript" src="/static/sliceviewer/external/jquery.ui.slider.js"></script>
+        <script type="text/javascript" src="/static/sliceviewer/external/jquery.ui.touch-punch.js"></script>
+        <script type="text/javascript" src="/static/sliceviewer/src/sliceviewer.js"></script>
+        <script type="text/javascript">
+        $(function() {
+            const paths = {{ paths|safe }};
+            images = [];
+            for (i = 0; i < paths.length; i++) {
+                images.push(paths[i]);
+            }
+            $("#viewer").sliceviewer({
+                images: images, width: {{imshape_x}}, height: {{imshape_y}}
+            });
+        })
+        </script>
+    </head>
+    <body>
+        <div id="viewer" />
+    </body>
 </html>
+
