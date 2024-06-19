@@ -317,19 +317,23 @@ def load_data(path_to_data, process='None', return_extension=False):
                         data, header = None, None
                 else:
                     try:
-                        # remove unreadable files or directories
-                        for name in files:
-                            if os.path.isfile(name):
-                                try:
-                                    img, _ = load(name)
-                                except:
-                                    files.remove(name)
-                            else:
-                                files.remove(name)
+                        # load data slice by slice
+                        file_names = []
+                        img_slices = []
+                        header = []
                         files.sort()
+                        for file_name in files:
+                            if os.path.isfile(file_name):
+                                try:
+                                    img, img_header = load(file_name)
+                                    file_names.append(file_name)
+                                    img_slices.append(img)
+                                    header.append(img_header)
+                                except:
+                                    pass
 
                         # get data size
-                        img, _ = load(files[0])
+                        img = img_slices[0]
                         if len(img.shape)==3:
                             ysh, xsh, csh = img.shape[0], img.shape[1], img.shape[2]
                             channel = 'last'
@@ -340,11 +344,9 @@ def load_data(path_to_data, process='None', return_extension=False):
                             ysh, xsh = img.shape[0], img.shape[1]
                             csh, channel = 0, None
 
-                        # load data slice by slice
-                        data = np.empty((len(files), ysh, xsh), dtype=img.dtype)
-                        header, image_data_shape = [], []
-                        for k, file_name in enumerate(files):
-                            img, img_header = load(file_name)
+                        # create 3D volume
+                        data = np.empty((len(file_names), ysh, xsh), dtype=img.dtype)
+                        for k, img in enumerate(img_slices):
                             if csh==3:
                                 img = rgb2gray(img, channel)
                             elif csh==1 and channel=='last':
@@ -352,8 +354,7 @@ def load_data(path_to_data, process='None', return_extension=False):
                             elif csh==1 and channel=='first':
                                 img = img[0,:,:]
                             data[k] = img
-                            header.append(img_header)
-                        header = [header, files, data.dtype]
+                        header = [header, file_names, data.dtype]
                         data = np.swapaxes(data, 1, 2)
                         data = np.copy(data, order='C')
                     except Exception as e:
