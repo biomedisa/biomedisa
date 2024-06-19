@@ -151,6 +151,7 @@ def create_slices(path_to_data, path_to_label, on_site=False):
             # increase contrast
             raw = img_to_uint8(raw)
             raw = contrast(raw)
+            zsh, ysh, xsh = raw.shape
 
             # create slices for slice viewer
             if not os.path.isdir(path_to_slices):
@@ -160,9 +161,9 @@ def create_slices(path_to_data, path_to_label, on_site=False):
                 os.chmod(path_to_slices, 0o770)
 
                 # save slices
-                for k in range(raw.shape[0]):
+                for k in range(zsh):
                     im = Image.fromarray(raw[k])
-                    im.save(path_to_slices + f'/{k}.png')
+                    im.save(path_to_slices + '/slice_' + str(k).zfill(len(str(zsh-1))) + '.png')
 
             if path_to_label and not os.path.isdir(path_to_label_slices):
 
@@ -263,7 +264,7 @@ def create_slices(path_to_data, path_to_label, on_site=False):
 
                         # save slice
                         im = Image.fromarray(out)
-                        im.save(path_to_label_slices + f'/{k}.png')
+                        im.save(path_to_label_slices + '/slice_' + str(k).zfill(len(str(zsh-1))) + '.png')
 
     except Exception as e:
         print(e)

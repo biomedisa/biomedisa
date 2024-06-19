@@ -213,19 +213,19 @@ def specimen_info(request, id):
                 return redirect(specimen_info, id)
         else:
             # preview stitched tomographic data
-            nos = 0
+            images = None
             imshape = (0,0)
-            path_to_slices = None
             if ProcessedData.objects.filter(specimen=specimen, imageType=1).exists():
                 processed_data = ProcessedData.objects.filter(specimen=specimen, imageType=1)[0]
-                path_to_slices = os.path.splitext('/media/' + processed_data.pic.name)[0]
-                full_path = BASE_DIR + path_to_slices
-                if os.path.exists(full_path):
-                    nos = len(os.listdir(full_path)) - 1
-                    path_to_slices += '/'
-                    im = Image.open(full_path + '/0.png')
-                    imshape = np.asarray(im).shape
-            # form
+                path_to_slices = BASE_DIR + os.path.splitext('/media/' + processed_data.pic.name)[0]
+                if os.path.exists(path_to_slices):
+                    images = sorted(glob.glob(path_to_slices + '/*.png'))
+                    imshape = np.asarray(Image.open(images[0])).shape
+                    imshape_x = 400
+                    imshape_y = int(imshape[0]/imshape[1]*400)
+                    imshape = (imshape_y,imshape_x)
+                    images = [img.replace(BASE_DIR,'') for img in images]
+            # specimen form
             specimen_form = SpecimenForm(initial=initial)
             name = specimen.internal_id if not any([specimen.name_recommended, specimen.subfamily, specimen.caste, specimen.specimen_code]) else "{name_recommended} | {subfamily} | {caste} | {specimen_code}".format(name_recommended=specimen.name_recommended, subfamily=specimen.subfamily, caste=specimen.caste, specimen_code=specimen.specimen_code)
             tomographic_data = TomographicData.objects.filter(specimen=specimen)
@@ -233,7 +233,7 @@ def specimen_info(request, id):
             sketchfab_id = specimen.sketchfab
             return render(request, 'specimen_info.html', {'specimen_form':specimen_form,'tomographic_data':tomographic_data,
                                                           'processed_data':processed_data,'name':name,'specimen':specimen,
-                                                          'path_to_slices':path_to_slices,'nos':nos, 'imshape_x':imshape[1], 'imshape_y':imshape[0]
+                                                          'imshape_x':imshape[1], 'imshape_y':imshape[0],'paths':images
                                                          })
 
 @login_required
@@ -257,25 +257,22 @@ def tomographic_info(request, id):
                     messages.success(request, 'Information updated successfully.')
                 return redirect(tomographic_info, id)
         else:
+            images = None
+            imshape = (0,0)
             # preview tomographic data
-            path_to_slices = '/media/' + os.path.dirname(tomographic_data.pic.name) + '/slices'
-            full_path = BASE_DIR + path_to_slices
-            if os.path.exists(full_path):
-                nos = len(os.listdir(full_path)) - 1
-                path_to_slices += '/'
-                im = Image.open(full_path + '/0.png')
-                imshape = np.asarray(im).shape
+            path_to_slices = BASE_DIR + os.path.splitext('/media/' + tomographic_data.pic.name)[0]
+            if os.path.exists(path_to_slices):
+                images = sorted(glob.glob(path_to_slices + '/*.png'))
+                imshape = np.asarray(Image.open(images[0])).shape
                 imshape_x = 400
                 imshape_y = int(imshape[0]/imshape[1]*400)
                 imshape = (imshape_y,imshape_x)
-            else:
-                nos = 0
-                imshape = (0,0)
+                images = [img.replace(BASE_DIR,'') for img in images]
             # tomographic form
             tomographic_form = TomographicDataForm(initial=initial)
             return render(request, 'tomographic_info.html', {'tomographic_form':tomographic_form,'name':tomographic_data.pic.name,
-                                                             'related_specimen':tomographic_data.specimen.id, 'path_to_slices':path_to_slices,
-                                                             'nos':nos, 'imshape_x':imshape[1], 'imshape_y':imshape[0]})
+                                                             'related_specimen':tomographic_data.specimen.id,
+                                                             'paths':images, 'imshape_x':imshape[1], 'imshape_y':imshape[0]})
 
 @login_required
 def sliceviewer_repository(request):
@@ -290,16 +287,11 @@ def sliceviewer_repository(request):
             specimen = get_object_or_404(Specimen, pk=id)
             tomographic_data = ProcessedData.objects.filter(specimen=specimen, imageType=1)[0]
         if request.user in tomographic_data.specimen.repository.users.all():
-            if obj == 'processed' or obj == 'specimen':
-                path_to_slices = '/media/' + tomographic_data.pic.name.replace('.tif','')
-            else:
-                path_to_slices = '/media/' + os.path.dirname(tomographic_data.pic.name) + '/slices'
-            full_path = BASE_DIR + path_to_slices
-            nos = len(os.listdir(full_path)) - 1
-            path_to_slices += '/'
-            im = Image.open(full_path + '/0.png')
-            imshape = np.asarray(im).shape
-            return render(request, 'sliceviewer.html', {'path_to_slices':path_to_slices, 'nos':nos, 'imshape_x':imshape[1], 'imshape_y':imshape[0]})
+            path_to_slices = BASE_DIR + '/media/' + tomographic_data.pic.name.replace('.tif','')
+            images = sorted(glob.glob(path_to_slices + '/*.png'))
+            imshape = np.asarray(Image.open(images[0])).shape
+            images = [img.replace(BASE_DIR,'') for img in images]
+            return render(request, 'sliceviewer.html', {'paths':images, 'imshape_x':imshape[1], 'imshape_y':imshape[0]})
 
 @login_required
 def visualization_repository(request):
@@ -557,10 +549,8 @@ def sliceviewer(request, id):
         if os.path.isdir(src):
             # link data from stoarge to media
             prefix = generate_activation_key()
-            path_to_slices = '/media/' + prefix
-            dest = BASE_DIR + path_to_slices
+            dest = BASE_DIR + '/media/' + prefix
             os.symlink(src, dest)
-            path_to_slices += '/'
 
             # create symlinks wich are removed when "app" is called or user loggs out
             try:
@@ -570,10 +560,10 @@ def sliceviewer(request, id):
             except:
                 request.session["symlinks"] = [dest]
 
-            nos = len(os.listdir(dest)) - 1
-            im = Image.open(dest + '/0.png')
-            imshape = np.asarray(im).shape
-            return render(request, 'sliceviewer.html', {'path_to_slices':path_to_slices, 'nos':nos, 'imshape_x':imshape[1], 'imshape_y':imshape[0]})
+            images = sorted(glob.glob(dest + '/*.png'))
+            imshape = np.asarray(Image.open(images[0])).shape
+            images = [img.replace(BASE_DIR,'') for img in images]
+            return render(request, 'sliceviewer.html', {'paths':images, 'imshape_x':imshape[1], 'imshape_y':imshape[0]})
 
         else:
             # create slices
@@ -2154,13 +2144,11 @@ def sliceviewer_demo(request):
         demo_files = [os.path.basename(x) for x in demo_files]
         max_str = max(demo_files, key=len)
         if id[:len(max_str)] in demo_files:
-            path_to_slices = "/media/sliceviewer/" + id
-            full_path = BASE_DIR + path_to_slices
-            nos = len(os.listdir(full_path)) - 1
-            path_to_slices += '/'
-            im = Image.open(full_path + '/0.png')
-            imshape = np.asarray(im).shape
-            return render(request, 'sliceviewer.html', {'path_to_slices':path_to_slices, 'nos':nos, 'imshape_x':imshape[1], 'imshape_y':imshape[0]})
+            path_to_slices = BASE_DIR + '/media/sliceviewer/' + id
+            images = sorted(glob.glob(path_to_slices + '/*.png'))
+            imshape = np.asarray(Image.open(images[0])).shape
+            images = [img.replace(BASE_DIR,'') for img in images]
+            return render(request, 'sliceviewer.html', {'paths':images, 'imshape_x':imshape[1], 'imshape_y':imshape[0]})
 
 # 41. delete
 @login_required

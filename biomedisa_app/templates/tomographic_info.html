@@ -12,14 +12,8 @@
     <script type="text/javascript" src="/static/sliceviewer/src/sliceviewer.js"></script>
     <script type="text/javascript">
     $(function() {
-        images = [];
-        for (i = 0; i <= {{nos}}; i++) {
-            str = "{{ path_to_slices }}";
-            str = str + i + ".png";
-            images.push(str);
-        } 
         $("#viewer").sliceviewer({
-            images: images, width: {{imshape_x}}, height: {{imshape_y}}
+            images: {{ paths|safe }}, width: {{imshape_x}}, height: {{imshape_y}}
         });
     })
     </script>
@@ -57,7 +51,7 @@
     </div>
 
     <div class="col preview">
-      {% if nos %}
+      {% if paths %}
       <div id="viewer" >
       </div>
       {% endif %}
