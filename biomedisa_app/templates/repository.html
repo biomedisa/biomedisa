@@ -10,13 +10,13 @@ function alertFunction(state) {
     window.close();
 }
 
-function sliceviewerFunction(id) {
-    window.location.href = "/repository/sliceviewer/?id=" + id + "&object=specimen";
+function sliceviewerFunction(id, repository_name) {
+    window.location.href = "/" + repository_name + "/sliceviewer/?id=" + id + "&object=specimen";
     window.close();
 }
 
-function visualizationFunction(id) {
-    window.location.href = "/repository/visualization/?id=" + id + "&object=specimen";
+function visualizationFunction(id, repository_name) {
+    window.location.href = "/" + repository_name + "/visualization/?id=" + id + "&object=specimen";
     window.close();
 }
 
@@ -180,7 +180,7 @@ $(document).ready(addClickHandlers);
 
   {% if featured_img == None %}
     <h2 style="text-align:left;text-transform:uppercase">
-    {{repository_alias}}
+    {{repository.name}}
     </h2>
   {% endif %}
 
@@ -240,9 +240,9 @@ $(document).ready(addClickHandlers);
               <span>{{ img.internal_id }}</span>
           {% endif %}
           <!-- feature buttons --></br>
-          <a href="/repository/specimen/{{img.id}}"><img src="/static/info.png" alt="info" style="width:20px;height:20px;border:0;"></a>
-          <a href=# onclick="sliceviewerFunction({{img.id}})"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
-          <a href=# onclick="visualizationFunction({{img.id}})"><img src="/static/visualization.svg" title="visualization" style="width:32px;height:20px;"></a>
+          <a href="/{{repository.name}}/specimen/{{img.id}}"><img src="/static/info.png" alt="info" style="width:20px;height:20px;border:0;"></a>
+          <a href=# onclick="sliceviewerFunction({{img.id}},'{{repository.name}}')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
+          <a href=# onclick="visualizationFunction({{img.id}},'{{repository.name}}')"><img src="/static/visualization.svg" title="visualization" style="width:32px;height:20px;"></a>
           </p>
         </div>
       </td>
@@ -273,9 +273,9 @@ $(document).ready(addClickHandlers);
               <span>{{ img.internal_id }}</span>
           {% endif %}
           <!-- feature buttons --></br>
-          <a href="/repository/specimen/{{img.id}}"><img src="/static/info.png" alt="info" style="width:20px;height:20px;border:0;"></a>
-          <a href=# onclick="sliceviewerFunction({{img.id}})"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
-          <a href=# onclick="visualizationFunction({{img.id}})"><img src="/static/visualization.svg" title="visualization" style="width:32px;height:20px;"></a>
+          <a href="/{{repository.name}}/specimen/{{img.id}}"><img src="/static/info.png" alt="info" style="width:20px;height:20px;border:0;"></a>
+          <a href=# onclick="sliceviewerFunction({{img.id}},'{{repository.name}}')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
+          <a href=# onclick="visualizationFunction({{img.id}},'{{repository.name}}')"><img src="/static/visualization.svg" title="visualization" style="width:32px;height:20px;"></a>
           </p>
         </div>
       </td>
@@ -285,7 +285,11 @@ $(document).ready(addClickHandlers);
     {% endfor %}
     </table>
   </form>
-
+    {% if not show_all %}
+        <form method="get">
+            <button type="submit" name="show_all" value="True">Show All</button>
+        </form>
+    {% endif %}
   <div class="clr"></div>
   </div>
 </div>

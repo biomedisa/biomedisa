@@ -266,18 +266,32 @@ def repository_directory_path(instance, filename):
     return filename
 
 class Repository(models.Model):
-    repository_alias = models.TextField(null=True)
-    repository_name = models.TextField(null=True)
-    repository_id = models.CharField(default=0, max_length=7)
-    users = models.ManyToManyField(User, related_name="repository")
+    name = models.TextField(null=True)
+    users = models.ManyToManyField(
+        User,
+        through='RepositoryUser',
+        through_fields=('repository', 'user'),
+        related_name='repositories'
+        )
     featured_img = models.TextField(null=True)
     featured_img_width = models.TextField(null=True)
     featured_img_height = models.TextField(null=True)
 
+class RepositoryUser(models.Model):
+    repository = models.ForeignKey(Repository, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    # Add fields for special rights or permissions
+    can_edit = models.BooleanField(default=False)
+    can_delete = models.BooleanField(default=False)
+    can_add = models.BooleanField(default=False)
+    can_share = models.BooleanField(default=False)
+    class Meta:
+        unique_together = ('repository', 'user')
+
 class Specimen(models.Model):
     internal_id = models.CharField(null=True, max_length=255, blank=True)
     upload_date = models.DateTimeField(auto_now_add=True, null=True)
-    repository = models.ForeignKey(Repository, on_delete=models.DO_NOTHING)
+    repository = models.ForeignKey(Repository, on_delete=models.CASCADE, related_name='specimens')
     subfamily = models.CharField(null=True, max_length=255, blank=True)
     genus = models.CharField(null=True, max_length=255, blank=True)
     species = models.CharField(null=True, max_length=255, blank=True)
