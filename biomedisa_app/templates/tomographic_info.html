@@ -26,7 +26,7 @@
 {% block content %}
 <div class="fbg">
   <div class="fbg_resize">
-    <h2> <span> {{ name }} </span> </h2>
+    <h2> <span> {{ tomographic_data.pic.name }} </span> </h2>
 
     <div class="col form">
 
@@ -43,11 +43,13 @@
       <form method="post" class="form1">
         {% csrf_token %}
         {{ tomographic_form.as_p }}
+        {% if user_can_edit %}
         <button type="submit">Save changes</button>
+        {% endif %}
       </form>
 
       </br>
-      <a href="/repository/specimen/{{related_specimen}}">Go back</a>
+      <a href="/{{tomographic_data.specimen.repository.name}}/specimen/{{tomographic_data.specimen.id}}">Go back</a>
     </div>
 
     <div class="col preview">

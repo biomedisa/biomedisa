@@ -121,7 +121,7 @@ $(document).ready(addClickHandlers);
           {% if repositories %}
             <h2> <span>My Repositories</span> </h2>
             {% for repo in repositories %}
-              <a href="/repository/{{repo.id}}">{{ repo.repository_alias }}</a>
+              <a href="/{{repo.name}}">{{ repo.name }}</a>
               <span class="remove_link" id="{{repo.id}}"><img src="/static/icon-deletelink.svg" title="unsubscribe" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
               <span class="share_link" id="{{repo.id}}"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
             {% endfor %}
