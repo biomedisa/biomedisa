@@ -255,7 +255,7 @@ def specimen_info(request, id):
         imshape = (0,0)
         if ProcessedData.objects.filter(specimen=specimen, imageType=1).exists():
             processed_data = ProcessedData.objects.filter(specimen=specimen, imageType=1)[0]
-            path_to_slices = BASE_DIR + os.path.splitext('/media/' + processed_data.pic.name)[0]
+            path_to_slices = BASE_DIR + os.path.splitext('/media/' + processed_data.pic.name)[0] + '_lowres'
             if os.path.exists(path_to_slices):
                 images = sorted(glob.glob(path_to_slices + '/*.png'))
                 imshape = np.asarray(Image.open(images[0])).shape
