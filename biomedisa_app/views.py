@@ -2207,34 +2207,19 @@ def sliceviewer_demo(request):
 def delete(request):
     results = {'success':False}
     if request.method == 'GET':
+        # delete upload object
         id = int(request.GET.get('id'))
-        obj = str(request.GET.get('object'))[:11]
-        try:
-            # delete tomographic data object
-            if obj == 'tomographic':
-                stock_to_delete = get_object_or_404(TomographicData, pk=id)
-                if request.user in stock_to_delete.specimen.repository.users.all():
-                    stock_to_delete.delete()
-            # delete specimen object
-            elif obj == 'specimen':
-                stock_to_delete = get_object_or_404(Specimen, pk=id)
-                if request.user in stock_to_delete.repository.users.all():
-                    stock_to_delete.delete()
-            # delete upload object
+        stock_to_delete = get_object_or_404(Upload, pk=id)
+        if stock_to_delete.user == request.user and stock_to_delete.status==0:
+            if stock_to_delete.final:
+                images = Upload.objects.filter(user=request.user, friend=stock_to_delete.friend)
+                for img in images:
+                    img.delete()
             else:
-                stock_to_delete = get_object_or_404(Upload, pk=id)
-                if stock_to_delete.user == request.user and stock_to_delete.status==0:
-                    if stock_to_delete.final:
-                        images = Upload.objects.filter(user=request.user, friend=stock_to_delete.friend)
-                        for img in images:
-                            img.delete()
-                    else:
-                        stock_to_delete.delete()
-                    # update size of user data
-                    request.session['datasize'] = get_size(PRIVATE_STORAGE_ROOT + '/images/' + request.user.username)
-            results = {'success':True}
-        except:
-            pass
+                stock_to_delete.delete()
+            # update size of user data
+            request.session['datasize'] = get_size(PRIVATE_STORAGE_ROOT + '/images/' + request.user.username)
+        results = {'success':True}
     return JsonResponse(results)
 
 # 42. init_random_walk

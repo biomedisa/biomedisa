@@ -231,7 +231,6 @@ $(document).ready(addClickHandlers);
             <div id="img{{ img.id }}" >
               <p style="text-align:left;">
               <img src="/static/file_image.svg" title="visualization" style="width:50px;height:50px;border:0;">
-              <span class="delete_link" id="{{img.id}}"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
               <a href=# onclick="downloadFunction({{img.id}},'tomographic','{{specimen.repository.name}}')"><img src="/static/downloads.png" alt="download" style="width:20px;height:20px;border:0;"></a>
               <a href=# onclick="sliceviewerFunction({{img.id}},'tomographic','{{specimen.repository.name}}')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
               <span class="share_link" id="{{img.id}}"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
@@ -251,7 +250,6 @@ $(document).ready(addClickHandlers);
                 <div id="img{{ img.id }}" >
                   <p style="text-align:left;">
                   <img src="/static/file_image.svg" title="visualization" style="width:50px;height:50px;border:0;">
-                  <span class="delete_link" id="{{img.id}}"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
                   <a href=# onclick="downloadFunction({{img.id}},'processed','{{specimen.repository.name}}')"><img src="/static/downloads.png" alt="download" style="width:20px;height:20px;border:0;"></a>
                   <a href=# onclick="sliceviewerFunction({{img.id}},'processed','{{specimen.repository.name}}')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
                   <span class="share_link" id="{{img.id}}"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
@@ -264,7 +262,6 @@ $(document).ready(addClickHandlers);
                 <div id="img{{ img.id }}" >
                   <p style="text-align:left;">
                   <img src="/static/file_label.svg" title="visualization" style="width:50px;height:50px;border:0;">
-                  <span class="delete_link" id="{{img.id}}"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
                   <a href=# onclick="downloadFunction({{img.id}},'processed','{{specimen.repository.name}}')"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
                   <a href=# onclick="sliceviewerFunction({{img.id}},'processed','{{specimen.repository.name}}')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
                   <span class="share_link" id="{{img.id}}"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
@@ -277,7 +274,6 @@ $(document).ready(addClickHandlers);
                 <div id="img{{ img.id }}" >
                   <p style="text-align:left;">
                   <a href='#'><img src="/static/file_ai.svg" title="network" style="width:50px;height:50px;border:0;"></a>
-                  <span class="delete_link" id="{{img.id}}"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
                   <a href=# onclick="downloadFunction({{img.id}},'processed','{{specimen.repository.name}}')"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
                   <span class="share_link" id="{{img.id}}"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
                   <input type="checkbox" name="selected" value="{{img.id}}"/>
@@ -289,8 +285,8 @@ $(document).ready(addClickHandlers);
                 <div id="img{{ img.id }}" >
                   <p style="text-align:left;">
                   <a href=# onclick="visualizationFunction({{img.id}},'processed','{{specimen.repository.name}}')"><img src="/static/file_mesh.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
-                  <span class="delete_link" id="{{img.id}}"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
                   <a href=# onclick="downloadFunction({{img.id}},'processed','{{specimen.repository.name}}')"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+                  <a href=# onclick="visualizationFunction({{img.id}},'processed','{{specimen.repository.name}}')"><img src="/static/visualization.svg" title="visualization" style="width:32px;height:20px;"></a>
                   <span class="share_link" id="{{img.id}}"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
                   <input type="checkbox" name="selected" value="{{img.id}}"/>
                   {{ img.pic.name }}
@@ -301,7 +297,6 @@ $(document).ready(addClickHandlers);
                 <div id="img{{ img.id }}" >
                   <p style="text-align:left;">
                   <img src="/static/file_final.svg" title="visualization" style="width:50px;height:50px;border:0;">
-                  <span class="delete_link" id="{{img.id}}"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
                   <a href=# onclick="downloadFunction({{img.id}},'processed','{{specimen.repository.name}}')"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
                   <a href=# onclick="sliceviewerFunction({{img.id}},'processed','{{specimen.repository.name}}')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
                   <span class="share_link" id="{{img.id}}"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
