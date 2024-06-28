@@ -377,7 +377,11 @@ class segment_anything_moduleLogic(ScriptedLoadableModuleLogic):
 
     def setupPredictor(self):
         #TODO: include file and/or make it selectable
-        sam_checkpoint = r"C:\Users\matze\Documents\Code\biomedisa\biomedisa_slicer_extension\totalSegment\segment_anything_module\Resources\sam_vit_h_4b8939.pth"
+
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        sam_checkpoint = os.path.join(script_dir, "Resources", "sam_vit_h_4b8939.pth")
+        if not os.path.exists(sam_checkpoint):
+            raise Exception(f"You need to download a model checkpoint and store it at {sam_checkpoint}. Check out: https://github.com/facebookresearch/segment-anything")
         model_type = "vit_h"
         sam = sam_model_registry[model_type](checkpoint=sam_checkpoint)
         self.predictor = SamPredictor(sam)
