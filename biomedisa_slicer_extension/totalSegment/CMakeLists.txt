@@ -20,7 +20,7 @@ include(${Slicer_USE_FILE})
 #-----------------------------------------------------------------------------
 # Extension modules
 add_subdirectory(biomedisa_segmentation)
-add_subdirectory(segment_anything)
+add_subdirectory(segment_anything_module)
 ## NEXT_MODULE
 
 #-----------------------------------------------------------------------------
