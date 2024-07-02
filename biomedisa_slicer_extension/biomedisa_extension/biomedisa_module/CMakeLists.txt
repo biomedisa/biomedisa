@@ -1,5 +1,5 @@
 #-----------------------------------------------------------------------------
-set(MODULE_NAME biomedisa_segmentation)
+set(MODULE_NAME biomedisa_module)
 
 #-----------------------------------------------------------------------------
 set(MODULE_PYTHON_SCRIPTS

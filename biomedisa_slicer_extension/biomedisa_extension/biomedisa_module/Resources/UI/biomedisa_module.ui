@@ -61,6 +61,9 @@
         <property name="showChildNodeTypes">
          <bool>false</bool>
         </property>
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
         <property name="addEnabled">
          <bool>false</bool>
         </property>
@@ -195,16 +198,32 @@
      </layout>
     </widget>
    </item>
-   <item>
-    <widget class="QPushButton" name="applyButton">
+   <item row="0" column="0">
+    <widget class="QPushButton" name="segmentAnythingButton">
      <property name="enabled">
-      <bool>true</bool>
+      <bool>false</bool>
      </property>
      <property name="toolTip">
       <string>Run the algorithm.</string>
      </property>
      <property name="text">
-      <string>Apply</string>
+      <string>segment anything</string>
+     </property>
+     <property name="checkable">
+      <bool>false</bool>
+     </property>
+    </widget>
+   </item>
+   <item row="0" column="1">
+    <widget class="QPushButton" name="biomedisaButton">
+     <property name="enabled">
+      <bool>false</bool>
+     </property>
+     <property name="toolTip">
+      <string>Run the algorithm.</string>
+     </property>
+     <property name="text">
+      <string>biomedisa</string>
      </property>
      <property name="checkable">
       <bool>false</bool>
