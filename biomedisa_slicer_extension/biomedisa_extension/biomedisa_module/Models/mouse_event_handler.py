@@ -37,7 +37,6 @@ class MouseEventHandler():
     def get_image_coordinates(self):
         infoWidget = slicer.modules.DataProbeInstance.infoWidget
         text = infoWidget.layerIJKs['B'].text
-        print(f"Data Probe text: {text}")  # Debugging line
         return self.ijkStringToCoordArray(text)
     
     def ijkStringToCoordArray(self, text):
@@ -45,16 +44,12 @@ class MouseEventHandler():
         numbers_str = text.strip("() ").split(", ")
         numbers_uint8 = np.array(numbers_str, dtype=np.uint8)
         numbers_uint8 = numbers_uint8.reshape(-1, 1)
-        print(f"numbers_uint8: {numbers_uint8}")
         return numbers_uint8
     
     def addCoord(self, coords, isForeground):
         print(f"add {coords} isForeground: {isForeground}")
         coords = [int(coord) for coord in coords]
         self.coords.append([coords[0], coords[1], coords[2], isForeground])
-
-        for item in self.coords:
-            print(f"x: {item[0]}, y: {item[1]}, z: {item[2]}, _: {item[3]}")
 
     def getCoords(self, index):
         # TODO: Use dimension manager to determine by which column to filter
