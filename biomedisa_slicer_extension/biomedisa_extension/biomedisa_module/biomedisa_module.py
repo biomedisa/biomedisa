@@ -47,10 +47,19 @@ class biomedisa_module(ScriptedLoadableModule):
         # TODO: update with short description of the module and a link to online module documentation
         # _() function marks text as translatable to other languages
         self.parent.helpText = _("""
+<h1>Biomedisa</h1>
 Biomedisa is a free and easy-to-use open-source application for segmenting large volumetric images such as CT and MRI scans,
 developed at The Australian National University CTLab. Biomedisa's smart interpolation of sparsely pre-segmented slices
 enables accurate semi-automated segmentation by considering the complete underlying image data. 
-For more information visit the <a href="https://biomedisa.info/">project page</a>
+For more information visit the <a href="https://biomedisa.info/">project page</a>.
+                                 
+<h3>How to use:</h3>
+<ol>
+    <li>Add segment points (green) by clicking in the red image.</li>
+    <li>Add non-segment points (green) by holding down the Alt key and clicking in the red image.</li>
+    <li>Run the segment anything algorithm to create a label mask for the current layer.</li>
+    <li>Run the biomedisa algorithm to create a label mask for the entire 3D image.</li>
+</ol>
 """)
         # TODO: replace with organization, grant and thanks
         self.parent.acknowledgementText = _("""
