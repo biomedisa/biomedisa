@@ -4,12 +4,13 @@ from typing import Annotated, Optional
 
 import numpy as np
 import vtk
+from vtk import vtkCommand, vtkInteractorStyleUser
 from segment_anything import SamPredictor, sam_model_registry
+from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QGuiApplication
 
 import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), 'Models'))
-from mouse_event_handler import MouseEventHandler
-from dimension_manager import DimensionManager
 from vtk_numpy_converter import vtkNumpyConverter
 
 import slicer
@@ -148,7 +149,6 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.logic = None
         self._parameterNode = None
         self._parameterNodeGuiTag = None
-        self.red = MouseEventHandler('Red')
 
     def setup(self) -> None:
         """Called when the user opens the module the first time and the widget is initialized."""
@@ -176,20 +176,109 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.addObserver(slicer.mrmlScene, slicer.mrmlScene.StartCloseEvent, self.onSceneStartClose)
         self.addObserver(slicer.mrmlScene, slicer.mrmlScene.EndCloseEvent, self.onSceneEndClose)
 
+        self.setup_markups()
+
         # Add observer for left mouse button click
-        self.red.setup()
+        self.interactor.AddObserver(vtkCommand.LeftButtonPressEvent, self.on_left_click)
         
         # Buttons
         self.ui.biomedisaButton.connect("clicked(bool)", self.onBiomedisaButton)
         self.ui.segmentAnythingButton.connect("clicked(bool)", self.onSegmentAnythingButton)
+        self.ui.deleteLabelButton.connect("clicked(bool)", self.onDeleteLabelButton)
+        self.ui.clearPointsButton.connect("clicked(bool)", self.onClearPointsButton)
 
         # Make sure parameter node is initialized (needed for module reload)
         self.initializeParameterNode()
 
+    def setup_markups(self):
+        self.slice_widget = slicer.app.layoutManager().sliceWidget('Red')
+        self.slice_view = self.slice_widget.sliceView()
+        self.observerId = self.interactor = self.slice_view.interactorStyle().GetInteractor()
+
+        self.foregroundMarkupsNode = self.create_markups(self.slice_widget, "Segment", 0, 1, 0)
+        self.backgroundMarkupsNode = self.create_markups(self.slice_widget, "Non Segement", 1, 0, 0)
+
+    def create_markups(self ,slice_widget, name, r, g, b):
+        # Create markups node
+        markupsNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLMarkupsFiducialNode")
+        markupsNode.SetName(name)
+        
+        # Create display node
+        markupsDisplayNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLMarkupsDisplayNode")
+        markupsNode.SetAndObserveDisplayNodeID(markupsDisplayNode.GetID())
+        #Move to 'Red'
+        redSliceNode = slice_widget.mrmlSliceNode()
+        displayNode = markupsNode.GetDisplayNode()
+        displayNode.AddViewNodeID(redSliceNode.GetID())
+
+        # Configure display node
+        markupsDisplayNode.SetGlyphScale(2.0)  # Size of the fiducial points
+        markupsDisplayNode.SetSelectedColor(r, g, b)  
+        markupsDisplayNode.SetColor(r, g, b)  
+        #markupsDisplayNode.SetColor(0, 0, 1)  
+
+        return markupsNode
+
+    def on_left_click(self, caller, event):
+        xy = self.interactor.GetEventPosition()
+
+        sliceValue = self.get_slice_index()
+
+        ras = self.slice_view.convertXYZToRAS([xy[0], xy[1], sliceValue])
+        ras = [ras[0], ras[1], sliceValue]
+
+        # TODO: Check if out of frame and return
+        # TODO: Check if point is selected and remove it.
+       
+        modifiers = QGuiApplication.queryKeyboardModifiers()
+        alt_pressed = bool(modifiers & Qt.Modifier.ALT)
+        if(alt_pressed):
+            self.backgroundMarkupsNode.AddControlPoint(ras[0], ras[1], ras[2])
+        else:
+            self.foregroundMarkupsNode.AddControlPoint(ras[0], ras[1], ras[2])
+
+    def get_slice_index(self )-> int: 
+        sliceController = self.slice_widget.sliceController()
+        sliceValue = sliceController.sliceOffsetSlider().value
+        return int(sliceValue)
+        
+    def get_foreground_points(self, sliceIndex):
+        return self.get_points(self.foregroundMarkupsNode, sliceIndex)
+
+    def get_background_points(self, sliceIndex):
+        return self.get_points(self.foregroundMarkupsNode, sliceIndex)
+
+    def get_points(self, markupsNode, sliceIndex):
+        points = []
+        pointsCount = markupsNode.GetNumberOfControlPoints()
+        for i in range(pointsCount):
+            coords = [0.0, 0.0, 0.0]
+            markupsNode.GetNthControlPointPosition(i, coords)
+            if(coords[2] == sliceIndex):
+                points.append([-round(coords[0]), -round(coords[1]), coords[2], i])
+        return points
+
+    def clear_background_points(self, sliceIndex):
+        self.clear_points(self.backgroundMarkupsNode, sliceIndex)
+
+    def clear_foreground_points(self, sliceIndex):
+        self.clear_points(self.foregroundMarkupsNode, sliceIndex)
+
+    def clear_points(self, markupsNode, sliceIndex):
+        sliceIndex = self.get_slice_index()
+        points = self.get_points(markupsNode, sliceIndex)
+        for point in reversed(points):
+            markupsNode.RemoveNthControlPoint(point[3])
+
+    def clear_all_points(self):
+        self.foregroundMarkupsNode.RemoveAllControlPoints()
+        self.backgroundMarkupsNode.RemoveAllControlPoints()
+    
     def cleanup(self) -> None:
         """Called when the application closes and the module widget is destroyed."""
         self.removeObservers()
-        self.red.cleanup()
+        self.interactor.RemoveObserver(self.observerId)
+        self.clear_all_points()
 
     def enter(self) -> None:
         """Called each time the user opens this module."""
@@ -203,6 +292,8 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self._parameterNode.disconnectGui(self._parameterNodeGuiTag)
             self._parameterNodeGuiTag = None
             self.removeObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self._checkCanApply)
+            self.removeObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self._checkCanRunBiomedisa)
+            self.removeObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self._checkCanDeleteLabel)
 
     def onSceneStartClose(self, caller, event) -> None:
         """Called just before the scene is closed."""
@@ -224,16 +315,25 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         # Select default input nodes if nothing is selected yet to save a few clicks for the user
         if not self._parameterNode.inputVolume:
-            firstVolumeNode = slicer.mrmlScene.GetFirstNodeByClass("vtkMRMLScalarVolumeNode")
-            if firstVolumeNode:
-                self._parameterNode.inputVolume = firstVolumeNode
-                print(f"autoselect input: {firstVolumeNode.GetName()}")
-            firstLabelNode = slicer.mrmlScene.GetFirstNodeByClass("vtkMRMLLabelMapVolumeNode")
-            if firstLabelNode:
-                self._parameterNode.inputLabels = firstLabelNode
-                print(f"autoselect label: {firstLabelNode.GetName()}")
-            else:
-                print(f"no autoselect")
+            nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLScalarVolumeNode")
+            for node in nodes:
+                if not isinstance(node, vtkMRMLLabelMapVolumeNode):
+                    self._parameterNode.inputVolume = node
+                    break
+
+        if not self._parameterNode.inputLabels:
+            nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLScalarVolumeNode")
+            for node in nodes:
+                if isinstance(node, vtkMRMLLabelMapVolumeNode):
+                    self._parameterNode.inputLabels = node
+                    break
+
+        if not self._parameterNode.outputLabels:
+            nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLScalarVolumeNode")
+            for node in nodes:
+                if isinstance(node, vtkMRMLLabelMapVolumeNode):
+                    self._parameterNode.outputLabels = node
+                    break
 
     def setParameterNode(self, inputParameterNode: Optional[biomedisa_moduleParameterNode]) -> None:
         """
@@ -245,6 +345,7 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self._parameterNode.disconnectGui(self._parameterNodeGuiTag)
             self.removeObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self._checkCanRunBiomedisa)
             self.removeObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self._checkCanRunSegmentAnything)
+            self.removeObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self._checkCanDeleteLabel)
         self._parameterNode = inputParameterNode
         if self._parameterNode:
             # Note: in the .ui file, a Qt dynamic property called "SlicerParameterName" is set on each
@@ -252,8 +353,10 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self._parameterNodeGuiTag = self._parameterNode.connectGui(self.ui)
             self.addObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self._checkCanRunBiomedisa)
             self.addObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self._checkCanRunSegmentAnything)
+            self.addObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self._checkCanDeleteLabel)
             self._checkCanRunBiomedisa()
             self._checkCanRunSegmentAnything()
+            self._checkCanDeleteLabel()
 
     def _checkCanRunBiomedisa(self, caller=None, event=None) -> None:
         if self._parameterNode.inputVolume and self._parameterNode.inputLabels:
@@ -267,16 +370,18 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         else:
             self.ui.segmentAnythingButton.enabled = False
 
+    def _checkCanDeleteLabel(self, caller=None, event=None) -> None:
+        if self._parameterNode.inputLabels:
+            self.ui.deleteLabelButton.enabled = True
+        else:
+            self.ui.deleteLabelButton.enabled = False
 
     def onBiomedisaButton(self) -> None:
-        
         print(f"input: {self._parameterNode.inputVolume.GetName()}")
         print(f"label: {self._parameterNode.inputLabels.GetName()}")
         print ("nbrw:" + str(self._parameterNode.nbrw))
         print ("sorw:" + str(self._parameterNode.sorw))
 
-        #inputNode =   slicer.util.getNode('tumor')
-        #labelsNode =   slicer.util.getNode('labels.tumor')
         inputNode  =  self._parameterNode.inputVolume
         labelsNode  =  self._parameterNode.inputLabels
 
@@ -296,27 +401,42 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         print(f"input: {self._parameterNode.inputVolume.GetName()}")
         print(f"label: {self._parameterNode.inputLabels.GetName()}")
 
-       # TODO: make 3 different buttons to run for each dimension seperately
-        sliceIndex = self.red.getCurrentIndex()
-        foreground  = self.red.getForegroundCoords(sliceIndex)
-        background  = self.red.getBackgroundCoords(sliceIndex)
+        sliceIndex = self.get_slice_index()
+        foreground = self.get_foreground_points(sliceIndex)[:3]
+        background = self.get_background_points(sliceIndex)[:3]
 
         print(f"sliceIndex: {sliceIndex}")
+        print(f"foreground: {foreground}")
+        print(f"background: {background}")
 
         inputNode  =  self._parameterNode.inputVolume
 
-        mask = self.logic.processRed(inputNode, sliceIndex, foreground, background)
+        mask = self.logic.runSegmentAnythingRed(inputNode, sliceIndex, foreground, background)
 
+        # Apply slice to label
         labelsNode  =  self._parameterNode.inputLabels
         labelImage = labelsNode.GetImageData()
         npLabel=vtkNumpyConverter.vtkToNumpy(labelImage)
-
-        self.red.dimension_manager.setSlice(npLabel, sliceIndex, mask)
-        
+        npLabel[:, :, sliceIndex] = mask
         vtlLabel = vtkNumpyConverter.numpyToVTK(npLabel)
         labelsNode.SetAndObserveImageData(vtlLabel)
 
-        pass
+    def onDeleteLabelButton(self) -> None:
+        labelsNode  = self._parameterNode.inputLabels
+        sliceIndex = self.get_slice_index()
+        print(f"deleting slice {sliceIndex}")
+
+        inputImage = labelsNode.GetImageData()
+        npImage = vtkNumpyConverter.vtkToNumpy(inputImage)
+        npImage[int(sliceIndex), :, :] = 0
+        vtlLabel = vtkNumpyConverter.numpyToVTK(npImage)
+        labelsNode.SetAndObserveImageData(vtlLabel)
+
+    def onClearPointsButton(self) -> None:
+        sliceIndex = self.get_slice_index()
+        self.clear_background_points(sliceIndex)
+        self.clear_foreground_points(sliceIndex)
+
 #
 # biomedisa_moduleLogic
 #
@@ -335,7 +455,8 @@ class biomedisa_moduleLogic(ScriptedLoadableModuleLogic):
     def __init__(self) -> None:
         """Called when the logic class is instantiated. Can be used for initializing member variables."""
         ScriptedLoadableModuleLogic.__init__(self)
-        self.redDimension = DimensionManager('Red')
+        # TODO:
+        #print("DEBUG WARNING: predictor removed for development purposes")
         self.setupPredictor()
 
     def setupPredictor(self):
@@ -366,11 +487,10 @@ class biomedisa_moduleLogic(ScriptedLoadableModuleLogic):
         # convert data
         numpyImage = vtkNumpyConverter.vtkToNumpy(input)
         numpyLabels = vtkNumpyConverter.vtkToNumpy(labels)
-
+    
         from biomedisa.interpolation import smart_interpolation
         # smart interpolation with optional smoothing result
         results = smart_interpolation(numpyImage, numpyLabels, nbrw=nbrw, sorw=sorw)#, smooth=100, platform="opencl_AMD_GPU")
-
        
         # get results
         regular_result = results['regular']
@@ -380,11 +500,16 @@ class biomedisa_moduleLogic(ScriptedLoadableModuleLogic):
         #from biomedisa.features.biomedisa_helper import save_data
         #save_data('C:\\Users\\matze\\Documents\\Code\\biomedisa\\media\\result.tif', regular_result)
 
+
+
         # convert back
         outputImage = vtkNumpyConverter.numpyToVTK(regular_result)
+        outputVolume = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLScalarVolumeNode")
+        outputVolume.SetAndObserveImageData(outputImage)
+
         return outputImage
 
-    def processRed(self,
+    def runSegmentAnythingRed(self,
                    inputVolume: vtkMRMLScalarVolumeNode,
                    index: int,
                    foreground: np.array,
@@ -401,7 +526,7 @@ class biomedisa_moduleLogic(ScriptedLoadableModuleLogic):
 
         for i in range(length_f):
             point = foreground[i]
-            point_coords[i] = [point[1], point[0]] # X and Y are inverted in comparision to Slicer
+            point_coords[i] = [point[1], point[0]] # X and Y in np are different than in Slicer
             point_labels[i] = 1
         for i in range(length_b):
             point = background[i]
@@ -415,10 +540,10 @@ class biomedisa_moduleLogic(ScriptedLoadableModuleLogic):
 
         inputImage = inputVolume.GetImageData()
         npImage = vtkNumpyConverter.vtkToNumpy(inputImage)
-        slice = self.redDimension.getSlice(npImage, index)
+        slice = npImage[:, :, int(index)] # Get Red dimension
 
-        grayscale_image = np.array(slice, dtype=np.uint8)
         # Stack the grayscale image into three channels to create an RGB image
+        grayscale_image = np.array(slice, dtype=np.uint8)
         rgb_image = np.stack((grayscale_image,)*3, axis=-1)
         self.predictor.set_image(rgb_image)
 

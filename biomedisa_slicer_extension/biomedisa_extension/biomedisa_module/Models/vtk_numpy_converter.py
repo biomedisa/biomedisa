@@ -10,9 +10,11 @@ class vtkNumpyConverter:
         temp = vtk_to_numpy(data.GetPointData().GetScalars())
         dims = data.GetDimensions()
         component = data.GetNumberOfScalarComponents()
+        print(f"dims: {dims}")
+        print(f"component: {component}")
         if component == 1:
             numpy_data = temp.reshape(dims[2], dims[1], dims[0])
-            numpy_data = numpy_data.transpose(2,1,0)
+            numpy_data = numpy_data.transpose(0, 1, 2) # Not like in source
         elif component == 3 or component == 4:
             if dims[2] == 1: # a 2D RGB image
                 numpy_data = temp.reshape(dims[1], dims[0], component)
@@ -37,7 +39,7 @@ class vtkNumpyConverter:
         if multi_component == False:
             if len(data.shape) == 2:
                 data = data[:, :, np.newaxis]
-            flat_data_array = data.transpose(2,1,0).flatten()
+            flat_data_array = data.transpose(0, 1, 2).flatten() # Not like in source
             vtk_data = numpy_to_vtk(num_array=flat_data_array, deep=True, array_type=data_type)
             shape = data.shape
         else:
@@ -48,5 +50,5 @@ class vtkNumpyConverter:
             shape = [data.shape[0], data.shape[1], 1]
         img = vtk.vtkImageData()
         img.GetPointData().SetScalars(vtk_data)
-        img.SetDimensions(shape[0], shape[1], shape[2])
+        img.SetDimensions(shape[2], shape[1], shape[0]) # Not like in source
         return img
