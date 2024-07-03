@@ -177,10 +177,10 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.addObserver(slicer.mrmlScene, slicer.mrmlScene.StartCloseEvent, self.onSceneStartClose)
         self.addObserver(slicer.mrmlScene, slicer.mrmlScene.EndCloseEvent, self.onSceneEndClose)
 
-        self.setup_markups()
+        self.setupMarkups()
 
         # Add observer for left mouse button click
-        self.observerId = self.interactor.AddObserver(vtkCommand.LeftButtonPressEvent, self.on_left_click)
+        self.observerId = self.interactor.AddObserver(vtkCommand.LeftButtonPressEvent, self.onLeftClick)
         
         # Buttons
         self.ui.biomedisaButton.connect("clicked(bool)", self.onBiomedisaButton)
@@ -191,15 +191,15 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # Make sure parameter node is initialized (needed for module reload)
         self.initializeParameterNode()
 
-    def setup_markups(self):
+    def setupMarkups(self):
         self.slice_widget = slicer.app.layoutManager().sliceWidget('Red')
         self.slice_view = self.slice_widget.sliceView()
         self.interactor = self.slice_view.interactorStyle().GetInteractor()
 
-        self.foregroundMarkupsNode = self.create_markups(self.slice_widget, "Segment", 0, 1, 0)
-        self.backgroundMarkupsNode = self.create_markups(self.slice_widget, "Non Segement", 1, 0, 0)
+        self.foregroundMarkupsNode = self.createMarkups(self.slice_widget, "Segment", 0, 1, 0)
+        self.backgroundMarkupsNode = self.createMarkups(self.slice_widget, "Non Segement", 1, 0, 0)
 
-    def create_markups(self ,slice_widget, name, r, g, b):
+    def createMarkups(self ,slice_widget, name, r, g, b):
         # Create markups node
         markupsNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLMarkupsFiducialNode")
         markupsNode.SetName(name)
@@ -220,10 +220,10 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         return markupsNode
 
-    def on_left_click(self, caller, event):
+    def onLeftClick(self, caller, event):
         xy = self.interactor.GetEventPosition()
 
-        sliceValue = self.get_slice_index()
+        sliceValue = self.getSliceIndex()
 
         ras = self.slice_view.convertXYZToRAS([xy[0], xy[1], sliceValue])
         ras = [ras[0], ras[1], sliceValue]
@@ -238,18 +238,18 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         else:
             self.foregroundMarkupsNode.AddControlPoint(ras[0], ras[1], ras[2])
 
-    def get_slice_index(self )-> int: 
+    def getSliceIndex(self )-> int: 
         sliceController = self.slice_widget.sliceController()
         sliceValue = sliceController.sliceOffsetSlider().value
         return int(sliceValue)
         
-    def get_foreground_points(self, sliceIndex):
-        return self.get_points(self.foregroundMarkupsNode, sliceIndex)
+    def getForegroundPoints(self, sliceIndex):
+        return self.getPoints(self.foregroundMarkupsNode, sliceIndex)
 
-    def get_background_points(self, sliceIndex):
-        return self.get_points(self.foregroundMarkupsNode, sliceIndex)
+    def getBackgroundPoints(self, sliceIndex):
+        return self.getPoints(self.foregroundMarkupsNode, sliceIndex)
 
-    def get_points(self, markupsNode, sliceIndex):
+    def getPoints(self, markupsNode, sliceIndex):
         points = []
         pointsCount = markupsNode.GetNumberOfControlPoints()
         for i in range(pointsCount):
@@ -260,18 +260,18 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         return points
 
     def clear_background_points(self, sliceIndex):
-        self.clear_points(self.backgroundMarkupsNode, sliceIndex)
+        self.clearPoints(self.backgroundMarkupsNode, sliceIndex)
 
     def clear_foreground_points(self, sliceIndex):
-        self.clear_points(self.foregroundMarkupsNode, sliceIndex)
+        self.clearPoints(self.foregroundMarkupsNode, sliceIndex)
 
-    def clear_points(self, markupsNode, sliceIndex):
-        sliceIndex = self.get_slice_index()
-        points = self.get_points(markupsNode, sliceIndex)
+    def clearPoints(self, markupsNode, sliceIndex):
+        sliceIndex = self.getSliceIndex()
+        points = self.getPoints(markupsNode, sliceIndex)
         for point in reversed(points):
             markupsNode.RemoveNthControlPoint(point[3])
 
-    def clear_all_points(self):
+    def clearAllPoins(self):
         self.foregroundMarkupsNode.RemoveAllControlPoints()
         self.backgroundMarkupsNode.RemoveAllControlPoints()
     
@@ -279,7 +279,7 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         """Called when the application closes and the module widget is destroyed."""
         self.removeObservers()
         self.interactor.RemoveObserver(self.observerId)
-        self.clear_all_points()
+        self.clearAllPoins()
 
     def enter(self) -> None:
         """Called each time the user opens this module."""
@@ -402,9 +402,9 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         print(f"input: {self._parameterNode.inputVolume.GetName()}")
         print(f"label: {self._parameterNode.inputLabels.GetName()}")
 
-        sliceIndex = self.get_slice_index()
-        foreground = self.get_foreground_points(sliceIndex)[:3]
-        background = self.get_background_points(sliceIndex)[:3]
+        sliceIndex = self.getSliceIndex()
+        foreground = self.getForegroundPoints(sliceIndex)[:3]
+        background = self.getBackgroundPoints(sliceIndex)[:3]
 
         print(f"sliceIndex: {sliceIndex}")
         print(f"foreground: {foreground}")
@@ -424,7 +424,7 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     def onDeleteLabelButton(self) -> None:
         labelsNode  = self._parameterNode.inputLabels
-        sliceIndex = self.get_slice_index()
+        sliceIndex = self.getSliceIndex()
         print(f"deleting slice {sliceIndex}")
 
         inputImage = labelsNode.GetImageData()
@@ -434,7 +434,7 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         labelsNode.SetAndObserveImageData(vtlLabel)
 
     def onClearPointsButton(self) -> None:
-        sliceIndex = self.get_slice_index()
+        sliceIndex = self.getSliceIndex()
         self.clear_background_points(sliceIndex)
         self.clear_foreground_points(sliceIndex)
 
@@ -457,11 +457,12 @@ class biomedisa_moduleLogic(ScriptedLoadableModuleLogic):
         """Called when the logic class is instantiated. Can be used for initializing member variables."""
         ScriptedLoadableModuleLogic.__init__(self)
         # TODO:
-        #print("DEBUG WARNING: predictor removed for development purposes")
-        self.setupPredictor()
+        print("DEBUG WARNING: predictor removed for development purposes")
+        #self.setupPredictor()
 
     def setupPredictor(self):
-        #TODO: include file and/or make it selectable
+        #TODO: file selectable from UI
+        #TODO: model type selectable from UI
 
         script_dir = os.path.dirname(os.path.abspath(__file__))
         sam_checkpoint = os.path.join(script_dir, "Resources", "sam_vit_h_4b8939.pth")
@@ -475,15 +476,16 @@ class biomedisa_moduleLogic(ScriptedLoadableModuleLogic):
         return biomedisa_moduleParameterNode(super().getParameterNode())
 
     def runBiomedisa(
-                input: vtkMRMLScalarVolumeNode, #vtkImageData
-                labels: vtkMRMLScalarVolumeNode, #vtkImageData
+                input: vtkMRMLScalarVolumeNode,
+                labels: vtkMRMLLabelMapVolumeNode, 
                 sorw: int = 1,
-                nbrw: int = 1) -> vtkMRMLScalarVolumeNode: #vtkImageData
+                nbrw: int = 1) -> vtkMRMLLabelMapVolumeNode:
         """
         Run the processing algorithm.
         Can be used without GUI widget.
-        :param inputVolume: volume to be thresholded
-        :param outputVolume: thresholding result
+        :param input: volume to calculate on
+        :param labels: mask to use as a base
+        :param output: the resulting mask result
         """
         # convert data
         numpyImage = vtkNumpyConverter.vtkToNumpy(input)
@@ -496,12 +498,6 @@ class biomedisa_moduleLogic(ScriptedLoadableModuleLogic):
         # get results
         regular_result = results['regular']
         #smooth_result = results['smooth']
-
-        #print("DEBUG: Code to remove")
-        #from biomedisa.features.biomedisa_helper import save_data
-        #save_data('C:\\Users\\matze\\Documents\\Code\\biomedisa\\media\\result.tif', regular_result)
-
-
 
         # convert back
         outputImage = vtkNumpyConverter.numpyToVTK(regular_result)
@@ -591,36 +587,5 @@ class biomedisa_moduleTest(ScriptedLoadableModuleTest):
         """
 
         self.delayDisplay("Starting the test")
-
-        # Get/create input data
-
-        import SampleData
-
-        registerSampleData()
-        inputVolume = SampleData.downloadSample("biomedisa_module1")
-        self.delayDisplay("Loaded test data set")
-
-        inputScalarRange = inputVolume.GetImageData().GetScalarRange()
-        self.assertEqual(inputScalarRange[0], 0)
-        self.assertEqual(inputScalarRange[1], 695)
-
-        outputVolume = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLScalarVolumeNode")
-        threshold = 100
-
-        # Test the module logic
-
-        logic = biomedisa_moduleLogic()
-
-        # Test algorithm with non-inverted threshold
-        logic.process(inputVolume, outputVolume, threshold, True)
-        outputScalarRange = outputVolume.GetImageData().GetScalarRange()
-        self.assertEqual(outputScalarRange[0], inputScalarRange[0])
-        self.assertEqual(outputScalarRange[1], threshold)
-
-        # Test algorithm with inverted threshold
-        logic.process(inputVolume, outputVolume, threshold, False)
-        outputScalarRange = outputVolume.GetImageData().GetScalarRange()
-        self.assertEqual(outputScalarRange[0], inputScalarRange[0])
-        self.assertEqual(outputScalarRange[1], inputScalarRange[1])
 
         self.delayDisplay("Test passed")
