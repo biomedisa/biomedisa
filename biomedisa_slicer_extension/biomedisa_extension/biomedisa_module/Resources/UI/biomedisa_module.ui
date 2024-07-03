@@ -199,15 +199,15 @@
     </widget>
    </item>
    <item row="0" column="0">
-    <widget class="QPushButton" name="segmentAnythingButton">
+    <widget class="QPushButton" name="deleteLabelButton">
      <property name="enabled">
       <bool>false</bool>
      </property>
      <property name="toolTip">
-      <string>Run the algorithm.</string>
+      <string>Remove label in current layer.</string>
      </property>
      <property name="text">
-      <string>segment anything</string>
+      <string>Remove label</string>
      </property>
      <property name="checkable">
       <bool>false</bool>
@@ -215,15 +215,47 @@
     </widget>
    </item>
    <item row="0" column="1">
+    <widget class="QPushButton" name="clearPointsButton">
+     <property name="enabled">
+      <bool>true</bool>
+     </property>
+     <property name="toolTip">
+      <string>Clear points in current layer.</string>
+     </property>
+     <property name="text">
+      <string>Clear points</string>
+     </property>
+     <property name="checkable">
+      <bool>false</bool>
+     </property>
+    </widget>
+   </item>
+   <item row="0" column="1">
+    <widget class="QPushButton" name="segmentAnythingButton">
+     <property name="enabled">
+      <bool>false</bool>
+     </property>
+     <property name="toolTip">
+      <string>Run segment anything on current layer.</string>
+     </property>
+     <property name="text">
+      <string>Segment anything</string>
+     </property>
+     <property name="checkable">
+      <bool>false</bool>
+     </property>
+    </widget>
+   </item>
+   <item row="0" column="2">
     <widget class="QPushButton" name="biomedisaButton">
      <property name="enabled">
       <bool>false</bool>
      </property>
      <property name="toolTip">
-      <string>Run the algorithm.</string>
+      <string>Run the biomedisa algorithm.</string>
      </property>
      <property name="text">
-      <string>biomedisa</string>
+      <string>Biomedisa</string>
      </property>
      <property name="checkable">
       <bool>false</bool>
@@ -242,6 +274,19 @@
       </size>
      </property>
     </spacer>
+   </item>
+   <item>
+    <widget class="QLabel" name="Instruction label">
+     <property name="text">
+      <string>
+How to use:
+  1. Add segment points (green) by clicking in the red image.
+  2. Add non-segment points (green) by holing down the Alt key and clicking in the red image.
+  3. Run the segment anything algorithm to create a label mask for the current layer.
+  4. Run the biomedisa algorithm to create a label mask for the entire 3D image.
+      </string>
+     </property>
+    </widget>
    </item>
   </layout>
  </widget>
