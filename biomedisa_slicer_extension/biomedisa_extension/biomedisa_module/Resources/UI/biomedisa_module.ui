@@ -275,19 +275,6 @@
      </property>
     </spacer>
    </item>
-   <item>
-    <widget class="QLabel" name="Instruction label">
-     <property name="text">
-      <string>
-How to use:
-  1. Add segment points (green) by clicking in the red image.
-  2. Add non-segment points (green) by holing down the Alt key and clicking in the red image.
-  3. Run the segment anything algorithm to create a label mask for the current layer.
-  4. Run the biomedisa algorithm to create a label mask for the entire 3D image.
-      </string>
-     </property>
-    </widget>
-   </item>
   </layout>
  </widget>
  <customwidgets>
