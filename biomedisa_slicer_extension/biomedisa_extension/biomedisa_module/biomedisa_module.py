@@ -54,8 +54,9 @@ For more information visit the <a href="https://biomedisa.info/">project page</a
 """)
         # TODO: replace with organization, grant and thanks
         self.parent.acknowledgementText = _("""
-The extionsion is created by an unemployed C#.NET developer who is just getting into python.
-He's very sorry for all the spaghetti code.    
+                                            This extension was cooked up by a jobless C#.NET dev diving into Python.
+                                            Apologies for the spaghetti code.
+                                            Shout-out to Germany for funding this project with unemployment benefits!
 """)
 
         # Additional initialization step after application startup is complete
@@ -179,7 +180,7 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.setup_markups()
 
         # Add observer for left mouse button click
-        self.interactor.AddObserver(vtkCommand.LeftButtonPressEvent, self.on_left_click)
+        self.observerId = self.interactor.AddObserver(vtkCommand.LeftButtonPressEvent, self.on_left_click)
         
         # Buttons
         self.ui.biomedisaButton.connect("clicked(bool)", self.onBiomedisaButton)
@@ -193,7 +194,7 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     def setup_markups(self):
         self.slice_widget = slicer.app.layoutManager().sliceWidget('Red')
         self.slice_view = self.slice_widget.sliceView()
-        self.observerId = self.interactor = self.slice_view.interactorStyle().GetInteractor()
+        self.interactor = self.slice_view.interactorStyle().GetInteractor()
 
         self.foregroundMarkupsNode = self.create_markups(self.slice_widget, "Segment", 0, 1, 0)
         self.backgroundMarkupsNode = self.create_markups(self.slice_widget, "Non Segement", 1, 0, 0)
@@ -414,10 +415,10 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         mask = self.logic.runSegmentAnythingRed(inputNode, sliceIndex, foreground, background)
 
         # Apply slice to label
-        labelsNode  =  self._parameterNode.inputLabels
+        labelsNode = self._parameterNode.inputLabels
         labelImage = labelsNode.GetImageData()
-        npLabel=vtkNumpyConverter.vtkToNumpy(labelImage)
-        npLabel[:, :, sliceIndex] = mask
+        npLabel = vtkNumpyConverter.vtkToNumpy(labelImage)
+        npLabel[sliceIndex, :, :] = mask
         vtlLabel = vtkNumpyConverter.numpyToVTK(npLabel)
         labelsNode.SetAndObserveImageData(vtlLabel)
 
@@ -526,11 +527,11 @@ class biomedisa_moduleLogic(ScriptedLoadableModuleLogic):
 
         for i in range(length_f):
             point = foreground[i]
-            point_coords[i] = [point[1], point[0]] # X and Y in np are different than in Slicer
+            point_coords[i] = [point[0], point[1]]
             point_labels[i] = 1
         for i in range(length_b):
             point = background[i]
-            point_coords[length_f+i] = [point[1], point[0]]
+            point_coords[length_f+i] = [point[0], point[1]]
             point_labels[length_f+i] = 0
 
         print("point_coords")
@@ -540,7 +541,7 @@ class biomedisa_moduleLogic(ScriptedLoadableModuleLogic):
 
         inputImage = inputVolume.GetImageData()
         npImage = vtkNumpyConverter.vtkToNumpy(inputImage)
-        slice = npImage[:, :, int(index)] # Get Red dimension
+        slice = npImage[int(index), :, :] # Get Red dimension
 
         # Stack the grayscale image into three channels to create an RGB image
         grayscale_image = np.array(slice, dtype=np.uint8)
