@@ -40,11 +40,9 @@ class biomedisa_module(ScriptedLoadableModule):
     def __init__(self, parent):
         ScriptedLoadableModule.__init__(self, parent)
         self.parent.title = _("Biomedisa Label")
-        # TODO: set categories (folders where the module shows up in the module selector)
         self.parent.categories = [translate("qSlicerAbstractCoreModule", "Segmentation")]
         self.parent.dependencies = []  # TODO: add here list of module names that this module requires
         self.parent.contributors = ["Matthias Fabian"]
-        # TODO: update with short description of the module and a link to online module documentation
         # _() function marks text as translatable to other languages
         self.parent.helpText = _("""
 <h1>Biomedisa</h1>
@@ -55,13 +53,12 @@ For more information visit the <a href="https://biomedisa.info/">project page</a
                                  
 <h3>How to use:</h3>
 <ol>
-    <li>Add segment points (green) by clicking in the red image.</li>
+    <li>Add segment points (blue) by clicking in the red image.</li>
     <li>Add non-segment points (green) by holding down the Alt key and clicking in the red image.</li>
     <li>Run the segment anything algorithm to create a label mask for the current layer.</li>
     <li>Run the biomedisa algorithm to create a label mask for the entire 3D image.</li>
 </ol>
 """)
-        # TODO: replace with organization, grant and thanks
         self.parent.acknowledgementText = _("""
                                             This extension was cooked up by a jobless C#.NET dev diving into Python.
                                             Apologies for the spaghetti code.
@@ -206,7 +203,7 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.slice_view = self.slice_widget.sliceView()
         self.interactor = self.slice_view.interactorStyle().GetInteractor()
 
-        self.foregroundMarkupsNode = self.createMarkups(self.slice_widget, "Segment", 0, 1, 0)
+        self.foregroundMarkupsNode = self.createMarkups(self.slice_widget, "Segment", 0, 0, 1)
         self.backgroundMarkupsNode = self.createMarkups(self.slice_widget, "Non Segement", 1, 0, 0)
 
     def createMarkups(self ,slice_widget, name, r, g, b):
@@ -238,9 +235,11 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         ras = self.slice_view.convertXYZToRAS([xy[0], xy[1], sliceValue])
         ras = [ras[0], ras[1], sliceValue]
 
-        # TODO: Check if out of frame and return
-        # TODO: Check if point is selected and remove it.
-       
+        # Check if out of frame and return
+        dims = self._parameterNode.inputVolume.GetImageData().GetDimensions()
+        if (-ras[0] < 0 or -ras[0] > dims[0] or -ras[1] < 0 or -ras[1] > dims[1]):
+            return
+
         modifiers = QGuiApplication.queryKeyboardModifiers()
         alt_pressed = bool(modifiers & Qt.Modifier.ALT)
         if(alt_pressed):
@@ -289,8 +288,6 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         """Called when the application closes and the module widget is destroyed."""
         self.removeObservers()
         self.clearAllPoins()
-        if(hasattr(self, 'interactor') and hasattr(self, 'observerId')):
-            self.interactor.RemoveObserver(self.observerId)
 
     def enter(self) -> None:
         """Called each time the user opens this module."""
