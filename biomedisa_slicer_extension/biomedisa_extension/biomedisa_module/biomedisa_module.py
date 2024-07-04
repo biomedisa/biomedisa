@@ -191,9 +191,6 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         self.setupMarkups()
 
-        # Add observer for left mouse button click
-        self.observerId = self.interactor.AddObserver(vtkCommand.LeftButtonPressEvent, self.onLeftClick)
-        
         # Buttons
         self.ui.biomedisaButton.connect("clicked(bool)", self.onBiomedisaButton)
         self.ui.segmentAnythingButton.connect("clicked(bool)", self.onSegmentAnythingButton)
@@ -299,6 +296,8 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         """Called each time the user opens this module."""
         # Make sure parameter node exists and observed
         self.initializeParameterNode()
+        # Add observer for left mouse button click
+        self.observerId = self.interactor.AddObserver(vtkCommand.LeftButtonPressEvent, self.onLeftClick)
 
     def exit(self) -> None:
         """Called each time the user opens a different module."""
@@ -306,9 +305,11 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         if self._parameterNode:
             self._parameterNode.disconnectGui(self._parameterNodeGuiTag)
             self._parameterNodeGuiTag = None
-            self.removeObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self._checkCanApply)
             self.removeObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self._checkCanRunBiomedisa)
+            self.removeObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self._checkCanRunSegmentAnything)
             self.removeObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self._checkCanDeleteLabel)
+        if self.interactor:
+            self.interactor.RemoveObserver(self.observerId)
 
     def onSceneStartClose(self, caller, event) -> None:
         """Called just before the scene is closed."""
@@ -355,7 +356,6 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         Set and observe parameter node.
         Observation is needed because when the parameter node is changed then the GUI must be updated immediately.
         """
-
         if self._parameterNode:
             self._parameterNode.disconnectGui(self._parameterNodeGuiTag)
             self.removeObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self._checkCanRunBiomedisa)
