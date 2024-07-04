@@ -141,6 +141,9 @@ class biomedisa_moduleParameterNode:
     nbrw: int = 10
     sorw: int = 4000
 
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    modelCheckpointFile: str = os.path.join(script_dir, "Resources", "sam_vit_h_4b8939.pth")
+    modelType:str = "vit_h"
 
 #
 # biomedisa_moduleWidget
@@ -196,6 +199,7 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.ui.segmentAnythingButton.connect("clicked(bool)", self.onSegmentAnythingButton)
         self.ui.deleteLabelButton.connect("clicked(bool)", self.onDeleteLabelButton)
         self.ui.clearPointsButton.connect("clicked(bool)", self.onClearPointsButton)
+        self.ui.trainPredictorButton.connect("clicked(bool)", self.onTrainPredictorButton)
 
         # Make sure parameter node is initialized (needed for module reload)
         self.initializeParameterNode()
@@ -287,8 +291,9 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     def cleanup(self) -> None:
         """Called when the application closes and the module widget is destroyed."""
         self.removeObservers()
-        self.interactor.RemoveObserver(self.observerId)
         self.clearAllPoins()
+        if(self.interactor):
+            self.interactor.RemoveObserver(self.observerId)
 
     def enter(self) -> None:
         """Called each time the user opens this module."""
@@ -447,6 +452,9 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.clear_background_points(sliceIndex)
         self.clear_foreground_points(sliceIndex)
 
+    def onTrainPredictorButton(self) -> None:
+        self.logic.setupPredictor()
+
 #
 # biomedisa_moduleLogic
 #
@@ -470,15 +478,11 @@ class biomedisa_moduleLogic(ScriptedLoadableModuleLogic):
         #self.setupPredictor()
 
     def setupPredictor(self):
-        #TODO: file selectable from UI
-        #TODO: model type selectable from UI
-
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        sam_checkpoint = os.path.join(script_dir, "Resources", "sam_vit_h_4b8939.pth")
-        if not os.path.exists(sam_checkpoint):
-            raise Exception(f"You need to download a model checkpoint and store it at {sam_checkpoint}. Check out: https://github.com/facebookresearch/segment-anything")
-        model_type = "vit_h"
-        sam = sam_model_registry[model_type](checkpoint=sam_checkpoint)
+        parameter = self.getParameterNode()
+        if not os.path.exists(parameter.modelCheckpointFile):
+            raise Exception(f"You need to download a model checkpoint and store it at {parameter.modelCheckpointFile}. Check out: https://github.com/facebookresearch/segment-anything")
+        print(f"Training predictor with modelType '{parameter.modelType}' and file '{parameter.modelCheckpointFile}'.")
+        sam = sam_model_registry[parameter.modelType](checkpoint=parameter.modelCheckpointFile)
         self.predictor = SamPredictor(sam)
 
     def getParameterNode(self):
@@ -520,13 +524,15 @@ class biomedisa_moduleLogic(ScriptedLoadableModuleLogic):
                    index: int,
                    foreground: np.array,
                    background: np.array):
-        
+        if(not self.predictor):
+            raise Exception("Predictor is not trained. Make sure you've got a working model checkpoint and type.")
+
         print(foreground)
         print(background)
 
-        import numpy as np
         length_f = len(foreground)
         length_b = len(background)
+
         point_coords = np.empty((length_f+length_b, 2), dtype=int)
         point_labels = np.empty((length_f+length_b), dtype=int)
 
@@ -539,10 +545,8 @@ class biomedisa_moduleLogic(ScriptedLoadableModuleLogic):
             point_coords[length_f+i] = [point[0], point[1]]
             point_labels[length_f+i] = 0
 
-        print("point_coords")
-        print(point_coords)
-        print("point_labels")
-        print(point_labels)
+        print("point_coords: {point_coords}")
+        print("point_labels: {point_labels}")
 
         inputImage = inputVolume.GetImageData()
         npImage = vtkNumpyConverter.vtkToNumpy(inputImage)
@@ -552,9 +556,6 @@ class biomedisa_moduleLogic(ScriptedLoadableModuleLogic):
         grayscale_image = np.array(slice, dtype=np.uint8)
         rgb_image = np.stack((grayscale_image,)*3, axis=-1)
         self.predictor.set_image(rgb_image)
-
-        print(f"rgb_image.dtype: {rgb_image.dtype}")
-        print(f"rgb_image.shape: {rgb_image.shape}")
 
         masks, _, _  = self.predictor.predict(point_coords=point_coords, point_labels=point_labels, multimask_output=False)
         masks_uint8 = (masks* 100).astype(np.uint8) #100 is the segment number

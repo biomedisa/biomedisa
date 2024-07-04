@@ -130,72 +130,143 @@
    </item>
    <item>
     <widget class="ctkCollapsibleButton" name="advancedCollapsibleButton">
-     <property name="text">
-      <string>Advanced</string>
-     </property>
-     <property name="collapsed">
-      <bool>false</bool>
-     </property>
-     <layout class="QFormLayout" name="formLayout_3">
-      <item row="0" column="0">
-       <widget class="QLabel" name="label_nbrw">
         <property name="text">
-         <string>nbrw: </string>
+         <string>Advanced</string>
         </property>
-       </widget>
-      </item>
-      <item row="0" column="1">
-       <widget class="QSpinBox" name="nbrwQSpinBox">
-        <property name="toolTip">
-         <string>Number of random walks starting at each pre-segmented pixel.</string>
+        <property name="collapsed">
+         <bool>true</bool>
         </property>
-        <property name="text">
-         <string>nbrw text</string>
-        </property>
-        <property name="SlicerParameterName" stdset="10">
-         <string>nbrw</string>
-        </property>
-        <property name="minimum">
-            <number>1</number>
-        </property>
-        <property name="singleStep">
-            <number>1</number>
-        </property>
-        <property name="maximum">
-            <number>0</number>  <!-- No maximum value (0 means no limit) -->
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="0">
-       <widget class="QLabel" name="label_sorw">
-        <property name="text">
-         <string>sorw: </string>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="1">
-       <widget class="QSpinBox" name="sorwQSpinBox">
-        <property name="toolTip">
-         <string>Steps of a random walk.</string>
-        </property>
-        <property name="text">
-         <string>sorw text</string>
-        </property>
-        <property name="SlicerParameterName" stdset="4000">
-         <string>sorw</string>
-        </property>
-        <property name="minimum">
-            <number>1</number>
-        </property>
-        <property name="singleStep">
-            <number>100</number>
-        </property>
-        <property name="maximum">
-            <number>0</number>  <!-- No maximum value (0 means no limit) -->
-        </property>
-       </widget>
-      </item>
-     </layout>
+        <layout class="QFormLayout" name="formLayout_3">
+         <item row="100" column="0">
+          <widget class="QLabel" name="label_biomedisa">
+           <property name="text">
+            <string>Biomedisa</string>
+           </property>
+           <property name="font">
+            <font>
+             <weight>75</weight> <!-- Bold -->
+             <bold>true</bold>
+             <pointsize>10</pointsize> <!-- Font size -->
+            </font>
+           </property>
+          </widget>
+         </item>
+         <item row="101" column="0">
+          <widget class="QLabel" name="label_nbrw">
+           <property name="text">
+            <string>nbrw: </string>
+           </property>
+          </widget>
+         </item>
+         <item row="101" column="1">
+          <widget class="QSpinBox" name="nbrwQSpinBox">
+           <property name="toolTip">
+            <string>Number of random walks starting at each pre-segmented pixel.</string>
+           </property>
+           <property name="text">
+            <string>nbrw text</string>
+           </property>
+           <property name="SlicerParameterName" stdset="10">
+            <string>nbrw</string>
+           </property>
+           <property name="minimum">
+               <number>1</number>
+           </property>
+           <property name="singleStep">
+               <number>1</number>
+           </property>
+           <property name="maximum">
+               <number>0</number>  <!-- No maximum value (0 means no limit) -->
+           </property>
+          </widget>
+         </item>
+         <item row="102" column="0">
+          <widget class="QLabel" name="label_sorw">
+           <property name="text">
+            <string>sorw: </string>
+           </property>
+          </widget>
+         </item>
+         <item row="102" column="1">
+          <widget class="QSpinBox" name="sorwQSpinBox">
+           <property name="toolTip">
+            <string>Steps of a random walk.</string>
+           </property>
+           <property name="text">
+            <string>sorw text</string>
+           </property>
+           <property name="SlicerParameterName" stdset="4000">
+            <string>sorw</string>
+           </property>
+           <property name="minimum">
+               <number>1</number>
+           </property>
+           <property name="singleStep">
+               <number>100</number>
+           </property>
+           <property name="maximum">
+               <number>0</number>  <!-- No maximum value (0 means no limit) -->
+           </property>
+          </widget>
+         </item>
+
+
+         <item row="10" column="0">
+          <widget class="QLabel" name="label_segment_anything">
+           <property name="text">
+            <string>Segment Anything</string>
+           </property>
+           <property name="font">
+            <font>
+             <weight>75</weight> <!-- Bold -->
+             <bold>true</bold>
+             <pointsize>10</pointsize> <!-- Font size -->
+            </font>
+           </property>
+          </widget>
+         </item>
+         <item row="12" column="0">
+          <widget class="QLabel" name="label_pth">
+           <property name="text">
+            <string>model checkpoint: </string>
+           </property>
+          </widget>
+         </item>
+         <item row="12" column="1">
+          <widget class="QLineEdit" name="filePathLineEdit">
+           <property name="SlicerParameterName">
+            <string>modelCheckpointFile</string>
+           </property>
+          </widget>
+         </item>
+         <item row="13" column="0">
+          <widget class="QLabel" name="label_pth">
+           <property name="text">
+            <string>model type: </string>
+           </property>
+          </widget>
+         </item>
+         <item row="13" column="1">
+          <widget class="QLineEdit" name="modelTypeLineEdit">
+           <property name="SlicerParameterName">
+            <string>modelType</string>
+           </property>
+          </widget>
+         </item>
+         <item row="15" column="1">
+          <widget class="QPushButton" name="trainPredictorButton">
+           <property name="toolTip">
+            <string>Train the predictor.</string>
+           </property>
+           <property name="text">
+            <string>Train predictor</string>
+           </property>
+           <property name="checkable">
+            <bool>false</bool>
+           </property>
+          </widget>
+         </item>
+        </layout>
     </widget>
    </item>
    <item row="0" column="0">

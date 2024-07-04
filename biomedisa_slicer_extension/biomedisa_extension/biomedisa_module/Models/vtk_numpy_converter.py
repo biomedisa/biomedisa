@@ -10,8 +10,6 @@ class vtkNumpyConverter:
         temp = vtk_to_numpy(data.GetPointData().GetScalars())
         dims = data.GetDimensions()
         component = data.GetNumberOfScalarComponents()
-        print(f"dims: {dims}")
-        print(f"component: {component}")
         if component == 1:
             numpy_data = temp.reshape(dims[2], dims[1], dims[0])
             numpy_data = numpy_data.transpose(0, 1, 2) # Not like in source
