@@ -289,7 +289,7 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         """Called when the application closes and the module widget is destroyed."""
         self.removeObservers()
         self.clearAllPoins()
-        if(self.interactor):
+        if(hasattr(self, 'interactor') and hasattr(self, 'observerId')):
             self.interactor.RemoveObserver(self.observerId)
 
     def enter(self) -> None:
@@ -308,7 +308,7 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.removeObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self._checkCanRunBiomedisa)
             self.removeObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self._checkCanRunSegmentAnything)
             self.removeObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self._checkCanDeleteLabel)
-        if self.interactor:
+        if(hasattr(self, 'interactor') and hasattr(self, 'observerId')):
             self.interactor.RemoveObserver(self.observerId)
 
     def onSceneStartClose(self, caller, event) -> None:
@@ -524,7 +524,7 @@ class biomedisa_moduleLogic(ScriptedLoadableModuleLogic):
                    index: int,
                    foreground: np.array,
                    background: np.array):
-        if(not self.predictor):
+        if(not hasattr(self, 'predictor')):
             raise Exception("Predictor is not trained. Make sure you've got a working model checkpoint and type.")
 
         print(foreground)
