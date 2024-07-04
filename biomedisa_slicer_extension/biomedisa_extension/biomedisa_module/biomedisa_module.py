@@ -418,14 +418,8 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.onSegmentAnythingButton()
 
     def onBiomedisaButton(self) -> None:
-        print(f"input: {self._parameterNode.inputVolume.GetName()}")
-        print(f"label: {self._parameterNode.inputLabels.GetName()}")
-        print ("nbrw:" + str(self._parameterNode.nbrw))
-        print ("sorw:" + str(self._parameterNode.sorw))
-
         inputNode  =  self._parameterNode.inputVolume
         labelsNode  =  self._parameterNode.inputLabels
-
         inputImage = inputNode.GetImageData()
         labels = labelsNode.GetImageData()
 
@@ -439,17 +433,9 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             labelsNode.SetAndObserveImageData(outputImage)
 
     def onSegmentAnythingButton(self) -> None:
-        print(f"input: {self._parameterNode.inputVolume.GetName()}")
-        print(f"label: {self._parameterNode.inputLabels.GetName()}")
-
         sliceIndex = self.getSliceIndex()
         foreground = self.getForegroundPoints(sliceIndex)
         background = self.getBackgroundPoints(sliceIndex)
-
-        print(f"sliceIndex: {sliceIndex}")
-        print(f"foreground: {foreground}")
-        print(f"background: {background}")
-
         inputNode  =  self._parameterNode.inputVolume
 
         mask = self.logic.runSegmentAnythingRed(inputNode, sliceIndex, foreground, background)
@@ -524,8 +510,8 @@ class biomedisa_moduleLogic(ScriptedLoadableModuleLogic):
     def runBiomedisa(
                 input: vtkMRMLScalarVolumeNode,
                 labels: vtkMRMLLabelMapVolumeNode, 
-                sorw: int = 1,
-                nbrw: int = 1) -> vtkMRMLLabelMapVolumeNode:
+                sorw: int,
+                nbrw: int) -> vtkMRMLLabelMapVolumeNode:
         """
         Run the processing algorithm.
         Can be used without GUI widget.
@@ -601,13 +587,8 @@ class biomedisa_moduleLogic(ScriptedLoadableModuleLogic):
             point_coords[length_f+i] = [point[0], point[1]]
             point_labels[length_f+i] = 0
 
-        print(f"point_coords: {point_coords}")
-        print(f"point_labels: {point_labels}")
-
         if(not self.isPredictorImageSet(inputVolume, index)):
             self.setSegmentAnythingImage(inputVolume, index)
-        else:
-            print(f"Image {index} already set")
 
         masks, _, _  = self.predictor.predict(point_coords=point_coords, point_labels=point_labels, multimask_output=False)
         masks_uint8 = (masks* 100).astype(np.uint8) #100 is the segment number
