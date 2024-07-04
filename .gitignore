@@ -8,7 +8,5 @@ config.py
 paraview.zip
 !**/.gitkeep
 NotificationsAllUsers.txt
-<<<<<<< HEAD
-biomedisa_slicer_extension/biomedisa_extension/biomedisa_module/Resources/sam_vit_h_4b8939.pth
+biomedisa_slicer_extension/biomedisa_extension/biomedisa_module/Resources/*.pth
 =======
->>>>>>> a4ebf87937e80623ec76926b9542876b1b46c14e
