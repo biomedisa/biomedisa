@@ -1,10 +1,10 @@
-import logging
 import os
 from typing import Annotated, Optional
+import time
 
 import numpy as np
 import vtk
-from vtk import vtkCommand, vtkInteractorStyleUser
+from vtk import vtkCommand
 from segment_anything import SamPredictor, sam_model_registry
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QGuiApplication
@@ -139,8 +139,14 @@ class biomedisa_moduleParameterNode:
     sorw: int = 4000
 
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    modelCheckpointFile: str = os.path.join(script_dir, "Resources", "sam_vit_h_4b8939.pth")
-    modelType:str = "vit_h"
+    # 16s loading, 36s image setting
+    #modelCheckpointFile: str = os.path.join(script_dir, "Resources", "sam_vit_h_4b8939.pth")
+    #modelType:str = "vit_h"
+    #modelCheckpointFile: str = os.path.join(script_dir, "Resources", "sam_vit_l_0b3195.pth")
+    #modelType:str = "vit_l"
+    # 1s loading, 8s image setting
+    modelCheckpointFile: str = os.path.join(script_dir, "Resources", "sam_vit_b_01ec64.pth")
+    modelType:str = "vit_b"
 
 #
 # biomedisa_moduleWidget
@@ -247,6 +253,9 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         else:
             self.foregroundMarkupsNode.AddControlPoint(ras[0], ras[1], ras[2])
 
+        if(self.logic.isPredictorImageSet(self._parameterNode.inputVolume, self.getSliceIndex())):
+            self.onSegmentAnythingButton()
+
     def getSliceIndex(self )-> int: 
         sliceController = self.slice_widget.sliceController()
         sliceValue = sliceController.sliceOffsetSlider().value
@@ -256,7 +265,7 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         return self.getPoints(self.foregroundMarkupsNode, sliceIndex)
 
     def getBackgroundPoints(self, sliceIndex):
-        return self.getPoints(self.foregroundMarkupsNode, sliceIndex)
+        return self.getPoints(self.backgroundMarkupsNode, sliceIndex)
 
     def getPoints(self, markupsNode, sliceIndex):
         points = []
@@ -295,7 +304,12 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.initializeParameterNode()
         # Add observer for left mouse button click
         self.observerId = self.interactor.AddObserver(vtkCommand.LeftButtonPressEvent, self.onLeftClick)
-
+        
+        self.fgMkNPAddObserverId = self.foregroundMarkupsNode.AddObserver(slicer.vtkMRMLMarkupsNode.PointRemovedEvent, self.onControlPointsUpdated)
+        self.fgMkNPEndObserverId = self.foregroundMarkupsNode.AddObserver(slicer.vtkMRMLMarkupsNode.PointEndInteractionEvent, self.onControlPointsUpdated)
+        self.bgMkNPAddObserverId = self.backgroundMarkupsNode.AddObserver(slicer.vtkMRMLMarkupsNode.PointRemovedEvent, self.onControlPointsUpdated)
+        self.bgMkNPEndObserverId = self.backgroundMarkupsNode.AddObserver(slicer.vtkMRMLMarkupsNode.PointEndInteractionEvent, self.onControlPointsUpdated)
+        
     def exit(self) -> None:
         """Called each time the user opens a different module."""
         # Do not react to parameter node changes (GUI will be updated when the user enters into the module)
@@ -307,6 +321,16 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.removeObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self._checkCanDeleteLabel)
         if(hasattr(self, 'interactor') and hasattr(self, 'observerId')):
             self.interactor.RemoveObserver(self.observerId)
+        if(hasattr(self, 'foregroundMarkupsNode')):
+            if (hasattr(self, 'fgMkNPAddObserverId')):
+                self.foregroundMarkupsNode.RemoveObserver(self.fgMkNPAddObserverId)
+            if (hasattr(self, 'fgMkNPEndObserverId')):
+                self.foregroundMarkupsNode.RemoveObserver(self.fgMkNPEndObserverId)
+        if(hasattr(self, 'backgroundMarkupsNode')):
+            if (hasattr(self, 'bgMkNPAddObserverId')):
+                self.backgroundMarkupsNode.RemoveObserver(self.bgMkNPAddObserverId)
+            if (hasattr(self, 'bgMkNPEndObserverId')):
+                self.backgroundMarkupsNode.RemoveObserver(self.bgMkNPEndObserverId)
 
     def onSceneStartClose(self, caller, event) -> None:
         """Called just before the scene is closed."""
@@ -388,6 +412,11 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         else:
             self.ui.deleteLabelButton.enabled = False
 
+    def onControlPointsUpdated(self, caller=None, event=None) -> None:
+        if(self.logic.isPredictorImageSet(self._parameterNode.inputVolume, self.getSliceIndex())):
+            print("Quick segment anything running")
+            self.onSegmentAnythingButton()
+
     def onBiomedisaButton(self) -> None:
         print(f"input: {self._parameterNode.inputVolume.GetName()}")
         print(f"label: {self._parameterNode.inputLabels.GetName()}")
@@ -414,8 +443,8 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         print(f"label: {self._parameterNode.inputLabels.GetName()}")
 
         sliceIndex = self.getSliceIndex()
-        foreground = self.getForegroundPoints(sliceIndex)[:3]
-        background = self.getBackgroundPoints(sliceIndex)[:3]
+        foreground = self.getForegroundPoints(sliceIndex)
+        background = self.getBackgroundPoints(sliceIndex)
 
         print(f"sliceIndex: {sliceIndex}")
         print(f"foreground: {foreground}")
@@ -470,17 +499,24 @@ class biomedisa_moduleLogic(ScriptedLoadableModuleLogic):
     def __init__(self) -> None:
         """Called when the logic class is instantiated. Can be used for initializing member variables."""
         ScriptedLoadableModuleLogic.__init__(self)
-        # TODO:
-        print("DEBUG WARNING: predictor removed for development purposes")
-        #self.setupPredictor()
+
+        self.predictorSliceIndex = None
+        self.predictorVolumeName = None
+        self.setupPredictor()
 
     def setupPredictor(self):
+        startTime = time.time()
+        
         parameter = self.getParameterNode()
         if not os.path.exists(parameter.modelCheckpointFile):
             raise Exception(f"You need to download a model checkpoint and store it at {parameter.modelCheckpointFile}. Check out: https://github.com/facebookresearch/segment-anything")
         print(f"Training predictor with modelType '{parameter.modelType}' and file '{parameter.modelCheckpointFile}'.")
+        
         sam = sam_model_registry[parameter.modelType](checkpoint=parameter.modelCheckpointFile)
         self.predictor = SamPredictor(sam)
+        endTime = time.time()
+        print(f"Predictor set up in {endTime-startTime} s")
+        
 
     def getParameterNode(self):
         return biomedisa_moduleParameterNode(super().getParameterNode())
@@ -516,6 +552,32 @@ class biomedisa_moduleLogic(ScriptedLoadableModuleLogic):
 
         return outputImage
 
+    def setSegmentAnythingImage(self,
+                   inputVolume: vtkMRMLScalarVolumeNode,
+                   index: int):
+        if(not hasattr(self, 'predictor')):
+            raise Exception("Predictor is not trained. Make sure you've got a working model checkpoint and type.")
+
+        startTime = time.time()
+        inputImage = inputVolume.GetImageData()
+        npImage = vtkNumpyConverter.vtkToNumpy(inputImage)
+        slice = npImage[int(index), :, :] # Get Red dimension
+
+        # Stack the grayscale image into three channels to create an RGB image
+        grayscale_image = np.array(slice, dtype=np.uint8)
+        rgb_image = np.stack((grayscale_image,)*3, axis=-1)
+        self.predictor.set_image(rgb_image)
+        self.predictorSliceIndex = index
+        self.predictorVolumeName = inputVolume.GetName()
+        endTime = time.time()
+        print(f"Predictor image is set in {endTime-startTime}")
+
+    def isPredictorImageSet(self,
+                   inputVolume: vtkMRMLScalarVolumeNode,
+                   index: int):
+        return self.predictorSliceIndex == index and self.predictorVolumeName == inputVolume.GetName()
+
+
     def runSegmentAnythingRed(self,
                    inputVolume: vtkMRMLScalarVolumeNode,
                    index: int,
@@ -523,9 +585,6 @@ class biomedisa_moduleLogic(ScriptedLoadableModuleLogic):
                    background: np.array):
         if(not hasattr(self, 'predictor')):
             raise Exception("Predictor is not trained. Make sure you've got a working model checkpoint and type.")
-
-        print(foreground)
-        print(background)
 
         length_f = len(foreground)
         length_b = len(background)
@@ -542,17 +601,13 @@ class biomedisa_moduleLogic(ScriptedLoadableModuleLogic):
             point_coords[length_f+i] = [point[0], point[1]]
             point_labels[length_f+i] = 0
 
-        print("point_coords: {point_coords}")
-        print("point_labels: {point_labels}")
+        print(f"point_coords: {point_coords}")
+        print(f"point_labels: {point_labels}")
 
-        inputImage = inputVolume.GetImageData()
-        npImage = vtkNumpyConverter.vtkToNumpy(inputImage)
-        slice = npImage[int(index), :, :] # Get Red dimension
-
-        # Stack the grayscale image into three channels to create an RGB image
-        grayscale_image = np.array(slice, dtype=np.uint8)
-        rgb_image = np.stack((grayscale_image,)*3, axis=-1)
-        self.predictor.set_image(rgb_image)
+        if(not self.isPredictorImageSet(inputVolume, index)):
+            self.setSegmentAnythingImage(inputVolume, index)
+        else:
+            print(f"Image {index} already set")
 
         masks, _, _  = self.predictor.predict(point_coords=point_coords, point_labels=point_labels, multimask_output=False)
         masks_uint8 = (masks* 100).astype(np.uint8) #100 is the segment number
