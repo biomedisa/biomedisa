@@ -252,6 +252,7 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.__initializeParameterNode()
 
     def onLeftClick(self, caller, event):
+        """Called when the left mouse button is clicked."""
         xy = self.interactor.GetEventPosition()
 
         sliceValue = self.__getSliceIndex()
@@ -393,6 +394,7 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         return markupsNode
 
     def __getSliceIndex(self )-> int: 
+        """Returns the currently selected layer index based on the slider value."""
         sliceController = self.slice_widget.sliceController()
         sliceValue = sliceController.sliceOffsetSlider().value
         return int(sliceValue)
@@ -420,16 +422,20 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.__clearPoints(self.foregroundMarkupsNode, sliceIndex)
 
     def __clearPoints(self, markupsNode, sliceIndex):
+        """Removes all control points in current layer."""
         sliceIndex = self.__getSliceIndex()
         points = self.__getPoints(markupsNode, sliceIndex)
         for point in reversed(points):
             markupsNode.RemoveNthControlPoint(point[3])
 
     def __clearAllPoins(self):
+        """Removes all control points."""
         self.foregroundMarkupsNode.RemoveAllControlPoints()
         self.backgroundMarkupsNode.RemoveAllControlPoints()
 
     def __runSegmentAnything(self) -> None:
+        """Collects data in widget, starts the process in logic and displays the result."""
+
         sliceIndex = self.__getSliceIndex()
         foreground = self.__getForegroundPoints(sliceIndex)
         background = self.__getBackgroundPoints(sliceIndex)
@@ -481,6 +487,10 @@ class biomedisa_moduleLogic(ScriptedLoadableModuleLogic):
         self.setupPredictor()
 
     def setupPredictor(self):
+        """
+        Prepares the segment anything predictor.
+        Depending on the model file size this will take several seconds. Approx. 1s/200MB.
+        """
         startTime = time.time()
         
         parameter = self.getParameterNode()
@@ -530,6 +540,10 @@ class biomedisa_moduleLogic(ScriptedLoadableModuleLogic):
     def setSegmentAnythingImage(self,
                    inputVolume: vtkMRMLScalarVolumeNode,
                    index: int):
+        """
+        Applies the image to the segment anything predictor.
+        Depending on the model file size and image size this will take several seconds. 
+        """
         if(not hasattr(self, 'predictor')):
             raise Exception("Predictor is not trained. Make sure you've got a working model checkpoint and type.")
 
