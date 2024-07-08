@@ -278,7 +278,7 @@
         <string>Clear points in current layer.</string>
        </property>
        <property name="text">
-        <string>Clear points</string>
+        <string>Clear Points</string>
        </property>
        <property name="checkable">
         <bool>false</bool>
@@ -294,7 +294,7 @@
         <string>Remove label in current layer.</string>
        </property>
        <property name="text">
-        <string>Remove label</string>
+        <string>Remove Label</string>
        </property>
        <property name="checkable">
         <bool>false</bool>
@@ -309,10 +309,10 @@
       <bool>false</bool>
      </property>
      <property name="toolTip">
-      <string>Run the biomedisa algorithm.</string>
+      <string>Run the Biomedisa algorithm.</string>
      </property>
      <property name="text">
-      <string>run Biomedisa</string>
+      <string>Run Biomedisa</string>
      </property>
      <property name="checkable">
       <bool>false</bool>
