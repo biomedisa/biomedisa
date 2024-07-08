@@ -209,8 +209,6 @@
            </property>
           </widget>
          </item>
-
-
          <item row="10" column="0">
           <widget class="QLabel" name="label_segment_anything">
            <property name="text">
@@ -269,53 +267,41 @@
         </layout>
     </widget>
    </item>
-   <item row="0" column="0">
-    <widget class="QPushButton" name="deleteLabelButton">
-     <property name="enabled">
-      <bool>false</bool>
-     </property>
-     <property name="toolTip">
-      <string>Remove label in current layer.</string>
-     </property>
-     <property name="text">
-      <string>Remove label</string>
-     </property>
-     <property name="checkable">
-      <bool>false</bool>
-     </property>
-    </widget>
-   </item>
-   <item row="0" column="1">
-    <widget class="QPushButton" name="clearPointsButton">
-     <property name="enabled">
-      <bool>true</bool>
-     </property>
-     <property name="toolTip">
-      <string>Clear points in current layer.</string>
-     </property>
-     <property name="text">
-      <string>Clear points</string>
-     </property>
-     <property name="checkable">
-      <bool>false</bool>
-     </property>
-    </widget>
-   </item>
-   <item row="0" column="1">
-    <widget class="QPushButton" name="segmentAnythingButton">
-     <property name="enabled">
-      <bool>false</bool>
-     </property>
-     <property name="toolTip">
-      <string>Run segment anything on current layer.</string>
-     </property>
-     <property name="text">
-      <string>Segment anything</string>
-     </property>
-     <property name="checkable">
-      <bool>false</bool>
-     </property>
-    </widget>
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout">
+     <item>
+      <widget class="QPushButton" name="clearPointsButton">
+       <property name="enabled">
+        <bool>true</bool>
+       </property>
+       <property name="toolTip">
+        <string>Clear points in current layer.</string>
+       </property>
+       <property name="text">
+        <string>Clear points</string>
+       </property>
+       <property name="checkable">
+        <bool>false</bool>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="deleteLabelButton">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
+       <property name="toolTip">
+        <string>Remove label in current layer.</string>
+       </property>
+       <property name="text">
+        <string>Remove label</string>
+       </property>
+       <property name="checkable">
+        <bool>false</bool>
+       </property>
+      </widget>
+     </item>
+    </layout>
    </item>
    <item row="0" column="2">
     <widget class="QPushButton" name="biomedisaButton">
@@ -326,7 +312,7 @@
       <string>Run the biomedisa algorithm.</string>
      </property>
      <property name="text">
-      <string>Biomedisa</string>
+      <string>run Biomedisa</string>
      </property>
      <property name="checkable">
       <bool>false</bool>
@@ -373,6 +359,22 @@
    <sender>biomedisa_segmentationb</sender>
    <signal>mrmlSceneChanged(vtkMRMLScene*)</signal>
    <receiver>inputSelector</receiver>
+   <slot>setMRMLScene(vtkMRMLScene*)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>122</x>
+     <y>132</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>248</x>
+     <y>61</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>biomedisa_segmentationb</sender>
+   <signal>mrmlSceneChanged(vtkMRMLScene*)</signal>
+   <receiver>labelSelector</receiver>
    <slot>setMRMLScene(vtkMRMLScene*)</slot>
    <hints>
     <hint type="sourcelabel">
