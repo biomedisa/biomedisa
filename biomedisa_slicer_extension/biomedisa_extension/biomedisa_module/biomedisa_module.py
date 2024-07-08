@@ -31,7 +31,6 @@ from slicer import vtkMRMLScalarVolumeNode
 # biomedisa_module
 #
 
-
 class biomedisa_module(ScriptedLoadableModule):
     """Uses ScriptedLoadableModule base class, available at:
     https://github.com/Slicer/Slicer/blob/main/Base/Python/slicer/ScriptedLoadableModule.py
@@ -201,94 +200,6 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # Make sure parameter node is initialized (needed for module reload)
         self.initializeParameterNode()
 
-    def setupMarkups(self):
-        self.slice_widget = slicer.app.layoutManager().sliceWidget('Red')
-        self.slice_view = self.slice_widget.sliceView()
-        self.interactor = self.slice_view.interactorStyle().GetInteractor()
-
-        self.foregroundMarkupsNode = self.createMarkups(self.slice_widget, "Segment", 0, 0, 1)
-        self.backgroundMarkupsNode = self.createMarkups(self.slice_widget, "Non Segement", 1, 0, 0)
-
-    def createMarkups(self ,slice_widget, name, r, g, b):
-        # Create markups node
-        markupsNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLMarkupsFiducialNode")
-        markupsNode.SetName(name)
-        
-        # Create display node
-        markupsDisplayNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLMarkupsDisplayNode")
-        markupsNode.SetAndObserveDisplayNodeID(markupsDisplayNode.GetID())
-        #Move to 'Red'
-        redSliceNode = slice_widget.mrmlSliceNode()
-        displayNode = markupsNode.GetDisplayNode()
-        displayNode.AddViewNodeID(redSliceNode.GetID())
-
-        # Configure display node
-        markupsDisplayNode.SetGlyphScale(2.0)  # Size of the fiducial points
-        markupsDisplayNode.SetSelectedColor(r, g, b)  
-        markupsDisplayNode.SetColor(r, g, b)  
-        #markupsDisplayNode.SetColor(0, 0, 1)  
-
-        return markupsNode
-
-    def onLeftClick(self, caller, event):
-        xy = self.interactor.GetEventPosition()
-
-        sliceValue = self.getSliceIndex()
-
-        ras = self.slice_view.convertXYZToRAS([xy[0], xy[1], sliceValue])
-        ras = [ras[0], ras[1], sliceValue]
-
-        # Check if out of frame and return
-        dims = self._parameterNode.inputVolume.GetImageData().GetDimensions()
-        if (-ras[0] < 0 or -ras[0] > dims[0] or -ras[1] < 0 or -ras[1] > dims[1]):
-            return
-
-        modifiers = QGuiApplication.queryKeyboardModifiers()
-        alt_pressed = bool(modifiers & Qt.Modifier.ALT)
-        if(alt_pressed):
-            self.backgroundMarkupsNode.AddControlPoint(ras[0], ras[1], ras[2])
-        else:
-            self.foregroundMarkupsNode.AddControlPoint(ras[0], ras[1], ras[2])
-
-        self.runSegmentAnything()
-
-    def getSliceIndex(self )-> int: 
-        sliceController = self.slice_widget.sliceController()
-        sliceValue = sliceController.sliceOffsetSlider().value
-        return int(sliceValue)
-        
-    def getForegroundPoints(self, sliceIndex):
-        return self.getPoints(self.foregroundMarkupsNode, sliceIndex)
-
-    def getBackgroundPoints(self, sliceIndex):
-        return self.getPoints(self.backgroundMarkupsNode, sliceIndex)
-
-    def getPoints(self, markupsNode, sliceIndex):
-        points = []
-        pointsCount = markupsNode.GetNumberOfControlPoints()
-        for i in range(pointsCount):
-            coords = [0.0, 0.0, 0.0]
-            markupsNode.GetNthControlPointPosition(i, coords)
-            if(coords[2] == sliceIndex):
-                points.append([-round(coords[0]), -round(coords[1]), coords[2], i])
-        return points
-
-    def clear_background_points(self, sliceIndex):
-        self.clearPoints(self.backgroundMarkupsNode, sliceIndex)
-
-    def clear_foreground_points(self, sliceIndex):
-        self.clearPoints(self.foregroundMarkupsNode, sliceIndex)
-
-    def clearPoints(self, markupsNode, sliceIndex):
-        sliceIndex = self.getSliceIndex()
-        points = self.getPoints(markupsNode, sliceIndex)
-        for point in reversed(points):
-            markupsNode.RemoveNthControlPoint(point[3])
-
-    def clearAllPoins(self):
-        self.foregroundMarkupsNode.RemoveAllControlPoints()
-        self.backgroundMarkupsNode.RemoveAllControlPoints()
-    
     def cleanup(self) -> None:
         """Called when the application closes and the module widget is destroyed."""
         self.removeObservers()
@@ -328,7 +239,7 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             if (hasattr(self, 'bgMkNPEndObserverId')):
                 self.backgroundMarkupsNode.RemoveObserver(self.bgMkNPEndObserverId)
         self.ui.inputSelector.currentNodeChanged.disconnect(self.onInputSelectorNodeChanged)
-
+    
     def onSceneStartClose(self, caller, event) -> None:
         """Called just before the scene is closed."""
         # Parameter node will be reset, do not use it anymore
@@ -388,6 +299,88 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self._checkCanRunBiomedisa()
             self._checkCanDeleteLabel()
 
+    def setupMarkups(self):
+        self.slice_widget = slicer.app.layoutManager().sliceWidget('Red')
+        self.slice_view = self.slice_widget.sliceView()
+        self.interactor = self.slice_view.interactorStyle().GetInteractor()
+
+        self.foregroundMarkupsNode = self.createMarkups(self.slice_widget, "Segment", 0, 0, 1)
+        self.backgroundMarkupsNode = self.createMarkups(self.slice_widget, "Non Segement", 1, 0, 0)
+
+    def createMarkups(self ,slice_widget, name, r, g, b):
+        # Create markups node
+        markupsNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLMarkupsFiducialNode")
+        markupsNode.SetName(name)
+        
+        # Create display node
+        markupsDisplayNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLMarkupsDisplayNode")
+        markupsNode.SetAndObserveDisplayNodeID(markupsDisplayNode.GetID())
+        #Move to 'Red'
+        redSliceNode = slice_widget.mrmlSliceNode()
+        displayNode = markupsNode.GetDisplayNode()
+        displayNode.AddViewNodeID(redSliceNode.GetID())
+
+        # Configure display node
+        markupsDisplayNode.SetGlyphScale(2.0)  # Size of the fiducial points
+        markupsDisplayNode.SetSelectedColor(r, g, b)  
+        markupsDisplayNode.SetColor(r, g, b)  
+        #markupsDisplayNode.SetColor(0, 0, 1)  
+
+        return markupsNode
+
+    def getSliceIndex(self )-> int: 
+        sliceController = self.slice_widget.sliceController()
+        sliceValue = sliceController.sliceOffsetSlider().value
+        return int(sliceValue)
+        
+    def getForegroundPoints(self, sliceIndex):
+        return self.getPoints(self.foregroundMarkupsNode, sliceIndex)
+
+    def getBackgroundPoints(self, sliceIndex):
+        return self.getPoints(self.backgroundMarkupsNode, sliceIndex)
+
+    def getPoints(self, markupsNode, sliceIndex):
+        points = []
+        pointsCount = markupsNode.GetNumberOfControlPoints()
+        for i in range(pointsCount):
+            coords = [0.0, 0.0, 0.0]
+            markupsNode.GetNthControlPointPosition(i, coords)
+            if(coords[2] == sliceIndex):
+                points.append([-round(coords[0]), -round(coords[1]), coords[2], i])
+        return points
+
+    def clearBackgroundPoints(self, sliceIndex):
+        self.clearPoints(self.backgroundMarkupsNode, sliceIndex)
+
+    def clearForegroundPoints(self, sliceIndex):
+        self.clearPoints(self.foregroundMarkupsNode, sliceIndex)
+
+    def clearPoints(self, markupsNode, sliceIndex):
+        sliceIndex = self.getSliceIndex()
+        points = self.getPoints(markupsNode, sliceIndex)
+        for point in reversed(points):
+            markupsNode.RemoveNthControlPoint(point[3])
+
+    def clearAllPoins(self):
+        self.foregroundMarkupsNode.RemoveAllControlPoints()
+        self.backgroundMarkupsNode.RemoveAllControlPoints()
+
+    def runSegmentAnything(self) -> None:
+        sliceIndex = self.getSliceIndex()
+        foreground = self.getForegroundPoints(sliceIndex)
+        background = self.getBackgroundPoints(sliceIndex)
+        inputNode  =  self._parameterNode.inputVolume
+
+        mask = self.logic.runSegmentAnythingRed(inputNode, sliceIndex, foreground, background)
+
+        # Apply slice to label
+        labelsNode = self._parameterNode.inputLabels
+        labelImage = labelsNode.GetImageData()
+        npLabel = vtkNumpyConverter.vtkToNumpy(labelImage)
+        npLabel[sliceIndex, :, :] = mask
+        vtlLabel = vtkNumpyConverter.numpyToVTK(npLabel)
+        labelsNode.SetAndObserveImageData(vtlLabel)
+
     def _checkCanRunBiomedisa(self, caller=None, event=None) -> None:
         if self._parameterNode.inputVolume and self._parameterNode.inputLabels:
             self.ui.biomedisaButton.enabled = True
@@ -399,6 +392,28 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.ui.deleteLabelButton.enabled = True
         else:
             self.ui.deleteLabelButton.enabled = False
+
+    def onLeftClick(self, caller, event):
+        xy = self.interactor.GetEventPosition()
+
+        sliceValue = self.getSliceIndex()
+
+        ras = self.slice_view.convertXYZToRAS([xy[0], xy[1], sliceValue])
+        ras = [ras[0], ras[1], sliceValue]
+
+        # Check if out of frame and return
+        dims = self._parameterNode.inputVolume.GetImageData().GetDimensions()
+        if (-ras[0] < 0 or -ras[0] > dims[0] or -ras[1] < 0 or -ras[1] > dims[1]):
+            return
+
+        modifiers = QGuiApplication.queryKeyboardModifiers()
+        alt_pressed = bool(modifiers & Qt.Modifier.ALT)
+        if(alt_pressed):
+            self.backgroundMarkupsNode.AddControlPoint(ras[0], ras[1], ras[2])
+        else:
+            self.foregroundMarkupsNode.AddControlPoint(ras[0], ras[1], ras[2])
+
+        self.runSegmentAnything()
 
     def onControlPointsUpdated(self, caller=None, event=None) -> None:
         self.runSegmentAnything()
@@ -423,22 +438,6 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         if self._parameterNode.outputLabels is labelsNode:
             labelsNode.SetAndObserveImageData(outputImage)
 
-    def runSegmentAnything(self) -> None:
-        sliceIndex = self.getSliceIndex()
-        foreground = self.getForegroundPoints(sliceIndex)
-        background = self.getBackgroundPoints(sliceIndex)
-        inputNode  =  self._parameterNode.inputVolume
-
-        mask = self.logic.runSegmentAnythingRed(inputNode, sliceIndex, foreground, background)
-
-        # Apply slice to label
-        labelsNode = self._parameterNode.inputLabels
-        labelImage = labelsNode.GetImageData()
-        npLabel = vtkNumpyConverter.vtkToNumpy(labelImage)
-        npLabel[sliceIndex, :, :] = mask
-        vtlLabel = vtkNumpyConverter.numpyToVTK(npLabel)
-        labelsNode.SetAndObserveImageData(vtlLabel)
-
     def onDeleteLabelButton(self) -> None:
         labelsNode  = self._parameterNode.inputLabels
         sliceIndex = self.getSliceIndex()
@@ -452,8 +451,8 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     def onClearPointsButton(self) -> None:
         sliceIndex = self.getSliceIndex()
-        self.clear_background_points(sliceIndex)
-        self.clear_foreground_points(sliceIndex)
+        self.clearBackgroundPoints(sliceIndex)
+        self.clearForegroundPoints(sliceIndex)
 
     def onTrainPredictorButton(self) -> None:
         self.logic.setupPredictor()
