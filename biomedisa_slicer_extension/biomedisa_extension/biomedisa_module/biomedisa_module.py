@@ -73,7 +73,6 @@ For more information visit the <a href="https://biomedisa.info/">project page</a
 # Register sample data sets in Sample Data module
 #
 
-
 def registerSampleData():
     """Add data sets to Sample Data module."""
     # It is always recommended to provide sample data for users to make it easy to try the module,
@@ -123,7 +122,6 @@ def registerSampleData():
 # biomedisa_moduleParameterNode
 #
 
-
 @parameterNodeWrapper
 class biomedisa_moduleParameterNode:
     """
@@ -148,10 +146,10 @@ class biomedisa_moduleParameterNode:
     modelCheckpointFile: str = os.path.join(script_dir, "Resources", "sam_vit_b_01ec64.pth")
     modelType:str = "vit_b"
 
+
 #
 # biomedisa_moduleWidget
 #
-
 
 class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     """Uses ScriptedLoadableModuleWidget base class, available at:
@@ -180,8 +178,8 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # "mrmlSceneChanged(vtkMRMLScene*)" signal in is connected to each MRML widget's.
         # "setMRMLScene(vtkMRMLScene*)" slot.
         uiWidget.setMRMLScene(slicer.mrmlScene)
-        self.ui.labelSelector.setMRMLScene(slicer.mrmlScene)
-
+        #self.ui.labelSelector.setMRMLScene(slicer.mrmlScene)
+        
         # Create logic class. Logic implements all computations that should be possible to run
         # in batch mode, without a graphical user interface.
         self.logic = biomedisa_moduleLogic()
@@ -196,7 +194,6 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         # Buttons
         self.ui.biomedisaButton.connect("clicked(bool)", self.onBiomedisaButton)
-        self.ui.segmentAnythingButton.connect("clicked(bool)", self.onSegmentAnythingButton)
         self.ui.deleteLabelButton.connect("clicked(bool)", self.onDeleteLabelButton)
         self.ui.clearPointsButton.connect("clicked(bool)", self.onClearPointsButton)
         self.ui.trainPredictorButton.connect("clicked(bool)", self.onTrainPredictorButton)
@@ -253,8 +250,7 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         else:
             self.foregroundMarkupsNode.AddControlPoint(ras[0], ras[1], ras[2])
 
-        if(self.logic.isPredictorImageSet(self._parameterNode.inputVolume, self.getSliceIndex())):
-            self.onSegmentAnythingButton()
+        self.runSegmentAnything()
 
     def getSliceIndex(self )-> int: 
         sliceController = self.slice_widget.sliceController()
@@ -309,7 +305,8 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.fgMkNPEndObserverId = self.foregroundMarkupsNode.AddObserver(slicer.vtkMRMLMarkupsNode.PointEndInteractionEvent, self.onControlPointsUpdated)
         self.bgMkNPAddObserverId = self.backgroundMarkupsNode.AddObserver(slicer.vtkMRMLMarkupsNode.PointRemovedEvent, self.onControlPointsUpdated)
         self.bgMkNPEndObserverId = self.backgroundMarkupsNode.AddObserver(slicer.vtkMRMLMarkupsNode.PointEndInteractionEvent, self.onControlPointsUpdated)
-        
+        self.ui.inputSelector.currentNodeChanged.connect(self.onInputSelectorNodeChanged)
+
     def exit(self) -> None:
         """Called each time the user opens a different module."""
         # Do not react to parameter node changes (GUI will be updated when the user enters into the module)
@@ -317,7 +314,6 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self._parameterNode.disconnectGui(self._parameterNodeGuiTag)
             self._parameterNodeGuiTag = None
             self.removeObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self._checkCanRunBiomedisa)
-            self.removeObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self._checkCanRunSegmentAnything)
             self.removeObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self._checkCanDeleteLabel)
         if(hasattr(self, 'interactor') and hasattr(self, 'observerId')):
             self.interactor.RemoveObserver(self.observerId)
@@ -331,6 +327,7 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 self.backgroundMarkupsNode.RemoveObserver(self.bgMkNPAddObserverId)
             if (hasattr(self, 'bgMkNPEndObserverId')):
                 self.backgroundMarkupsNode.RemoveObserver(self.bgMkNPEndObserverId)
+        self.ui.inputSelector.currentNodeChanged.disconnect(self.onInputSelectorNodeChanged)
 
     def onSceneStartClose(self, caller, event) -> None:
         """Called just before the scene is closed."""
@@ -380,7 +377,6 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         if self._parameterNode:
             self._parameterNode.disconnectGui(self._parameterNodeGuiTag)
             self.removeObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self._checkCanRunBiomedisa)
-            self.removeObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self._checkCanRunSegmentAnything)
             self.removeObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self._checkCanDeleteLabel)
         self._parameterNode = inputParameterNode
         if self._parameterNode:
@@ -388,10 +384,8 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             # ui element that needs connection.
             self._parameterNodeGuiTag = self._parameterNode.connectGui(self.ui)
             self.addObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self._checkCanRunBiomedisa)
-            self.addObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self._checkCanRunSegmentAnything)
             self.addObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self._checkCanDeleteLabel)
             self._checkCanRunBiomedisa()
-            self._checkCanRunSegmentAnything()
             self._checkCanDeleteLabel()
 
     def _checkCanRunBiomedisa(self, caller=None, event=None) -> None:
@@ -400,12 +394,6 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         else:
             self.ui.biomedisaButton.enabled = False
 
-    def _checkCanRunSegmentAnything(self, caller=None, event=None) -> None:
-        if self._parameterNode.inputVolume and self._parameterNode.inputLabels:
-            self.ui.segmentAnythingButton.enabled = True
-        else:
-            self.ui.segmentAnythingButton.enabled = False
-
     def _checkCanDeleteLabel(self, caller=None, event=None) -> None:
         if self._parameterNode.inputLabels:
             self.ui.deleteLabelButton.enabled = True
@@ -413,10 +401,13 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.ui.deleteLabelButton.enabled = False
 
     def onControlPointsUpdated(self, caller=None, event=None) -> None:
-        if(self.logic.isPredictorImageSet(self._parameterNode.inputVolume, self.getSliceIndex())):
-            print("Quick segment anything running")
-            self.onSegmentAnythingButton()
+        self.runSegmentAnything()
 
+    def onInputSelectorNodeChanged(self, node):
+        if node is not None:
+            sliceIndex = self.getSliceIndex()
+            self.logic.setSegmentAnythingImage(node, sliceIndex)
+            
     def onBiomedisaButton(self) -> None:
         inputNode  =  self._parameterNode.inputVolume
         labelsNode  =  self._parameterNode.inputLabels
@@ -432,7 +423,7 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         if self._parameterNode.outputLabels is labelsNode:
             labelsNode.SetAndObserveImageData(outputImage)
 
-    def onSegmentAnythingButton(self) -> None:
+    def runSegmentAnything(self) -> None:
         sliceIndex = self.getSliceIndex()
         foreground = self.getForegroundPoints(sliceIndex)
         background = self.getBackgroundPoints(sliceIndex)
@@ -467,10 +458,10 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     def onTrainPredictorButton(self) -> None:
         self.logic.setupPredictor()
 
+
 #
 # biomedisa_moduleLogic
 #
-
 
 class biomedisa_moduleLogic(ScriptedLoadableModuleLogic):
     """This class should implement all the actual
@@ -501,8 +492,7 @@ class biomedisa_moduleLogic(ScriptedLoadableModuleLogic):
         sam = sam_model_registry[parameter.modelType](checkpoint=parameter.modelCheckpointFile)
         self.predictor = SamPredictor(sam)
         endTime = time.time()
-        print(f"Predictor set up in {endTime-startTime} s")
-        
+        print(f"Predictor set up in {endTime-startTime:.2f} s")
 
     def getParameterNode(self):
         return biomedisa_moduleParameterNode(super().getParameterNode())
@@ -556,13 +546,12 @@ class biomedisa_moduleLogic(ScriptedLoadableModuleLogic):
         self.predictorSliceIndex = index
         self.predictorVolumeName = inputVolume.GetName()
         endTime = time.time()
-        print(f"Predictor image is set in {endTime-startTime}")
+        print(f"Predictor image is set in {endTime-startTime:.2f}")
 
     def isPredictorImageSet(self,
                    inputVolume: vtkMRMLScalarVolumeNode,
                    index: int):
         return self.predictorSliceIndex == index and self.predictorVolumeName == inputVolume.GetName()
-
 
     def runSegmentAnythingRed(self,
                    inputVolume: vtkMRMLScalarVolumeNode,
@@ -572,6 +561,7 @@ class biomedisa_moduleLogic(ScriptedLoadableModuleLogic):
         if(not hasattr(self, 'predictor')):
             raise Exception("Predictor is not trained. Make sure you've got a working model checkpoint and type.")
 
+        startTime = time.time()
         length_f = len(foreground)
         length_b = len(background)
 
@@ -592,14 +582,14 @@ class biomedisa_moduleLogic(ScriptedLoadableModuleLogic):
 
         masks, _, _  = self.predictor.predict(point_coords=point_coords, point_labels=point_labels, multimask_output=False)
         masks_uint8 = (masks* 100).astype(np.uint8) #100 is the segment number
-
+        endTime = time.time()
+        print(f"Segment anything completed within {endTime-startTime:.2f} s")
         return masks_uint8[0] # 0 = Take the best one
 
 
 #
 # biomedisa_moduleTest
 #
-
 
 class biomedisa_moduleTest(ScriptedLoadableModuleTest):
     """
