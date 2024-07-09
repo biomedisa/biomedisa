@@ -72,8 +72,8 @@ Download test files from [Gallery](https://biomedisa.info/gallery/) and run:
 # smart interpolation
 python -m biomedisa.interpolation Downloads\tumor.tif Downloads\labels.tumor.tif --platform=opencl_Intel_CPU
 
-# deep learning
-python -m biomedisa.deeplearning Downloads\testing_axial_crop_pat13.nii.gz Downloads\heart.h5 -p -bs=12
+# deep learning using stride_size=64 (less accuracy but faster)
+python -m biomedisa.deeplearning Downloads\testing_axial_crop_pat13.nii.gz Downloads\heart.h5 -p --stride_size=64
 ```
 
 #### Update Biomedisa
