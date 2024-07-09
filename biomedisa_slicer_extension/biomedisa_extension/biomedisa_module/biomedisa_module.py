@@ -64,62 +64,13 @@ For more information visit the <a href="https://biomedisa.info/">project page</a
                                             Shout-out to Germany for funding this project with unemployment benefits!
 """)
 
-        # Additional initialization step after application startup is complete
-        slicer.app.connect("startupCompleted()", registerSampleData)
-
-
-#
-# Register sample data sets in Sample Data module
-#
-
-def registerSampleData():
-    """Add data sets to Sample Data module."""
-    # It is always recommended to provide sample data for users to make it easy to try the module,
-    # but if no sample data is available then this method (and associated startupCompeted signal connection) can be removed.
-
-    import SampleData
-
-    iconsPath = os.path.join(os.path.dirname(__file__), "Resources/Icons")
-
-    # To ensure that the source code repository remains small (can be downloaded and installed quickly)
-    # it is recommended to store data sets that are larger than a few MB in a Github release.
-
-    # biomedisa_module1
-    SampleData.SampleDataLogic.registerCustomSampleDataSource(
-        # Category and sample name displayed in Sample Data module
-        category="biomedisa_module",
-        sampleName="biomedisa_module1",
-        # Thumbnail should have size of approximately 260x280 pixels and stored in Resources/Icons folder.
-        # It can be created by Screen Capture module, "Capture all views" option enabled, "Number of images" set to "Single".
-        thumbnailFileName=os.path.join(iconsPath, "biomedisa_module1.png"),
-        # Download URL and target file name
-        uris="https://github.com/Slicer/SlicerTestingData/releases/download/SHA256/998cb522173839c78657f4bc0ea907cea09fd04e44601f17c82ea27927937b95",
-        fileNames="biomedisa_module1.nrrd",
-        # Checksum to ensure file integrity. Can be computed by this command:
-        #  import hashlib; print(hashlib.sha256(open(filename, "rb").read()).hexdigest())
-        checksums="SHA256:998cb522173839c78657f4bc0ea907cea09fd04e44601f17c82ea27927937b95",
-        # This node name will be used when the data set is loaded
-        nodeNames="biomedisa_module1",
-    )
-
-    # biomedisa_module2
-    SampleData.SampleDataLogic.registerCustomSampleDataSource(
-        # Category and sample name displayed in Sample Data module
-        category="biomedisa_module",
-        sampleName="biomedisa_module2",
-        thumbnailFileName=os.path.join(iconsPath, "biomedisa_module2.png"),
-        # Download URL and target file name
-        uris="https://github.com/Slicer/SlicerTestingData/releases/download/SHA256/1a64f3f422eb3d1c9b093d1a18da354b13bcf307907c66317e2463ee530b7a97",
-        fileNames="biomedisa_module2.nrrd",
-        checksums="SHA256:1a64f3f422eb3d1c9b093d1a18da354b13bcf307907c66317e2463ee530b7a97",
-        # This node name will be used when the data set is loaded
-        nodeNames="biomedisa_module2",
-    )
-
 
 #
 # biomedisa_moduleParameterNode
 #
+
+
+# Example of connecting a custom callback to the module loaded event
 
 @parameterNodeWrapper
 class biomedisa_moduleParameterNode:
@@ -132,9 +83,13 @@ class biomedisa_moduleParameterNode:
     inputLabels: vtkMRMLLabelMapVolumeNode
     outputLabels: vtkMRMLLabelMapVolumeNode
 
+    #biomedisa
+    allaxis: bool = False
     nbrw: int = 10
     sorw: int = 4000
 
+    #segment anything
+    segmentAnythingActive: bool = False
     script_dir = os.path.dirname(os.path.abspath(__file__))
     # 16s loading, 36s image setting
     #modelCheckpointFile: str = os.path.join(script_dir, "Resources", "sam_vit_h_4b8939.pth")
@@ -162,7 +117,7 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.logic = None
         self._parameterNode = None
         self._parameterNodeGuiTag = None
-
+        
     def setup(self) -> None:
         """Called when the user opens the module the first time and the widget is initialized."""
         ScriptedLoadableModuleWidget.setup(self)
@@ -253,6 +208,10 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     def onLeftClick(self, caller, event):
         """Called when the left mouse button is clicked."""
+
+        if(not self._parameterNode.segmentAnythingActive):
+            return
+
         xy = self.interactor.GetEventPosition()
 
         sliceValue = self.__getSliceIndex()
@@ -275,6 +234,8 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.__runSegmentAnything()
 
     def onControlPointsUpdated(self, caller=None, event=None) -> None:
+        if(not self._parameterNode.segmentAnythingActive):
+            return
         self.__runSegmentAnything()
 
     def onInputSelectorNodeChanged(self, node):
@@ -290,12 +251,11 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         outputImage = biomedisa_moduleLogic.runBiomedisa(input=inputImage,
                                                          labels=labels, 
+                                                         allaxis=self._parameterNode.allaxis,
                                                          sorw=self._parameterNode.sorw, 
                                                          nbrw=self._parameterNode.nbrw)
 
-        #Set image in view
-        if self._parameterNode.outputLabels is labelsNode:
-            labelsNode.SetAndObserveImageData(outputImage)
+        labelsNode.SetAndObserveImageData(outputImage)
 
     def onDeleteLabelButton(self) -> None:
         labelsNode  = self._parameterNode.inputLabels
@@ -433,6 +393,29 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.foregroundMarkupsNode.RemoveAllControlPoints()
         self.backgroundMarkupsNode.RemoveAllControlPoints()
 
+    def createEmptyImageDataFromScalarVolume(image: vtkMRMLScalarVolumeNode):
+        # Get dimensions, spacing, and origin from the scalar volume
+        scalarImageData = image.GetImageData()
+        dimensions = scalarImageData.GetDimensions()
+        #spacing = image.GetSpacing()
+        #origin = image.GetOrigin()
+
+        # Create new image data
+        labelMapImageData = vtk.vtkImageData()
+        labelMapImageData.SetDimensions(dimensions)
+        labelMapImageData.AllocateScalars(vtk.VTK_UNSIGNED_CHAR, 1)  # Assuming label maps are 8-bit
+        labelMapImageData.GetPointData().GetScalars().Fill(0)  # Initialize with zeros
+        return labelMapImageData
+        # Create new label map volume node
+        labelMapVolumeNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLabelMapVolumeNode")
+        labelMapVolumeNode.SetAndObserveImageData(labelMapImageData)
+        labelMapVolumeNode.SetSpacing(spacing)
+        labelMapVolumeNode.SetOrigin(origin)
+
+        # Copy the geometry from the scalar volume node
+        labelMapVolumeNode.SetIJKToRASMatrix(image.GetIJKToRASMatrix())
+        return labelMapVolumeNode
+
     def __runSegmentAnything(self) -> None:
         """Collects data in widget, starts the process in logic and displays the result."""
 
@@ -446,6 +429,10 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # Apply slice to label
         labelsNode = self._parameterNode.inputLabels
         labelImage = labelsNode.GetImageData()
+        if(labelImage == None):
+            print("empty image")
+            labelImage = biomedisa_moduleWidget.createEmptyImageDataFromScalarVolume(inputNode)
+
         npLabel = vtkNumpyConverter.vtkToNumpy(labelImage)
         npLabel[sliceIndex, :, :] = mask
         vtlLabel = vtkNumpyConverter.numpyToVTK(npLabel)
@@ -482,9 +469,10 @@ class biomedisa_moduleLogic(ScriptedLoadableModuleLogic):
         """Called when the logic class is instantiated. Can be used for initializing member variables."""
         ScriptedLoadableModuleLogic.__init__(self)
 
+        self.parameterNode = self.getParameterNode()
+        
         self.predictorSliceIndex = None
         self.predictorVolumeName = None
-        self.setupPredictor()
 
     def setupPredictor(self):
         """
@@ -493,12 +481,11 @@ class biomedisa_moduleLogic(ScriptedLoadableModuleLogic):
         """
         startTime = time.time()
         
-        parameter = self.getParameterNode()
-        if not os.path.exists(parameter.modelCheckpointFile):
+        if not os.path.exists(self.parameterNode.modelCheckpointFile):
             raise Exception(f"You need to download a model checkpoint and store it at {parameter.modelCheckpointFile}. Check out: https://github.com/facebookresearch/segment-anything")
-        print(f"Training predictor with modelType '{parameter.modelType}' and file '{parameter.modelCheckpointFile}'.")
+        print(f"Training predictor with modelType '{self.parameterNode.modelType}' and file '{self.parameterNode.modelCheckpointFile}'.")
         
-        sam = sam_model_registry[parameter.modelType](checkpoint=parameter.modelCheckpointFile)
+        sam = sam_model_registry[self.parameterNode.modelType](checkpoint=self.parameterNode.modelCheckpointFile)
         self.predictor = SamPredictor(sam)
         endTime = time.time()
         print(f"Predictor set up in {endTime-startTime:.2f} s")
@@ -509,6 +496,7 @@ class biomedisa_moduleLogic(ScriptedLoadableModuleLogic):
     def runBiomedisa(
                 input: vtkMRMLScalarVolumeNode,
                 labels: vtkMRMLLabelMapVolumeNode, 
+                allaxis: bool,
                 sorw: int,
                 nbrw: int) -> vtkMRMLLabelMapVolumeNode:
         """
@@ -524,7 +512,9 @@ class biomedisa_moduleLogic(ScriptedLoadableModuleLogic):
     
         from biomedisa.interpolation import smart_interpolation
         # smart interpolation with optional smoothing result
-        results = smart_interpolation(numpyImage, numpyLabels, nbrw=nbrw, sorw=sorw)#, smooth=100, platform="opencl_AMD_GPU")
+        results = smart_interpolation(numpyImage, numpyLabels,
+                                      allaxis=allaxis,
+                                      nbrw=nbrw, sorw=sorw)
        
         # get results
         regular_result = results['regular']
@@ -538,12 +528,19 @@ class biomedisa_moduleLogic(ScriptedLoadableModuleLogic):
         return outputImage
 
     def setSegmentAnythingImage(self,
-                   inputVolume: vtkMRMLScalarVolumeNode,
-                   index: int):
+                                inputVolume: vtkMRMLScalarVolumeNode,
+                                index: int):
         """
         Applies the image to the segment anything predictor.
         Depending on the model file size and image size this will take several seconds. 
         """
+        
+        if(not self.parameterNode.segmentAnythingActive):
+            return
+        
+        if(not hasattr(self, 'predictor')):
+            self.setupPredictor()
+
         if(not hasattr(self, 'predictor')):
             raise Exception("Predictor is not trained. Make sure you've got a working model checkpoint and type.")
 
@@ -567,12 +564,12 @@ class biomedisa_moduleLogic(ScriptedLoadableModuleLogic):
         return self.predictorSliceIndex == index and self.predictorVolumeName == inputVolume.GetName()
 
     def runSegmentAnythingRed(self,
-                   inputVolume: vtkMRMLScalarVolumeNode,
-                   index: int,
-                   foreground: np.array,
-                   background: np.array):
+                              inputVolume: vtkMRMLScalarVolumeNode,
+                              index: int,
+                              foreground: np.array,
+                              background: np.array):
         if(not hasattr(self, 'predictor')):
-            raise Exception("Predictor is not trained. Make sure you've got a working model checkpoint and type.")
+            self.setupPredictor()
 
         startTime = time.time()
         length_f = len(foreground)
