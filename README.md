@@ -115,15 +115,14 @@ deep_learning(img_data, label_data, train=True, batch_size=12,
 ```
 
 #### Command-line based (training)
-Start training with a batch size of 12:
 ```
-python -m biomedisa.deeplearning C:\Users\%USERNAME%\Downloads\training_heart C:\Users\%USERNAME%\Downloads\training_heart_labels -t -bs=12
+python -m biomedisa.deeplearning C:\Users\%USERNAME%\Downloads\training_heart C:\Users\%USERNAME%\Downloads\training_heart_labels -t
 ```
 Monitor training progress using validation data:
 ```
 python -m biomedisa.deeplearning C:\Users\%USERNAME%\Downloads\training_heart C:\Users\%USERNAME%\Downloads\training_heart_labels -t -vi=C:\Users\%USERNAME%\Downloads\val_img -vl=C:\Users\%USERNAME%\Downloads\val_labels
 ```
-If running into ResourceExhaustedError due to out of memory (OOM), try to use a smaller batch size.
+If running into ResourceExhaustedError due to out of memory (OOM), try to use a smaller batch size (e.g. -bs=12).
 
 #### Python example (prediction)
 ```python
