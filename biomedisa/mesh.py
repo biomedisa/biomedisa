@@ -29,6 +29,7 @@
 
 import os
 import numpy as np
+import biomedisa
 from biomedisa.features.biomedisa_helper import load_data, unique_file_path
 from biomedisa.features.django_env import create_pid_object
 from vtk.util.numpy_support import vtk_to_numpy, numpy_to_vtk

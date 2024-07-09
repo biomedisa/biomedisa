@@ -32,10 +32,11 @@ Follow installation instructions (ignore "Missing optional prerequisites -- Unsu
 
 #### Install pip packages
 ```
-pip3 install --upgrade pip setuptools testresources scikit-build wheel
-pip3 install --upgrade numpy scipy h5py colorama numpy-stl \
+pip install --upgrade pip setuptools testresources scikit-build wheel
+pip install --upgrade numpy scipy h5py colorama numpy-stl \
     numba imagecodecs tifffile scikit-image opencv-python netCDF4 mrcfile \
     Pillow nibabel medpy SimpleITK mpi4py itk vtk matplotlib pyopencl biomedisa
+pip install tensorflow==2.13.0
 
 # Add 'export PATH=${HOME}/.local/bin:${PATH}' to '~/.bashrc'
 echo 'export PATH=${HOME}/.local/bin:${PATH}' >> ~/.bashrc
@@ -45,7 +46,11 @@ source ~/.bashrc
 #### Biomedisa example
 Download test files from [Gallery](https://biomedisa.info/gallery/).
 ```
-python3 -m biomedisa.interpolation Downloads/tumor.tif Downloads/labels.tumor.tif --platform=opencl_Intel_CPU
+# smart interpolation
+python -m biomedisa.interpolation Downloads/tumor.tif Downloads/labels.tumor.tif --platform=opencl_Intel_CPU
+
+# deep learning using stride_size=64 (less accuracy but faster)
+python -m biomedisa.deeplearning Downloads/testing_axial_crop_pat13.nii.gz Downloads/heart.h5 -p --stride_size=64
 ```
 
 #### Update Biomedisa
