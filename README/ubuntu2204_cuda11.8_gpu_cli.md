@@ -94,7 +94,7 @@ Download test files from [Gallery](https://biomedisa.info/gallery/)
 python3 -m biomedisa.interpolation Downloads/tumor.tif Downloads/labels.tumor.tif
 
 # deep learning
-python3 -m biomedisa.deeplearning Downloads/testing_axial_crop_pat13.nii.gz Downloads/heart.h5 -p -bs=12
+python3 -m biomedisa.deeplearning Downloads/testing_axial_crop_pat13.nii.gz Downloads/heart.h5 -p
 ```
 
 #### Update Biomedisa

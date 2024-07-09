@@ -24,7 +24,7 @@ Biomedisa (https://biomedisa.info) is a free and easy-to-use open-source applica
 
 ## Installation (command-line based)
 + [Ubuntu 22.04 + CUDA + GPU (recommended)](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu2204_cuda11.8_gpu_cli.md)
-+ [Ubuntu 22.04 + OpenCL + CPU (smart interpolation only and very slow)](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu2204_opencl_cpu_cli.md)
++ [Ubuntu 22.04 + OpenCL + CPU (very slow)](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu2204_opencl_cpu_cli.md)
 + [Windows 10 + CUDA + GPU (recommended)](https://github.com/biomedisa/biomedisa/blob/master/README/windows10_cuda_gpu_cli.md)
 + [Windows 10 + OpenCL + GPU (easy to install but lacks features like allaxis, smoothing, uncertainty, optimized GPU memory usage)](https://github.com/biomedisa/biomedisa/blob/master/README/windows10_opencl_gpu_cli.md)
 + [Windows 10 + OpenCL + CPU (very slow)](https://github.com/biomedisa/biomedisa/blob/master/README/windows10_opencl_cpu_cli.md)
@@ -115,15 +115,14 @@ deep_learning(img_data, label_data, train=True, batch_size=12,
 ```
 
 #### Command-line based (training)
-Start training with a batch size of 12:
 ```
-python -m biomedisa.deeplearning C:\Users\%USERNAME%\Downloads\training_heart C:\Users\%USERNAME%\Downloads\training_heart_labels -t -bs=12
+python -m biomedisa.deeplearning C:\Users\%USERNAME%\Downloads\training_heart C:\Users\%USERNAME%\Downloads\training_heart_labels -t
 ```
 Monitor training progress using validation data:
 ```
 python -m biomedisa.deeplearning C:\Users\%USERNAME%\Downloads\training_heart C:\Users\%USERNAME%\Downloads\training_heart_labels -t -vi=C:\Users\%USERNAME%\Downloads\val_img -vl=C:\Users\%USERNAME%\Downloads\val_labels
 ```
-If running into ResourceExhaustedError due to out of memory (OOM), try to use a smaller batch size.
+If running into ResourceExhaustedError due to out of memory (OOM), try to use a smaller batch size (e.g. -bs=12).
 
 #### Python example (prediction)
 ```python
