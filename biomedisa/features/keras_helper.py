@@ -946,22 +946,24 @@ def train_semantic_segmentation(bm,
     if img_val is not None and not bm.val_dice:
         save_history(history.history, bm.path_to_model, False, bm.train_dice)
 
-def load_prediction_data(path_to_img, channels, x_scale, y_scale, z_scale,
-                        no_scaling, normalize, normalization_parameters, region_of_interest,
-                        img, img_header):
+def load_prediction_data(bm, channels, normalize, normalization_parameters,
+    region_of_interest, img, img_header):
+
     # read image data
     if img is None:
-        img, img_header = load_data(path_to_img, 'first_queue')
+        img, img_header = load_data(bm.path_to_image, 'first_queue')
 
     # verify validity
     if img is None:
-        InputError.message = f'Invalid image data: {os.path.basename(path_to_img)}.'
+        InputError.message = f'Invalid image data: {os.path.basename(bm.path_to_image)}.'
         raise InputError()
 
-    # preserve original image data
-    img_data = img.copy()
+    # preserve original image data for post-processing
+    img_data = None
+    if bm.acwe:
+        img_data = img.copy()
 
-    # handle all images having channels >=1
+    # handle all images using number of channels >=1
     if len(img.shape)==3:
         z_shape, y_shape, x_shape = img.shape
         img = img.reshape(z_shape, y_shape, x_shape, 1)
@@ -981,8 +983,8 @@ def load_prediction_data(path_to_img, channels, x_scale, y_scale, z_scale,
 
     # scale/resize image data
     img = img.astype(np.float32)
-    if not no_scaling:
-        img = img_resize(img, z_scale, y_scale, x_scale)
+    if not bm.no_scaling:
+        img = img_resize(img, bm.z_scale, bm.y_scale, bm.x_scale)
 
     # normalize image data
     for c in range(channels):
@@ -1000,10 +1002,9 @@ def load_prediction_data(path_to_img, channels, x_scale, y_scale, z_scale,
 
     return img, img_header, z_shape, y_shape, x_shape, region_of_interest, img_data
 
-def predict_semantic_segmentation(bm, img, path_to_model,
-    z_patch, y_patch, x_patch, z_shape, y_shape, x_shape, compress, header,
-    img_header, stride_size, allLabels, batch_size, region_of_interest,
-    no_scaling, extension, img_data):
+def predict_semantic_segmentation(bm, img,
+    z_shape, y_shape, x_shape, header, img_header, allLabels,
+    region_of_interest, extension, img_data):
 
     results = {}
 
@@ -1017,27 +1018,17 @@ def predict_semantic_segmentation(bm, img, path_to_model,
     list_IDs = []
 
     # get Ids of patches
-    for k in range(0, zsh-z_patch+1, stride_size):
-        for l in range(0, ysh-y_patch+1, stride_size):
-            for m in range(0, xsh-x_patch+1, stride_size):
+    for k in range(0, zsh-bm.z_patch+1, bm.stride_size):
+        for l in range(0, ysh-bm.y_patch+1, bm.stride_size):
+            for m in range(0, xsh-bm.x_patch+1, bm.stride_size):
                 list_IDs.append(k*ysh*xsh+l*xsh+m)
 
     # make length of list divisible by batch size
-    rest = batch_size - (len(list_IDs) % batch_size)
+    rest = bm.batch_size - (len(list_IDs) % bm.batch_size)
     list_IDs = list_IDs + list_IDs[:rest]
 
     # number of patches
     nb_patches = len(list_IDs)
-
-    # parameters
-    params = {'dim': (z_patch, y_patch, x_patch),
-              'dim_img': (zsh, ysh, xsh),
-              'batch_size': batch_size,
-              'n_channels': csh,
-              'patch_normalization': bm.patch_normalization}
-
-    # data generator
-    predict_generator = PredictDataGenerator(img, list_IDs, **params)
 
     # load model
     if bm.dice_loss:
@@ -1050,20 +1041,34 @@ def predict_semantic_segmentation(bm, img, path_to_model,
             loss = 1 - dice
             return loss
         custom_objects = {'dice_coef_loss': dice_coef_loss,'loss_fn': loss_fn}
-        model = load_model(path_to_model, custom_objects=custom_objects)
+        model = load_model(bm.path_to_model, custom_objects=custom_objects)
     else:
-        model = load_model(path_to_model)
+        model = load_model(bm.path_to_model)
 
-    # predict
+    # prediction
     if nb_patches < 400:
+        # parameters
+        params = {'dim': (bm.z_patch, bm.y_patch, bm.x_patch),
+                  'dim_img': (zsh, ysh, xsh),
+                  'batch_size': bm.batch_size,
+                  'n_channels': csh,
+                  'patch_normalization': bm.patch_normalization}
+
+        # data generator
+        predict_generator = PredictDataGenerator(img, list_IDs, **params)
+
+        # predict probabilities
         probabilities = model.predict(predict_generator, verbose=0, steps=None)
     else:
-        X = np.empty((batch_size, z_patch, y_patch, x_patch, csh), dtype=np.float32)
-        probabilities = np.zeros((nb_patches, z_patch, y_patch, x_patch, nb_labels), dtype=np.float32)
+        # stream data batchwise to GPU to reduce memory usage
+        X = np.empty((bm.batch_size, bm.z_patch, bm.y_patch, bm.x_patch, csh), dtype=np.float32)
+
+        # allocate probabilities array
+        probabilities = np.zeros((nb_patches, bm.z_patch, bm.y_patch, bm.x_patch, nb_labels), dtype=np.float32)
 
         # get image patches
-        for step in range(nb_patches//batch_size):
-            for i, ID in enumerate(list_IDs[step*batch_size:(step+1)*batch_size]):
+        for step in range(nb_patches//bm.batch_size):
+            for i, ID in enumerate(list_IDs[step*bm.batch_size:(step+1)*bm.batch_size]):
 
                 # get patch indices
                 k = ID // (ysh*xsh)
@@ -1072,7 +1077,7 @@ def predict_semantic_segmentation(bm, img, path_to_model,
                 m = rest % xsh
 
                 # get patch
-                tmp_X = img[k:k+z_patch,l:l+y_patch,m:m+x_patch]
+                tmp_X = img[k:k+bm.z_patch,l:l+bm.y_patch,m:m+bm.x_patch]
                 if bm.patch_normalization:
                     tmp_X = np.copy(tmp_X, order='C')
                     for c in range(csh):
@@ -1080,26 +1085,27 @@ def predict_semantic_segmentation(bm, img, path_to_model,
                         tmp_X[:,:,:,c] /= max(np.std(tmp_X[:,:,:,c]), 1e-6)
                 X[i] = tmp_X
 
-            probabilities[step*batch_size:(step+1)*batch_size] = model.predict(X, verbose=0, steps=None, batch_size=batch_size)
+            # predict probabilities
+            probabilities[step*bm.batch_size:(step+1)*bm.batch_size] = model.predict(X, verbose=0, steps=None, batch_size=bm.batch_size)
 
     # create final
     final = np.zeros((zsh, ysh, xsh, nb_labels), dtype=np.float32)
     if bm.return_probs:
         counter = np.zeros((zsh, ysh, xsh, nb_labels), dtype=np.float32)
     nb = 0
-    for k in range(0, zsh-z_patch+1, stride_size):
-        for l in range(0, ysh-y_patch+1, stride_size):
-            for m in range(0, xsh-x_patch+1, stride_size):
-                final[k:k+z_patch, l:l+y_patch, m:m+x_patch] += probabilities[nb]
+    for k in range(0, zsh-bm.z_patch+1, bm.stride_size):
+        for l in range(0, ysh-bm.y_patch+1, bm.stride_size):
+            for m in range(0, xsh-bm.x_patch+1, bm.stride_size):
+                final[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch] += probabilities[nb]
                 if bm.return_probs:
-                    counter[k:k+z_patch, l:l+y_patch, m:m+x_patch] += 1
+                    counter[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch] += 1
                 nb += 1
 
     # return probabilities
     if bm.return_probs:
         counter[counter==0] = 1
         probabilities = final / counter
-        if not no_scaling:
+        if not bm.no_scaling:
             probabilities = img_resize(probabilities, z_shape, y_shape, x_shape)
         if np.any(region_of_interest):
             min_z,max_z,min_y,max_y,min_x,max_x,original_zsh,original_ysh,original_xsh = region_of_interest[:]
@@ -1113,7 +1119,7 @@ def predict_semantic_segmentation(bm, img, path_to_model,
     label = label.astype(np.uint8)
 
     # rescale final to input size
-    if not no_scaling:
+    if not bm.no_scaling:
         label = img_resize(label, z_shape, y_shape, x_shape, labels=True)
 
     # revert automatic cropping
@@ -1163,7 +1169,7 @@ def predict_semantic_segmentation(bm, img, path_to_model,
 
     # save result
     if bm.path_to_image:
-        save_data(bm.path_to_final, label, header=header, compress=compress)
+        save_data(bm.path_to_final, label, header=header, compress=bm.compression)
 
         # paths to optional results
         filename, extension = os.path.splitext(bm.path_to_final)
@@ -1181,17 +1187,17 @@ def predict_semantic_segmentation(bm, img, path_to_model,
         cleaned_result = clean(label, bm.clean)
         results['cleaned'] = cleaned_result
         if bm.path_to_image:
-            save_data(path_to_cleaned, cleaned_result, header=header, compress=compress)
+            save_data(path_to_cleaned, cleaned_result, header=header, compress=bm.compression)
     if bm.fill:
         filled_result = clean(label, bm.fill)
         results['filled'] = filled_result
         if bm.path_to_image:
-            save_data(path_to_filled, filled_result, header=header, compress=compress)
+            save_data(path_to_filled, filled_result, header=header, compress=bm.compression)
     if bm.clean and bm.fill:
         cleaned_filled_result = cleaned_result + (filled_result - label)
         results['cleaned_filled'] = cleaned_filled_result
         if bm.path_to_image:
-            save_data(path_to_cleaned_filled, cleaned_filled_result, header=header, compress=compress)
+            save_data(path_to_cleaned_filled, cleaned_filled_result, header=header, compress=bm.compression)
 
     # post-processing with active contour
     if bm.acwe:
@@ -1200,8 +1206,8 @@ def predict_semantic_segmentation(bm, img, path_to_model,
         results['acwe'] = acwe_result
         results['refined'] = refined_result
         if bm.path_to_image:
-            save_data(path_to_acwe, acwe_result, header=header, compress=compress)
-            save_data(path_to_refined, refined_result, header=header, compress=compress)
+            save_data(path_to_acwe, acwe_result, header=header, compress=bm.compression)
+            save_data(path_to_refined, refined_result, header=header, compress=bm.compression)
 
     return results, bm
 
