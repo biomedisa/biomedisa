@@ -291,15 +291,13 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
                         bm.batch_size, bm.debug_cropping, bm.save_cropped, img_data, bm.x_range, bm.y_range, bm.z_range)
 
                 # load prediction data
-                img, img_header, z_shape, y_shape, x_shape, region_of_interest, img_data = load_prediction_data(bm.path_to_image,
-                    channels, bm.x_scale, bm.y_scale, bm.z_scale, bm.no_scaling, normalize, normalization_parameters,
-                    region_of_interest, img_data, img_header)
+                img, img_header, z_shape, y_shape, x_shape, region_of_interest, img_data = load_prediction_data(bm,
+                    channels, normalize, normalization_parameters, region_of_interest, img_data, img_header)
 
                 # make prediction
-                results, bm = predict_semantic_segmentation(bm, img, bm.path_to_model,
-                    bm.z_patch, bm.y_patch, bm.x_patch, z_shape, y_shape, x_shape, bm.compression, header,
-                    img_header, bm.stride_size, allLabels, bm.batch_size, region_of_interest,
-                    bm.no_scaling, extension, img_data)
+                results, bm = predict_semantic_segmentation(bm, img,
+                    z_shape, y_shape, x_shape, header, img_header, allLabels,
+                    region_of_interest, extension, img_data)
 
                 # results
                 if cropped_volume is not None:
