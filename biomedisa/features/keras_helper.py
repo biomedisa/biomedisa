@@ -1085,7 +1085,8 @@ def predict_semantic_segmentation(bm, img,
         label = np.zeros((zsh, ysh, xsh), dtype=np.uint8)
 
         # predict segmentation block by block
-        for j, z in enumerate(range(0, zsh-bm.z_patch+1, bm.stride_size)):
+        z_indices = range(0, zsh-bm.z_patch+1, bm.stride_size)
+        for j, z in enumerate(z_indices):
 
             # list of IDs
             list_IDs = []
@@ -1142,11 +1143,14 @@ def predict_semantic_segmentation(bm, img,
             overlap = probs[bm.stride_size:].copy()
 
             # calculate result
-            label[z:z+bm.stride_size] = np.argmax(probs[:bm.stride_size], axis=-1).astype(np.uint8)
-
-            # return probabilities
-            if bm.return_probs:
-                final[z:z+bm.stride_size] = probs[:bm.stride_size]
+            if z==z_indices[-1]:
+                label[z:z+bm.z_patch] = np.argmax(probs, axis=-1).astype(np.uint8)
+                if bm.return_probs:
+                    final[z:z+bm.z_patch] = probs
+            else:
+                label[z:z+bm.stride_size] = np.argmax(probs[:bm.stride_size], axis=-1).astype(np.uint8)
+                if bm.return_probs:
+                    final[z:z+bm.stride_size] = probs[:bm.stride_size]
 
     # return probabilities
     if bm.return_probs:
