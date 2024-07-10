@@ -1047,6 +1047,7 @@ def predict_semantic_segmentation(bm, img,
 
     # prediction
     if nb_patches < 400:
+
         # parameters
         params = {'dim': (bm.z_patch, bm.y_patch, bm.x_patch),
                   'dim_img': (zsh, ysh, xsh),
@@ -1059,50 +1060,103 @@ def predict_semantic_segmentation(bm, img,
 
         # predict probabilities
         probabilities = model.predict(predict_generator, verbose=0, steps=None)
+
+        # create final
+        final = np.zeros((zsh, ysh, xsh, nb_labels), dtype=np.float32)
+        nb = 0
+        for k in range(0, zsh-bm.z_patch+1, bm.stride_size):
+            for l in range(0, ysh-bm.y_patch+1, bm.stride_size):
+                for m in range(0, xsh-bm.x_patch+1, bm.stride_size):
+                    final[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch] += probabilities[nb]
+                    nb += 1
+
+        # calculate result
+        label = np.argmax(final, axis=-1).astype(np.uint8)
+
     else:
         # stream data batchwise to GPU to reduce memory usage
         X = np.empty((bm.batch_size, bm.z_patch, bm.y_patch, bm.x_patch, csh), dtype=np.float32)
 
-        # allocate probabilities array
-        probabilities = np.zeros((nb_patches, bm.z_patch, bm.y_patch, bm.x_patch, nb_labels), dtype=np.float32)
+        # allocate final array
+        if bm.return_probs:
+            final = np.zeros((zsh, ysh, xsh, nb_labels), dtype=np.float32)
 
-        # get image patches
-        for step in range(nb_patches//bm.batch_size):
-            for i, ID in enumerate(list_IDs[step*bm.batch_size:(step+1)*bm.batch_size]):
+        # allocate result array
+        label = np.zeros((zsh, ysh, xsh), dtype=np.uint8)
 
-                # get patch indices
-                k = ID // (ysh*xsh)
-                rest = ID % (ysh*xsh)
-                l = rest // xsh
-                m = rest % xsh
+        # predict segmentation block by block
+        for j, z in enumerate(range(0, zsh-bm.z_patch+1, bm.stride_size)):
 
-                # get patch
-                tmp_X = img[k:k+bm.z_patch,l:l+bm.y_patch,m:m+bm.x_patch]
-                if bm.patch_normalization:
-                    tmp_X = np.copy(tmp_X, order='C')
-                    for c in range(csh):
-                        tmp_X[:,:,:,c] -= np.mean(tmp_X[:,:,:,c])
-                        tmp_X[:,:,:,c] /= max(np.std(tmp_X[:,:,:,c]), 1e-6)
-                X[i] = tmp_X
+            # list of IDs
+            list_IDs = []
 
-            # predict probabilities
-            probabilities[step*bm.batch_size:(step+1)*bm.batch_size] = model.predict(X, verbose=0, steps=None, batch_size=bm.batch_size)
+            # get Ids of patches
+            for l in range(0, ysh-bm.y_patch+1, bm.stride_size):
+                for m in range(0, xsh-bm.x_patch+1, bm.stride_size):
+                    list_IDs.append(z*ysh*xsh+l*xsh+m)
 
-    # create final
-    final = np.zeros((zsh, ysh, xsh, nb_labels), dtype=np.float32)
-    if bm.return_probs:
-        counter = np.zeros((zsh, ysh, xsh, nb_labels), dtype=np.float32)
-    nb = 0
-    for k in range(0, zsh-bm.z_patch+1, bm.stride_size):
-        for l in range(0, ysh-bm.y_patch+1, bm.stride_size):
-            for m in range(0, xsh-bm.x_patch+1, bm.stride_size):
-                final[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch] += probabilities[nb]
-                if bm.return_probs:
-                    counter[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch] += 1
-                nb += 1
+            # make length of list divisible by batch size
+            max_i = len(list_IDs)
+            rest = bm.batch_size - (len(list_IDs) % bm.batch_size)
+            list_IDs = list_IDs + list_IDs[:rest]
+
+            # number of patches
+            nb_patches = len(list_IDs)
+
+            # allocate tmp probabilities array
+            probs = np.zeros((bm.z_patch, ysh, xsh, nb_labels), dtype=np.float32)
+
+            # get one batch of image patches
+            for step in range(nb_patches//bm.batch_size):
+                for i, ID in enumerate(list_IDs[step*bm.batch_size:(step+1)*bm.batch_size]):
+
+                    # get patch indices
+                    k = ID // (ysh*xsh)
+                    rest = ID % (ysh*xsh)
+                    l = rest // xsh
+                    m = rest % xsh
+
+                    # get patch
+                    tmp_X = img[k:k+bm.z_patch,l:l+bm.y_patch,m:m+bm.x_patch]
+                    if bm.patch_normalization:
+                        tmp_X = np.copy(tmp_X, order='C')
+                        for c in range(csh):
+                            tmp_X[:,:,:,c] -= np.mean(tmp_X[:,:,:,c])
+                            tmp_X[:,:,:,c] /= max(np.std(tmp_X[:,:,:,c]), 1e-6)
+                    X[i] = tmp_X
+
+                # predict batch
+                Y = model.predict(X, verbose=0, steps=None, batch_size=bm.batch_size)
+
+                # loop over result patches
+                for i, ID in enumerate(list_IDs[step*bm.batch_size:(step+1)*bm.batch_size]):
+                    rest = ID % (ysh*xsh)
+                    l = rest // xsh
+                    m = rest % xsh
+                    if i < max_i:
+                        probs[:,l:l+bm.y_patch,m:m+bm.x_patch] += Y[i]
+
+            # overlap in z direction
+            if j>0:
+                probs[:bm.stride_size] += overlap
+            overlap = probs[bm.stride_size:].copy()
+
+            # calculate result
+            label[z:z+bm.stride_size] = np.argmax(probs[:bm.stride_size], axis=-1).astype(np.uint8)
+
+            # return probabilities
+            if bm.return_probs:
+                final[z:z+bm.stride_size] = probs[:bm.stride_size]
 
     # return probabilities
     if bm.return_probs:
+        counter = np.zeros((zsh, ysh, xsh, nb_labels), dtype=np.float32)
+        nb = 0
+        for k in range(0, zsh-bm.z_patch+1, bm.stride_size):
+            for l in range(0, ysh-bm.y_patch+1, bm.stride_size):
+                for m in range(0, xsh-bm.x_patch+1, bm.stride_size):
+                    counter[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch] += 1
+                    nb += 1
         counter[counter==0] = 1
         probabilities = final / counter
         if not bm.no_scaling:
@@ -1113,10 +1167,6 @@ def predict_semantic_segmentation(bm, img,
             tmp[min_z:max_z,min_y:max_y,min_x:max_x] = probabilities
             probabilities = np.copy(tmp, order='C')
         results['probs'] = probabilities
-
-    # get final
-    label = np.argmax(final, axis=3)
-    label = label.astype(np.uint8)
 
     # rescale final to input size
     if not bm.no_scaling:
