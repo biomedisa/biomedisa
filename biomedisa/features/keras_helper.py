@@ -1138,9 +1138,10 @@ def predict_semantic_segmentation(bm, img,
                         probs[:,l:l+bm.y_patch,m:m+bm.x_patch] += Y[i]
 
             # overlap in z direction
-            if j>0:
-                probs[:bm.stride_size] += overlap
-            overlap = probs[bm.stride_size:].copy()
+            if bm.stride_size < bm.z_patch:
+                if j>0:
+                    probs[:bm.stride_size] += overlap
+                overlap = probs[bm.stride_size:].copy()
 
             # calculate result
             if z==z_indices[-1]:
@@ -1148,9 +1149,10 @@ def predict_semantic_segmentation(bm, img,
                 if bm.return_probs:
                     final[z:z+bm.z_patch] = probs
             else:
-                label[z:z+bm.stride_size] = np.argmax(probs[:bm.stride_size], axis=-1).astype(np.uint8)
+                block_zsh = min(bm.stride_size, bm.z_patch)
+                label[z:z+block_zsh] = np.argmax(probs[:block_zsh], axis=-1).astype(np.uint8)
                 if bm.return_probs:
-                    final[z:z+bm.stride_size] = probs[:bm.stride_size]
+                    final[z:z+block_zsh] = probs[:block_zsh]
 
     # return probabilities
     if bm.return_probs:
