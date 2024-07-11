@@ -1,3 +1,4 @@
+import math
 import os
 from typing import Annotated, Optional
 import time
@@ -17,6 +18,7 @@ import slicer
 from slicer.i18n import tr as _
 from slicer.i18n import translate
 from slicer import vtkMRMLLabelMapVolumeNode
+from slicer import vtkMRMLSegmentationNode
 from slicer.ScriptedLoadableModule import *
 from slicer.util import VTKObservationMixin
 from slicer.parameterNodeWrapper import (
@@ -64,7 +66,6 @@ For more information visit the <a href="https://biomedisa.info/">project page</a
                                             Shout-out to Germany for funding this project with unemployment benefits!
 """)
 
-
 #
 # biomedisa_moduleParameterNode
 #
@@ -81,7 +82,7 @@ class biomedisa_moduleParameterNode:
 
     inputVolume: vtkMRMLScalarVolumeNode
     inputLabels: vtkMRMLLabelMapVolumeNode
-    outputLabels: vtkMRMLLabelMapVolumeNode
+    segmentation: vtkMRMLSegmentationNode
 
     #biomedisa
     allaxis: bool = False
@@ -117,11 +118,14 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.logic = None
         self._parameterNode = None
         self._parameterNodeGuiTag = None
+
+        self.parameterSetNode = None
+        self.editor = None
         
     def setup(self) -> None:
         """Called when the user opens the module the first time and the widget is initialized."""
         ScriptedLoadableModuleWidget.setup(self)
-
+        
         # Load widget from .ui file (created by Qt Designer).
         # Additional widgets can be instantiated manually and added to self.layout.
         uiWidget = slicer.util.loadUI(self.resourcePath("UI/biomedisa_module.ui"))
@@ -152,8 +156,37 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.ui.clearPointsButton.connect("clicked(bool)", self.onClearPointsButton)
         self.ui.trainPredictorButton.connect("clicked(bool)", self.onTrainPredictorButton)
 
+        #
+        # Segment editor widget
+        #
+        import qSlicerSegmentationsModuleWidgetsPythonQt
+        self.editor = qSlicerSegmentationsModuleWidgetsPythonQt.qMRMLSegmentEditorWidget()
+        self.editor.setMaximumNumberOfUndoStates(10)
+        # Set parameter node first so that the automatic selections made when the scene is set are saved
+        self.selectParameterNode()
+        self.editor.setMRMLScene(slicer.mrmlScene)
+        self.layout.insertWidget(1, self.editor)
+        # Find the qMRMLSegmentsTableView widget
+        self.segmentsTableView = self.editor.findChild(slicer.qMRMLSegmentsTableView, 'SegmentsTableView')
+
         # Make sure parameter node is initialized (needed for module reload)
         self.__initializeParameterNode()
+
+    def selectParameterNode(self):
+        print("selectParameterNode")
+        # Select parameter set node if one is found in the scene, and create one otherwise
+        segmentEditorSingletonTag = "SegmentEditor"
+        segmentEditorNode = slicer.mrmlScene.GetSingletonNode(segmentEditorSingletonTag, "vtkMRMLSegmentEditorNode")
+        if segmentEditorNode is None:
+            segmentEditorNode = slicer.mrmlScene.CreateNodeByClass("vtkMRMLSegmentEditorNode")
+            segmentEditorNode.UnRegister(None)
+            segmentEditorNode.SetSingletonTag(segmentEditorSingletonTag)
+            segmentEditorNode = slicer.mrmlScene.AddNode(segmentEditorNode)
+        if self.parameterSetNode == segmentEditorNode:
+            # nothing changed
+            return
+        self.parameterSetNode = segmentEditorNode
+        self.editor.setMRMLSegmentEditorNode(self.parameterSetNode)
 
     def cleanup(self) -> None:
         """Called when the application closes and the module widget is destroyed."""
@@ -171,7 +204,6 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.fgMkNPEndObserverId = self.foregroundMarkupsNode.AddObserver(slicer.vtkMRMLMarkupsNode.PointEndInteractionEvent, self.onControlPointsUpdated)
         self.bgMkNPAddObserverId = self.backgroundMarkupsNode.AddObserver(slicer.vtkMRMLMarkupsNode.PointRemovedEvent, self.onControlPointsUpdated)
         self.bgMkNPEndObserverId = self.backgroundMarkupsNode.AddObserver(slicer.vtkMRMLMarkupsNode.PointEndInteractionEvent, self.onControlPointsUpdated)
-        self.ui.inputSelector.currentNodeChanged.connect(self.onInputSelectorNodeChanged)
 
     def exit(self) -> None:
         """Called each time the user opens a different module."""
@@ -193,7 +225,6 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 self.backgroundMarkupsNode.RemoveObserver(self.bgMkNPAddObserverId)
             if (hasattr(self, 'bgMkNPEndObserverId')):
                 self.backgroundMarkupsNode.RemoveObserver(self.bgMkNPEndObserverId)
-        self.ui.inputSelector.currentNodeChanged.disconnect(self.onInputSelectorNodeChanged)
     
     def onSceneStartClose(self, caller, event) -> None:
         """Called just before the scene is closed."""
@@ -206,6 +237,101 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         if self.parent.isEntered:
             self.__initializeParameterNode()
 
+    def getBinaryLabelMap(self):
+        segment = self.getSegment()
+        binaryLabelmap = segment.GetRepresentation('BinaryLabelmap')
+        if(not binaryLabelmap):
+            raise Exception(f"No binary label map found in segment: {segment}")
+
+        extent = binaryLabelmap.GetExtent()
+        # Create an empty numpy array with the same shape as the binary labelmap
+        dimensions = (extent[1] - extent[0] + 1, extent[3] - extent[2] + 1, extent[5] - extent[4] + 1)
+        numpyArray = np.zeros(dimensions, dtype=np.uint8)
+        # Get the voxel data from the binary labelmap
+        vtkDataArray = binaryLabelmap.GetPointData().GetScalars()
+        if vtkDataArray:
+            # Convert the VTK data array to a numpy array
+            import vtk.util.numpy_support as vtk_np
+            numpyArray = vtk_np.vtk_to_numpy(vtkDataArray)
+            # Reshape the numpy array to match the dimensions of the binary labelmap
+            numpyArray = numpyArray.reshape(dimensions, order='F')
+            return numpyArray
+        else:
+            raise Exception("No voxel data found in the binary labelmap representation")
+
+    def setBinaryLabelMap(self, mask, segmentLayer = 1):
+        # Get the segmentation node and the segment
+        segmentationNode = self.getSegmentationNode()
+        segment = self.getSegment()
+        sliceIndex = self.__getSliceIndex()
+
+        mask = (mask* segmentLayer).astype(np.uint8) #100 is the segment number
+
+        # Get the current binary labelmap representation
+        binaryLabelmap = segment.GetRepresentation(slicer.vtkSegmentationConverter.GetSegmentationBinaryLabelmapRepresentationName())
+
+        # Create a VTK image data object for the mask
+        vtkImageData2D = vtk.vtkImageData()
+        vtkImageData2D.SetDimensions(mask.shape[1], mask.shape[0], 1)
+        vtkImageData2D.AllocateScalars(vtk.VTK_UNSIGNED_CHAR, 1)
+
+        # Convert the NumPy array to a VTK array
+        import vtk.util.numpy_support as vtk_np
+        vtkArray2D = vtk_np.numpy_to_vtk(num_array=mask.ravel(), deep=True, array_type=vtk.VTK_UNSIGNED_CHAR)
+
+        # Set the VTK array as the scalars of the VTK image data object
+        vtkImageData2D.GetPointData().SetScalars(vtkArray2D)
+
+        # Make a deep copy of the existing binary labelmap to modify
+        modifiedLabelmap = slicer.vtkOrientedImageData()
+        modifiedLabelmap.DeepCopy(binaryLabelmap)
+
+        # Get the extent of the existing binary labelmap
+        extent = modifiedLabelmap.GetExtent()
+
+        # Check if the sliceIndex is within the extent, and extend if necessary
+        if sliceIndex < extent[4] or sliceIndex > extent[5]:
+            if extent[1] == -1 and extent[3] == -1 and extent[5] == -1:
+                newExtent = [0, mask.shape[1]-1, 
+                             0, mask.shape[0]-1,
+                             sliceIndex, sliceIndex]
+            else:
+                newExtent = [min(extent[0], mask.shape[1]-1), 
+                            max(extent[1], mask.shape[1]-1),
+                            min(extent[2], mask.shape[0]-1), 
+                            max(extent[3], mask.shape[0]-1),
+                            min(extent[4], sliceIndex), 
+                            max(extent[5], sliceIndex)]
+
+            # Create a new vtkOrientedImageData with the new extent
+            newModifiedLabelmap = slicer.vtkOrientedImageData()
+            newModifiedLabelmap.SetExtent(newExtent)
+            newModifiedLabelmap.AllocateScalars(vtk.VTK_UNSIGNED_CHAR, 1)
+            newModifiedLabelmap.SetDirections([[-1,0,0],[0,-1,0],[0,0,1]])
+
+            # Copy data from the original to the new labelmap
+            for z in range(extent[4], extent[5] + 1):
+                for y in range(extent[2], extent[3] + 1):
+                    for x in range(extent[0], extent[1] + 1):
+                        newModifiedLabelmap.SetScalarComponentFromFloat(x, y, z, 0, modifiedLabelmap.GetScalarComponentAsFloat(x, y, z, 0))
+
+            modifiedLabelmap = newModifiedLabelmap
+            extent = newExtent
+
+        for y in range(mask.shape[0]):
+            for x in range(max(extent[0], mask.shape[1])):
+                if extent[0] <= x <= extent[1] and extent[2] <= y <= extent[3]:
+                    # This will throw exceptions if the coordinates are not in the extent
+                    modifiedLabelmap.SetScalarComponentFromFloat(x, y, sliceIndex, 0, mask[y, x])
+
+        # Update the segment with the modified binary labelmap
+        segment.AddRepresentation(
+            slicer.vtkSegmentationConverter.GetSegmentationBinaryLabelmapRepresentationName(), modifiedLabelmap)
+
+        # Notify the segmentation node that the binary labelmap has been modified
+        segmentationNode.Modified()
+
+    
     def onLeftClick(self, caller, event):
         """Called when the left mouse button is clicked."""
 
@@ -238,12 +364,15 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             return
         self.__runSegmentAnything()
 
-    def onInputSelectorNodeChanged(self, node):
+    def onInpuVolumeChanged(self, node):
+        #TODO: connect this to the segmenteditor's volume choice
         if node is not None:
             sliceIndex = self.__getSliceIndex()
             self.logic.setSegmentAnythingImage(node, sliceIndex)
-            
+
     def onBiomedisaButton(self) -> None:
+        # TODO: Not working in current mode. Make this work with segments.
+        return
         inputNode  =  self._parameterNode.inputVolume
         labelsNode  =  self._parameterNode.inputLabels
         inputImage = inputNode.GetImageData()
@@ -254,7 +383,7 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                                                          allaxis=self._parameterNode.allaxis,
                                                          sorw=self._parameterNode.sorw, 
                                                          nbrw=self._parameterNode.nbrw)
-
+        
         labelsNode.SetAndObserveImageData(outputImage)
 
     def onDeleteLabelButton(self) -> None:
@@ -276,6 +405,24 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     def onTrainPredictorButton(self) -> None:
         self.logic.setupPredictor()
 
+    def getVolumeNode(self) -> vtkMRMLScalarVolumeNode:
+        return self.editor.SourceVolumeNodeComboBox.currentNode()
+
+    def getSegmentationNode(self) -> vtkMRMLSegmentationNode:
+        return self.editor.SegmentationNodeComboBox.currentNode()
+
+    def getSegmentation(self):# -> vtkSegmentation:
+        return self.getSegmentationNode().GetSegmentation()
+
+    def getSegmentID(self) -> str:
+        ids = self.segmentsTableView.selectedSegmentIDs() #returns list[str]
+        return ids[0]
+
+    def getSegment(self):# -> vtkSegment:
+        segmentation = self.getSegmentation()
+        id = self.getSegmentID()
+        return segmentation.GetSegment(id)
+    
     def __initializeParameterNode(self) -> None:
         """Ensure parameter node exists and observed."""
         # Parameter node stores all user choices in parameter values, node selections, etc.
@@ -289,20 +436,6 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             for node in nodes:
                 if not isinstance(node, vtkMRMLLabelMapVolumeNode):
                     self._parameterNode.inputVolume = node
-                    break
-
-        if not self._parameterNode.inputLabels:
-            nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLScalarVolumeNode")
-            for node in nodes:
-                if isinstance(node, vtkMRMLLabelMapVolumeNode):
-                    self._parameterNode.inputLabels = node
-                    break
-
-        if not self._parameterNode.outputLabels:
-            nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLScalarVolumeNode")
-            for node in nodes:
-                if isinstance(node, vtkMRMLLabelMapVolumeNode):
-                    self._parameterNode.outputLabels = node
                     break
 
     def __setParameterNode(self, inputParameterNode: Optional[biomedisa_moduleParameterNode]) -> None:
@@ -393,53 +526,24 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.foregroundMarkupsNode.RemoveAllControlPoints()
         self.backgroundMarkupsNode.RemoveAllControlPoints()
 
-    def createEmptyImageDataFromScalarVolume(image: vtkMRMLScalarVolumeNode):
-        # Get dimensions, spacing, and origin from the scalar volume
-        scalarImageData = image.GetImageData()
-        dimensions = scalarImageData.GetDimensions()
-        #spacing = image.GetSpacing()
-        #origin = image.GetOrigin()
-
-        # Create new image data
-        labelMapImageData = vtk.vtkImageData()
-        labelMapImageData.SetDimensions(dimensions)
-        labelMapImageData.AllocateScalars(vtk.VTK_UNSIGNED_CHAR, 1)  # Assuming label maps are 8-bit
-        labelMapImageData.GetPointData().GetScalars().Fill(0)  # Initialize with zeros
-        return labelMapImageData
-        # Create new label map volume node
-        labelMapVolumeNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLabelMapVolumeNode")
-        labelMapVolumeNode.SetAndObserveImageData(labelMapImageData)
-        labelMapVolumeNode.SetSpacing(spacing)
-        labelMapVolumeNode.SetOrigin(origin)
-
-        # Copy the geometry from the scalar volume node
-        labelMapVolumeNode.SetIJKToRASMatrix(image.GetIJKToRASMatrix())
-        return labelMapVolumeNode
-
     def __runSegmentAnything(self) -> None:
         """Collects data in widget, starts the process in logic and displays the result."""
 
         sliceIndex = self.__getSliceIndex()
         foreground = self.__getForegroundPoints(sliceIndex)
         background = self.__getBackgroundPoints(sliceIndex)
-        inputNode  =  self._parameterNode.inputVolume
+        inputNode  = self.getVolumeNode()
 
         mask = self.logic.runSegmentAnythingRed(inputNode, sliceIndex, foreground, background)
 
-        # Apply slice to label
-        labelsNode = self._parameterNode.inputLabels
-        labelImage = labelsNode.GetImageData()
-        if(labelImage == None):
-            print("empty image")
-            labelImage = biomedisa_moduleWidget.createEmptyImageDataFromScalarVolume(inputNode)
-
-        npLabel = vtkNumpyConverter.vtkToNumpy(labelImage)
-        npLabel[sliceIndex, :, :] = mask
-        vtlLabel = vtkNumpyConverter.numpyToVTK(npLabel)
-        labelsNode.SetAndObserveImageData(vtlLabel)
+        #TODO: Segment index needs to come from segment selection in segmentsTableView
+        self.setBinaryLabelMap(mask, 1)
 
     def __checkCanRunBiomedisa(self, caller=None, event=None) -> None:
-        if self._parameterNode.inputVolume and self._parameterNode.inputLabels:
+        self.ui.biomedisaButton.enabled = True
+        return
+        #TODO: check as below
+        if self.getVolumeNode() and self.getSegmentation():
             self.ui.biomedisaButton.enabled = True
         else:
             self.ui.biomedisaButton.enabled = False
@@ -591,10 +695,9 @@ class biomedisa_moduleLogic(ScriptedLoadableModuleLogic):
             self.setSegmentAnythingImage(inputVolume, index)
 
         masks, _, _  = self.predictor.predict(point_coords=point_coords, point_labels=point_labels, multimask_output=False)
-        masks_uint8 = (masks* 100).astype(np.uint8) #100 is the segment number
         endTime = time.time()
         print(f"Segment anything completed within {endTime-startTime:.2f} s")
-        return masks_uint8[0] # 0 = Take the best one
+        return masks[0] # 0 = Take the best one
 
 
 #

@@ -6,79 +6,75 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>325</width>
-    <height>311</height>
+    <width>343</width>
+    <height>601</height>
    </rect>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
-    <widget class="ctkCollapsibleButton" name="inputsCollapsibleButton">
+    <widget class="ctkCollapsibleButton" name="saCollapsibleButton">
      <property name="text">
-      <string>Inputs</string>
+      <string>Segment Anything</string>
      </property>
-     <layout class="QFormLayout" name="formLayout_2">
-      <item row="0" column="0">
-       <widget class="QLabel" name="label_1">
+     <property name="collapsed">
+      <bool>true</bool>
+     </property>
+     <layout class="QFormLayout" name="formLayout_3">
+      <item row="11" column="0">
+       <widget class="QLabel" name="label_segmentAnythingActive">
         <property name="text">
-         <string>Input volume:</string>
+         <string>Active: </string>
         </property>
        </widget>
       </item>
-      <item row="0" column="1">
-       <widget class="qMRMLNodeComboBox" name="inputSelector">
+      <item row="11" column="1">
+       <widget class="QCheckBox" name="segmentAnythingActiveQCheckBox">
         <property name="toolTip">
-         <string>Pick the input to the algorithm.</string>
-        </property>
-        <property name="nodeTypes">
-         <stringlist notr="true">
-          <string>vtkMRMLScalarVolumeNode</string>
-         </stringlist>
-        </property>
-        <property name="showChildNodeTypes">
-         <bool>false</bool>
-        </property>
-        <property name="addEnabled">
-         <bool>false</bool>
-        </property>
-        <property name="removeEnabled">
-         <bool>false</bool>
+         <string>Activates mouse interaction and automated segmentation.</string>
         </property>
         <property name="SlicerParameterName" stdset="0">
-         <string>inputVolume</string>
+         <string>segmentAnythingActive</string>
         </property>
        </widget>
       </item>
-      <item row="2" column="1">
-       <widget class="qMRMLNodeComboBox" name="labelSelector">
-        <property name="toolTip">
-         <string>Pick the label to the algorithm.</string>
-        </property>
-        <property name="nodeTypes">
-         <stringlist notr="true">
-          <string>vtkMRMLLabelMapVolumeNode</string>
-         </stringlist>
-        </property>
-        <property name="showChildNodeTypes">
-         <bool>false</bool>
-        </property>
-        <property name="enabled">
-         <bool>true</bool>
-        </property>
-        <property name="addEnabled">
-         <bool>true</bool>
-        </property>
-        <property name="removeEnabled">
-         <bool>true</bool>
-        </property>
-        <property name="SlicerParameterName" stdset="0">
-         <string>inputLabels</string>
-        </property>
-       </widget>
-      </item>
-      <item row="2" column="0">
-       <widget class="QLabel" name="label_3">
+      <item row="12" column="0">
+       <widget class="QLabel" name="label_pth">
         <property name="text">
-         <string>Input labels:</string>
+         <string>model checkpoint: </string>
+        </property>
+       </widget>
+      </item>
+      <item row="12" column="1">
+       <widget class="QLineEdit" name="filePathLineEdit">
+        <property name="SlicerParameterName" stdset="0">
+         <string>modelCheckpointFile</string>
+        </property>
+       </widget>
+      </item>
+      <item row="13" column="0">
+       <widget class="QLabel" name="label_pth">
+        <property name="text">
+         <string>model type: </string>
+        </property>
+       </widget>
+      </item>
+      <item row="13" column="1">
+       <widget class="QLineEdit" name="modelTypeLineEdit">
+        <property name="SlicerParameterName" stdset="0">
+         <string>modelType</string>
+        </property>
+       </widget>
+      </item>
+      <item row="15" column="1">
+       <widget class="QPushButton" name="trainPredictorButton">
+        <property name="toolTip">
+         <string>Train the predictor.</string>
+        </property>
+        <property name="text">
+         <string>Train predictor</string>
+        </property>
+        <property name="checkable">
+         <bool>false</bool>
         </property>
        </widget>
       </item>
@@ -86,160 +82,90 @@
     </widget>
    </item>
    <item>
-    <widget class="ctkCollapsibleButton" name="saCollapsibleButton">
-        <property name="text">
-         <string>Segment Anything</string>
-        </property>
-        <property name="collapsed">
-         <bool>true</bool>
-        </property>
-        <layout class="QFormLayout" name="formLayout_3">
-        <item row="11" column="0">
-          <widget class="QLabel" name="label_segmentAnythingActive">
-           <property name="text">
-            <string>Active: </string>
-           </property>
-          </widget>
-         </item>
-         <item row="11" column="1">
-          <widget class="QCheckBox" name="segmentAnythingActiveQCheckBox">
-           <property name="toolTip">
-            <string>Activates mouse interaction and automated segmentation.</string>
-           </property>
-           <property name="SlicerParameterName">
-            <string>segmentAnythingActive</string>
-           </property>
-          </widget>
-         </item>
-         <item row="12" column="0">
-          <widget class="QLabel" name="label_pth">
-           <property name="text">
-            <string>model checkpoint: </string>
-           </property>
-          </widget>
-         </item>
-         <item row="12" column="1">
-          <widget class="QLineEdit" name="filePathLineEdit">
-           <property name="SlicerParameterName">
-            <string>modelCheckpointFile</string>
-           </property>
-          </widget>
-         </item>
-         <item row="13" column="0">
-          <widget class="QLabel" name="label_pth">
-           <property name="text">
-            <string>model type: </string>
-           </property>
-          </widget>
-         </item>
-         <item row="13" column="1">
-          <widget class="QLineEdit" name="modelTypeLineEdit">
-           <property name="SlicerParameterName">
-            <string>modelType</string>
-           </property>
-          </widget>
-         </item>
-         <item row="15" column="1">
-          <widget class="QPushButton" name="trainPredictorButton">
-           <property name="toolTip">
-            <string>Train the predictor.</string>
-           </property>
-           <property name="text">
-            <string>Train predictor</string>
-           </property>
-           <property name="checkable">
-            <bool>false</bool>
-           </property>
-          </widget>
-         </item>
-        </layout>
-    </widget>
-   </item>
-      <item>
     <widget class="ctkCollapsibleButton" name="biomedisaCollapsibleButton">
+     <property name="text">
+      <string>Biomedisa</string>
+     </property>
+     <property name="collapsed">
+      <bool>true</bool>
+     </property>
+     <layout class="QFormLayout" name="formLayout_3">
+      <item row="101" column="0">
+       <widget class="QLabel" name="label_allaxis">
         <property name="text">
-         <string>Biomedisa</string>
+         <string>allaxis: </string>
         </property>
-        <property name="collapsed">
-         <bool>true</bool>
+       </widget>
+      </item>
+      <item row="101" column="1">
+       <widget class="QCheckBox" name="allaxisQCheckBox">
+        <property name="toolTip">
+         <string>If pre-segmentation is not exlusively in xy-plane.</string>
         </property>
-        <layout class="QFormLayout" name="formLayout_3">
-         <item row="101" column="0">
-          <widget class="QLabel" name="label_allaxis">
-           <property name="text">
-            <string>allaxis: </string>
-           </property>
-          </widget>
-         </item>
-         <item row="101" column="1">
-          <widget class="QCheckBox" name="allaxisQCheckBox">
-           <property name="toolTip">
-            <string>If pre-segmentation is not exlusively in xy-plane.</string>
-           </property>
-           <property name="SlicerParameterName">
-            <string>allaxis</string>
-           </property>
-          </widget>
-         </item>
-         <item row="102" column="0">
-          <widget class="QLabel" name="label_sorw">
-           <property name="text">
-            <string>sorw: </string>
-           </property>
-          </widget>
-         </item>
-         <item row="102" column="1">
-          <widget class="QSpinBox" name="sorwQSpinBox">
-           <property name="toolTip">
-            <string>Steps of a random walk.</string>
-           </property>
-           <property name="text">
-            <string>sorw text</string>
-           </property>
-           <property name="SlicerParameterName" stdset="4000">
-            <string>sorw</string>
-           </property>
-           <property name="minimum">
-               <number>1</number>
-           </property>
-           <property name="singleStep">
-               <number>100</number>
-           </property>
-           <property name="maximum">
-               <number>0</number>  <!-- No maximum value (0 means no limit) -->
-           </property>
-          </widget>
-         </item>
-         <item row="103" column="0">
-          <widget class="QLabel" name="label_nbrw">
-           <property name="text">
-            <string>nbrw: </string>
-           </property>
-          </widget>
-         </item>
-         <item row="103" column="1">
-          <widget class="QSpinBox" name="nbrwQSpinBox">
-           <property name="toolTip">
-            <string>Number of random walks starting at each pre-segmented pixel.</string>
-           </property>
-           <property name="text">
-            <string>nbrw text</string>
-           </property>
-           <property name="SlicerParameterName" stdset="10">
-            <string>nbrw</string>
-           </property>
-           <property name="minimum">
-               <number>1</number>
-           </property>
-           <property name="singleStep">
-               <number>1</number>
-           </property>
-           <property name="maximum">
-               <number>0</number>  <!-- No maximum value (0 means no limit) -->
-           </property>
-          </widget>
-         </item>
-        </layout>
+        <property name="SlicerParameterName" stdset="0">
+         <string>allaxis</string>
+        </property>
+       </widget>
+      </item>
+      <item row="102" column="0">
+       <widget class="QLabel" name="label_sorw">
+        <property name="text">
+         <string>sorw: </string>
+        </property>
+       </widget>
+      </item>
+      <item row="102" column="1">
+       <widget class="QSpinBox" name="sorwQSpinBox">
+        <property name="toolTip">
+         <string>Steps of a random walk.</string>
+        </property>
+        <property name="text" stdset="0">
+         <string>0</string>
+        </property>
+        <property name="minimum">
+         <number>0</number>
+        </property>
+        <property name="maximum">
+         <number>0</number>
+        </property>
+        <property name="singleStep">
+         <number>100</number>
+        </property>
+        <property name="SlicerParameterName" stdset="0">
+         <string>sorw</string>
+        </property>
+       </widget>
+      </item>
+      <item row="103" column="0">
+       <widget class="QLabel" name="label_nbrw">
+        <property name="text">
+         <string>nbrw: </string>
+        </property>
+       </widget>
+      </item>
+      <item row="103" column="1">
+       <widget class="QSpinBox" name="nbrwQSpinBox">
+        <property name="toolTip">
+         <string>Number of random walks starting at each pre-segmented pixel.</string>
+        </property>
+        <property name="text" stdset="0">
+         <string>0</string>
+        </property>
+        <property name="minimum">
+         <number>0</number>
+        </property>
+        <property name="maximum">
+         <number>0</number>
+        </property>
+        <property name="singleStep">
+         <number>1</number>
+        </property>
+        <property name="SlicerParameterName" stdset="0">
+         <string>nbrw</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
     </widget>
    </item>
    <item>
@@ -278,7 +204,7 @@
      </item>
     </layout>
    </item>
-   <item row="0" column="2">
+   <item>
     <widget class="QPushButton" name="biomedisaButton">
      <property name="enabled">
       <bool>false</bool>
@@ -317,11 +243,6 @@
    <container>1</container>
   </customwidget>
   <customwidget>
-   <class>qMRMLNodeComboBox</class>
-   <extends>QWidget</extends>
-   <header>qMRMLNodeComboBox.h</header>
-  </customwidget>
-  <customwidget>
    <class>qMRMLWidget</class>
    <extends>QWidget</extends>
    <header>qMRMLWidget.h</header>
@@ -329,38 +250,5 @@
   </customwidget>
  </customwidgets>
  <resources/>
- <connections>
-  <connection>
-   <sender>biomedisa_segmentationb</sender>
-   <signal>mrmlSceneChanged(vtkMRMLScene*)</signal>
-   <receiver>inputSelector</receiver>
-   <slot>setMRMLScene(vtkMRMLScene*)</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>122</x>
-     <y>132</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>248</x>
-     <y>61</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>biomedisa_segmentationb</sender>
-   <signal>mrmlSceneChanged(vtkMRMLScene*)</signal>
-   <receiver>labelSelector</receiver>
-   <slot>setMRMLScene(vtkMRMLScene*)</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>122</x>
-     <y>132</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>248</x>
-     <y>61</y>
-    </hint>
-   </hints>
-  </connection>
- </connections>
+ <connections/>
 </ui>
