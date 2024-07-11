@@ -1006,7 +1006,23 @@ def predict_semantic_segmentation(bm, img,
     z_shape, y_shape, x_shape, header, img_header, allLabels,
     region_of_interest, extension, img_data):
 
+    # initialize results
     results = {}
+
+    # append ghost area to make image dimensions divisible by patch size (mirror edge areas)
+    zsh, ysh, xsh, csh = img.shape
+    z_rest = bm.z_patch - (zsh % bm.z_patch)
+    if z_rest == bm.z_patch:
+        z_rest = -zsh
+    img = np.append(img, img[-z_rest:][::-1], axis=0)
+    y_rest = bm.y_patch - (ysh % bm.y_patch)
+    if y_rest == bm.y_patch:
+        y_rest = -ysh
+    img = np.append(img, img[:,-y_rest:][:,::-1], axis=1)
+    x_rest = bm.x_patch - (xsh % bm.x_patch)
+    if x_rest == bm.x_patch:
+        x_rest = -xsh
+    img = np.append(img, img[:,:,-x_rest:][:,:,::-1], axis=2)
 
     # img shape
     zsh, ysh, xsh, csh = img.shape
@@ -1153,6 +1169,12 @@ def predict_semantic_segmentation(bm, img,
                 label[z:z+block_zsh] = np.argmax(probs[:block_zsh], axis=-1).astype(np.uint8)
                 if bm.return_probs:
                     final[z:z+block_zsh] = probs[:block_zsh]
+
+    # remove appendix
+    if bm.return_probs:
+        final = final[:-z_rest,:-y_rest,:-x_rest]
+    label = label[:-z_rest,:-y_rest,:-x_rest]
+    zsh, ysh, xsh = label.shape
 
     # return probabilities
     if bm.return_probs:
