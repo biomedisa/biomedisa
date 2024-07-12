@@ -87,20 +87,24 @@ For more information visit the <a href="https://biomedisa.info/">project page</a
       qt.QApplication.restoreOverrideCursor()
 
   def biomedisa(self):
-    segmentID = self.scriptedEffect.parameterSetNode().GetSelectedSegmentID()
     segmentationNode = self.scriptedEffect.parameterSetNode().GetSegmentationNode()
-    segment = segmentationNode.GetSegmentation().GetSegment(segmentID)
+    segmentation = segmentationNode.GetSegmentation()
+    segmentID = self.scriptedEffect.parameterSetNode().GetSelectedSegmentID()
+    segment = segmentation.GetSegment(segmentID)
 
     # Get modifier labelmap
     binaryLabelmap = segment.GetRepresentation(slicer.vtkSegmentationConverter.GetSegmentationBinaryLabelmapRepresentationName())
     # Get source volume image data
     sourceImageData = self.scriptedEffect.sourceVolumeImageData()
-
-    resultLabelMap = BiomedisaLogic.runBiomedisa(input=sourceImageData, labels=binaryLabelmap)
-
-    slicer.vtkSlicerSegmentationsModuleLogic.SetBinaryLabelmapToSegment(
-      resultLabelMap, 
-      segmentationNode, 
-      segmentID, 
-      slicer.vtkSlicerSegmentationsModuleLogic.MODE_REPLACE, 
-      resultLabelMap.GetExtent())
+    # Run the algorithm
+    resultLabelMaps = BiomedisaLogic.runBiomedisa(input=sourceImageData, labels=binaryLabelmap)
+    
+    for label, binaryLabelmap in resultLabelMaps:
+      # Get segment ID from label index. This is 0 based even though first the voxel value is 1.
+      segmentID = segmentation.GetNthSegmentID(int(label) - 1)
+      slicer.vtkSlicerSegmentationsModuleLogic.SetBinaryLabelmapToSegment(
+        binaryLabelmap, 
+        segmentationNode, 
+        segmentID, 
+        slicer.vtkSlicerSegmentationsModuleLogic.MODE_REPLACE, 
+        binaryLabelmap.GetExtent())

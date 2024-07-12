@@ -57,8 +57,7 @@ class BiomedisaLogic():
                     zz = int(z - offsets[2])
                     yy = int(y - offsets[1])
                     xx = int(x - offsets[0])
-                    v = labelNumpyArray[zz, yy, xx]
-                    newLabelNumpyArray[z, y, x] = v
+                    newLabelNumpyArray[z, y, x] = labelNumpyArray[zz, yy, xx]
 
         # Convert the NumPy array back to a VTK array and set it as the scalars of the new VTK image data object
         newLabelVtkArray = vtk_np.numpy_to_vtk(newLabelNumpyArray.ravel(), deep=True, array_type=vtk.VTK_UNSIGNED_CHAR)
@@ -66,7 +65,7 @@ class BiomedisaLogic():
 
         return newLabelImageData
 
-    def _getBinaryLabelMap(label: np.array):
+    def _getBinaryLabelMap(label: np.array) -> vtkMRMLLabelMapVolumeNode:
         vtkImageData = slicer.vtkOrientedImageData()
         vtkImageData.SetDimensions(label.shape[2], label.shape[1], label.shape[0])
         vtkImageData.SetDirections([[-1,0,0],[0,-1,0],[0,0,1]])
@@ -75,12 +74,25 @@ class BiomedisaLogic():
         vtkImageData.GetPointData().SetScalars(vtkArray)
         return vtkImageData
 
+    def _getBinaryLabelMaps(labelmapArray: np.array) -> list:
+        uniqueLabels = np.unique(labelmapArray)
+        labelMapList = []
+        for label in uniqueLabels:
+            if label == 0:
+                continue
+            binaryLabelmapArray = np.where(labelmapArray == label, 1, 0).astype(np.uint8)
+            vtkBinaryLabelmap  = BiomedisaLogic._getBinaryLabelMap(binaryLabelmapArray)
+            print(f"label: {label}")
+            labelMapList.append((int(label), vtkBinaryLabelmap))
+
+        return labelMapList
+    
     def runBiomedisa(
                 input: vtkMRMLScalarVolumeNode,
                 labels: vtkMRMLLabelMapVolumeNode, 
                 allaxis: bool = False,
                 sorw: int = 4000,
-                nbrw: int = 10) -> np.array:
+                nbrw: int = 10) -> list:
 
         # convert data
         extendedLabel = BiomedisaLogic._expandLabelToMatchInputImage(labels, input.GetDimensions())
@@ -98,6 +110,5 @@ class BiomedisaLogic():
         # get results
         regular_result = results['regular']
 
-        labelMap = BiomedisaLogic._getBinaryLabelMap(regular_result)
-        return labelMap
+        return BiomedisaLogic._getBinaryLabelMaps(regular_result)
                             
