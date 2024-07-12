@@ -153,8 +153,6 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         # Buttons
         self.ui.biomedisaButton.connect("clicked(bool)", self.onBiomedisaButton)
-        self.ui.deleteLabelButton.connect("clicked(bool)", self.onDeleteLabelButton)
-        self.ui.clearPointsButton.connect("clicked(bool)", self.onClearPointsButton)
         self.ui.trainPredictorButton.connect("clicked(bool)", self.onTrainPredictorButton)
 
         #
@@ -205,7 +203,9 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.fgMkNPEndObserverId = self.foregroundMarkupsNode.AddObserver(slicer.vtkMRMLMarkupsNode.PointEndInteractionEvent, self.onControlPointsUpdated)
         self.bgMkNPAddObserverId = self.backgroundMarkupsNode.AddObserver(slicer.vtkMRMLMarkupsNode.PointRemovedEvent, self.onControlPointsUpdated)
         self.bgMkNPEndObserverId = self.backgroundMarkupsNode.AddObserver(slicer.vtkMRMLMarkupsNode.PointEndInteractionEvent, self.onControlPointsUpdated)
-
+        
+        self.editor.connect('segmentationNodeChanged(vtkMRMLSegmentationNode*)', self.onSegmentationChanged)
+    
     def exit(self) -> None:
         """Called each time the user opens a different module."""
         # Do not react to parameter node changes (GUI will be updated when the user enters into the module)
@@ -213,7 +213,6 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self._parameterNode.disconnectGui(self._parameterNodeGuiTag)
             self._parameterNodeGuiTag = None
             self.removeObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self.__checkCanRunBiomedisa)
-            self.removeObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self.__checkCanDeleteLabel)
         if(hasattr(self, 'interactor') and hasattr(self, 'observerId')):
             self.interactor.RemoveObserver(self.observerId)
         if(hasattr(self, 'foregroundMarkupsNode')):
@@ -226,7 +225,9 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 self.backgroundMarkupsNode.RemoveObserver(self.bgMkNPAddObserverId)
             if (hasattr(self, 'bgMkNPEndObserverId')):
                 self.backgroundMarkupsNode.RemoveObserver(self.bgMkNPEndObserverId)
-    
+        if(hasattr(self, 'editor')):
+            self.editor.disconnect('segmentationNodeChanged(vtkMRMLSegmentationNode*)', self.onSegmentationChanged)
+            
     def onSceneStartClose(self, caller, event) -> None:
         """Called just before the scene is closed."""
         # Parameter node will be reset, do not use it anymore
@@ -349,11 +350,11 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             return
         self.__runSegmentAnything()
 
-    def onInpuVolumeChanged(self, node):
-        #TODO: connect this to the segmenteditor's volume choice
-        if node is not None:
-            sliceIndex = self.__getSliceIndex()
-            self.logic.setSegmentAnythingImage(node, sliceIndex)
+    def onSegmentationChanged(self, segmentationNode):
+        print(f"Segmentation changed: {segmentationNode.GetName()}")
+
+    def onInpuVolumeChanged(self, volumeNode):
+        print(f"InpuVolume changed: {volumeNode.GetName()}")
 
     def onBiomedisaButton(self) -> None:
         inputNode  =  self.getVolumeNode()
@@ -371,40 +372,39 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         
         self.setBinaryLabelMap(outputImage)
 
-    def onDeleteLabelButton(self) -> None:
-        labelsNode  = self._parameterNode.inputLabels
-        sliceIndex = self.__getSliceIndex()
-        print(f"deleting slice {sliceIndex}")
-
-        inputImage = labelsNode.GetImageData()
-        npImage = vtkNumpyConverter.vtkToNumpy(inputImage)
-        npImage[int(sliceIndex), :, :] = 0
-        vtlLabel = vtkNumpyConverter.numpyToVTK(npImage)
-        labelsNode.SetAndObserveImageData(vtlLabel)
-
-    def onClearPointsButton(self) -> None:
-        sliceIndex = self.__getSliceIndex()
-        self.__clearBackgroundPoints(sliceIndex)
-        self.__clearForegroundPoints(sliceIndex)
-
     def onTrainPredictorButton(self) -> None:
         self.logic.setupPredictor()
 
     def getVolumeNode(self) -> vtkMRMLScalarVolumeNode:
+        if not hasattr(self, 'editor'):
+            return None
+           
         return self.editor.SourceVolumeNodeComboBox.currentNode()
 
     def getSegmentationNode(self) -> vtkMRMLSegmentationNode:
+        if not hasattr(self, 'editor'):
+            return None
+        
         return self.editor.SegmentationNodeComboBox.currentNode()
 
     def getSegmentation(self):# -> vtkSegmentation:
-        return self.getSegmentationNode().GetSegmentation()
+        segmentationNode = self.getSegmentationNode()
+        if segmentationNode is None:
+            return None
+        
+        return segmentationNode.GetSegmentation()
 
     def getSegmentID(self) -> str:
+        if not hasattr(self, 'segmentsTableView'):
+            return None
         ids = self.segmentsTableView.selectedSegmentIDs() #returns list[str]
         return ids[0]
 
     def getSegment(self):# -> vtkSegment:
         segmentation = self.getSegmentation()
+        if segmentation is None:
+            return None
+        
         id = self.getSegmentID()
         return segmentation.GetSegment(id)
     
@@ -431,16 +431,13 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         if self._parameterNode:
             self._parameterNode.disconnectGui(self._parameterNodeGuiTag)
             self.removeObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self.__checkCanRunBiomedisa)
-            self.removeObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self.__checkCanDeleteLabel)
         self._parameterNode = inputParameterNode
         if self._parameterNode:
             # Note: in the .ui file, a Qt dynamic property called "SlicerParameterName" is set on each
             # ui element that needs connection.
             self._parameterNodeGuiTag = self._parameterNode.connectGui(self.ui)
             self.addObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self.__checkCanRunBiomedisa)
-            self.addObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self.__checkCanDeleteLabel)
             self.__checkCanRunBiomedisa()
-            self.__checkCanDeleteLabel()
 
     def __setupMarkups(self):
         self.slice_widget = slicer.app.layoutManager().sliceWidget('Red')
@@ -532,12 +529,6 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.ui.biomedisaButton.enabled = True
         else:
             self.ui.biomedisaButton.enabled = False
-
-    def __checkCanDeleteLabel(self, caller=None, event=None) -> None:
-        if self._parameterNode.inputLabels:
-            self.ui.deleteLabelButton.enabled = True
-        else:
-            self.ui.deleteLabelButton.enabled = False
 
 
 #
