@@ -355,7 +355,7 @@ def read_img_list(img_list, label_list, temp_img_dir, temp_label_dir):
             label_names.append(label_name)
     return img_names, label_names
 
-def load_training_data(normalize, img_list, label_list, channels, x_scale, y_scale, z_scale, no_scaling,
+def load_training_data(normalize, img_list, label_list, channels, x_scale, y_scale, z_scale, scaling,
         crop_data, labels_to_compute, labels_to_remove, img_in=None, label_in=None,
         normalization_parameters=None, allLabels=None, header=None, extension='.tif',
         x_puffer=25, y_puffer=25, z_puffer=25):
@@ -387,7 +387,7 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
             if crop_data:
                 argmin_z,argmax_z,argmin_y,argmax_y,argmin_x,argmax_x = predict_blocksize(label, x_puffer, y_puffer, z_puffer)
                 label = np.copy(label[argmin_z:argmax_z,argmin_y:argmax_y,argmin_x:argmax_x], order='C')
-            if not no_scaling:
+            if scaling:
                 label = img_resize(label, z_scale, y_scale, x_scale, labels=True)
 
             # if header is not single data stream Amira Mesh falling back to Multi-TIFF
@@ -433,7 +433,7 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
 
             # scale/resize image data
             img = img.astype(np.float32)
-            if not no_scaling:
+            if scaling:
                 img = img_resize(img, z_scale, y_scale, x_scale)
 
             # normalize image data
@@ -470,7 +470,7 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
                     if crop_data:
                         argmin_z,argmax_z,argmin_y,argmax_y,argmin_x,argmax_x = predict_blocksize(a, x_puffer, y_puffer, z_puffer)
                         a = np.copy(a[argmin_z:argmax_z,argmin_y:argmax_y,argmin_x:argmax_x], order='C')
-                    if not no_scaling:
+                    if scaling:
                         a = img_resize(a, z_scale, y_scale, x_scale, labels=True)
                     label = np.append(label, a, axis=0)
 
@@ -494,7 +494,7 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
                     if crop_data:
                         a = np.copy(a[argmin_z:argmax_z,argmin_y:argmax_y,argmin_x:argmax_x], order='C')
                     a = a.astype(np.float32)
-                    if not no_scaling:
+                    if scaling:
                         a = img_resize(a, z_scale, y_scale, x_scale)
                     for c in range(channels):
                         a[:,:,:,c] -= np.amin(a[:,:,:,c])
@@ -553,7 +553,7 @@ class CustomCallback(Callback):
 class MetaData(Callback):
     def __init__(self, path_to_model, configuration_data, allLabels,
         extension, header, crop_data, cropping_weights, cropping_config,
-        normalization_parameters, cropping_norm):
+        normalization_parameters, cropping_norm, patch_normalization, scaling):
 
         self.path_to_model = path_to_model
         self.configuration_data = configuration_data
@@ -565,6 +565,8 @@ class MetaData(Callback):
         self.cropping_weights = cropping_weights
         self.cropping_config = cropping_config
         self.cropping_norm = cropping_norm
+        self.patch_normalization = patch_normalization
+        self.scaling = scaling
 
     def on_epoch_end(self, epoch, logs={}):
         hf = h5py.File(self.path_to_model, 'r')
@@ -575,6 +577,8 @@ class MetaData(Callback):
             group.create_dataset('configuration', data=self.configuration_data)
             group.create_dataset('normalization', data=self.normalization_parameters)
             group.create_dataset('labels', data=self.allLabels)
+            group.create_dataset('patch_normalization', data=int(self.patch_normalization))
+            group.create_dataset('scaling', data=int(self.scaling))
             if self.extension == '.am':
                 group.create_dataset('extension', data=self.extension)
                 group.create_dataset('header', data=self.header)
@@ -773,7 +777,7 @@ def train_semantic_segmentation(bm,
 
     # training data
     img, label, allLabels, normalization_parameters, header, extension, bm.channels = load_training_data(bm.normalize,
-                    img_list, label_list, None, bm.x_scale, bm.y_scale, bm.z_scale, bm.no_scaling, bm.crop_data,
+                    img_list, label_list, None, bm.x_scale, bm.y_scale, bm.z_scale, bm.scaling, bm.crop_data,
                     bm.only, bm.ignore, img, label, None, None, header, extension)
 
     # configuration data
@@ -785,7 +789,7 @@ def train_semantic_segmentation(bm,
     # validation data
     if any(val_img_list) or img_val is not None:
         img_val, label_val, _, _, _, _, _ = load_training_data(bm.normalize,
-                    val_img_list, val_label_list, bm.channels, bm.x_scale, bm.y_scale, bm.z_scale, bm.no_scaling, bm.crop_data,
+                    val_img_list, val_label_list, bm.channels, bm.x_scale, bm.y_scale, bm.z_scale, bm.scaling, bm.crop_data,
                     bm.only, bm.ignore, img_val, label_val, normalization_parameters, allLabels)
 
     elif bm.validation_split:
@@ -909,7 +913,7 @@ def train_semantic_segmentation(bm,
     # save meta data
     meta_data = MetaData(bm.path_to_model, configuration_data, allLabels,
         extension, header, bm.crop_data, bm.cropping_weights, bm.cropping_config,
-        normalization_parameters, bm.cropping_norm)
+        normalization_parameters, bm.cropping_norm, bm.patch_normalization, bm.scaling)
 
     # model checkpoint
     if img_val is not None:
@@ -989,7 +993,7 @@ def load_prediction_data(bm, channels, normalize, normalization_parameters,
 
     # scale/resize image data
     img = img.astype(np.float32)
-    if not bm.no_scaling:
+    if bm.scaling:
         img = img_resize(img, bm.z_scale, bm.y_scale, bm.x_scale)
 
     # normalize image data
@@ -1031,7 +1035,7 @@ def append_ghost_areas(bm, img):
 def predict_semantic_segmentation(bm,
     header, img_header, allLabels,
     region_of_interest, extension, img_data,
-    channels, normalize, normalization_parameters):
+    channels, normalization_parameters):
 
     # initialize results
     results = {}
@@ -1056,7 +1060,7 @@ def predict_semantic_segmentation(bm,
 
     # check if data can be loaded blockwise to save host memory
     load_blockwise = False
-    if bm.no_scaling and not normalize and bm.path_to_image and not np.any(region_of_interest) and \
+    if not bm.scaling and not bm.normalize and bm.path_to_image and not np.any(region_of_interest) and \
       os.path.splitext(bm.path_to_image)[1] in ['.tif', '.tiff'] and not bm.acwe:
         tif = TiffFile(bm.path_to_image)
         zsh = len(tif.pages)
@@ -1099,7 +1103,7 @@ def predict_semantic_segmentation(bm,
 
         # load prediction data
         img, img_header, z_shape, y_shape, x_shape, region_of_interest, img_data = load_prediction_data(
-            bm, channels, normalize, normalization_parameters, region_of_interest, img_data, img_header)
+            bm, channels, bm.normalize, normalization_parameters, region_of_interest, img_data, img_header)
 
         # append ghost areas
         img, z_rest, y_rest, x_rest = append_ghost_areas(bm, img)
@@ -1169,7 +1173,7 @@ def predict_semantic_segmentation(bm,
             # load blockwise
             if load_blockwise:
                 img, _, _, _, _, _, _ = load_prediction_data(bm,
-                    channels, normalize, normalization_parameters,
+                    channels, bm.normalize, normalization_parameters,
                     region_of_interest, img_data, img_header, load_blockwise, z)
                 img, _, _, _ = append_ghost_areas(bm, img)
 
@@ -1256,7 +1260,7 @@ def predict_semantic_segmentation(bm,
                     nb += 1
         counter[counter==0] = 1
         probabilities = final / counter
-        if not bm.no_scaling:
+        if bm.scaling:
             probabilities = img_resize(probabilities, z_shape, y_shape, x_shape)
         if np.any(region_of_interest):
             min_z,max_z,min_y,max_y,min_x,max_x,original_zsh,original_ysh,original_xsh = region_of_interest[:]
@@ -1266,7 +1270,7 @@ def predict_semantic_segmentation(bm,
         results['probs'] = probabilities
 
     # rescale final to input size
-    if not bm.no_scaling:
+    if bm.scaling:
         label = img_resize(label, z_shape, y_shape, x_shape, labels=True)
 
     # revert automatic cropping

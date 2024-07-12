@@ -5,7 +5,7 @@ biomedisa.interpolation.smart_interpolation(
     labelData,
     nbrw=10,
     sorw=4000,
-    no_compression=False,
+    compression=True,
     allaxis=False,
     denoise=False,
     uncertainty=False,
@@ -42,7 +42,7 @@ biomedisa.interpolation.smart_interpolation(
 + **version**: Show Biomedisa version (command-line only).
 + **nbrw INT**: Number of random walks starting at each pre-segmented pixel (default: 10).
 + **sorw INT**: Steps of a random walk (default: 4000).
-+ **no_compression**: Disable compression of segmentation results (default: False).
++ **compression**: Compress segmentation results (default: True).
 + **allaxis**: If pre-segmentation is not exlusively in xy-plane (default: False).
 + **denoise**: Smooth/denoise image data before processing (default: False).
 + **uncertainty**: Return uncertainty of segmentation result (default: False).

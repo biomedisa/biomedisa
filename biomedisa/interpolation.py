@@ -42,7 +42,7 @@ class Biomedisa(object):
 
 def smart_interpolation(data, labelData, nbrw=10, sorw=4000, acwe=False, acwe_alpha=1.0, acwe_smooth=1, acwe_steps=3,
     path_to_data=None, path_to_labels=None, denoise=False, uncertainty=False, platform=None,
-    allaxis=False, ignore='none', only='all', smooth=0, no_compression=False, return_hits=False,
+    allaxis=False, ignore='none', only='all', smooth=0, compression=True, return_hits=False,
     img_id=None, label_id=None, remote=False, queue=0, clean=None, fill=None):
 
     freeze_support()
@@ -72,12 +72,6 @@ def smart_interpolation(data, labelData, nbrw=10, sorw=4000, acwe=False, acwe_al
             bm.django_env = True
         else:
             bm.django_env = False
-
-        # compression
-        if no_compression:
-            bm.compression = False
-        else:
-            bm.compression = True
 
         # disable file saving when called as a function
         if bm.data is not None:
@@ -331,7 +325,7 @@ if __name__ == '__main__':
                         help='Smoothing steps of active contour')
     parser.add_argument('--acwe_steps', metavar='STEPS', type=int, default=3,
                         help='Iterations of active contour')
-    parser.add_argument('-nc', '--no_compression', action='store_true', default=False,
+    parser.add_argument('-nc', '--no-compression', dest='compression', action='store_false',
                         help='Disable compression of segmentation results')
     parser.add_argument('-allx', '--allaxis', action='store_true', default=False,
                         help='If pre-segmentation is not exlusively in xy-plane')
