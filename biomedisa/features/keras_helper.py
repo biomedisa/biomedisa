@@ -45,6 +45,7 @@ from biomedisa.features.biomedisa_helper import (
     img_resize, load_data, save_data, set_labels_to_zero, id_generator, unique_file_path)
 from biomedisa.features.remove_outlier import clean, fill
 from biomedisa.features.active_contour import activeContour
+from tifffile import TiffFile, imread
 import matplotlib.pyplot as plt
 import SimpleITK as sitk
 import tensorflow as tf
@@ -947,11 +948,16 @@ def train_semantic_segmentation(bm,
         save_history(history.history, bm.path_to_model, False, bm.train_dice)
 
 def load_prediction_data(bm, channels, normalize, normalization_parameters,
-    region_of_interest, img, img_header):
+    region_of_interest, img, img_header, load_blockwise=False, z=None):
 
     # read image data
     if img is None:
-        img, img_header = load_data(bm.path_to_image, 'first_queue')
+        if load_blockwise:
+            img_header = None
+            tif = TiffFile(bm.path_to_image)
+            img = imread(bm.path_to_image, key=range(z,min(len(tif.pages),z+bm.z_patch)))
+        else:
+            img, img_header = load_data(bm.path_to_image, 'first_queue')
 
     # verify validity
     if img is None:
@@ -971,7 +977,7 @@ def load_prediction_data(bm, channels, normalize, normalization_parameters,
         InputError.message = f'Number of channels must be {channels}.'
         raise InputError()
 
-    # image shape
+    # original image shape
     z_shape, y_shape, x_shape, _ = img.shape
 
     # automatic cropping of image to region of interest
@@ -1002,55 +1008,42 @@ def load_prediction_data(bm, channels, normalize, normalization_parameters,
 
     return img, img_header, z_shape, y_shape, x_shape, region_of_interest, img_data
 
-def predict_semantic_segmentation(bm, img,
-    z_shape, y_shape, x_shape, header, img_header, allLabels,
-    region_of_interest, extension, img_data):
+def append_ghost_areas(bm, img):
+    # append ghost areas to make image dimensions divisible by patch size (mirror edge areas)
+    zsh, ysh, xsh, _ = img.shape
+    z_rest = bm.z_patch - (zsh % bm.z_patch)
+    if z_rest == bm.z_patch:
+        z_rest = -zsh
+    else:
+        img = np.append(img, img[-z_rest:][::-1], axis=0)
+    y_rest = bm.y_patch - (ysh % bm.y_patch)
+    if y_rest == bm.y_patch:
+        y_rest = -ysh
+    else:
+        img = np.append(img, img[:,-y_rest:][:,::-1], axis=1)
+    x_rest = bm.x_patch - (xsh % bm.x_patch)
+    if x_rest == bm.x_patch:
+        x_rest = -xsh
+    else:
+        img = np.append(img, img[:,:,-x_rest:][:,:,::-1], axis=2)
+    return img, z_rest, y_rest, x_rest
+
+def predict_semantic_segmentation(bm,
+    header, img_header, allLabels,
+    region_of_interest, extension, img_data,
+    channels, normalize, normalization_parameters):
 
     # initialize results
     results = {}
 
-    # append ghost area to make image dimensions divisible by patch size (mirror edge areas)
-    zsh, ysh, xsh, csh = img.shape
-    z_rest = bm.z_patch - (zsh % bm.z_patch)
-    if z_rest == bm.z_patch:
-        z_rest = -zsh
-    img = np.append(img, img[-z_rest:][::-1], axis=0)
-    y_rest = bm.y_patch - (ysh % bm.y_patch)
-    if y_rest == bm.y_patch:
-        y_rest = -ysh
-    img = np.append(img, img[:,-y_rest:][:,::-1], axis=1)
-    x_rest = bm.x_patch - (xsh % bm.x_patch)
-    if x_rest == bm.x_patch:
-        x_rest = -xsh
-    img = np.append(img, img[:,:,-x_rest:][:,:,::-1], axis=2)
-
-    # img shape
-    zsh, ysh, xsh, csh = img.shape
-
     # number of labels
     nb_labels = len(allLabels)
-
-    # list of IDs
-    list_IDs = []
-
-    # get Ids of patches
-    for k in range(0, zsh-bm.z_patch+1, bm.stride_size):
-        for l in range(0, ysh-bm.y_patch+1, bm.stride_size):
-            for m in range(0, xsh-bm.x_patch+1, bm.stride_size):
-                list_IDs.append(k*ysh*xsh+l*xsh+m)
-
-    # make length of list divisible by batch size
-    rest = bm.batch_size - (len(list_IDs) % bm.batch_size)
-    list_IDs = list_IDs + list_IDs[:rest]
-
-    # number of patches
-    nb_patches = len(list_IDs)
 
     # load model
     if bm.dice_loss:
         def loss_fn(y_true, y_pred):
             dice = 0
-            for index in range(1,nb_labels):
+            for index in range(1, nb_labels):
                 dice += dice_coef(y_true[:,:,:,:,index], y_pred[:,:,:,:,index])
             dice = dice / (nb_labels-1)
             #loss = -K.log(dice)
@@ -1061,14 +1054,83 @@ def predict_semantic_segmentation(bm, img,
     else:
         model = load_model(bm.path_to_model)
 
-    # prediction
-    if nb_patches < 400:
+    # check if data can be loaded blockwise to save host memory
+    load_blockwise = False
+    if bm.no_scaling and not normalize and bm.path_to_image and not np.any(region_of_interest) and \
+      os.path.splitext(bm.path_to_image)[1] in ['.tif', '.tiff'] and not bm.acwe:
+        tif = TiffFile(bm.path_to_image)
+        zsh = len(tif.pages)
+        ysh, xsh = tif.pages[0].shape
+
+        # determine new image size after appending ghost areas to make image dimensions divisible by patch size
+        z_rest = bm.z_patch - (zsh % bm.z_patch)
+        if z_rest == bm.z_patch:
+            z_rest = -zsh
+        else:
+            zsh +=  z_rest
+        y_rest = bm.y_patch - (ysh % bm.y_patch)
+        if y_rest == bm.y_patch:
+            y_rest = -ysh
+        else:
+            ysh +=  y_rest
+        x_rest = bm.x_patch - (xsh % bm.x_patch)
+        if x_rest == bm.x_patch:
+            x_rest = -xsh
+        else:
+            xsh +=  x_rest
+
+        # get Ids of patches
+        list_IDs = []
+        for k in range(0, zsh-bm.z_patch+1, bm.stride_size):
+            for l in range(0, ysh-bm.y_patch+1, bm.stride_size):
+                for m in range(0, xsh-bm.x_patch+1, bm.stride_size):
+                    list_IDs.append(k*ysh*xsh+l*xsh+m)
+
+        # make length of list divisible by batch size
+        rest = bm.batch_size - (len(list_IDs) % bm.batch_size)
+        list_IDs = list_IDs + list_IDs[:rest]
+
+        # prediction
+        if len(list_IDs) > 400:
+            load_blockwise = True
+
+    # load image data and calculate patch IDs
+    if not load_blockwise:
+
+        # load prediction data
+        img, img_header, z_shape, y_shape, x_shape, region_of_interest, img_data = load_prediction_data(
+            bm, channels, normalize, normalization_parameters, region_of_interest, img_data, img_header)
+
+        # append ghost areas
+        img, z_rest, y_rest, x_rest = append_ghost_areas(bm, img)
+
+        # img shape
+        zsh, ysh, xsh, _ = img.shape
+
+        # list of IDs
+        list_IDs = []
+
+        # get Ids of patches
+        for k in range(0, zsh-bm.z_patch+1, bm.stride_size):
+            for l in range(0, ysh-bm.y_patch+1, bm.stride_size):
+                for m in range(0, xsh-bm.x_patch+1, bm.stride_size):
+                    list_IDs.append(k*ysh*xsh+l*xsh+m)
+
+        # make length of list divisible by batch size
+        rest = bm.batch_size - (len(list_IDs) % bm.batch_size)
+        list_IDs = list_IDs + list_IDs[:rest]
+
+        # number of patches
+        nb_patches = len(list_IDs)
+
+    # load all patches on GPU memory
+    if not load_blockwise and nb_patches < 400:
 
         # parameters
         params = {'dim': (bm.z_patch, bm.y_patch, bm.x_patch),
                   'dim_img': (zsh, ysh, xsh),
                   'batch_size': bm.batch_size,
-                  'n_channels': csh,
+                  'n_channels': channels,
                   'patch_normalization': bm.patch_normalization}
 
         # data generator
@@ -1091,7 +1153,7 @@ def predict_semantic_segmentation(bm, img,
 
     else:
         # stream data batchwise to GPU to reduce memory usage
-        X = np.empty((bm.batch_size, bm.z_patch, bm.y_patch, bm.x_patch, csh), dtype=np.float32)
+        X = np.empty((bm.batch_size, bm.z_patch, bm.y_patch, bm.x_patch, channels), dtype=np.float32)
 
         # allocate final array
         if bm.return_probs:
@@ -1103,6 +1165,13 @@ def predict_semantic_segmentation(bm, img,
         # predict segmentation block by block
         z_indices = range(0, zsh-bm.z_patch+1, bm.stride_size)
         for j, z in enumerate(z_indices):
+
+            # load blockwise
+            if load_blockwise:
+                img, _, _, _, _, _, _ = load_prediction_data(bm,
+                    channels, normalize, normalization_parameters,
+                    region_of_interest, img_data, img_header, load_blockwise, z)
+                img, _, _, _ = append_ghost_areas(bm, img)
 
             # list of IDs
             list_IDs = []
@@ -1128,7 +1197,7 @@ def predict_semantic_segmentation(bm, img,
                 for i, ID in enumerate(list_IDs[step*bm.batch_size:(step+1)*bm.batch_size]):
 
                     # get patch indices
-                    k = ID // (ysh*xsh)
+                    k=0 if load_blockwise else ID // (ysh*xsh)
                     rest = ID % (ysh*xsh)
                     l = rest // xsh
                     m = rest % xsh
@@ -1137,7 +1206,7 @@ def predict_semantic_segmentation(bm, img,
                     tmp_X = img[k:k+bm.z_patch,l:l+bm.y_patch,m:m+bm.x_patch]
                     if bm.patch_normalization:
                         tmp_X = np.copy(tmp_X, order='C')
-                        for c in range(csh):
+                        for c in range(channels):
                             tmp_X[:,:,:,c] -= np.mean(tmp_X[:,:,:,c])
                             tmp_X[:,:,:,c] /= max(np.std(tmp_X[:,:,:,c]), 1e-6)
                     X[i] = tmp_X
