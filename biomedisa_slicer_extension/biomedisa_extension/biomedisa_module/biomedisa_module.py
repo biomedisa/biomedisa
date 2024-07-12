@@ -2,6 +2,7 @@ import math
 import os
 from typing import Annotated, Optional
 import time
+from unittest import result
 
 import numpy as np
 import vtk
@@ -239,27 +240,24 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     def getBinaryLabelMap(self):
         segment = self.getSegment()
-        binaryLabelmap = segment.GetRepresentation('BinaryLabelmap')
-        if(not binaryLabelmap):
-            raise Exception(f"No binary label map found in segment: {segment}")
+        binaryLabelmap = segment.GetRepresentation(slicer.vtkSegmentationConverter.GetSegmentationBinaryLabelmapRepresentationName())
+        return binaryLabelmap
 
-        extent = binaryLabelmap.GetExtent()
-        # Create an empty numpy array with the same shape as the binary labelmap
-        dimensions = (extent[1] - extent[0] + 1, extent[3] - extent[2] + 1, extent[5] - extent[4] + 1)
-        numpyArray = np.zeros(dimensions, dtype=np.uint8)
-        # Get the voxel data from the binary labelmap
-        vtkDataArray = binaryLabelmap.GetPointData().GetScalars()
-        if vtkDataArray:
-            # Convert the VTK data array to a numpy array
-            import vtk.util.numpy_support as vtk_np
-            numpyArray = vtk_np.vtk_to_numpy(vtkDataArray)
-            # Reshape the numpy array to match the dimensions of the binary labelmap
-            numpyArray = numpyArray.reshape(dimensions, order='F')
-            return numpyArray
-        else:
-            raise Exception("No voxel data found in the binary labelmap representation")
+    def setBinaryLabelMap(self, label: np.array):
+        import vtk.util.numpy_support as vtk_np
+        vtkImageData = slicer.vtkOrientedImageData()
+        vtkImageData.SetDimensions(label.shape[2], label.shape[1], label.shape[0])
+        vtkImageData.SetDirections([[-1,0,0],[0,-1,0],[0,0,1]])
+        vtkImageData.AllocateScalars(vtk.VTK_UNSIGNED_CHAR, 1)
+        vtkArray = vtk_np.numpy_to_vtk(num_array=label.ravel(), deep=True, array_type=vtk.VTK_UNSIGNED_CHAR)
+        vtkImageData.GetPointData().SetScalars(vtkArray)
 
-    def setBinaryLabelMap(self, mask, segmentLayer = 1):
+        # Update the segment with the modified binary labelmap
+        segment = self.getSegment()
+        segment.AddRepresentation(slicer.vtkSegmentationConverter.GetSegmentationBinaryLabelmapRepresentationName(), vtkImageData)
+        self.getSegmentationNode().Modified()
+
+    def setBinaryLabelMapSlice(self, mask, segmentLayer = 1):
         # Get the segmentation node and the segment
         segmentationNode = self.getSegmentationNode()
         segment = self.getSegment()
@@ -269,18 +267,6 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         # Get the current binary labelmap representation
         binaryLabelmap = segment.GetRepresentation(slicer.vtkSegmentationConverter.GetSegmentationBinaryLabelmapRepresentationName())
-
-        # Create a VTK image data object for the mask
-        vtkImageData2D = vtk.vtkImageData()
-        vtkImageData2D.SetDimensions(mask.shape[1], mask.shape[0], 1)
-        vtkImageData2D.AllocateScalars(vtk.VTK_UNSIGNED_CHAR, 1)
-
-        # Convert the NumPy array to a VTK array
-        import vtk.util.numpy_support as vtk_np
-        vtkArray2D = vtk_np.numpy_to_vtk(num_array=mask.ravel(), deep=True, array_type=vtk.VTK_UNSIGNED_CHAR)
-
-        # Set the VTK array as the scalars of the VTK image data object
-        vtkImageData2D.GetPointData().SetScalars(vtkArray2D)
 
         # Make a deep copy of the existing binary labelmap to modify
         modifiedLabelmap = slicer.vtkOrientedImageData()
@@ -331,7 +317,6 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # Notify the segmentation node that the binary labelmap has been modified
         segmentationNode.Modified()
 
-    
     def onLeftClick(self, caller, event):
         """Called when the left mouse button is clicked."""
 
@@ -371,12 +356,9 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.logic.setSegmentAnythingImage(node, sliceIndex)
 
     def onBiomedisaButton(self) -> None:
-        # TODO: Not working in current mode. Make this work with segments.
-        return
-        inputNode  =  self._parameterNode.inputVolume
-        labelsNode  =  self._parameterNode.inputLabels
+        inputNode  =  self.getVolumeNode()
         inputImage = inputNode.GetImageData()
-        labels = labelsNode.GetImageData()
+        labels = self.getBinaryLabelMap()
 
         outputImage = biomedisa_moduleLogic.runBiomedisa(input=inputImage,
                                                          labels=labels, 
@@ -384,7 +366,10 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                                                          sorw=self._parameterNode.sorw, 
                                                          nbrw=self._parameterNode.nbrw)
         
-        labelsNode.SetAndObserveImageData(outputImage)
+        if(outputImage is None):
+            return
+        
+        self.setBinaryLabelMap(outputImage)
 
     def onDeleteLabelButton(self) -> None:
         labelsNode  = self._parameterNode.inputLabels
@@ -537,7 +522,7 @@ class biomedisa_moduleWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         mask = self.logic.runSegmentAnythingRed(inputNode, sliceIndex, foreground, background)
 
         #TODO: Segment index needs to come from segment selection in segmentsTableView
-        self.setBinaryLabelMap(mask, 1)
+        self.setBinaryLabelMapSlice(mask, 1)
 
     def __checkCanRunBiomedisa(self, caller=None, event=None) -> None:
         self.ui.biomedisaButton.enabled = True
@@ -597,12 +582,68 @@ class biomedisa_moduleLogic(ScriptedLoadableModuleLogic):
     def getParameterNode(self):
         return biomedisa_moduleParameterNode(super().getParameterNode())
 
+    def expandLabelToMatchInputImage(labelImageData, inputDimensions):
+        import vtk.util.numpy_support as vtk_np
+        # Initialize the new VTK image data object with the same dimensions as the input image
+        newLabelImageData = vtk.vtkImageData()
+        newLabelImageData.SetDimensions(inputDimensions)
+        newLabelImageData.AllocateScalars(vtk.VTK_UNSIGNED_CHAR, 1)
+        #newModifiedLabelmap.SetDirections([[-1,0,0],[0,-1,0],[0,0,1]])
+
+        # Get the bounds and extent of the original label image data
+        labelBounds = labelImageData.GetBounds()
+        labelExtent = labelImageData.GetExtent()
+        
+        print(f"Label Bounds: {labelBounds}")
+        print(f"Label Extent: {labelExtent}")
+
+        # Convert the label image data to a NumPy array
+        labelPointData = labelImageData.GetPointData()
+        labelVtkArray = labelPointData.GetScalars()
+        labelNumpyArray = vtk_np.vtk_to_numpy(labelVtkArray)
+        labelNumpyArray = labelNumpyArray.reshape(labelImageData.GetDimensions()[::-1])
+
+        # Initialize the NumPy array for the new label image data with zeros
+        newLabelNumpyArray = np.zeros(inputDimensions, dtype=np.uint8)
+        newLabelNumpyArray = newLabelNumpyArray.reshape(inputDimensions[::-1])
+
+        # Calculate the offset for copying the label data to the correct position in the new image
+        offsets = [-labelBounds[1] + 0.5,
+                   -labelBounds[3] + 0.5,
+                   labelBounds[4] + 0.5]
+        print(offsets)
+        print(f"labelNumpyArray: {labelNumpyArray.shape}")
+        print(f"newLabelNumpyArray: {newLabelNumpyArray.shape}")
+
+        # Iterate over the label data and copy it to the new image data at the correct position
+        rz =range(labelExtent[4], labelExtent[5] + 1)
+        ry = range(labelExtent[2], labelExtent[3] + 1)
+        rx = range(labelExtent[0], labelExtent[1] + 1)
+        print(f"rx {rx}")
+        print(f"ry {ry}")
+        print(f"rz {rz}")
+        for z in rz:
+            for y in ry:
+                for x in rx:
+                    zz = int(z - offsets[2])
+                    yy = int(y - offsets[1])
+                    xx = int(x - offsets[0])
+                    #print(f"xzy: {xx},{yy},{zz} -> {x},{y},{z}")
+                    v = labelNumpyArray[zz, yy, xx]
+                    newLabelNumpyArray[z, y, x] = v
+
+        # Convert the NumPy array back to a VTK array and set it as the scalars of the new VTK image data object
+        newLabelVtkArray = vtk_np.numpy_to_vtk(newLabelNumpyArray.ravel(), deep=True, array_type=vtk.VTK_UNSIGNED_CHAR)
+        newLabelImageData.GetPointData().SetScalars(newLabelVtkArray)
+
+        return newLabelImageData
+
     def runBiomedisa(
                 input: vtkMRMLScalarVolumeNode,
                 labels: vtkMRMLLabelMapVolumeNode, 
                 allaxis: bool,
                 sorw: int,
-                nbrw: int) -> vtkMRMLLabelMapVolumeNode:
+                nbrw: int) -> np.array:
         """
         Run the processing algorithm.
         Can be used without GUI widget.
@@ -610,26 +651,24 @@ class biomedisa_moduleLogic(ScriptedLoadableModuleLogic):
         :param labels: mask to use as a base
         :param output: the resulting mask result
         """
+        extendedLabel = biomedisa_moduleLogic.expandLabelToMatchInputImage(labels, input.GetDimensions())
         # convert data
         numpyImage = vtkNumpyConverter.vtkToNumpy(input)
-        numpyLabels = vtkNumpyConverter.vtkToNumpy(labels)
-    
+        numpyLabels = vtkNumpyConverter.vtkToNumpy(extendedLabel)
+
         from biomedisa.interpolation import smart_interpolation
         # smart interpolation with optional smoothing result
         results = smart_interpolation(numpyImage, numpyLabels,
                                       allaxis=allaxis,
                                       nbrw=nbrw, sorw=sorw)
-       
+        if results is None:
+            return None
+        
         # get results
         regular_result = results['regular']
         #smooth_result = results['smooth']
 
-        # convert back
-        outputImage = vtkNumpyConverter.numpyToVTK(regular_result)
-        outputVolume = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLScalarVolumeNode")
-        outputVolume.SetAndObserveImageData(outputImage)
-
-        return outputImage
+        return regular_result
 
     def setSegmentAnythingImage(self,
                                 inputVolume: vtkMRMLScalarVolumeNode,
