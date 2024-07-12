@@ -143,19 +143,13 @@ def fill(image, threshold=0.9):
     return image_i
 
 def main_helper(path_to_labels, img_id=None, friend_id=None, fill_holes=True,
-    clean_threshold=0.1, fill_threshold=0.9, remote=False, no_compression=False):
+    clean_threshold=0.1, fill_threshold=0.9, remote=False, compression=True):
 
     # django environment
     if img_id is not None:
         django_env = True
     else:
         django_env = False
-
-    # compression
-    if no_compression:
-        compression = False
-    else:
-        compression = True
 
     # final filenames
     filename, extension = os.path.splitext(path_to_labels)
@@ -350,7 +344,7 @@ def init_remove_outlier(image_id, final_id, label_id, fill_holes=True):
             try:
                 main_helper(final.pic.path, img_id=image_id, friend_id=final.friend,
                     fill_holes=fill_holes, clean_threshold=label.delete_outliers, fill_threshold=label.fill_holes, remote=False,
-                    no_compression=(False if label.compression else True))
+                    compression=label.compression)
             except Exception as e:
                 print(traceback.format_exc())
 
@@ -377,7 +371,7 @@ if __name__ == '__main__':
                         help='Remove outliers, e.g. 0.5 means that objects smaller than 50 percent of the size of the largest object will be removed')
     parser.add_argument('-f', '--fill_threshold', type=float, default=0.9,
                         help='Fill holes, e.g. 0.5 means that all holes smaller than 50 percent of the entire label will be filled')
-    parser.add_argument('-nc', '--no_compression', action='store_true', default=False,
+    parser.add_argument('-nc', '--no-compression', dest='compression', action='store_false',
                         help='Disable compression of segmentation results')
     parser.add_argument('-iid','--img_id', type=str, default=None,
                         help='Image ID within django environment/browser version')

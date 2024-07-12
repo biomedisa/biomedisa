@@ -65,11 +65,11 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
     path_to_images=None, path_to_labels=None, val_images=None, val_labels=None,
     path_to_model=None, predict=False, train=False, header_file=None,
     balance=False, crop_data=False, flip_x=False, flip_y=False, flip_z=False,
-    swapaxes=False, train_dice=False, val_dice=True, no_compression=False, ignore='none', only='all',
+    swapaxes=False, train_dice=False, val_dice=True, compression=True, ignore='none', only='all',
     network_filters='32-64-128-256-512', resnet=False, debug_cropping=False,
-    save_cropped=False, epochs=100, no_normalization=False, rotate=0.0, validation_split=0.0,
+    save_cropped=False, epochs=100, normalization=True, rotate=0.0, validation_split=0.0,
     learning_rate=0.01, stride_size=32, validation_stride_size=32, validation_freq=1,
-    batch_size=None, x_scale=256, y_scale=256, z_scale=256, no_scaling=False, early_stopping=0,
+    batch_size=None, x_scale=256, y_scale=256, z_scale=256, scaling=True, early_stopping=0,
     pretrained_model=None, fine_tune=False, workers=1, cropping_epochs=50,
     x_range=None, y_range=None, z_range=None, header=None, extension='.tif',
     img_header=None, img_extension='.tif', average_dice=False, django_env=False,
@@ -91,17 +91,13 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
     for arg in key_copy:
         bm.__dict__[arg] = locals()[arg]
 
-    # compression
-    if bm.no_compression:
-        bm.compression = False
-    else:
-        bm.compression = True
-
     # normalization
-    if bm.no_normalization:
+    bm.normalize = 1 if bm.normalization else 0
+
+    # use patch normalization instead of normalizing the entire volume
+    if not bm.scaling:
         bm.normalize = 0
-    else:
-        bm.normalize = 1
+        bm.patch_normalization = True
 
     # django environment
     if bm.django_env:
@@ -217,14 +213,19 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
         hf = h5py.File(bm.path_to_model, 'r')
         meta = hf.get('meta')
         configuration = meta.get('configuration')
-        channels, bm.x_scale, bm.y_scale, bm.z_scale, normalize, mu, sig = np.array(configuration)[:]
-        channels, bm.x_scale, bm.y_scale, bm.z_scale, normalize, mu, sig = int(channels), int(bm.x_scale), \
-                                int(bm.y_scale), int(bm.z_scale), int(normalize), float(mu), float(sig)
-        if '/meta/normalization' in hf:
-            normalization_parameters = np.array(meta.get('normalization'), dtype=float)
+        channels, bm.x_scale, bm.y_scale, bm.z_scale, bm.normalize, mu, sig = np.array(configuration)[:]
+        channels, bm.x_scale, bm.y_scale, bm.z_scale, bm.normalize, mu, sig = int(channels), int(bm.x_scale), \
+                                int(bm.y_scale), int(bm.z_scale), int(bm.normalize), float(mu), float(sig)
+        if 'normalization' in meta:
+            normalization_parameters = np.array(meta['normalization'], dtype=float)
         else:
             normalization_parameters = np.array([[mu],[sig]])
         allLabels = np.array(meta.get('labels'))
+        if 'patch_normalization' in meta:
+            bm.patch_normalization = bool(meta['patch_normalization'][()])
+        if 'scaling' in meta:
+            bm.scaling = bool(meta['scaling'][()])
+
         # check if amira header is available in the network
         if header is None and meta.get('header') is not None:
             header = [np.array(meta.get('header'))]
@@ -294,7 +295,7 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
                 results, bm = predict_semantic_segmentation(bm,
                     header, img_header, allLabels,
                     region_of_interest, extension, img_data,
-                    channels, normalize, normalization_parameters)
+                    channels, normalization_parameters)
 
                 # results
                 if cropped_volume is not None:
@@ -398,7 +399,7 @@ if __name__ == '__main__':
                         help='Dice loss function')
     parser.add_argument('-ad','--average_dice', action='store_true', default=False,
                         help='Use averaged dice score of each label')
-    parser.add_argument('-nc', '--no_compression', action='store_true', default=False,
+    parser.add_argument('-nc', '--no-compression', dest='compression', action='store_false',
                         help='Disable compression of segmentation results')
     parser.add_argument('-i', '--ignore', type=str, default='none',
                         help='Ignore specific label(s), e.g. 2,5,6')
@@ -416,8 +417,8 @@ if __name__ == '__main__':
                         help='Epochs the network is trained')
     parser.add_argument('-ce','--cropping_epochs', type=int, default=50,
                         help='Epochs the network for auto-cropping is trained')
-    parser.add_argument('-nn','--no_normalization', action='store_true', default=False,
-                        help='Disable image normalization')
+    parser.add_argument('-nn','--no-normalization', dest='normalization', action='store_false',
+                        help='Disable normalization of 3D image volumes')
     parser.add_argument('-r','--rotate', type=float, default=0.0,
                         help='Randomly rotate during training')
     parser.add_argument('-vs','--validation_split', type=float, default=0.0,
@@ -442,7 +443,7 @@ if __name__ == '__main__':
                         help='Images and labels are scaled at y-axis to this size before training')
     parser.add_argument('-zs','--z_scale', type=int, default=256,
                         help='Images and labels are scaled at z-axis to this size before training')
-    parser.add_argument('-ns','--no_scaling', action='store_true', default=False,
+    parser.add_argument('-ns','--no-scaling', dest='scaling', action='store_false',
                         help='Do not resize image and label data')
     parser.add_argument('-es','--early_stopping', type=int, default=0,
                         help='Training is terminated when the accuracy has not increased in the epochs defined by this')
