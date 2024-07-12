@@ -1165,6 +1165,8 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
             cmd += ['-nn']
         if not label.compression:
             cmd += ['-nc']
+        if not label.scaling:
+            cmd += ['-ns']
         if label.ignore != 'none':
             cmd += [f'-i={label.ignore}']
         if label.only != 'all':
@@ -1179,6 +1181,8 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
             cmd += [f'-e={label.epochs}']
         if label.resnet:
             cmd += ['-rn']
+        if label.balance:
+            cmd += ['-b']
         if label.batch_size != 24:
             cmd += [f'-bs={label.batch_size}']
         if label.x_scale != 256:
@@ -1475,6 +1479,8 @@ def features(request, action):
             request.session['state'] = 'No usable image and label combination selected.'
         elif raw_out.status > 0:
             request.session['state'] = 'Image is already being processed.'
+        elif not label_out.scaling and (len(img_list.split(',')[:-1])>1 or len(val_img_list.split(',')[:-1])>1 or '.tar' in img_list or '.tar' in val_img_list):
+            request.session['state'] = 'Using full volume (no scaling) is only supported for one training volume and no TAR file.'
         else:
             if config['THIRD_QUEUE']:
                 queue_name, queue_short = 'third_queue', 'C'
