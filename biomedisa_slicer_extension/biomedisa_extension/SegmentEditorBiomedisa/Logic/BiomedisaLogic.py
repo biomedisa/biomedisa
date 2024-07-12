@@ -26,20 +26,15 @@ class BiomedisaLogic():
         return numpy_data
 
     def _expandLabelToMatchInputImage(labelImageData, inputDimensions) -> vtk.vtkImageData:
-        import vtk.util.numpy_support as vtk_np
         # Initialize the new VTK image data object with the same dimensions as the input image
         newLabelImageData = vtk.vtkImageData()
         newLabelImageData.SetDimensions(inputDimensions)
         newLabelImageData.AllocateScalars(vtk.VTK_UNSIGNED_CHAR, 1)
-        #newModifiedLabelmap.SetDirections([[-1,0,0],[0,-1,0],[0,0,1]])
 
         # Get the bounds and extent of the original label image data
         labelBounds = labelImageData.GetBounds()
         labelExtent = labelImageData.GetExtent()
         
-        print(f"Label Bounds: {labelBounds}")
-        print(f"Label Extent: {labelExtent}")
-
         # Convert the label image data to a NumPy array
         labelPointData = labelImageData.GetPointData()
         labelVtkArray = labelPointData.GetScalars()
@@ -54,24 +49,14 @@ class BiomedisaLogic():
         offsets = [-labelBounds[1] + 0.5,
                    -labelBounds[3] + 0.5,
                    labelBounds[4] + 0.5]
-        print(offsets)
-        print(f"labelNumpyArray: {labelNumpyArray.shape}")
-        print(f"newLabelNumpyArray: {newLabelNumpyArray.shape}")
 
         # Iterate over the label data and copy it to the new image data at the correct position
-        rz =range(labelExtent[4], labelExtent[5] + 1)
-        ry = range(labelExtent[2], labelExtent[3] + 1)
-        rx = range(labelExtent[0], labelExtent[1] + 1)
-        print(f"rx {rx}")
-        print(f"ry {ry}")
-        print(f"rz {rz}")
-        for z in rz:
-            for y in ry:
-                for x in rx:
+        for z in range(labelExtent[4], labelExtent[5] + 1):
+            for y in range(labelExtent[2], labelExtent[3] + 1):
+                for x in range(labelExtent[0], labelExtent[1] + 1):
                     zz = int(z - offsets[2])
                     yy = int(y - offsets[1])
                     xx = int(x - offsets[0])
-                    #print(f"xzy: {xx},{yy},{zz} -> {x},{y},{z}")
                     v = labelNumpyArray[zz, yy, xx]
                     newLabelNumpyArray[z, y, x] = v
 
