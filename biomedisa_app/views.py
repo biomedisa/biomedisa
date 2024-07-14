@@ -58,6 +58,7 @@ from django.utils.crypto import get_random_string
 from biomedisa_app.config import config
 from biomedisa.settings import BASE_DIR, PRIVATE_STORAGE_ROOT
 
+from tifffile import TiffFile
 from wsgiref.util import FileWrapper
 import numpy as np
 from PIL import Image
@@ -2478,7 +2479,17 @@ def run(request):
                     lenq1 = len(q1)
                     lenq2 = len(q2)
 
-                    if lenq1 > lenq2 or (lenq1==lenq2 and w1.state=='busy' and w2.state=='idle'):
+                    # check image size
+                    voxels = 0
+                    if os.path.splitext(raw.pic.path)[1] in ['.tif','.tiff']:
+                        tif = TiffFile(raw.pic.path)
+                        zsh = len(tif.pages)
+                        ysh, xsh = tif.pages[0].shape
+                        voxels = zsh*ysh*xsh
+
+                    #if lenq1 > lenq2 or (lenq1==lenq2 and w1.state=='busy' and w2.state=='idle'):
+                    # large image queue
+                    if voxels > 4200000000 or os.path.getsize(raw.pic.path) > 4200000000:
                         queue_name = 'B'
                         job = q2.enqueue_call(init_random_walk, args=(raw.id, label.id), timeout=-1)
                         lenq = len(q2)
