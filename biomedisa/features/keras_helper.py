@@ -542,11 +542,10 @@ class CustomCallback(Callback):
                 time_remaining = str(t // 60) + 'min'
             else:
                 time_remaining = str(t // 3600) + 'h ' + str((t % 3600) // 60) + 'min'
-            try:
-                val_accuracy = round(float(logs["val_accuracy"])*100,1)
-                image.message = 'Progress {}%, {} remaining, {}% accuracy'.format(percentage,time_remaining,val_accuracy)
-            except KeyError:
-                image.message = 'Progress {}%, {} remaining'.format(percentage,time_remaining)
+            image.message = 'Progress {}%, {} remaining'.format(percentage,time_remaining)
+            if 'best_val_dice' in logs:
+                best_val_dice = round(float(logs['best_val_dice'])*100,1)
+                image.message += f', {best_val_dice}% accuracy'
             image.save()
             print("Start epoch {} of training; got log keys: {}".format(epoch, keys))
 
