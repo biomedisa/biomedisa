@@ -1173,7 +1173,7 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
         if label.only != 'all':
             cmd += [f'-o={label.only}']
         if label.early_stopping:
-            cmd += [f'-es=10']
+            cmd += [f'-es=25']
         if label.automatic_cropping:
             cmd += ['-cd']
         if label.filters != '32-64-128-256-512':
