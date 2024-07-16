@@ -413,7 +413,7 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
             else:
                 img = img_in
                 img_names = ['img_1']
-            if label_dim != img.shape:
+            if label_dim != img.shape[:3]:
                 InputError.message = f'Dimensions of "{os.path.basename(img_names[0])}" and "{os.path.basename(label_names[0])}" do not match'
                 raise InputError()
 
@@ -482,7 +482,7 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
                             raise InputError()
                     else:
                         a = img_in[k]
-                    if label_dim != a.shape:
+                    if label_dim != a.shape[:3]:
                         InputError.message = f'Dimensions of "{os.path.basename(img_names[k])}" and "{os.path.basename(label_names[k])}" do not match'
                         raise InputError()
                     if len(a.shape)==3:
