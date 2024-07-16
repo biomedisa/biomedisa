@@ -1,8 +1,6 @@
 import os
-import unittest
-import vtk, qt, ctk, slicer
+import slicer
 from slicer.ScriptedLoadableModule import *
-import logging
 
 # Source: https://github.com/lassoan/SlicerSegmentEditorExtraEffects
 class SegmentEditorBiomedisa(ScriptedLoadableModule):
@@ -20,7 +18,7 @@ class SegmentEditorBiomedisa(ScriptedLoadableModule):
         self.parent.hidden = True
         self.parent.helpText = "This hidden module registers the segment editor effect"
         self.parent.helpText += self.getDefaultModuleDocumentationLink()
-        self.parent.acknowledgementText = "Supported by NA-MIC, NAC, BIRN, NCIGT, and the Slicer Community. See http://www.slicer.org for details."
+        #self.parent.acknowledgementText = "Supported by NA-MIC, NAC, BIRN, NCIGT, and the Slicer Community. See http://www.slicer.org for details."
         slicer.app.connect("startupCompleted()", self.registerEditorEffect)
 
     def registerEditorEffect(self):
