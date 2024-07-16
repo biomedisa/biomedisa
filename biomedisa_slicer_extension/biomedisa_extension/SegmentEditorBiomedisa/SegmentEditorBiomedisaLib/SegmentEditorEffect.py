@@ -1,4 +1,5 @@
 import os
+from sympy import false
 import vtk, qt, ctk, slicer
 import logging
 from SegmentEditorEffects import *
@@ -39,7 +40,7 @@ For more information visit the <a href="https://biomedisa.info/">project page</a
   def setupOptionsFrame(self):
     collapsibleButton = ctk.ctkCollapsibleButton()
     collapsibleButton.text = "Advanced"
-    collapsibleButton.setChecked(True)
+    collapsibleButton.setChecked(False)
     self.scriptedEffect.addOptionsWidget(collapsibleButton)
 
     collapsibleLayout = qt.QFormLayout(collapsibleButton)
