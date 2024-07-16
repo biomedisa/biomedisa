@@ -4,7 +4,7 @@ import vtk.util.numpy_support as vtk_np
 from vtkmodules.util.numpy_support import vtk_to_numpy
 from slicer import vtkMRMLScalarVolumeNode
 from slicer import vtkMRMLLabelMapVolumeNode
-from biomedisa.interpolation import smart_interpolation
+from biomedisa.interpolation import smart_interpolation, read_labeled_slices
 from Logic.BiomedisaParameter import BiomedisaParameter
 
 class BiomedisaLogic():
@@ -88,6 +88,12 @@ class BiomedisaLogic():
 
         return labelMapList
     
+    def getLabeledSlices(input: vtkMRMLScalarVolumeNode, labels: vtkMRMLLabelMapVolumeNode):
+        extendedLabel = BiomedisaLogic._expandLabelToMatchInputImage(labels, input.GetDimensions())
+        numpyLabels = BiomedisaLogic._vtkToNumpy(extendedLabel)
+        labeledSlices, _ = read_labeled_slices(numpyLabels)
+        return labeledSlices
+
     def runBiomedisa(
                 input: vtkMRMLScalarVolumeNode,
                 labels: vtkMRMLLabelMapVolumeNode, 
@@ -95,8 +101,8 @@ class BiomedisaLogic():
 
         # convert data
         extendedLabel = BiomedisaLogic._expandLabelToMatchInputImage(labels, input.GetDimensions())
-        numpyImage = BiomedisaLogic._vtkToNumpy(input)
         numpyLabels = BiomedisaLogic._vtkToNumpy(extendedLabel)
+        numpyImage = BiomedisaLogic._vtkToNumpy(input)
 
         if(parameter is None):
             results = smart_interpolation(numpyImage, numpyLabels)
