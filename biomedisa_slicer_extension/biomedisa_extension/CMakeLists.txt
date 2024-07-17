@@ -23,6 +23,7 @@ include(${Slicer_USE_FILE})
 #-----------------------------------------------------------------------------
 # Extension modules
 add_subdirectory(SegmentEditorBiomedisa)
+add_subdirectory(SegmentEditorBiomedisaDeepLearning)
 ## NEXT_MODULE
 
 #-----------------------------------------------------------------------------
