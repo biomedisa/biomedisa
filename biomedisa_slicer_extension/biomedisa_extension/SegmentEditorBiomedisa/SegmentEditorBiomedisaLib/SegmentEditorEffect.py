@@ -1,20 +1,20 @@
 import os
-from sympy import false
 import vtk, qt, ctk, slicer
-import logging
 from SegmentEditorEffects import *
 from Logic.BiomedisaLogic import BiomedisaLogic
 from Logic.BiomedisaParameter import BiomedisaParameter
 from biomedisa.features.biomedisa_helper import _get_platform
+from SegmentEditorCommon.AbstractBiomedisaSegmentEditorEffect import AbstractBiomedisaSegmentEditorEffect
 
 # Source: https://github.com/lassoan/SlicerSegmentEditorExtraEffects
-class SegmentEditorEffect(AbstractScriptedSegmentEditorEffect):
+class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
   """This effect uses the Biomedisa algorithm to segment large 3D volumetric images"""
 
   def __init__(self, scriptedEffect):
     scriptedEffect.name = 'Biomedisa'
-    scriptedEffect.perSegment = True # this effect operates on a single selected segment
-    AbstractScriptedSegmentEditorEffect.__init__(self, scriptedEffect)
+    scriptedEffect.perSegment = False
+    scriptedEffect.requireSegments = True
+    AbstractBiomedisaSegmentEditorEffect.__init__(self, scriptedEffect)
 
   def clone(self):
     # It should not be necessary to modify this method
@@ -94,30 +94,9 @@ class SegmentEditorEffect(AbstractScriptedSegmentEditorEffect):
     self.platform.text = self.getPlatform()
     self.platform.toolTip = 'One of "cuda", "opencl_NVIDIA_GPU", "opencl_Intel_CPU"'
     collapsibleLayout.addRow("platform:", self.platform)
+    
+    AbstractBiomedisaSegmentEditorEffect.setupOptionsFrame(self)
 
-
-    self.runButton = qt.QPushButton("Run")
-    self.runButton.objectName = self.__class__.__name__ + 'Run'
-    self.runButton.setToolTip("Run the biomedisa algorithm and generate segment data")
-    self.scriptedEffect.addOptionsWidget(self.runButton)
-
-    self.cancelApplyGrid = qt.QHBoxLayout()
-    self.cancelButton = qt.QPushButton("Cancel")
-    self.cancelButton.objectName = self.__class__.__name__ + 'Cancel'
-    self.cancelButton.setToolTip("Clear preview and cancel")
-    self.cancelButton.setEnabled(False)
-    self.cancelApplyGrid.addWidget(self.cancelButton)
-
-    self.applyButton = qt.QPushButton("Apply")
-    self.applyButton.objectName = self.__class__.__name__ + 'Apply'
-    self.applyButton.setToolTip("Run the biomedisa algorithm and generate segment data")
-    self.applyButton.setEnabled(False)
-    self.cancelApplyGrid.addWidget(self.applyButton)
-    self.scriptedEffect.addOptionsWidget(self.cancelApplyGrid)
-
-    self.runButton.connect('clicked()', self.onRun)
-    self.cancelButton.connect('clicked()', self.onCancel)
-    self.applyButton.connect('clicked()', self.onApply)
 
   def getPlatform(self) -> str:
     class Biomedisa:
@@ -142,32 +121,6 @@ class SegmentEditorEffect(AbstractScriptedSegmentEditorEffect):
     parameter.only = self.only.text
     parameter.platform = self.platform.text
     return parameter
-    
-  def updateApplyButtonState(self):
-    if self.previewSegmentationNode is None:
-        self.applyButton.setEnabled(False)
-        self.cancelButton.setEnabled(False)
-    else:
-        self.applyButton.setEnabled(True)
-        self.cancelButton.setEnabled(True)
-
-  def removePreviewNode(self):
-    if self.previewSegmentationNode:
-      slicer.mrmlScene.RemoveNode(self.previewSegmentationNode)
-      self.previewSegmentationNode = None
-    self.originalSegmentationNode = None
-    self.updateApplyButtonState()
-
-  def onCancel(self):
-    # delete preview segmentation node
-    self.runButton.setEnabled(True)
-    self.removePreviewNode()
-
-  def onApply(self):
-    # move result form preview node to main node and delete preview segmentation node
-    self.originalSegmentationNode.GetSegmentation().DeepCopy(self.previewSegmentationNode.GetSegmentation())
-    self.runButton.setEnabled(True)
-    self.removePreviewNode()
 
   def getLabeledSlices(self):
     sourceImageData = self.scriptedEffect.sourceVolumeImageData()
@@ -178,36 +131,7 @@ class SegmentEditorEffect(AbstractScriptedSegmentEditorEffect):
     binaryLabelmap = segment.GetRepresentation(slicer.vtkSegmentationConverter.GetSegmentationBinaryLabelmapRepresentationName())
     return BiomedisaLogic.getLabeledSlices(input=sourceImageData, labels=binaryLabelmap)
 
-  def onRun(self):
-    # This can be a long operation - indicate it to the user
-    labeldSlices = self.getLabeledSlices()
-
-    # Checks if many slices are labeled.
-    if(len(labeldSlices) > 10):
-      dialog = qt.QMessageBox(slicer.util.mainWindow())
-      dialog.setIcon(qt.QMessageBox.Question)
-      dialog.setText(f"You are about to run Biomedisa with {len(labeldSlices)} labeled slices. This may take a while. Are you sure you want to continue?")
-      dialog.setWindowTitle("Confirmation")
-      dialog.setStandardButtons(qt.QMessageBox.Ok | qt.QMessageBox.Cancel)
-      dialog.setDefaultButton(qt.QMessageBox.Ok)
-      result = dialog.exec_()
-      if(result == qt.QMessageBox.Cancel):
-        return
-
-    qt.QApplication.setOverrideCursor(qt.Qt.WaitCursor)
-    try:
-      slicer.util.showStatusMessage('Running Biomedisa...', 2000)
-      self.runButton.setEnabled(False)
-      self.scriptedEffect.saveStateForUndo()
-      self.runBiomedisa()
-      self.updateApplyButtonState()
-      slicer.util.showStatusMessage('Biomedisa finished', 2000)
-    except:
-      self.runButton.setEnabled(True)
-    finally:
-      qt.QApplication.restoreOverrideCursor()
-
-  def runBiomedisa(self):
+  def runAlgorithm(self):
     self.originalSegmentationNode = self.scriptedEffect.parameterSetNode().GetSegmentationNode()
     self.previewSegmentationNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSegmentationNode")
     self.previewSegmentationNode.SetName("Segmentation preview")
