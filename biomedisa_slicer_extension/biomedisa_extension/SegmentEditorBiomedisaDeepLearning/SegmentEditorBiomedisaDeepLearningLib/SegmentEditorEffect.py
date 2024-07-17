@@ -8,8 +8,9 @@ class SegmentEditorEffect(AbstractScriptedSegmentEditorEffect):
   """This effect uses the Biomedisa algorithm to segment large 3D volumetric images"""
 
   def __init__(self, scriptedEffect):
-    scriptedEffect.name = 'Biomedisa Deep Learning'
-    scriptedEffect.perSegment = True # this effect operates on a single selected segment
+    scriptedEffect.name = 'Biomedisa deep learning'
+    scriptedEffect.perSegment = False
+    scriptedEffect.requireSegments = False
     AbstractScriptedSegmentEditorEffect.__init__(self, scriptedEffect)
 
   def clone(self):
@@ -74,7 +75,7 @@ class SegmentEditorEffect(AbstractScriptedSegmentEditorEffect):
     self.stride_size.toolTip = 'Stride size for patches'
     self.stride_size.minimum = 1
     self.stride_size.maximum = 65
-    self.stride_size.value = 64, #TODO: dafault to 32
+    self.stride_size.value = 32
     collapsibleLayout.addRow("Stride size:", self.stride_size)
     
     # Buttons
@@ -173,8 +174,7 @@ class SegmentEditorEffect(AbstractScriptedSegmentEditorEffect):
     segmentation = self.previewSegmentationNode.GetSegmentation()
     for label, binaryLabelmap in resultLabelMaps:
       # Get segment ID from label index. This is 0 based even though first the voxel value is 1.
-      segmentID = segmentation.GetNthSegmentID(int(label) - 1)
-      #TODO: create new segments if they don't exist
+      segmentID = segmentation.AddEmptySegment()
       slicer.vtkSlicerSegmentationsModuleLogic.SetBinaryLabelmapToSegment(
         binaryLabelmap, 
         self.previewSegmentationNode, 
