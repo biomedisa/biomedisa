@@ -1,8 +1,5 @@
-from fileinput import filename
 import os
-from sympy import false
-import vtk, qt, ctk, slicer
-import logging
+import qt, ctk, slicer
 from SegmentEditorEffects import *
 from Logic.BiomedisaDeepLearningLogic import BiomedisaDeepLearningLogic
 
@@ -77,7 +74,7 @@ class SegmentEditorEffect(AbstractScriptedSegmentEditorEffect):
     self.stride_size.toolTip = 'Stride size for patches'
     self.stride_size.minimum = 1
     self.stride_size.maximum = 65
-    self.stride_size.value = 32
+    self.stride_size.value = 64, #TODO: dafault to 32
     collapsibleLayout.addRow("Stride size:", self.stride_size)
     
     # Buttons
