@@ -11,6 +11,7 @@ class SegmentEditorEffect(AbstractScriptedSegmentEditorEffect):
     scriptedEffect.name = 'Biomedisa deep learning'
     scriptedEffect.perSegment = False
     scriptedEffect.requireSegments = False
+    self.previewSegmentationNode = None
     AbstractScriptedSegmentEditorEffect.__init__(self, scriptedEffect)
 
   def clone(self):
@@ -78,30 +79,37 @@ class SegmentEditorEffect(AbstractScriptedSegmentEditorEffect):
     self.stride_size.maximum = 65
     self.stride_size.value = 32
     collapsibleLayout.addRow("Stride size:", self.stride_size)
-    
+
     # Buttons
     self.runButton = qt.QPushButton("Run")
     self.runButton.objectName = self.__class__.__name__ + 'Run'
     self.runButton.setToolTip("Run the biomedisa algorithm and generate segment data")
+    self.runButton.connect('clicked()', self.onRun)
     self.scriptedEffect.addOptionsWidget(self.runButton)
+    
+    self.previewShow3DButton = qt.QPushButton("Show 3D")
+    self.previewShow3DButton.objectName = self.__class__.__name__ + 'Show3D'
+    self.previewShow3DButton.toolTip = "Toggle 3D visibility of the segmentation"
+    self.previewShow3DButton.setEnabled(False)
+    self.previewShow3DButton.setCheckable(True)
+    self.previewShow3DButton.clicked.connect(self.onShow3DButtonClicked)
+    self.scriptedEffect.addOptionsWidget(self.previewShow3DButton)
 
     self.fileLayout = qt.QHBoxLayout()
     self.cancelButton = qt.QPushButton("Cancel")
     self.cancelButton.objectName = self.__class__.__name__ + 'Cancel'
     self.cancelButton.setToolTip("Clear preview and cancel")
     self.cancelButton.setEnabled(False)
+    self.cancelButton.connect('clicked()', self.onCancel)
     self.fileLayout.addWidget(self.cancelButton)
 
     self.selectModelButton = qt.QPushButton("Apply")
     self.selectModelButton.objectName = self.__class__.__name__ + 'Apply'
     self.selectModelButton.setToolTip("Run the biomedisa algorithm and generate segment data")
     self.selectModelButton.setEnabled(False)
+    self.selectModelButton.connect('clicked()', self.onApply)
     self.fileLayout.addWidget(self.selectModelButton)
     self.scriptedEffect.addOptionsWidget(self.fileLayout)
-
-    self.runButton.connect('clicked()', self.onRun)
-    self.cancelButton.connect('clicked()', self.onCancel)
-    self.selectModelButton.connect('clicked()', self.onApply)
 
   def validatePath(self):
     # Check if the path is to an existing file
@@ -110,20 +118,22 @@ class SegmentEditorEffect(AbstractScriptedSegmentEditorEffect):
     else:
         self.runButton.setEnabled(False)
 
-  def updateApplyButtonState(self):
+  def updateButtonStates(self):
     if self.previewSegmentationNode is None:
         self.selectModelButton.setEnabled(False)
         self.cancelButton.setEnabled(False)
+        self.previewShow3DButton.setEnabled(False)
     else:
         self.selectModelButton.setEnabled(True)
         self.cancelButton.setEnabled(True)
+        self.previewShow3DButton.setEnabled(True)
 
   def removePreviewNode(self):
     if self.previewSegmentationNode:
       slicer.mrmlScene.RemoveNode(self.previewSegmentationNode)
       self.previewSegmentationNode = None
     self.originalSegmentationNode = None
-    self.updateApplyButtonState()
+    self.updateButtonStates()
 
   def onSelectModelButton(self):
     fileFilter = "HDF5 Files (*.h5);;All Files (*)"
@@ -141,7 +151,37 @@ class SegmentEditorEffect(AbstractScriptedSegmentEditorEffect):
     self.originalSegmentationNode.GetSegmentation().DeepCopy(self.previewSegmentationNode.GetSegmentation())
     self.runButton.setEnabled(True)
     self.removePreviewNode()
+  
+  def onShow3DButtonClicked(self):
+    showing = self.getPreviewShow3D()
+    self.setPreviewShow3D(not showing)
 
+  def getPreviewNode(self):
+      if self.previewSegmentationNode is not None:
+        return self.previewSegmentationNode
+      return None
+  
+  def getPreviewShow3D(self) -> bool:
+      previewNode = self.getPreviewNode()
+      if not previewNode:
+          return False
+      containsClosedSurfaceRepresentation = previewNode.GetSegmentation().ContainsRepresentation(
+         slicer.vtkSegmentationConverter.GetSegmentationClosedSurfaceRepresentationName())
+      return containsClosedSurfaceRepresentation
+  
+  def setPreviewShow3D(self, show):
+      previewNode = self.getPreviewNode()
+      if previewNode:
+          if show:
+              previewNode.CreateClosedSurfaceRepresentation()
+          else:
+              previewNode.RemoveClosedSurfaceRepresentation()
+
+      # Make sure the GUI is up-to-date
+      wasBlocked = self.previewShow3DButton.blockSignals(True)
+      self.previewShow3DButton.checked = show
+      self.previewShow3DButton.blockSignals(wasBlocked)
+      
   def onRun(self):
     # This can be a long operation - indicate it to the user
     qt.QApplication.setOverrideCursor(qt.Qt.WaitCursor)
@@ -150,7 +190,7 @@ class SegmentEditorEffect(AbstractScriptedSegmentEditorEffect):
       self.runButton.setEnabled(False)
       self.scriptedEffect.saveStateForUndo()
       self.runDeepLearning()
-      self.updateApplyButtonState()
+      self.updateButtonStates()
       slicer.util.showStatusMessage('Biomedisa finished', 2000)
     except:
       self.runButton.setEnabled(True)
