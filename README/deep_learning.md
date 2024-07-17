@@ -29,14 +29,14 @@ biomedisa.deeplearning.deep_learning(
     flip_z=False,
     rotate=0.0,
     swapaxes=False,
-    no_compression=False,
+    compression=True,
     ignore='none',
     only='all',
-    no_normalization=False,
+    normalization=True,
     x_scale=256,
     y_scale=256,
     z_scale=256,
-    no_scaling=False,
+    scaling=True,
     crop_data=False,
     cropping_epochs=50,
     save_cropped=False,
@@ -106,14 +106,14 @@ biomedisa.deeplearning.deep_learning(
 + **flip_z**: Randomly flip z-axis during training (default: False).
 + **rotate FLOAT**: Randomly rotate during training (default: 0.0).
 + **swapaxes**: Randomly swap two axes during training (default: False).
-+ **no_compression**: Disable compression of segmentation results (default: False).
++ **compression**: Compress segmentation results (default: True).
 + **ignore STR**: Ignore specific label(s), e.g. "2,5,6" (default: none).
 + **only STR**: Segment only specific label(s), e.g. "1,3,5" (default: all).
-+ **no_normalization**: Disable image normalization (default: False).
++ **normalization**: Normalize all 3D image volumes to the same mean and variance (default: True).
 + **x_scale INT**: Images and labels are scaled at x-axis to this size before training (default: 256).
 + **y_scale INT**: Images and labels are scaled at y-axis to this size before training (default: 256).
 + **z_scale INT**: Images and labels are scaled at z-axis to this size before training (default: 256).
-+ **no_scaling**: Do not resize image and label data (default: False).
++ **scaling**: Resize image and label data to z_scale*y_scale*x_scale voxels (default: True).
 + **crop_data**: Both the training and inference data should be cropped to the region of interest for best performance. As an alternative to manual cropping, you can use Biomedisa's AI-based automatic cropping. After training, auto cropping is automatically applied to your inference data.
 + **cropping_epochs INT**: Epochs the network for auto-cropping is trained (default: 50).
 + **save_cropped**: Save automatically cropped image (default: False).

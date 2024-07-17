@@ -225,6 +225,7 @@ class Upload(models.Model):
     resnet = models.BooleanField("ResNet convolutional blocks (AI)", default=False)
     validation_data = models.BooleanField('Validation data (AI)', default=False)
     header_file = models.CharField("Header file", null=True, blank=True, max_length=100)
+    scaling = models.BooleanField("Scale image and label data (AI)", default=True)
 
 class UploadForm(forms.ModelForm):
     class Meta:
@@ -239,9 +240,9 @@ class StorageForm(forms.ModelForm):
 class SettingsForm(forms.ModelForm):
     class Meta:
         model = Upload
-        fields = ('allaxis', 'uncertainty', 'compression', 'normalize',
+        fields = ('allaxis', 'uncertainty', 'compression', 'normalize', 'balance',
                   'automatic_cropping', 'validation_data', 'early_stopping', 'flip_x',
-                  'flip_y', 'flip_z', 'resnet', 'filters', 'rotate', 'epochs', 'batch_size',
+                  'flip_y', 'flip_z', 'resnet', 'scaling', 'filters', 'rotate', 'epochs', 'batch_size',
                   'x_scale', 'y_scale', 'z_scale', 'stride_size', 'validation_split',
                   'validation_freq', 'smooth', 'delete_outliers', 'fill_holes', 'ignore', 'only')
 

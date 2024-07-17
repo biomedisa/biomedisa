@@ -58,6 +58,7 @@ from django.utils.crypto import get_random_string
 from biomedisa_app.config import config
 from biomedisa.settings import BASE_DIR, PRIVATE_STORAGE_ROOT
 
+from tifffile import TiffFile
 from wsgiref.util import FileWrapper
 import numpy as np
 from PIL import Image
@@ -1165,12 +1166,14 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
             cmd += ['-nn']
         if not label.compression:
             cmd += ['-nc']
+        if not label.scaling:
+            cmd += ['-ns']
         if label.ignore != 'none':
             cmd += [f'-i={label.ignore}']
         if label.only != 'all':
             cmd += [f'-o={label.only}']
         if label.early_stopping:
-            cmd += [f'-es=10']
+            cmd += [f'-es=25']
         if label.automatic_cropping:
             cmd += ['-cd']
         if label.filters != '32-64-128-256-512':
@@ -1179,6 +1182,8 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
             cmd += [f'-e={label.epochs}']
         if label.resnet:
             cmd += ['-rn']
+        if label.balance:
+            cmd += ['-b']
         if label.batch_size != 24:
             cmd += [f'-bs={label.batch_size}']
         if label.x_scale != 256:
@@ -1475,6 +1480,8 @@ def features(request, action):
             request.session['state'] = 'No usable image and label combination selected.'
         elif raw_out.status > 0:
             request.session['state'] = 'Image is already being processed.'
+        elif not label_out.scaling and (len(img_list.split(',')[:-1])>1 or len(val_img_list.split(',')[:-1])>1 or '.tar' in img_list or '.tar' in val_img_list):
+            request.session['state'] = 'Using full volume (no scaling) is only supported for one training volume and no TAR file.'
         else:
             if config['THIRD_QUEUE']:
                 queue_name, queue_short = 'third_queue', 'C'
@@ -2472,7 +2479,17 @@ def run(request):
                     lenq1 = len(q1)
                     lenq2 = len(q2)
 
-                    if lenq1 > lenq2 or (lenq1==lenq2 and w1.state=='busy' and w2.state=='idle'):
+                    # check image size
+                    voxels = 0
+                    if os.path.splitext(raw.pic.path)[1] in ['.tif','.tiff']:
+                        tif = TiffFile(raw.pic.path)
+                        zsh = len(tif.pages)
+                        ysh, xsh = tif.pages[0].shape
+                        voxels = zsh*ysh*xsh
+
+                    #if lenq1 > lenq2 or (lenq1==lenq2 and w1.state=='busy' and w2.state=='idle'):
+                    # large image queue
+                    if voxels > 4200000000 or os.path.getsize(raw.pic.path) > 4200000000:
                         queue_name = 'B'
                         job = q2.enqueue_call(init_random_walk, args=(raw.id, label.id), timeout=-1)
                         lenq = len(q2)

@@ -106,7 +106,7 @@ def reduce_blocksize(raw, slices):
     return raw, slices, argmin_z, argmax_z, argmin_y, argmax_y, argmin_x, argmax_x
 
 def activeContour(data, labelData, alpha=1.0, smooth=1, steps=3,
-    path_to_data=None, path_to_labels=None, no_compression=False,
+    path_to_data=None, path_to_labels=None, compression=True,
     ignore='none', only='all', simple=False,
     img_id=None, friend_id=None, remote=False):
 
@@ -125,12 +125,6 @@ def activeContour(data, labelData, alpha=1.0, smooth=1, steps=3,
         bm.django_env = True
     else:
         bm.django_env = False
-
-    # compression
-    if bm.no_compression:
-        bm.compression = False
-    else:
-        bm.compression = True
 
     # disable file saving when called as a function
     if bm.data is not None:
@@ -374,8 +368,7 @@ def init_active_contour(image_id, friend_id, label_id, simple=False):
         else:
             try:
                 activeContour(None, None, path_to_data=image.pic.path, path_to_labels=friend.pic.path,
-                    alpha=label.ac_alpha, smooth=label.ac_smooth, steps=label.ac_steps,
-                    no_compression=(False if label.compression else True),
+                    alpha=label.ac_alpha, smooth=label.ac_smooth, steps=label.ac_steps, compression=label.compression,
                     simple=simple, img_id=image_id, friend_id=friend_id, remote=False)
             except Exception as e:
                 print(traceback.format_exc())
@@ -407,7 +400,7 @@ if __name__ == '__main__':
                         help='Number of smoothing steps')
     parser.add_argument('-st', '--steps', type=int, default=3,
                         help='Number of iterations')
-    parser.add_argument('-nc', '--no_compression', action='store_true', default=False,
+    parser.add_argument('-nc', '--no-compression', dest='compression', action='store_false',
                         help='Disable compression of segmentation results')
     parser.add_argument('-i', '--ignore', type=str, default='none',
                         help='Ignore specific label(s), e.g. 2,5,6')
