@@ -53,7 +53,8 @@ class SegmentEditorEffect(AbstractScriptedSegmentEditorEffect):
     #TODO: remove local development path
     self.pathToModel.text = r"C:\Users\matze\Documents\Code\biomedisa\media\heart\heart.h5" 
     self.pathToModel.toolTip = 'Path of the model file'
-    
+    self.pathToModel.textChanged.connect(self.validatePath)
+
     self.selectModelButton = qt.QPushButton("...")
     self.selectModelButton.setToolTip("Select a model file")
     self.selectModelButton.connect('clicked()', self.onSelectModelButton)
@@ -101,6 +102,13 @@ class SegmentEditorEffect(AbstractScriptedSegmentEditorEffect):
     self.runButton.connect('clicked()', self.onRun)
     self.cancelButton.connect('clicked()', self.onCancel)
     self.selectModelButton.connect('clicked()', self.onApply)
+
+  def validatePath(self):
+    # Check if the path is to an existing file
+    if os.path.isfile(self.pathToModel.text):
+        self.runButton.setEnabled(True)
+    else:
+        self.runButton.setEnabled(False)
 
   def updateApplyButtonState(self):
     if self.previewSegmentationNode is None:
