@@ -31,11 +31,24 @@ class SegmentEditorEffect(AbstractScriptedSegmentEditorEffect):
     return qt.QIcon()
 
   def helpText(self):
-    return """<html>Biomedisa is a free and easy-to-use open-source application for segmenting large volumetric images such as CT and MRI scans,
-developed at The Australian National University CTLab. Biomedisa's smart interpolation of sparsely pre-segmented slices
-enables accurate semi-automated segmentation by considering the complete underlying image data. 
-For more information visit the <a href="https://biomedisa.info/">project page</a>.
-<p></html>"""
+    return """<html>Biomedisa is a free and easy-to-use open-source application for
+      segmenting large volumetric images<br> such as CT and MRI scans, developed at The Australian National University CTLab. Biomedisa's smart interpolation of sparsely pre-segmented slices
+      enables accurate semi-automated segmentation by considering the complete underlying image data.</p>
+      
+      <p>For more information visit the <a href="https://biomedisa.info/">project page</a>.</p>
+      <p>Instructions:
+      <ul>
+        <li>Create segments on at least one axial layer</li>
+        <li>Run the algorithm</li>
+        <li>???</li>
+        <li>Profit</li>
+      </ul>
+      </p>
+      <p><u>Contributors:</u> <i>Matthias Fabian, Dr. Philipp Lösel<i></p>
+      <p></html>"""
+
+  def createCursor(self, widget):
+    return slicer.util.mainWindow().cursor
 
   def setupOptionsFrame(self):
     collapsibleButton = ctk.ctkCollapsibleButton()
@@ -88,7 +101,6 @@ For more information visit the <a href="https://biomedisa.info/">project page</a
     self.runButton.setToolTip("Run the biomedisa algorithm and generate segment data")
     self.scriptedEffect.addOptionsWidget(self.runButton)
 
-
     self.cancelApplyGrid = qt.QHBoxLayout()
     self.cancelButton = qt.QPushButton("Cancel")
     self.cancelButton.objectName = self.__class__.__name__ + 'Cancel'
@@ -131,13 +143,6 @@ For more information visit the <a href="https://biomedisa.info/">project page</a
     parameter.platform = self.platform.text
     return parameter
     
-  def createCursor(self, widget):
-    # TODO: Change cursor to make it obvious you are about to do something
-    return slicer.util.mainWindow().cursor
-
-  def onDisplaySliderValueChanged(self):
-    print(self.displaySlider.value)
-
   def updateApplyButtonState(self):
     if self.previewSegmentationNode is None:
         self.applyButton.setEnabled(False)
@@ -154,15 +159,12 @@ For more information visit the <a href="https://biomedisa.info/">project page</a
     self.updateApplyButtonState()
 
   def onCancel(self):
-    # delete preview segmentationnode
-    print("cancel")
+    # delete preview segmentation node
     self.runButton.setEnabled(True)
     self.removePreviewNode()
 
   def onApply(self):
-    print("apply")
-    # move result form preview nod to main node
-    # delete preview segmentationnode
+    # move result form preview node to main node and delete preview segmentation node
     self.originalSegmentationNode.GetSegmentation().DeepCopy(self.previewSegmentationNode.GetSegmentation())
     self.runButton.setEnabled(True)
     self.removePreviewNode()
