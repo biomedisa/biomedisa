@@ -9,7 +9,7 @@ class AbstractBiomedisaSegmentEditorEffect(AbstractScriptedSegmentEditorEffect):
         AbstractScriptedSegmentEditorEffect.__init__(self, scriptedEffect)
 
     def setupOptionsFrame(self):
-        self.runButton = qt.QPushButton("Run")
+        self.runButton = qt.QPushButton("Initialize")
         self.runButton.objectName = self.__class__.__name__ + 'Run'
         self.runButton.setToolTip("Run the biomedisa algorithm and generate segment data")
         self.runButton.connect('clicked()', self.onRun)
