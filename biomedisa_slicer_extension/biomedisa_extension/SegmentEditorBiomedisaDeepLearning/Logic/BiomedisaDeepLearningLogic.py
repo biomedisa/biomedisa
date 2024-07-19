@@ -4,7 +4,6 @@ import vtk.util.numpy_support as vtk_np
 from vtkmodules.util.numpy_support import vtk_to_numpy
 from slicer import vtkMRMLScalarVolumeNode
 from slicer import vtkMRMLLabelMapVolumeNode
-from biomedisa.deeplearning import deep_learning
 
 class BiomedisaDeepLearningLogic():
 
@@ -60,6 +59,7 @@ class BiomedisaDeepLearningLogic():
                 ) -> list:
         numpyImage = BiomedisaDeepLearningLogic._vtkToNumpy(input)
 
+        from biomedisa.deeplearning import deep_learning
         results = deep_learning(numpyImage, path_to_model=modelFile, stride_size=stride_size, predict=True)
         if results is None:
             return None
