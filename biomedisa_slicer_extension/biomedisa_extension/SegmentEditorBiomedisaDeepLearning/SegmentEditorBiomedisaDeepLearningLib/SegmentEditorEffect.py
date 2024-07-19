@@ -96,16 +96,7 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
         self.pathToModel.text = fileName
 
   def runAlgorithm(self):
-    self.originalSegmentationNode = self.scriptedEffect.parameterSetNode().GetSegmentationNode()
-    self.previewSegmentationNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSegmentationNode")
-    self.previewSegmentationNode.SetName("Segmentation preview")
-    self.previewSegmentationNode.GetSegmentation().DeepCopy(self.originalSegmentationNode.GetSegmentation())
-
-    displayNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSegmentationDisplayNode")
-    displayNode.SetVisibility3D(True)
-    displayNode.SetVisibility2DFill(True)
-    displayNode.SetVisibility2DOutline(True)
-    self.previewSegmentationNode.SetAndObserveDisplayNodeID(displayNode.GetID())
+    self.createPreviewNode()
 
     # Get source volume image data
     sourceImageData = self.scriptedEffect.sourceVolumeImageData()
