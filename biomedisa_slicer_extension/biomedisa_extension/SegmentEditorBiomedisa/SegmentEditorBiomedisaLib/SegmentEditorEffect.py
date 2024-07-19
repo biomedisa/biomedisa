@@ -1,9 +1,8 @@
 import os
-import vtk, qt, ctk, slicer
+import qt, ctk, slicer
 from SegmentEditorEffects import *
 from Logic.BiomedisaLogic import BiomedisaLogic
 from Logic.BiomedisaParameter import BiomedisaParameter
-from biomedisa.features.biomedisa_helper import _get_platform
 from SegmentEditorCommon.AbstractBiomedisaSegmentEditorEffect import AbstractBiomedisaSegmentEditorEffect
 
 # Source: https://github.com/lassoan/SlicerSegmentEditorExtraEffects
@@ -109,6 +108,7 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
         self.success = success
         self.available_devices = available_devices
 
+    from biomedisa.features.biomedisa_helper import _get_platform
     result = Biomedisa(platform=None, success=True, available_devices=0)
     _get_platform(result)
     if(result.success):
