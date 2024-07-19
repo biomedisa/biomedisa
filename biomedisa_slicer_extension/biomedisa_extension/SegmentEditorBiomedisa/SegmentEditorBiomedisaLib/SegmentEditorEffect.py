@@ -97,7 +97,6 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     
     AbstractBiomedisaSegmentEditorEffect.setupOptionsFrame(self)
 
-
   def getPlatform(self) -> str:
     class Biomedisa:
       def __init__(self, platform=None, success=True, available_devices=0):
@@ -132,16 +131,7 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     return BiomedisaLogic.getLabeledSlices(input=sourceImageData, labels=binaryLabelmap)
 
   def runAlgorithm(self):
-    self.originalSegmentationNode = self.scriptedEffect.parameterSetNode().GetSegmentationNode()
-    self.previewSegmentationNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSegmentationNode")
-    self.previewSegmentationNode.SetName("Segmentation preview")
-    self.previewSegmentationNode.GetSegmentation().DeepCopy(self.originalSegmentationNode.GetSegmentation())
-
-    displayNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSegmentationDisplayNode")
-    displayNode.SetVisibility3D(True)
-    displayNode.SetVisibility2DFill(True)
-    displayNode.SetVisibility2DOutline(True)
-    self.previewSegmentationNode.SetAndObserveDisplayNodeID(displayNode.GetID())
+    self.createPreviewNode()
 
     segmentation = self.previewSegmentationNode.GetSegmentation()
     segmentID = self.scriptedEffect.parameterSetNode().GetSelectedSegmentID()
@@ -165,3 +155,4 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
         segmentID, 
         slicer.vtkSlicerSegmentationsModuleLogic.MODE_REPLACE, 
         binaryLabelmap.GetExtent())
+      
