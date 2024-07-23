@@ -107,12 +107,15 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
         self.platform = platform
         self.success = success
         self.available_devices = available_devices
+    try:
+      from biomedisa.features.biomedisa_helper import _get_platform
+      result = Biomedisa(platform=None, success=True, available_devices=0)
+      _get_platform(result)
+      if(result.success):
+        return result.platform
+    except:
+      print("No module named 'biomedisa'")
 
-    from biomedisa.features.biomedisa_helper import _get_platform
-    result = Biomedisa(platform=None, success=True, available_devices=0)
-    _get_platform(result)
-    if(result.success):
-      return result.platform
     return 'None'
 
   def getBiomedisaParameter(self) -> BiomedisaParameter:
