@@ -9,7 +9,7 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
   """This effect uses the Biomedisa algorithm to segment large 3D volumetric images"""
 
   def __init__(self, scriptedEffect):
-    scriptedEffect.name = 'Biomedisa deep learning'
+    scriptedEffect.name = 'Biomedisa Prediction'
     scriptedEffect.perSegment = False
     scriptedEffect.requireSegments = False
     AbstractBiomedisaSegmentEditorEffect.__init__(self, scriptedEffect)
@@ -29,21 +29,21 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     return qt.QIcon()
 
   def helpText(self):
-    return """<html>Biomedisa is a free and easy-to-use open-source application for
-      segmenting large volumetric images<br> such as CT and MRI scans, developed at The Australian National University CTLab. Biomedisa's smart interpolation of sparsely pre-segmented slices
-      enables accurate semi-automated segmentation by considering the complete underlying image data.</p>
-      
-      <p>For more information visit the <a href="https://biomedisa.info/">project page</a>.</p>
-      <p>Instructions:
+    return """<html>
+      Biomedisa Prediction creates a complete 3D segmentation.<br> Instructions:</p>
       <ul>
-        <li>Create segments on at least one axial layer</li>
-        <li>Run the algorithm</li>
-        <li>???</li>
-        <li>Profit</li>
+        <li>Select a model file (trained network).</li>
+        <li>Click <i>Initialize</i> to compute preview of full segmentation.</li>
+        <li>Click <i>Apply</i> to update segmentation with the previewed result.</li>
+        <li><b>Batch size:</b> number of patches per batch. If not specified, it will be adjusted to the available GPU memory.</li>
+        <li><b>Stride size:</b> specifies the stride for extracting patches. Increase for a faster but less accurate calculation.</li>
       </ul>
+      <p>
+        Masking settings are ignored. The effect uses <a href="https://doi.org/10.1371/journal.pcbi.1011529">Deep Learning</a>. For more information, visit the <a href="https://biomedisa.info/">project page</a>.
       </p>
-      <p><u>Contributors:</u> <i>Matthias Fabian, Philipp Lösel<i></p>
-      <p></html>"""
+      <p><u>Contributors:</u> <i>Matthias Fabian, Philipp Lösel</i></p>
+      <p>
+    </html>"""
 
   def createCursor(self, widget):
     return slicer.util.mainWindow().cursor
@@ -76,7 +76,7 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     self.stride_size = qt.QSpinBox()
     self.stride_size.toolTip = 'Stride size for patches'
     self.stride_size.minimum = 1
-    self.stride_size.maximum = 65
+    self.stride_size.maximum = 64
     self.stride_size.value = 32
     collapsibleLayout.addRow("Stride size:", self.stride_size)
 
