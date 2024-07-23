@@ -1,7 +1,7 @@
 import os
 import qt, ctk, slicer
 from SegmentEditorEffects import *
-from Logic.BiomedisaDeepLearningLogic import BiomedisaDeepLearningLogic
+from Logic.BiomedisaTrainingLogic import BiomedisaTrainingLogic
 from SegmentEditorCommon.AbstractBiomedisaSegmentEditorEffect import AbstractBiomedisaSegmentEditorEffect
 
 # Source: https://github.com/lassoan/SlicerSegmentEditorExtraEffects
@@ -9,9 +9,9 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
   """This effect uses the Biomedisa algorithm to segment large 3D volumetric images"""
 
   def __init__(self, scriptedEffect):
-    scriptedEffect.name = 'Biomedisa deep learning'
+    scriptedEffect.name = 'Biomedisa deep learning training'
     scriptedEffect.perSegment = False
-    scriptedEffect.requireSegments = False
+    scriptedEffect.requireSegments = True
     AbstractBiomedisaSegmentEditorEffect.__init__(self, scriptedEffect)
 
   def clone(self):
@@ -52,12 +52,12 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     # Network file
     self.pathToModel = qt.QLineEdit()
     #TODO: remove local development path
-    self.pathToModel.text = r"C:\Users\matze\Documents\Code\biomedisa\media\heart\heart.h5" 
+    #self.pathToModel.text = r"C:\Users\matze\Documents\Code\biomedisa\media\heart\heart.h5" 
     self.pathToModel.toolTip = 'Path of the model file'
     self.pathToModel.textChanged.connect(self.onPathToModelTextChanged)
 
     self.selectModelButton = qt.QPushButton("...")
-    self.selectModelButton.setToolTip("Select a model file")
+    self.selectModelButton.setToolTip("Create a model file")
     self.selectModelButton.connect('clicked()', self.onSelectModelButton)
     
     self.fileLayout = qt.QHBoxLayout()
@@ -77,10 +77,43 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     self.stride_size.toolTip = 'Stride size for patches'
     self.stride_size.minimum = 1
     self.stride_size.maximum = 65
-    self.stride_size.value = 32
+    self.stride_size.value = 64 #TODO: Back to default 32
     collapsibleLayout.addRow("Stride size:", self.stride_size)
+    
+    self.epochs = qt.QSpinBox()
+    self.epochs.toolTip = 'Number of epochs trained'
+    self.epochs.minimum = 1
+    self.epochs.maximum = 10000
+    self.epochs.value = 1 #TODO: Back to default 100
+    collapsibleLayout.addRow("Epochs:", self.epochs)
+    
+    self.x_scale = qt.QSpinBox()
+    self.x_scale.toolTip = 'Images and labels are scaled at x-axis to this size before training.'
+    self.x_scale.minimum = 1
+    self.x_scale.maximum = 4096
+    self.x_scale.value = 128 #TODO: Back to default 256
+    collapsibleLayout.addRow("X scale:", self.x_scale)
+    
+    self.y_scale = qt.QSpinBox()
+    self.y_scale.toolTip = 'Images and labels are scaled at y-axis to this size before training.'
+    self.y_scale.minimum = 1
+    self.y_scale.maximum = 4096
+    self.y_scale.value = 128 #TODO: Back to default 256
+    collapsibleLayout.addRow("Y scale:", self.y_scale)
 
-    AbstractBiomedisaSegmentEditorEffect.setupOptionsFrame(self)
+    self.z_scale = qt.QSpinBox()
+    self.z_scale.toolTip = 'Images and labels are scaled at z-axis to this size before training.'
+    self.z_scale.minimum = 1
+    self.z_scale.maximum = 4096
+    self.z_scale.value = 128 #TODO: Back to default 256
+    collapsibleLayout.addRow("Z scale:", self.z_scale)
+
+    self.runButton = qt.QPushButton("Train")
+    self.runButton.objectName = self.__class__.__name__ + 'Run'
+    self.runButton.setToolTip("Run the biomedisa algorithm and generate segment data")
+    self.runButton.setEnabled(False)
+    self.runButton.connect('clicked()', self.onRun)
+    self.scriptedEffect.addOptionsWidget(self.runButton)
 
   def onPathToModelTextChanged(self):
     # Check if the path is to an existing file
@@ -88,33 +121,47 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
         self.runButton.setEnabled(True)
     else:
         self.runButton.setEnabled(False)
+    self.evaluateTrainButton()
+
+  def evaluateTrainButton(self):
+    # Evaluate train button enabled
+    if self.pathToModel.text.lower().endswith(".h5") and self.hasSegments():
+        self.runButton.setEnabled(True)
+    else:
+        self.runButton.setEnabled(False)
+
+  def hasSegments(self):
+    segmentationNode = self.scriptedEffect.parameterSetNode().GetSegmentationNode()
+    segmentation = segmentationNode.GetSegmentation()
+    if(not segmentation):
+      return False
+    if segmentation.GetNumberOfSegments() > 0:
+      return True
+    return False
 
   def onSelectModelButton(self):
     fileFilter = "HDF5 Files (*.h5);;All Files (*)"
-    fileName = qt.QFileDialog.getOpenFileName(self.selectModelButton, "Select model file", "", fileFilter)
+    fileName = qt.QFileDialog.getSaveFileName(self.selectModelButton, "Create model file", "", fileFilter)
     if fileName:
         self.pathToModel.text = fileName
-
+  
   def runAlgorithm(self):
-    self.createPreviewNode()
+    segmentationNode = self.scriptedEffect.parameterSetNode().GetSegmentationNode()
+    segmentation = segmentationNode.GetSegmentation()
+    segmentID = self.scriptedEffect.parameterSetNode().GetSelectedSegmentID()
+    segment = segmentation.GetSegment(segmentID)
+    binaryLabelmap = segment.GetRepresentation(slicer.vtkSegmentationConverter.GetSegmentationBinaryLabelmapRepresentationName())
 
-    # Get source volume image data
     sourceImageData = self.scriptedEffect.sourceVolumeImageData()
 
-    # Run the algorithm
-    resultLabelMaps = BiomedisaDeepLearningLogic.predictDeepLearning(
-      input=sourceImageData, 
-      modelFile=str(self.pathToModel.text), 
-      stride_size=int(self.stride_size.value))
+    # TODO: make sure not to train potentionally faulty data. Maybe have an extra confirm button.
 
-    # Show the result in slicer
-    segmentation = self.previewSegmentationNode.GetSegmentation()
-    for label, binaryLabelmap in resultLabelMaps:
-      # Get segment ID from label index. This is 0 based even though first the voxel value is 1.
-      segmentID = segmentation.AddEmptySegment()
-      slicer.vtkSlicerSegmentationsModuleLogic.SetBinaryLabelmapToSegment(
-        binaryLabelmap, 
-        self.previewSegmentationNode, 
-        segmentID, 
-        slicer.vtkSlicerSegmentationsModuleLogic.MODE_REPLACE, 
-        binaryLabelmap.GetExtent())
+    BiomedisaTrainingLogic.trainDeepLearning(
+      sourceImageData, 
+      binaryLabelmap, 
+      str(self.pathToModel.text),
+      stride_size=int(self.stride_size.value),
+      epochs=int(self.epochs.value),
+      x_scale=int(self.x_scale.value),
+      y_scale=int(self.y_scale.value),
+      z_scale=int(self.z_scale.value))
