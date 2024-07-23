@@ -55,12 +55,13 @@ class BiomedisaDeepLearningLogic():
     def predictDeepLearning(
                 input: vtkMRMLScalarVolumeNode,
                 modelFile: str,
-                stride_size: int = 32
+                stride_size: int,
+                batch_size: int,
                 ) -> list:
         numpyImage = BiomedisaDeepLearningLogic._vtkToNumpy(input)
 
         from biomedisa.deeplearning import deep_learning
-        results = deep_learning(numpyImage, path_to_model=modelFile, stride_size=stride_size, predict=True)
+        results = deep_learning(numpyImage, path_to_model=modelFile, stride_size=stride_size, batch_size=batch_size, predict=True)
         if results is None:
             return None
 
