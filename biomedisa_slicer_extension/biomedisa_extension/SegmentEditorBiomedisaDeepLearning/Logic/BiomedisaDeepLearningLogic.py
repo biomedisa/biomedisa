@@ -52,7 +52,7 @@ class BiomedisaDeepLearningLogic():
 
         return labelMapList
 
-    def runDeepLearning(
+    def predictDeepLearning(
                 input: vtkMRMLScalarVolumeNode,
                 modelFile: str,
                 stride_size: int = 32
