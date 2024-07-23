@@ -10,7 +10,7 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
   """This effect uses the Biomedisa algorithm to segment large 3D volumetric images"""
 
   def __init__(self, scriptedEffect):
-    scriptedEffect.name = 'Smart Interpolation'
+    scriptedEffect.name = 'Biomedisa Smart Interpolation'
     scriptedEffect.perSegment = False
     scriptedEffect.requireSegments = True
     AbstractBiomedisaSegmentEditorEffect.__init__(self, scriptedEffect)
@@ -31,7 +31,7 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
 
   def helpText(self):
     return """<html>
-      Biomedisa's smart interpolation of sparsely pre-segmented slices<br> creates complete segmentation by considering the underlying image data. Instructions:</p>
+      Smart interpolation of sparsely pre-segmented slices<br> creates complete 3D segmentation taking into account the underlying image data. Instructions:</p>
       <ul>
         <li>Create complete pre-segmentation on at least one axial slice (red).</li>
         <li>If you label in different orientations from axial, always leave at least one empty slice between pre-segmented slices.</li>
@@ -45,7 +45,7 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
         <li><b>Platform:</b> specifies which platform is used for calculation.</li>
       </ul>
       <p>
-        It is a quasi-interpolation because the pre-segmented slices will be adjusted, and segmentation goes beyond the last pre-segmented slices. The effect uses a <a href="https://doi.org/10.1117/12.2216202">diffusion method</a>. For more information, visit the <a href="https://biomedisa.info/">project page</a>.
+        Masking settings are ignored. It is a quasi-interpolation because the pre-segmented slices will be adjusted, and segmentation goes beyond the last pre-segmented slices. The effect uses a <a href="https://doi.org/10.1117/12.2216202">diffusion method</a>. For more information, visit the <a href="https://biomedisa.info/">project page</a>.
       </p>
       <p><u>Contributors:</u> <i>Matthias Fabian, Philipp Lösel</i></p>
       <p>
