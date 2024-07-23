@@ -80,7 +80,28 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     self.stride_size.value = 32
     collapsibleLayout.addRow("Stride size:", self.stride_size)
 
+    self.batch_size_active = qt.QCheckBox()
+    self.batch_size_active.toolTip = 'If deactivated the number of patches per batch will be adjusted to the available GPU memory.'
+    self.batch_size_active.stateChanged.connect(self.onBatchSizeActiveChanged)
+
+    self.batch_size = qt.QSpinBox()
+    self.batch_size.toolTip = 'Number of patches per batch.'
+    self.batch_size.minimum = 6
+    self.batch_size.maximum = 24
+    self.batch_size.value = 12
+    self.batch_size.setEnabled(False)
+
+    self.batch_size_layout = qt.QHBoxLayout()
+    self.batch_size_layout.addWidget(self.batch_size_active)
+    self.batch_size_layout.addWidget(self.batch_size)
+    self.batch_size_layout.setStretch(0, 0)
+    self.batch_size_layout.setStretch(1, 1)
+    collapsibleLayout.addRow("Batch size:", self.batch_size_layout)
+
     AbstractBiomedisaSegmentEditorEffect.setupOptionsFrame(self)
+
+  def onBatchSizeActiveChanged(self, state):
+    self.batch_size.setEnabled(state == qt.Qt.Checked)
 
   def onPathToModelTextChanged(self):
     # Check if the path is to an existing file
@@ -101,11 +122,18 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     # Get source volume image data
     sourceImageData = self.scriptedEffect.sourceVolumeImageData()
 
+    # Get batch size if checked
+    if self.batch_size_active.isChecked():
+      batch_size = int(self.batch_size.value)
+    else:
+      batch_size = None
+    
     # Run the algorithm
     resultLabelMaps = BiomedisaDeepLearningLogic.predictDeepLearning(
       input=sourceImageData, 
       modelFile=str(self.pathToModel.text), 
-      stride_size=int(self.stride_size.value))
+      stride_size=int(self.stride_size.value),
+      batch_size=batch_size)
 
     # Show the result in slicer
     segmentation = self.previewSegmentationNode.GetSegmentation()
