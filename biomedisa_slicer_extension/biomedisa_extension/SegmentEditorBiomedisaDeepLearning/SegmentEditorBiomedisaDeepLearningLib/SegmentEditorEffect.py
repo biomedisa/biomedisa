@@ -54,7 +54,7 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     #TODO: remove local development path
     self.pathToModel.text = r"C:\Users\matze\Documents\Code\biomedisa\media\heart\heart.h5" 
     self.pathToModel.toolTip = 'Path of the model file'
-    self.pathToModel.textChanged.connect(self.validatePath)
+    self.pathToModel.textChanged.connect(self.onPathToModelTextChanged)
 
     self.selectModelButton = qt.QPushButton("...")
     self.selectModelButton.setToolTip("Select a model file")
@@ -82,7 +82,7 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
 
     AbstractBiomedisaSegmentEditorEffect.setupOptionsFrame(self)
 
-  def validatePath(self):
+  def onPathToModelTextChanged(self):
     # Check if the path is to an existing file
     if os.path.isfile(self.pathToModel.text):
         self.runButton.setEnabled(True)
@@ -102,7 +102,7 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     sourceImageData = self.scriptedEffect.sourceVolumeImageData()
 
     # Run the algorithm
-    resultLabelMaps = BiomedisaDeepLearningLogic.runDeepLearning(
+    resultLabelMaps = BiomedisaDeepLearningLogic.predictDeepLearning(
       input=sourceImageData, 
       modelFile=str(self.pathToModel.text), 
       stride_size=int(self.stride_size.value))
