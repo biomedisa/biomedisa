@@ -1,4 +1,3 @@
-import slicer
 from PyQt5.QtWidgets import QDialog, QVBoxLayout, QPushButton, QListWidget, QHBoxLayout
 
 class ListSelectionDialog(QDialog):
@@ -31,11 +30,4 @@ class ListSelectionDialog(QDialog):
 
     def getSelectedItem(self):
         return self.listWidget.currentItem().text() if self.listWidget.currentItem() else None
-
-def show_list_selection_dialog(items):
-    dialog = ListSelectionDialog(items)
-    result = dialog.exec_()
-    if result == QDialog.Accepted:
-        return dialog.getSelectedItem()
-    else:
-        return None
+    
