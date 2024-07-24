@@ -34,13 +34,9 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
         <li>Requires a complete 3D segmentation.</li>
         <li><b>Balance:</b> balance foreground and background training patches.</li>
         <li><b>Swap axes:</b> randomly swaps two axes during training.</li>
-        <li><b>Flip x:</b> randomly flip x-axis during training.</li>
-        <li><b>Flip y:</b> randomly flip y-axis during training.</li>
-        <li><b>Flip z:</b> randomly flip y-axis during training.</li>
+        <li><b>Flip x/y/z:</b> randomly flip x/y/z-axis during training.</li>
         <li><b>Scaling:</b> resizes image and label data to dimensions below.</li>
-        <li><b>X scale:</b> scales x-axis of images and labels to this size before training.</li>
-        <li><b>Y scale:</b> scales y-axis of images and labels to this size before training.</li>
-        <li><b>Z scale:</b> scales z-axis of images and labels to this size before training.</li>
+        <li><b>X/Y/Z scale:</b> scales x/y/z-axis of images and labels to this size before training.</li>
         <li><b>Stride size:</b> stride size for extracting patches.</li>
         <li><b>Epochs:</b> number of epochs trained.</li>
         <li><b>Validation split:</b> percentage of data used for training.</li>
@@ -87,17 +83,21 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     self.swapaxes.toolTip = 'Randomly swap two axes during training'
     collapsibleLayout.addRow("Swap axes:", self.swapaxes)
 
-    self.flip_x = qt.QCheckBox()
+    self.flip_x = qt.QCheckBox("x")
     self.flip_x.toolTip = 'Randomly flip x-axis during training'
-    collapsibleLayout.addRow("Flip x:", self.flip_x)
-
-    self.flip_y = qt.QCheckBox()
+    self.flip_y = qt.QCheckBox("y")
     self.flip_y.toolTip = 'Randomly flip y-axis during training'
-    collapsibleLayout.addRow("Flip y:", self.flip_y)
-
-    self.flip_z = qt.QCheckBox()
+    self.flip_z = qt.QCheckBox("z")
     self.flip_z.toolTip = 'Randomly flip z-axis during training'
-    collapsibleLayout.addRow("Flip z:", self.flip_z)
+    self.flip_layout = qt.QHBoxLayout()
+    self.flip_layout.addWidget(self.flip_x)
+    self.flip_layout.addStretch()
+    self.flip_layout.addWidget(self.flip_y)
+    self.flip_layout.addStretch()
+    self.flip_layout.addWidget(self.flip_z)
+    self.flip_layout.addStretch()
+    collapsibleLayout.addRow("Flip:", self.flip_layout)
+
 
     self.scaling = qt.QCheckBox()
     self.scaling.toolTip = 'Resize image and label data to dimensions below'
@@ -108,21 +108,29 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     self.x_scale.minimum = 1
     self.x_scale.maximum = 4096
     self.x_scale.value = 256
-    collapsibleLayout.addRow("X scale:", self.x_scale)
 
     self.y_scale = qt.QSpinBox()
     self.y_scale.toolTip = 'Images and labels are scaled at y-axis to this size before training.'
     self.y_scale.minimum = 1
     self.y_scale.maximum = 4096
     self.y_scale.value = 256
-    collapsibleLayout.addRow("Y scale:", self.y_scale)
 
     self.z_scale = qt.QSpinBox()
     self.z_scale.toolTip = 'Images and labels are scaled at z-axis to this size before training.'
     self.z_scale.minimum = 1
     self.z_scale.maximum = 4096
     self.z_scale.value = 256
-    collapsibleLayout.addRow("Z scale:", self.z_scale)
+
+    self.scale_layout = qt.QHBoxLayout()
+    self.scale_layout.addWidget(qt.QLabel("X:"))
+    self.scale_layout.addWidget(self.x_scale)
+    self.scale_layout.addStretch()
+    self.scale_layout.addWidget(qt.QLabel("Y:"))
+    self.scale_layout.addWidget(self.y_scale)
+    self.scale_layout.addStretch()
+    self.scale_layout.addWidget(qt.QLabel("Z:"))
+    self.scale_layout.addWidget(self.z_scale)
+    collapsibleLayout.addRow("Scale:", self.scale_layout)
 
     self.stride_size = qt.QSpinBox()
     self.stride_size.toolTip = 'Stride size for patches'
