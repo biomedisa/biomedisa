@@ -4,7 +4,7 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 root_dir = os.path.abspath(os.path.join(current_dir, '..', '..', '..'))
 sys.path.append(root_dir)
 
-from biomedisa_extension.SegmentEditorBiomedisaDeepLearning.Logic.BiomedisaDeepLearningLogic import BiomedisaDeepLearningLogic
+from biomedisa_extension.SegmentEditorBiomedisaPrediction.Logic.BiomedisaPredictionLogic import BiomedisaPredictionLogic
 from biomedisa_extension.SegmentEditorCommon.AbstractBiomedisaSegmentEditorEffect import AbstractBiomedisaSegmentEditorEffect
 
 # Source: https://github.com/lassoan/SlicerSegmentEditorExtraEffects
@@ -130,7 +130,7 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
       batch_size = None
     
     # Run the algorithm
-    resultLabelMaps = BiomedisaDeepLearningLogic.predictDeepLearning(
+    resultLabelMaps = BiomedisaPredictionLogic.predictDeepLearning(
       input=sourceImageData, 
       modelFile=str(self.pathToModel.text), 
       stride_size=int(self.stride_size.value),
