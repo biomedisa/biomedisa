@@ -52,6 +52,11 @@ class BiomedisaTrainingLogic():
             modelFile: str,
             stride_size: int,
             epochs: int,
+            validation_split: float,
+            balance: bool,
+            swapaxes: bool,
+            flip_x: bool, flip_y:bool, flip_z:bool,
+            scaling: bool,
             x_scale: int, y_scale:int, z_scale:int):
         
         extendedLabel = BiomedisaTrainingLogic._expandLabelToMatchInputImage(labels, input.GetDimensions())
@@ -65,7 +70,14 @@ class BiomedisaTrainingLogic():
             path_to_model=str(modelFile),
             train=True,
             stride_size=stride_size,
-            epochs=epochs, 
+            epochs=epochs,
+            validation_split=validation_split,
+            balance=balance,
+            swapaxes=swapaxes,
+            flip_x=flip_x,
+            flip_y=flip_y,
+            flip_z=flip_z,
+            scaling=scaling,
             x_scale=x_scale, 
             y_scale=y_scale, 
             z_scale=z_scale)
