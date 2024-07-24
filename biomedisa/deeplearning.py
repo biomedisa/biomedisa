@@ -422,7 +422,7 @@ if __name__ == '__main__':
     parser.add_argument('-r','--rotate', type=float, default=0.0,
                         help='Randomly rotate during training')
     parser.add_argument('-vs','--validation_split', type=float, default=0.0,
-                        help='Percentage of data used for validation')
+                        help='Percentage of data used for training')
     parser.add_argument('-lr','--learning_rate', type=float, default=0.01,
                         help='Learning rate')
     parser.add_argument('-ss','--stride_size', metavar="[1-64]", type=int, choices=range(1,65), default=32,

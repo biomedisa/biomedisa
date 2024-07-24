@@ -9,7 +9,7 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
   """This effect uses the Biomedisa algorithm to segment large 3D volumetric images"""
 
   def __init__(self, scriptedEffect):
-    scriptedEffect.name = 'Biomedisa deep learning training'
+    scriptedEffect.name = 'Biomedisa Training'
     scriptedEffect.perSegment = False
     scriptedEffect.requireSegments = True
     AbstractBiomedisaSegmentEditorEffect.__init__(self, scriptedEffect)
@@ -29,18 +29,24 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     return qt.QIcon()
 
   def helpText(self):
-    return """<html>Biomedisa is a free and easy-to-use open-source application for
-      segmenting large volumetric images<br> such as CT and MRI scans, developed at The Australian National University CTLab. Biomedisa's smart interpolation of sparsely pre-segmented slices
-      enables accurate semi-automated segmentation by considering the complete underlying image data.</p>
-      
-      <p>For more information visit the <a href="https://biomedisa.info/">project page</a>.</p>
-      <p>Instructions:
+    return """<html>Deep neural network training for automatic segmentation<br>. Instructions:</p>
       <ul>
-        <li>Create segments on at least one axial layer</li>
-        <li>Run the algorithm</li>
-        <li>???</li>
-        <li>Profit</li>
+        <li>Requires a complete 3D segmentation.</li>
+        <li><b>Balance:</b> balance foreground and background training patches.</li>
+        <li><b>Swap axes:</b> randomly swaps two axes during training.</li>
+        <li><b>Flip x:</b> randomly flip x-axis during training.</li>
+        <li><b>Flip y:</b> randomly flip y-axis during training.</li>
+        <li><b>Flip z:</b> randomly flip y-axis during training.</li>
+        <li><b>Scaling:</b> resizes image and label data to dimensions below.</li>
+        <li><b>X scale:</b> scales x-axis of images and labels to this size before training.</li>
+        <li><b>Y scale:</b> scales y-axis of images and labels to this size before training.</li>
+        <li><b>Z scale:</b> scales z-axis of images and labels to this size before training.</li>
+        <li><b>Stride size:</b> stride size for extracting patches.</li>
+        <li><b>Epochs:</b> number of epochs trained.</li>
+        <li><b>Validation split:</b> percentage of data used for training.</li>
       </ul>
+      <p>
+        The effect uses <a href="https://doi.org/10.1371/journal.pcbi.1011529">deep learning</a>. For more information, visit the <a href="https://biomedisa.info/">project page</a>.
       </p>
       <p><u>Contributors:</u> <i>Matthias Fabian, Philipp Lösel<i></p>
       <p></html>"""
@@ -73,44 +79,76 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
 
     collapsibleLayout = qt.QFormLayout(collapsibleButton)
 
-    self.stride_size = qt.QSpinBox()
-    self.stride_size.toolTip = 'Stride size for patches'
-    self.stride_size.minimum = 1
-    self.stride_size.maximum = 65
-    self.stride_size.value = 64 #TODO: Back to default 32
-    collapsibleLayout.addRow("Stride size:", self.stride_size)
-    
-    self.epochs = qt.QSpinBox()
-    self.epochs.toolTip = 'Number of epochs trained'
-    self.epochs.minimum = 1
-    self.epochs.maximum = 10000
-    self.epochs.value = 1 #TODO: Back to default 100
-    collapsibleLayout.addRow("Epochs:", self.epochs)
-    
+    self.balance = qt.QCheckBox()
+    self.balance.toolTip = 'Balance foreground and background training patches'
+    collapsibleLayout.addRow("Balance:", self.balance)
+
+    self.swapaxes = qt.QCheckBox()
+    self.swapaxes.toolTip = 'Randomly swap two axes during training'
+    collapsibleLayout.addRow("Swap axes:", self.swapaxes)
+
+    self.flip_x = qt.QCheckBox()
+    self.flip_x.toolTip = 'Randomly flip x-axis during training'
+    collapsibleLayout.addRow("Flip x:", self.flip_x)
+
+    self.flip_y = qt.QCheckBox()
+    self.flip_y.toolTip = 'Randomly flip y-axis during training'
+    collapsibleLayout.addRow("Flip y:", self.flip_y)
+
+    self.flip_z = qt.QCheckBox()
+    self.flip_z.toolTip = 'Randomly flip z-axis during training'
+    collapsibleLayout.addRow("Flip z:", self.flip_z)
+
+    self.scaling = qt.QCheckBox()
+    self.scaling.toolTip = 'Resize image and label data to dimensions below'
+    collapsibleLayout.addRow("Scaling:", self.scaling)
+
     self.x_scale = qt.QSpinBox()
     self.x_scale.toolTip = 'Images and labels are scaled at x-axis to this size before training.'
     self.x_scale.minimum = 1
     self.x_scale.maximum = 4096
-    self.x_scale.value = 128 #TODO: Back to default 256
+    self.x_scale.value = 256
     collapsibleLayout.addRow("X scale:", self.x_scale)
-    
+
     self.y_scale = qt.QSpinBox()
     self.y_scale.toolTip = 'Images and labels are scaled at y-axis to this size before training.'
     self.y_scale.minimum = 1
     self.y_scale.maximum = 4096
-    self.y_scale.value = 128 #TODO: Back to default 256
+    self.y_scale.value = 256
     collapsibleLayout.addRow("Y scale:", self.y_scale)
 
     self.z_scale = qt.QSpinBox()
     self.z_scale.toolTip = 'Images and labels are scaled at z-axis to this size before training.'
     self.z_scale.minimum = 1
     self.z_scale.maximum = 4096
-    self.z_scale.value = 128 #TODO: Back to default 256
+    self.z_scale.value = 256
     collapsibleLayout.addRow("Z scale:", self.z_scale)
+
+    self.stride_size = qt.QSpinBox()
+    self.stride_size.toolTip = 'Stride size for patches'
+    self.stride_size.minimum = 1
+    self.stride_size.maximum = 64
+    self.stride_size.value = 32
+    collapsibleLayout.addRow("Stride size:", self.stride_size)
+
+    self.epochs = qt.QSpinBox()
+    self.epochs.toolTip = 'Number of epochs trained'
+    self.epochs.minimum = 1
+    self.epochs.maximum = 10000
+    self.epochs.value = 100
+    collapsibleLayout.addRow("Epochs:", self.epochs)
+
+    self.validation_split = qt.QDoubleSpinBox()
+    self.validation_split.toolTip = 'Percentage of data used for training'
+    self.validation_split.setRange(0.0, 1.0)  # Set the range
+    self.validation_split.setDecimals(2)        # Set the number of decimals
+    self.validation_split.setSingleStep(0.1)
+    self.validation_split.value = 0.0
+    collapsibleLayout.addRow("Validation split:", self.validation_split)
 
     self.runButton = qt.QPushButton("Train")
     self.runButton.objectName = self.__class__.__name__ + 'Run'
-    self.runButton.setToolTip("Run the biomedisa algorithm and generate segment data")
+    self.runButton.setToolTip("Train neural network")
     self.runButton.setEnabled(False)
     self.runButton.connect('clicked()', self.onRun)
     self.scriptedEffect.addOptionsWidget(self.runButton)
@@ -162,6 +200,13 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
       str(self.pathToModel.text),
       stride_size=int(self.stride_size.value),
       epochs=int(self.epochs.value),
+      validation_split=float(self.validation_split.value),
+      balance=self.balance.isChecked(),
+      swapaxes=self.swapaxes.isChecked(),
+      flip_x=self.flip_x.isChecked(),
+      flip_y=self.flip_y.isChecked(),
+      flip_z=self.flip_z.isChecked(),
+      scaling=self.scaling.isChecked(),
       x_scale=int(self.x_scale.value),
       y_scale=int(self.y_scale.value),
       z_scale=int(self.z_scale.value))

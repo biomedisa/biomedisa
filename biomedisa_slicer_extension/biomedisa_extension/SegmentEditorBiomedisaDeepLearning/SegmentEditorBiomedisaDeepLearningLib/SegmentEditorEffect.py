@@ -39,7 +39,7 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
         <li><b>Stride size:</b> specifies the stride for extracting patches. Increase for a faster but less accurate calculation.</li>
       </ul>
       <p>
-        Masking settings are ignored. The effect uses <a href="https://doi.org/10.1371/journal.pcbi.1011529">Deep Learning</a>. For more information, visit the <a href="https://biomedisa.info/">project page</a>.
+        Masking settings are ignored. The effect uses <a href="https://doi.org/10.1371/journal.pcbi.1011529">deep learning</a>. For more information, visit the <a href="https://biomedisa.info/">project page</a>.
       </p>
       <p><u>Contributors:</u> <i>Matthias Fabian, Philipp Lösel</i></p>
       <p>
