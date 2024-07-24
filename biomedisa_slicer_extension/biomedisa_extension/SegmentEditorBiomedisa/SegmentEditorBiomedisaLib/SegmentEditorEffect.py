@@ -1,6 +1,4 @@
-import os
-import qt, ctk, slicer
-from SegmentEditorEffects import *
+import os, qt, ctk, slicer
 from Logic.BiomedisaLogic import BiomedisaLogic
 from Logic.BiomedisaParameter import BiomedisaParameter
 from SegmentEditorCommon.AbstractBiomedisaSegmentEditorEffect import AbstractBiomedisaSegmentEditorEffect
@@ -10,10 +8,9 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
   """This effect uses the Biomedisa algorithm to segment large 3D volumetric images"""
 
   def __init__(self, scriptedEffect):
-    scriptedEffect.name = 'Biomedisa Smart Interpolation'
     scriptedEffect.perSegment = False
     scriptedEffect.requireSegments = True
-    AbstractBiomedisaSegmentEditorEffect.__init__(self, scriptedEffect)
+    super().__init__(scriptedEffect, 'Biomedisa Smart Interpolation')
 
   def clone(self):
     # It should not be necessary to modify this method
@@ -99,6 +96,7 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     self.platform.toolTip = 'One of "cuda", "opencl_NVIDIA_GPU", "opencl_Intel_CPU"'
     collapsibleLayout.addRow("Platform:", self.platform)
     
+    collapsibleLayout.addRow("Parameter:", self.createParameterGui())
     AbstractBiomedisaSegmentEditorEffect.setupOptionsFrame(self)
 
   def getPlatform(self) -> str:
@@ -118,7 +116,24 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
 
     return 'None'
 
-  def getBiomedisaParameter(self) -> BiomedisaParameter:
+  def onSaveParameter(self):
+    text = qt.QInputDialog.getText(None, "Parameter name", "Enter the name of the parameter set")
+    if text:
+      parameter = self.getParameterFromGui()
+      self.saveParameter(parameter, text)
+
+  def onLoadParameter(self):
+    parameterList = self.getSavedParameter()
+    selectedParameterSet = self.showParameterSelectionDialog(parameterList)
+    if selectedParameterSet:
+      parameter = self.loadParameter(BiomedisaParameter, selectedParameterSet)
+      self.setParameterToGui(parameter)
+            
+  def onRestoreParameter(self):
+    parameter = BiomedisaParameter()
+    self.setParameterToGui(parameter)
+
+  def getParameterFromGui(self) -> BiomedisaParameter:
     parameter = BiomedisaParameter()
     parameter.allaxis = self.allaxis.isChecked()
     parameter.denoise = self.denoise.isChecked()
@@ -128,6 +143,15 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     parameter.only = self.only.text
     parameter.platform = self.platform.text
     return parameter
+  
+  def setParameterToGui(self, parameter: BiomedisaParameter):
+    self.allaxis.setChecked(parameter.allaxis)
+    self.denoise.setChecked(parameter.denoise)
+    self.nbrw.value = parameter.nbrw
+    self.sorw.value = parameter.sorw
+    self.ignore.text = parameter.ignore
+    self.only.text = parameter.only
+    self.platform.text = parameter.platform if parameter.platform is not None else 'None'
 
   def getLabeledSlices(self):
     sourceImageData = self.scriptedEffect.sourceVolumeImageData()
@@ -150,7 +174,7 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     # Get source volume image data
     sourceImageData = self.scriptedEffect.sourceVolumeImageData()
 
-    parameter = self.getBiomedisaParameter()
+    parameter = self.getParameterFromGui()
     # Run the algorithm
     resultLabelMaps = BiomedisaLogic.runBiomedisa(input=sourceImageData, labels=binaryLabelmap, parameter=parameter)
     

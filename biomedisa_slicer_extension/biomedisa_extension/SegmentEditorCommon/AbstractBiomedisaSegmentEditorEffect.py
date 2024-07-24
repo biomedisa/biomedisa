@@ -1,14 +1,49 @@
-import qt, slicer
+from typing import Type, TypeVar
+import qt, slicer, json
 from SegmentEditorEffects import AbstractScriptedSegmentEditorEffect
+from biomedisa_extension.SegmentEditorCommon.ListSelectionDialogSelectionDialog import ListSelectionDialog
+from PyQt5.QtWidgets import QDialog
+
+T = TypeVar('T')
 
 class AbstractBiomedisaSegmentEditorEffect(AbstractScriptedSegmentEditorEffect):
 
-    def __init__(self, scriptedEffect):
+    def __init__(self, scriptedEffect, name: str):
+        scriptedEffect.name = name
+        self.effectParameterName = name.replace(' ', '_')
         self.previewSegmentationNode = None
         super().__init__(scriptedEffect)
 
     def runAlgorithm(self):
         pass
+
+    def onSaveParameter(self):
+        pass
+
+    def onLoadParameter(self):
+        pass
+                
+    def onRestoreParameter(self):
+        pass
+
+    def createParameterGui(self, createSave: bool = True, createLoad: bool = True, createRestore: bool = True) -> qt.QWidget:
+        self.parameter_layout = qt.QHBoxLayout()
+        if createSave:
+            self.saveParameterButton = qt.QPushButton("Save")
+            self.saveParameterButton.setToolTip("Save the current parameter")
+            self.saveParameterButton.connect('clicked()', self.onSaveParameter)
+            self.parameter_layout.addWidget(self.saveParameterButton)
+        if createLoad:
+            self.loadParameterButton = qt.QPushButton("Load")
+            self.loadParameterButton.setToolTip("Load parameter")
+            self.loadParameterButton.connect('clicked()', self.onLoadParameter)
+            self.parameter_layout.addWidget(self.loadParameterButton)
+        if createRestore:
+            self.restoreParameterButton = qt.QPushButton("Restore")
+            self.restoreParameterButton.setToolTip("Restore the parameter to default")
+            self.restoreParameterButton.connect('clicked()', self.onRestoreParameter)
+            self.parameter_layout.addWidget(self.restoreParameterButton)
+        return self.parameter_layout
 
     def setupOptionsFrame(self):
         self.runButton = qt.QPushButton("Initialize")
@@ -128,3 +163,35 @@ class AbstractBiomedisaSegmentEditorEffect(AbstractScriptedSegmentEditorEffect):
             self.runButton.setEnabled(True)
         finally:
             qt.QApplication.restoreOverrideCursor()
+
+    def showParameterSelectionDialog(self, items):
+        dialog = ListSelectionDialog(items)
+        result = dialog.exec_()
+        if result == QDialog.Accepted:
+            return dialog.getSelectedItem()
+        else:
+            return None
+
+    def saveParameter(self, parameter, parameterName: str):
+        """Save parameters to the module settings."""
+        settings = slicer.app.settings()
+        param_dict = parameter.to_dict()
+        settings.setValue(f"{self.effectParameterName}/{parameterName}", json.dumps(param_dict))
+
+    def loadParameter(self, parameterClass: Type[T], parameterName: str) -> T:
+        """Load parameters from the module settings."""
+        settings = slicer.app.settings()
+        param_str = settings.value(f"{self.effectParameterName}/{parameterName}", '{}')
+        param_dict = json.loads(param_str)
+        return parameterClass.from_dict(param_dict)
+
+    def getSavedParameter(self) -> list:
+        """Get the names of all saved parameter for the module."""
+        settings = slicer.app.settings()
+        groups = settings.allKeys()
+        parameterList = []
+        for group in groups:
+            split = str.split(group, '/')
+            if split[0] == self.effectParameterName:
+                parameterList.append(split[1])
+        return parameterList
