@@ -3,7 +3,7 @@ import slicer
 from slicer.ScriptedLoadableModule import *
 
 # Source: https://github.com/lassoan/SlicerSegmentEditorExtraEffects
-class SegmentEditorBiomedisaDeepLearning(ScriptedLoadableModule):
+class SegmentEditorBiomedisaPrediction(ScriptedLoadableModule):
     """Uses ScriptedLoadableModule base class, available at:
     https://github.com/Slicer/Slicer/blob/main/Base/Python/slicer/ScriptedLoadableModule.py
     """
@@ -11,7 +11,7 @@ class SegmentEditorBiomedisaDeepLearning(ScriptedLoadableModule):
     def __init__(self, parent):
         import string
         ScriptedLoadableModule.__init__(self, parent)
-        self.parent.title = "SegmentEditorBiomedisaDeepLearning"
+        self.parent.title = "SegmentEditorBiomedisaPrediction"
         self.parent.categories = ["Segmentation"]
         self.parent.dependencies = ["Segmentations"]
         self.parent.contributors = ["Matthias Fabian"]

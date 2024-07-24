@@ -5,7 +5,7 @@ from vtkmodules.util.numpy_support import vtk_to_numpy
 from slicer import vtkMRMLScalarVolumeNode
 from slicer import vtkMRMLLabelMapVolumeNode
 
-class BiomedisaDeepLearningLogic():
+class BiomedisaPredictionLogic():
 
     #source: https://discourse.vtk.org/t/convert-vtk-array-to-numpy-array/3152/3
     def _vtkToNumpy(data):
@@ -47,7 +47,7 @@ class BiomedisaDeepLearningLogic():
             if label == 0:
                 continue
             binaryLabelmapArray = np.where(labelmapArray == label, 1, 0).astype(np.uint8)
-            vtkBinaryLabelmap  = BiomedisaDeepLearningLogic._getBinaryLabelMap(binaryLabelmapArray, input)
+            vtkBinaryLabelmap  = BiomedisaPredictionLogic._getBinaryLabelMap(binaryLabelmapArray, input)
             labelMapList.append((int(label), vtkBinaryLabelmap))
 
         return labelMapList
@@ -58,7 +58,7 @@ class BiomedisaDeepLearningLogic():
                 stride_size: int,
                 batch_size: int,
                 ) -> list:
-        numpyImage = BiomedisaDeepLearningLogic._vtkToNumpy(input)
+        numpyImage = BiomedisaPredictionLogic._vtkToNumpy(input)
 
         from biomedisa.deeplearning import deep_learning
         results = deep_learning(numpyImage, path_to_model=modelFile, stride_size=stride_size, batch_size=batch_size, predict=True)
@@ -67,4 +67,4 @@ class BiomedisaDeepLearningLogic():
 
         regular_result = results['regular']
 
-        return BiomedisaDeepLearningLogic._getBinaryLabelMaps(regular_result, input)
+        return BiomedisaPredictionLogic._getBinaryLabelMaps(regular_result, input)
