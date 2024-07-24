@@ -1,7 +1,7 @@
 from typing import Type, TypeVar
 import qt, slicer, json
 from SegmentEditorEffects import AbstractScriptedSegmentEditorEffect
-from biomedisa_extension.SegmentEditorCommon.ListSelectionDialogSelectionDialog import ListSelectionDialog
+from SegmentEditorCommon.ListSelectionDialog import ListSelectionDialog
 from PyQt5.QtWidgets import QDialog
 
 T = TypeVar('T')
