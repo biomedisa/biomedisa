@@ -11,10 +11,9 @@ from biomedisa_extension.SegmentEditorCommon.AbstractBiomedisaSegmentEditorEffec
 class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
 
   def __init__(self, scriptedEffect):
-    scriptedEffect.name = 'Biomedisa Prediction'
     scriptedEffect.perSegment = False
     scriptedEffect.requireSegments = False
-    super().__init__(scriptedEffect)
+    super().__init__(scriptedEffect, 'Biomedisa Prediction')
 
   def clone(self):
     # It should not be necessary to modify this method

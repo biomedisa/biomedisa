@@ -1,24 +1,15 @@
+from symbol import parameters
 from typing import Optional
 
 class BiomedisaParameter():
-    nbrw: int = 10
-    sorw: int = 4000
-    compression: bool = True
     allaxis: bool = False
     denoise: bool = False
-    uncertainty: bool = False
+    nbrw: int = 10
+    sorw: int = 4000
     ignore: str = 'none'
     only: str = 'all'
-    smooth: int  = 0
     platform: str = None
-    return_hits: bool = False
-    acwe: bool = False
-    acwe_alpha: float = 1.0
-    acwe_smooth: int = 1
-    acwe_steps: int = 3
-    clean: Optional[float] = None
-    fill: Optional[float] = None
-    
+  
     def __str__(self):
         header = "BiomedisaParameter:"
         indent = "    "  # Four spaces for indentation
@@ -30,16 +21,30 @@ class BiomedisaParameter():
             f"{indent}ignore: {self.ignore}",
             f"{indent}only: {self.only}",
             f"{indent}platform: {self.platform}",
-        #    f"{indent}smooth: {self.smooth}",
-        #    f"{indent}uncertainty: {self.uncertainty}",
-        #    f"{indent}compression: {self.compression}",
-        #    f"{indent}return_hits: {self.return_hits}",
-        #    f"{indent}acwe: {self.acwe}",
-        #    f"{indent}acwe_alpha: {self.acwe_alpha}",
-        #    f"{indent}acwe_smooth: {self.acwe_smooth}",
-        #    f"{indent}acwe_steps: {self.acwe_steps}",
-        #    f"{indent}clean: {self.clean}",
-        #    f"{indent}fill: {self.fill}",
         ]
         return f"{header}\n" + "\n".join(parameters)
     
+    def to_dict(self):
+        """Convert the parameters to a dictionary."""
+        return {
+            'allaxis': self.allaxis,
+            'denoise': self.denoise,
+            'nbrw': self.nbrw,
+            'sorw': self.sorw,
+            'ignore': self.ignore,
+            'only': self.only,
+            'platform': self.platform
+        }
+
+    @classmethod
+    def from_dict(self, param_dict):
+        """Create an instance from a dictionary."""
+        parameter = self()
+        parameter.allaxis=param_dict.get('allaxis', False)
+        parameter.denoise=param_dict.get('denoise', False)
+        parameter.nbrw=param_dict.get('nbrw', 10)
+        parameter.sorw=param_dict.get('sorw', 4000)
+        parameter.ignore=param_dict.get('ignore', 'none')
+        parameter.only=param_dict.get('only', 'all')
+        parameter.platform=param_dict.get('platform', None)
+        return parameter

@@ -9,10 +9,9 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
   """This effect uses the Biomedisa algorithm to segment large 3D volumetric images"""
 
   def __init__(self, scriptedEffect):
-    scriptedEffect.name = 'Biomedisa Training'
     scriptedEffect.perSegment = False
     scriptedEffect.requireSegments = True
-    AbstractBiomedisaSegmentEditorEffect.__init__(self, scriptedEffect)
+    super().__init__(scriptedEffect, 'Biomedisa Training')
 
   def clone(self):
     # It should not be necessary to modify this method
