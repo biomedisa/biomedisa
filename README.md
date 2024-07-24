@@ -29,6 +29,9 @@ Biomedisa (https://biomedisa.info) is a free and easy-to-use open-source applica
 + [Windows 10 + OpenCL + GPU (easy to install but lacks features like allaxis, smoothing, uncertainty, optimized GPU memory usage)](https://github.com/biomedisa/biomedisa/blob/master/README/windows10_opencl_gpu_cli.md)
 + [Windows 10 + OpenCL + CPU (very slow)](https://github.com/biomedisa/biomedisa/blob/master/README/windows10_opencl_cpu_cli.md)
 
+## Installation (3D Slicer extension)
++ [Ubuntu 22.04 + CUDA + GPU](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu2204_cuda11.8_gpu_slicer.md)
+
 ## Installation (browser based)
 + [Ubuntu 22.04](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu2204_cuda11.8.md)
 
@@ -36,6 +39,10 @@ Biomedisa (https://biomedisa.info) is a free and easy-to-use open-source applica
 + Download test data from our [gallery](https://biomedisa.info/gallery/)
 
 ## Revisions
+24.7.1
++ 3D Slicer extension
++ Prediction of large data block by block
+
 24.5.22
 + Pip is the preferred installation method
 + Commands, module names and imports have been changed to conform to the Pip standard
