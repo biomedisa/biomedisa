@@ -1,18 +1,20 @@
-import os
-import qt, ctk, slicer
-from SegmentEditorEffects import *
-from Logic.BiomedisaDeepLearningLogic import BiomedisaDeepLearningLogic
-from SegmentEditorCommon.AbstractBiomedisaSegmentEditorEffect import AbstractBiomedisaSegmentEditorEffect
+import os, qt, ctk, slicer, sys
+
+current_dir = os.path.dirname(os.path.abspath(__file__))
+root_dir = os.path.abspath(os.path.join(current_dir, '..', '..', '..'))
+sys.path.append(root_dir)
+
+from biomedisa_extension.SegmentEditorBiomedisaDeepLearning.Logic.BiomedisaDeepLearningLogic import BiomedisaDeepLearningLogic
+from biomedisa_extension.SegmentEditorCommon.AbstractBiomedisaSegmentEditorEffect import AbstractBiomedisaSegmentEditorEffect
 
 # Source: https://github.com/lassoan/SlicerSegmentEditorExtraEffects
 class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
-  """This effect uses the Biomedisa algorithm to segment large 3D volumetric images"""
 
   def __init__(self, scriptedEffect):
     scriptedEffect.name = 'Biomedisa Prediction'
     scriptedEffect.perSegment = False
     scriptedEffect.requireSegments = False
-    AbstractBiomedisaSegmentEditorEffect.__init__(self, scriptedEffect)
+    super().__init__(scriptedEffect)
 
   def clone(self):
     # It should not be necessary to modify this method

@@ -1,12 +1,11 @@
 import qt, slicer
-from SegmentEditorEffects import *
+from SegmentEditorEffects import AbstractScriptedSegmentEditorEffect
 
 class AbstractBiomedisaSegmentEditorEffect(AbstractScriptedSegmentEditorEffect):
-    """This effect uses the Biomedisa algorithm to segment large 3D volumetric images"""
 
     def __init__(self, scriptedEffect):
         self.previewSegmentationNode = None
-        AbstractScriptedSegmentEditorEffect.__init__(self, scriptedEffect)
+        super().__init__(scriptedEffect)
 
     def runAlgorithm(self):
         pass
