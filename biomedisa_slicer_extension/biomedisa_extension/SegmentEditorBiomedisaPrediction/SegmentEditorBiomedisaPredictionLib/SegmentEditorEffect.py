@@ -154,7 +154,7 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     self.createPreviewNode()
 
     # Get source volume image data
-    sourceImageData = self.scriptedEffect.sourceVolumeImageData()
+    sourceImageData = self.scriptedEffect.parameterSetNode().GetSourceVolumeNode().GetImageData()
     
     # Run the algorithm
     resultLabelMaps = BiomedisaPredictionLogic.predictDeepLearning(

@@ -156,7 +156,7 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     self.platform.text = parameter.platform if parameter.platform is not None else 'None'
 
   def getLabeledSlices(self):
-    sourceImageData = self.scriptedEffect.sourceVolumeImageData()
+    sourceImageData = self.scriptedEffect.parameterSetNode().GetSourceVolumeNode().GetImageData()
     segmentationNode = self.scriptedEffect.parameterSetNode().GetSegmentationNode()
     segmentation = segmentationNode.GetSegmentation()
     segmentID = self.scriptedEffect.parameterSetNode().GetSelectedSegmentID()
@@ -174,7 +174,7 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     # Get modifier labelmap
     binaryLabelmap = segment.GetRepresentation(slicer.vtkSegmentationConverter.GetSegmentationBinaryLabelmapRepresentationName())
     # Get source volume image data
-    sourceImageData = self.scriptedEffect.sourceVolumeImageData()
+    sourceImageData = self.scriptedEffect.parameterSetNode().GetSourceVolumeNode().GetImageData()
 
     parameter = self.getParameterFromGui()
     # Run the algorithm

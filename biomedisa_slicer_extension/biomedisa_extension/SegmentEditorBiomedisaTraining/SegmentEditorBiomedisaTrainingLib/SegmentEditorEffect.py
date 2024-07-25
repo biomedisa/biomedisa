@@ -248,7 +248,7 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     segment = segmentation.GetSegment(segmentID)
     binaryLabelmap = segment.GetRepresentation(slicer.vtkSegmentationConverter.GetSegmentationBinaryLabelmapRepresentationName())
 
-    sourceImageData = self.scriptedEffect.sourceVolumeImageData()
+    sourceImageData = self.scriptedEffect.parameterSetNode().GetSourceVolumeNode().GetImageData()
 
     # TODO: make sure not to train potentionally faulty data. Maybe have an extra confirm button.
 
