@@ -51,10 +51,10 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
   
   def setupOptionsFrame(self):
     # Network file
-    self.pathToModel = qt.QLineEdit()
-    self.pathToModel.toolTip = 'Path of the model file'
-    self.pathToModel.setPlaceholderText('Enter the path of the model file here...')
-    self.pathToModel.textChanged.connect(self.onPathToModelTextChanged)
+    self.path_to_model = qt.QLineEdit()
+    self.path_to_model.toolTip = 'Path of the model file'
+    self.path_to_model.setPlaceholderText('Enter the path of the model file here...')
+    self.path_to_model.textChanged.connect(self.onPathToModelTextChanged)
 
     self.selectModelButton = qt.QPushButton("...")
     self.selectModelButton.setFixedWidth(30)
@@ -62,7 +62,7 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     self.selectModelButton.clicked.connect(self.onSelectModelButton)
     
     self.fileLayout = qt.QHBoxLayout()
-    self.fileLayout.addWidget(self.pathToModel)
+    self.fileLayout.addWidget(self.path_to_model)
     self.fileLayout.addWidget(self.selectModelButton)
     self.scriptedEffect.addOptionsWidget(self.fileLayout)
 
@@ -213,7 +213,7 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
 
   def onPathToModelTextChanged(self):
     # Check if the path is to an existing file
-    if os.path.isfile(self.pathToModel.text):
+    if os.path.isfile(self.path_to_model.text):
         self.runButton.setEnabled(True)
     else:
         self.runButton.setEnabled(False)
@@ -221,7 +221,7 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
 
   def evaluateTrainButton(self):
     # Evaluate train button enabled
-    if self.pathToModel.text.lower().endswith(".h5") and self.hasSegments():
+    if self.path_to_model.text.lower().endswith(".h5") and self.hasSegments():
         self.runButton.setEnabled(True)
     else:
         self.runButton.setEnabled(False)
@@ -239,7 +239,7 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     fileFilter = "HDF5 Files (*.h5);;All Files (*)"
     fileName = qt.QFileDialog.getSaveFileName(self.selectModelButton, "Create model file", "", fileFilter)
     if fileName:
-        self.pathToModel.text = fileName
+        self.path_to_model.text = fileName
   
   def runAlgorithm(self):
     segmentationNode = self.scriptedEffect.parameterSetNode().GetSegmentationNode()
