@@ -32,7 +32,7 @@ git clone https://github.com/biomedisa/biomedisa.git
 #### Add Biomedisa modules to 3D Slicer
 Start 3D Slicer  
 Edit -> Application Settings -> Modules  
-Drag and Drop the following directories in field "Additional module paths"  
+Drag and Drop the following directories in the field "Additional module paths"  
 ```
 git/biomedisa/biomedisa_slicer_extension/biomedisa_extension/SegmentEditorBiomedisa
 git/biomedisa/biomedisa_slicer_extension/biomedisa_extension/SegmentEditorBiomedisaDeepLearning
@@ -41,7 +41,7 @@ git/biomedisa/biomedisa_slicer_extension/biomedisa_extension/SegmentEditorBiomed
 Restart 3D Slicer
 
 #### Install pip packages using the Python environment in 3D Slicer
-You need to run PythonSlicer from within `Slicer-VERSION-linux-amd64/bin`:
+You need to run `PythonSlicer` from within `Slicer-VERSION-linux-amd64/bin`:
 ```
 ./PythonSlicer -m pip install pip setuptools testresources scikit-build
 ./PythonSlicer -m pip install numpy scipy h5py colorama numpy-stl \
