@@ -35,7 +35,7 @@ Edit -> Application Settings -> Modules
 Drag and Drop the following directories in field "Additional module paths"  
 ```
 git/biomedisa/biomedisa_slicer_extension/biomedisa_extension/SegmentEditorBiomedisa
-git/biomedisa/biomedisa_slicer_extension/biomedisa_extension/SegmentEditorBiomedisaDeepLearning
+git/biomedisa/biomedisa_slicer_extension/biomedisa_extension/SegmentEditorBiomedisaPrediction
 git/biomedisa/biomedisa_slicer_extension/biomedisa_extension/SegmentEditorBiomedisaTraining
 ```
 Restart 3D Slicer
