@@ -32,7 +32,7 @@ git clone https://github.com/biomedisa/biomedisa.git
 #### Add Biomedisa modules to 3D Slicer
 Start 3D Slicer  
 Edit -> Application Settings -> Modules  
-Drag and Drop the following directories in field "Additional module paths"  
+Drag and Drop the following directories in the field "Additional module paths"  
 ```
 git/biomedisa/biomedisa_slicer_extension/biomedisa_extension/SegmentEditorBiomedisa
 git/biomedisa/biomedisa_slicer_extension/biomedisa_extension/SegmentEditorBiomedisaDeepLearning
@@ -41,7 +41,7 @@ git/biomedisa/biomedisa_slicer_extension/biomedisa_extension/SegmentEditorBiomed
 Restart 3D Slicer
 
 #### Install pip packages using the Python environment in 3D Slicer
-You need to run PythonSlicer from within `Slicer-VERSION-linux-amd64/bin`:
+You need to run `PythonSlicer` from within `Slicer-VERSION-linux-amd64/bin`:
 ```
 ./PythonSlicer -m pip install pip setuptools testresources scikit-build
 ./PythonSlicer -m pip install numpy scipy h5py colorama numpy-stl \
@@ -111,11 +111,14 @@ echo 'export PATH=${HOME}/.local/bin:${PATH}' >> ~/.bashrc
 source ~/.bashrc
 ```
 
-# Install mpi4py, PyCUDA, and TensorFlow (optional) into the 3D Slicer environment
+#### Install mpi4py, PyCUDA, and TensorFlow (optional) into the 3D Slicer environment
+```
 ./PythonSlicer -m pip install mpi4py
 PATH=/usr/local/cuda-11.8/bin:${PATH} ./PythonSlicer -m pip install pycuda
 ./PythonSlicer -m pip install tensorflow==2.13.0
+```
 
-# Verify that PyCUDA is working properly in the 3D Slicer environment
+#### Verify that PyCUDA is working properly in the 3D Slicer environment
+```
 ./PythonSlicer -m biomedisa.features.pycuda_test
-
+```
