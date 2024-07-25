@@ -111,11 +111,14 @@ echo 'export PATH=${HOME}/.local/bin:${PATH}' >> ~/.bashrc
 source ~/.bashrc
 ```
 
-# Install mpi4py, PyCUDA, and TensorFlow (optional) into the 3D Slicer environment
+#### Install mpi4py, PyCUDA, and TensorFlow (optional) into the 3D Slicer environment
+```
 ./PythonSlicer -m pip install mpi4py
 PATH=/usr/local/cuda-11.8/bin:${PATH} ./PythonSlicer -m pip install pycuda
 ./PythonSlicer -m pip install tensorflow==2.13.0
+```
 
-# Verify that PyCUDA is working properly in the 3D Slicer environment
+#### Verify that PyCUDA is working properly in the 3D Slicer environment
+```
 ./PythonSlicer -m biomedisa.features.pycuda_test
-
+```
