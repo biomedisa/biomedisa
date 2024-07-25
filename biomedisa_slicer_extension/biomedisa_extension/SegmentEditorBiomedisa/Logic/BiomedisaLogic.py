@@ -1,3 +1,4 @@
+import platform
 import numpy as np
 import vtk, slicer
 import vtk.util.numpy_support as vtk_np
@@ -97,28 +98,26 @@ class BiomedisaLogic():
     def runBiomedisa(
                 input: vtkMRMLScalarVolumeNode,
                 labels: vtkMRMLLabelMapVolumeNode, 
-                parameter: BiomedisaParameter = None) -> list:
+                parameter: BiomedisaParameter) -> list:
 
         # convert data
         extendedLabel = BiomedisaLogic._expandLabelToMatchInputImage(labels, input.GetDimensions())
         numpyLabels = BiomedisaLogic._vtkToNumpy(extendedLabel)
         numpyImage = BiomedisaLogic._vtkToNumpy(input)
 
+        print(f"Running biomedisa smart interpolation with: {parameter}")
 
         from biomedisa.interpolation import smart_interpolation
-        if(parameter is None):
-            results = smart_interpolation(numpyImage, numpyLabels)
-        else:
-            results = smart_interpolation(
-                numpyImage,
-                numpyLabels,
-                allaxis=parameter.allaxis,
-                denoise=parameter.denoise,
-                nbrw=parameter.nbrw,
-                sorw=parameter.sorw,
-                ignore=parameter.ignore,
-                only=parameter.only,
-                platform=parameter.platform)
+        results = smart_interpolation(
+            numpyImage,
+            numpyLabels,
+            allaxis=parameter.allaxis,
+            denoise=parameter.denoise,
+            nbrw=parameter.nbrw,
+            sorw=parameter.sorw,
+            ignore=parameter.ignore,
+            only=parameter.only,
+            platform=parameter.platform)
             
         if results is None:
             return None

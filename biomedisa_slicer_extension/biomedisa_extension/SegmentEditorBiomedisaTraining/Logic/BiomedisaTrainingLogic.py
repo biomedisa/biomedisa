@@ -4,6 +4,7 @@ import vtk.util.numpy_support as vtk_np
 from slicer import vtkMRMLScalarVolumeNode
 from slicer import vtkMRMLLabelMapVolumeNode
 from SegmentEditorCommon.Helper import Helper
+from biomedisa_extension.SegmentEditorBiomedisaTraining.Logic.BiomedisaTrainingParameter import BiomedisaTrainingParameter
 
 class BiomedisaTrainingLogic():
 
@@ -49,35 +50,29 @@ class BiomedisaTrainingLogic():
     def trainDeepLearning(
             input: vtkMRMLScalarVolumeNode,
             labels: vtkMRMLLabelMapVolumeNode, 
-            modelFile: str,
-            stride_size: int,
-            epochs: int,
-            validation_split: float,
-            balance: bool,
-            swapaxes: bool,
-            flip_x: bool, flip_y:bool, flip_z:bool,
-            scaling: bool,
-            x_scale: int, y_scale:int, z_scale:int):
+            parameter: BiomedisaTrainingParameter):
         
         extendedLabel = BiomedisaTrainingLogic._expandLabelToMatchInputImage(labels, input.GetDimensions())
         numpyLabels = Helper._vtkToNumpy(extendedLabel)
         numpyImage = Helper._vtkToNumpy(input)
 
+        print(f"Running biomedisa training with: {parameter}")
+
         from biomedisa.deeplearning import deep_learning
         deep_learning(
             img_data=numpyImage, 
             label_data=numpyLabels,
-            path_to_model=str(modelFile),
-            train=True,
-            stride_size=stride_size,
-            epochs=epochs,
-            validation_split=validation_split,
-            balance=balance,
-            swapaxes=swapaxes,
-            flip_x=flip_x,
-            flip_y=flip_y,
-            flip_z=flip_z,
-            scaling=scaling,
-            x_scale=x_scale, 
-            y_scale=y_scale, 
-            z_scale=z_scale)
+            path_to_model=parameter.path_to_model,
+            stride_size=parameter.stride_size,
+            epochs=parameter.epochs,
+            validation_split=parameter.validation_split,
+            balance=parameter.balance,
+            swapaxes=parameter.swapaxes,
+            flip_x=parameter.flip_x,
+            flip_y=parameter.flip_y,
+            flip_z=parameter.flip_z,
+            scaling=parameter.scaling,
+            x_scale=parameter.x_scale, 
+            y_scale=parameter.y_scale, 
+            z_scale=parameter.z_scale,
+            train=True)

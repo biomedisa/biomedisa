@@ -4,6 +4,7 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 root_dir = os.path.abspath(os.path.join(current_dir, '..', '..', '..'))
 sys.path.append(root_dir)
 
+from biomedisa_extension.SegmentEditorBiomedisaPrediction.Logic.BiomedisaPredictionParameter import BiomedisaPredictionParameter
 from biomedisa_extension.SegmentEditorBiomedisaPrediction.Logic.BiomedisaPredictionLogic import BiomedisaPredictionLogic
 from biomedisa_extension.SegmentEditorCommon.AbstractBiomedisaSegmentEditorEffect import AbstractBiomedisaSegmentEditorEffect
 
@@ -52,14 +53,14 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
   def setupOptionsFrame(self):
     # Network file
     self.pathToModel = qt.QLineEdit()
-    #TODO: remove local development path
-    self.pathToModel.text = r"C:\Users\matze\Documents\Code\biomedisa\media\heart\heart.h5" 
     self.pathToModel.toolTip = 'Path of the model file'
+    self.pathToModel.setPlaceholderText('Enter the path of the model file here...')
     self.pathToModel.textChanged.connect(self.onPathToModelTextChanged)
 
     self.selectModelButton = qt.QPushButton("...")
+    self.selectModelButton.setFixedWidth(30)
     self.selectModelButton.setToolTip("Select a model file")
-    self.selectModelButton.connect('clicked()', self.onSelectModelButton)
+    self.selectModelButton.clicked.connect(self.onSelectModelButton)
     
     self.fileLayout = qt.QHBoxLayout()
     self.fileLayout.addWidget(self.pathToModel)
@@ -99,7 +100,39 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     self.batch_size_layout.setStretch(1, 1)
     collapsibleLayout.addRow("Batch size:", self.batch_size_layout)
 
+    collapsibleLayout.addRow("Parameter:", self.createParameterGui())
     AbstractBiomedisaSegmentEditorEffect.setupOptionsFrame(self)
+
+  def onSaveParameter(self):
+    text = qt.QInputDialog.getText(None, "Parameter name", "Enter the name of the parameter set")
+    if text:
+      parameter = self.getParameterFromGui()
+      self.saveParameter(parameter, text)
+
+  def onLoadParameter(self):
+    parameterList = self.getSavedParameter()
+    selectedParameterSet = self.showParameterSelectionDialog(parameterList)
+    if selectedParameterSet:
+      parameter = self.loadParameter(BiomedisaPredictionParameter, selectedParameterSet)
+      self.setParameterToGui(parameter)
+            
+  def onRestoreParameter(self):
+    parameter = BiomedisaPredictionParameter()
+    self.setParameterToGui(parameter)
+
+  def getParameterFromGui(self) -> BiomedisaPredictionParameter:
+    parameter = BiomedisaPredictionParameter()
+    parameter.path_to_model = self.pathToModel.text
+    parameter.stride_size = self.stride_size.value
+    parameter.batch_size_active = self.batch_size_active.isChecked()
+    parameter.batch_size = self.batch_size.value
+    return parameter
+  
+  def setParameterToGui(self, parameter: BiomedisaPredictionParameter):
+    self.pathToModel.text = parameter.path_to_model
+    self.stride_size.value = parameter.stride_size
+    self.batch_size_active.setChecked(parameter.batch_size_active)
+    self.batch_size.value = parameter.batch_size
 
   def onBatchSizeActiveChanged(self, state):
     self.batch_size.setEnabled(state == qt.Qt.Checked)
@@ -122,19 +155,11 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
 
     # Get source volume image data
     sourceImageData = self.scriptedEffect.sourceVolumeImageData()
-
-    # Get batch size if checked
-    if self.batch_size_active.isChecked():
-      batch_size = int(self.batch_size.value)
-    else:
-      batch_size = None
     
     # Run the algorithm
     resultLabelMaps = BiomedisaPredictionLogic.predictDeepLearning(
-      input=sourceImageData, 
-      modelFile=str(self.pathToModel.text), 
-      stride_size=int(self.stride_size.value),
-      batch_size=batch_size)
+      input=sourceImageData,
+      parameter=self.getParameterFromGui())
 
     # Show the result in slicer
     segmentation = self.previewSegmentationNode.GetSegmentation()

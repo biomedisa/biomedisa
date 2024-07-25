@@ -3,7 +3,6 @@ from Logic.BiomedisaLogic import BiomedisaLogic
 from Logic.BiomedisaParameter import BiomedisaParameter
 from SegmentEditorCommon.AbstractBiomedisaSegmentEditorEffect import AbstractBiomedisaSegmentEditorEffect
 
-# Source: https://github.com/lassoan/SlicerSegmentEditorExtraEffects
 class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
   """This effect uses the Biomedisa algorithm to segment large 3D volumetric images"""
 
@@ -82,18 +81,21 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     collapsibleLayout.addRow("Steps:", self.sorw)
 
     self.ignore = qt.QLineEdit()
-    self.ignore.text = 'none'
+    self.ignore.text = ''#'none'
     self.ignore.toolTip = 'Ignore specific label(s), e.g. 2,5,6'
+    self.ignore.setPlaceholderText('Enter label(s) to be ignored, e.g. "2,5,6" or "none"...')
     collapsibleLayout.addRow("Ignore:", self.ignore)
 
     self.only = qt.QLineEdit()
-    self.only.text = 'all'
+    self.only.text = ''#'all'
     self.only.toolTip = 'Segment only specific label(s), e.g. 1,3,5'
+    self.only.setPlaceholderText('Enter to run only specific label(s), e.g. "1,3,5" or "all"...')
     collapsibleLayout.addRow("Only:", self.only)
 
     self.platform = qt.QLineEdit()
     self.platform.text = self.getPlatform()
     self.platform.toolTip = 'One of "cuda", "opencl_NVIDIA_GPU", "opencl_Intel_CPU"'
+    self.platform.setPlaceholderText('Enter one of "cuda", "opencl_NVIDIA_GPU", "opencl_Intel_CPU", "None", ...')
     collapsibleLayout.addRow("Platform:", self.platform)
     
     collapsibleLayout.addRow("Parameter:", self.createParameterGui())
@@ -114,7 +116,7 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     except:
       print("No module named 'biomedisa'")
 
-    return 'None'
+    return ''
 
   def onSaveParameter(self):
     text = qt.QInputDialog.getText(None, "Parameter name", "Enter the name of the parameter set")
@@ -139,9 +141,9 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     parameter.denoise = self.denoise.isChecked()
     parameter.nbrw = self.nbrw.value
     parameter.sorw = self.sorw.value
-    parameter.ignore = self.ignore.text
-    parameter.only = self.only.text
-    parameter.platform = self.platform.text
+    parameter.ignore = self.ignore.text if self.ignore.text else 'none'
+    parameter.only = self.only.text if self.only.text else 'all'
+    parameter.platform = self.platform.text if self.platform.text and self.platform.text != 'None' else None
     return parameter
   
   def setParameterToGui(self, parameter: BiomedisaParameter):

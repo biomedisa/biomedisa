@@ -1,6 +1,3 @@
-from symbol import parameters
-from typing import Optional
-
 class BiomedisaParameter():
     allaxis: bool = False
     denoise: bool = False
@@ -37,9 +34,9 @@ class BiomedisaParameter():
         }
 
     @classmethod
-    def from_dict(self, param_dict):
+    def from_dict(cls, param_dict):
         """Create an instance from a dictionary."""
-        parameter = self()
+        parameter = cls()
         parameter.allaxis=param_dict.get('allaxis', False)
         parameter.denoise=param_dict.get('denoise', False)
         parameter.nbrw=param_dict.get('nbrw', 10)

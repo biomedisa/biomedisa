@@ -31,17 +31,17 @@ class AbstractBiomedisaSegmentEditorEffect(AbstractScriptedSegmentEditorEffect):
         if createSave:
             self.saveParameterButton = qt.QPushButton("Save")
             self.saveParameterButton.setToolTip("Save the current parameter")
-            self.saveParameterButton.connect('clicked()', self.onSaveParameter)
+            self.saveParameterButton.clicked.connect(self.onSaveParameter)
             self.parameter_layout.addWidget(self.saveParameterButton)
         if createLoad:
             self.loadParameterButton = qt.QPushButton("Load")
             self.loadParameterButton.setToolTip("Load parameter")
-            self.loadParameterButton.connect('clicked()', self.onLoadParameter)
+            self.loadParameterButton.clicked.connect(self.onLoadParameter)
             self.parameter_layout.addWidget(self.loadParameterButton)
         if createRestore:
             self.restoreParameterButton = qt.QPushButton("Restore")
             self.restoreParameterButton.setToolTip("Restore the parameter to default")
-            self.restoreParameterButton.connect('clicked()', self.onRestoreParameter)
+            self.restoreParameterButton.clicked.connect(self.onRestoreParameter)
             self.parameter_layout.addWidget(self.restoreParameterButton)
         return self.parameter_layout
 
@@ -49,7 +49,7 @@ class AbstractBiomedisaSegmentEditorEffect(AbstractScriptedSegmentEditorEffect):
         self.runButton = qt.QPushButton("Initialize")
         self.runButton.objectName = self.__class__.__name__ + 'Run'
         self.runButton.setToolTip("Run the biomedisa algorithm and generate segment data")
-        self.runButton.connect('clicked()', self.onRun)
+        self.runButton.clicked.connect(self.onRun)
         self.scriptedEffect.addOptionsWidget(self.runButton)
 
         self.previewShow3DButton = qt.QPushButton("Show 3D")
@@ -65,14 +65,14 @@ class AbstractBiomedisaSegmentEditorEffect(AbstractScriptedSegmentEditorEffect):
         self.cancelButton.objectName = self.__class__.__name__ + 'Cancel'
         self.cancelButton.setToolTip("Clear preview and cancel")
         self.cancelButton.setEnabled(False)
-        self.cancelButton.connect('clicked()', self.onCancel)
+        self.cancelButton.clicked.connect(self.onCancel)
         self.fileLayout.addWidget(self.cancelButton)
 
         self.selectModelButton = qt.QPushButton("Apply")
         self.selectModelButton.objectName = self.__class__.__name__ + 'Apply'
         self.selectModelButton.setToolTip("Run the biomedisa algorithm and generate segment data")
         self.selectModelButton.setEnabled(False)
-        self.selectModelButton.connect('clicked()', self.onApply)
+        self.selectModelButton.clicked.connect(self.onApply)
         self.fileLayout.addWidget(self.selectModelButton)
         self.scriptedEffect.addOptionsWidget(self.fileLayout)
 
@@ -174,6 +174,7 @@ class AbstractBiomedisaSegmentEditorEffect(AbstractScriptedSegmentEditorEffect):
 
     def saveParameter(self, parameter, parameterName: str):
         """Save parameters to the module settings."""
+        # Location in Windows: %USERPROFILE%\AppData\Roaming\slicer.org\Slicer.ini
         settings = slicer.app.settings()
         param_dict = parameter.to_dict()
         settings.setValue(f"{self.effectParameterName}/{parameterName}", json.dumps(param_dict))
