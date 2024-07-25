@@ -181,7 +181,7 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
 
   def getParameterFromGui(self) -> BiomedisaTrainingParameter:
       parameter = BiomedisaTrainingParameter()
-      parameter.path_to_model = self.modelFile.text
+      parameter.path_to_model = self.path_to_model.text
       parameter.stride_size = self.stride_size.value
       parameter.epochs = self.epochs.value
       parameter.validation_split = self.validation_split.value
@@ -197,7 +197,7 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
       return parameter
 
   def setParameterToGui(self, parameter: BiomedisaTrainingParameter):
-      self.modelFile.text = parameter.path_to_model
+      self.path_to_model.text = parameter.path_to_model
       self.stride_size.value = parameter.stride_size
       self.epochs.value = parameter.epochs
       self.validation_split.value = parameter.validation_split
