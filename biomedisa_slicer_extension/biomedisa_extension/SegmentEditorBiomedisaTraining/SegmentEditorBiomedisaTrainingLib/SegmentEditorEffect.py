@@ -3,8 +3,8 @@ import qt, ctk, slicer
 from SegmentEditorEffects import *
 from Logic.BiomedisaTrainingLogic import BiomedisaTrainingLogic
 from SegmentEditorCommon.AbstractBiomedisaSegmentEditorEffect import AbstractBiomedisaSegmentEditorEffect
+from biomedisa_extension.SegmentEditorBiomedisaTraining.Logic.BiomedisaTrainingParameter import BiomedisaTrainingParameter
 
-# Source: https://github.com/lassoan/SlicerSegmentEditorExtraEffects
 class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
   """This effect uses the Biomedisa algorithm to segment large 3D volumetric images"""
 
@@ -52,14 +52,14 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
   def setupOptionsFrame(self):
     # Network file
     self.pathToModel = qt.QLineEdit()
-    #TODO: remove local development path
-    #self.pathToModel.text = r"C:\Users\matze\Documents\Code\biomedisa\media\heart\heart.h5" 
     self.pathToModel.toolTip = 'Path of the model file'
+    self.pathToModel.setPlaceholderText('Enter the path of the model file here...')
     self.pathToModel.textChanged.connect(self.onPathToModelTextChanged)
 
     self.selectModelButton = qt.QPushButton("...")
+    self.selectModelButton.setFixedWidth(30)
     self.selectModelButton.setToolTip("Create a model file")
-    self.selectModelButton.connect('clicked()', self.onSelectModelButton)
+    self.selectModelButton.clicked.connect(self.onSelectModelButton)
     
     self.fileLayout = qt.QHBoxLayout()
     self.fileLayout.addWidget(self.pathToModel)
@@ -157,8 +157,59 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     self.runButton.objectName = self.__class__.__name__ + 'Run'
     self.runButton.setToolTip("Train neural network")
     self.runButton.setEnabled(False)
-    self.runButton.connect('clicked()', self.onRun)
+    self.runButton.clicked.connect(self.onRun)
     self.scriptedEffect.addOptionsWidget(self.runButton)
+
+    collapsibleLayout.addRow("Parameter:", self.createParameterGui())
+
+  def onSaveParameter(self):
+    text = qt.QInputDialog.getText(None, "Parameter name", "Enter the name of the parameter set")
+    if text:
+      parameter = self.getParameterFromGui()
+      self.saveParameter(parameter, text)
+
+  def onLoadParameter(self):
+    parameterList = self.getSavedParameter()
+    selectedParameterSet = self.showParameterSelectionDialog(parameterList)
+    if selectedParameterSet:
+      parameter = self.loadParameter(BiomedisaTrainingParameter, selectedParameterSet)
+      self.setParameterToGui(parameter)
+
+  def onRestoreParameter(self):
+      parameter = BiomedisaTrainingParameter()
+      self.setParameterToGui(parameter)
+
+  def getParameterFromGui(self) -> BiomedisaTrainingParameter:
+      parameter = BiomedisaTrainingParameter()
+      parameter.path_to_model = self.modelFile.text
+      parameter.stride_size = self.stride_size.value
+      parameter.epochs = self.epochs.value
+      parameter.validation_split = self.validation_split.value
+      parameter.balance = self.balance.isChecked()
+      parameter.swapaxes = self.swapaxes.isChecked()
+      parameter.flip_x = self.flip_x.isChecked()
+      parameter.flip_y = self.flip_y.isChecked()
+      parameter.flip_z = self.flip_z.isChecked()
+      parameter.scaling = self.scaling.isChecked()
+      parameter.x_scale = self.x_scale.value
+      parameter.y_scale = self.y_scale.value
+      parameter.z_scale = self.z_scale.value
+      return parameter
+
+  def setParameterToGui(self, parameter: BiomedisaTrainingParameter):
+      self.modelFile.text = parameter.path_to_model
+      self.stride_size.value = parameter.stride_size
+      self.epochs.value = parameter.epochs
+      self.validation_split.value = parameter.validation_split
+      self.balance.setChecked(parameter.balance)
+      self.swapaxes.setChecked(parameter.swapaxes)
+      self.flip_x.setChecked(parameter.flip_x)
+      self.flip_y.setChecked(parameter.flip_y)
+      self.flip_z.setChecked(parameter.flip_z)
+      self.scaling.setChecked(parameter.scaling)
+      self.x_scale.value = parameter.x_scale
+      self.y_scale.value = parameter.y_scale
+      self.z_scale.value = parameter.z_scale
 
   def onPathToModelTextChanged(self):
     # Check if the path is to an existing file
@@ -204,16 +255,5 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     BiomedisaTrainingLogic.trainDeepLearning(
       sourceImageData, 
       binaryLabelmap, 
-      str(self.pathToModel.text),
-      stride_size=int(self.stride_size.value),
-      epochs=int(self.epochs.value),
-      validation_split=float(self.validation_split.value),
-      balance=self.balance.isChecked(),
-      swapaxes=self.swapaxes.isChecked(),
-      flip_x=self.flip_x.isChecked(),
-      flip_y=self.flip_y.isChecked(),
-      flip_z=self.flip_z.isChecked(),
-      scaling=self.scaling.isChecked(),
-      x_scale=int(self.x_scale.value),
-      y_scale=int(self.y_scale.value),
-      z_scale=int(self.z_scale.value))
+      self.getParameterFromGui())
+

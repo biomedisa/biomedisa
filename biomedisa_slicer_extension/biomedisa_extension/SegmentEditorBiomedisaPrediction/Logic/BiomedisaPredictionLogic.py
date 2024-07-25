@@ -4,6 +4,7 @@ import vtk.util.numpy_support as vtk_np
 from vtkmodules.util.numpy_support import vtk_to_numpy
 from slicer import vtkMRMLScalarVolumeNode
 from slicer import vtkMRMLLabelMapVolumeNode
+from biomedisa_extension.SegmentEditorBiomedisaPrediction.Logic.BiomedisaPredictionParameter import BiomedisaPredictionParameter
 
 class BiomedisaPredictionLogic():
 
@@ -54,14 +55,18 @@ class BiomedisaPredictionLogic():
 
     def predictDeepLearning(
                 input: vtkMRMLScalarVolumeNode,
-                modelFile: str,
-                stride_size: int,
-                batch_size: int,
-                ) -> list:
+                parameter: BiomedisaPredictionParameter) -> list:
         numpyImage = BiomedisaPredictionLogic._vtkToNumpy(input)
 
+        print(f"Running biomedisa prediction with: {parameter}")
+
+        batch_size = parameter.batch_size if parameter.batch_size_active else None
         from biomedisa.deeplearning import deep_learning
-        results = deep_learning(numpyImage, path_to_model=modelFile, stride_size=stride_size, batch_size=batch_size, predict=True)
+        results = deep_learning(numpyImage, 
+                                path_to_model=parameter.path_to_model, 
+                                stride_size=parameter.stride_size, 
+                                batch_size=batch_size, 
+                                predict=True)
         if results is None:
             return None
 
