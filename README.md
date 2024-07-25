@@ -31,6 +31,7 @@ Biomedisa (https://biomedisa.info) is a free and easy-to-use open-source applica
 
 ## Installation (3D Slicer extension)
 + [Ubuntu 22.04 + CUDA + GPU](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu2204_cuda11.8_gpu_slicer.md)
++ [Windows 10 + CUDA + GPU (Smart Interpolation)](https://github.com/biomedisa/biomedisa/blob/master/README/windows10_cuda_gpu_slicer.md)
 
 ## Installation (browser based)
 + [Ubuntu 22.04](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu2204_cuda11.8.md)
