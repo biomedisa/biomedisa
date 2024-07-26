@@ -13,6 +13,12 @@ class BiomedisaTrainingParameter:
         self.x_scale: int = 256
         self.y_scale: int = 256
         self.z_scale: int = 256
+        self.x_min: int = None
+        self.x_max: int = None
+        self.y_min: int = None
+        self.y_max: int = None
+        self.z_min: int = None
+        self.z_max: int = None
 
     def __str__(self):
         header = "BiomedisaTrainingParameter:"
@@ -31,6 +37,12 @@ class BiomedisaTrainingParameter:
             f"{indent}x_scale: {self.x_scale}",
             f"{indent}y_scale: {self.y_scale}",
             f"{indent}z_scale: {self.z_scale}",
+            f"{indent}x_min: {self.x_min}",
+            f"{indent}x_max: {self.x_max}",
+            f"{indent}y_min: {self.y_min}",
+            f"{indent}y_max: {self.y_max}",
+            f"{indent}z_min: {self.z_min}",
+            f"{indent}z_max: {self.z_max}",
         ]
         return f"{header}\n" + "\n".join(parameters)
     
@@ -50,6 +62,12 @@ class BiomedisaTrainingParameter:
             'x_scale': self.x_scale,
             'y_scale': self.y_scale,
             'z_scale': self.z_scale,
+            'x_min': self.x_min,
+            'x_max': self.x_max,
+            'y_min': self.y_min,
+            'y_max': self.y_max,
+            'z_min': self.z_min,
+            'z_max': self.z_max,
         }
 
     @classmethod
@@ -69,4 +87,10 @@ class BiomedisaTrainingParameter:
         parameter.x_scale = param_dict.get('x_scale', 256)
         parameter.y_scale = param_dict.get('y_scale', 256)
         parameter.z_scale = param_dict.get('z_scale', 256)
+        parameter.x_min = param_dict.get('x_min', None)
+        parameter.x_max = param_dict.get('x_max', None)
+        parameter.y_min = param_dict.get('y_min', None)
+        parameter.y_max = param_dict.get('y_max', None)
+        parameter.z_min = param_dict.get('z_min', None)
+        parameter.z_max = param_dict.get('z_max', None)
         return parameter
