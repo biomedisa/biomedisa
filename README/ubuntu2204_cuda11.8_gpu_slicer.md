@@ -33,6 +33,7 @@ git clone https://github.com/biomedisa/biomedisa.git
 Start 3D Slicer  
 Edit -> Application Settings -> Modules  
 Drag and Drop the following directories in the field "Additional module paths"  
+Use only the first line if you only want to install Smart Interpolation.
 ```
 git/biomedisa/biomedisa_slicer_extension/biomedisa_extension/SegmentEditorBiomedisa
 git/biomedisa/biomedisa_slicer_extension/biomedisa_extension/SegmentEditorBiomedisaDeepLearning
@@ -51,6 +52,7 @@ You need to run `PythonSlicer` from within `Slicer-VERSION-linux-amd64/bin`:
 ```
 
 #### Install CUDA 11.8
+You may choose any CUDA version compatible with your NVIDIA GPU architecture [NVIDIA Documentation](https://docs.nvidia.com/deeplearning/cudnn/latest/reference/support-matrix.html) if you skip the TensorFlow installation for the Deep Learning module below.
 ```
 # Add NVIDIA package repositories
 wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-ubuntu2204.pin
