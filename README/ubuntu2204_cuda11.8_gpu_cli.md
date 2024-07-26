@@ -69,7 +69,7 @@ python3 -m biomedisa.features.pycuda_test
 ```
 
 #### Install TensorFlow (optional)
-Only required if you want to use Deep Learning
+Only required if you want to use Deep Learning.
 ```
 # Install development and runtime libraries.
 sudo apt-get install --no-install-recommends \
