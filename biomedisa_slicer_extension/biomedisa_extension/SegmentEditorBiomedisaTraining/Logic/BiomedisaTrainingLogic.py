@@ -53,12 +53,16 @@ class BiomedisaTrainingLogic():
             labels: vtkMRMLLabelMapVolumeNode, 
             parameter: BiomedisaTrainingParameter):
         
-        extendedLabel = BiomedisaTrainingLogic._expandLabelToMatchInputImage(labels, input.GetDimensions())
+        dimensions = input.GetDimensions()
+        x_range = [parameter.x_min, parameter.x_max] if parameter.x_min > 0 or dimensions[0] > parameter.x_max else None
+        y_range = [parameter.y_min, parameter.y_max] if parameter.y_min > 0 or dimensions[1] > parameter.y_max else None
+        z_range = [parameter.z_min, parameter.z_max] if parameter.z_min > 0 or dimensions[2] > parameter.z_max else None
+        extendedLabel = BiomedisaTrainingLogic._expandLabelToMatchInputImage(labels, dimensions)
         numpyLabels = Helper._vtkToNumpy(extendedLabel)
         numpyImage = Helper._vtkToNumpy(input)
 
         print(f"Running biomedisa training with: {parameter}")
-
+        
         from biomedisa.deeplearning import deep_learning
         deep_learning(
             img_data=numpyImage, 
@@ -76,4 +80,7 @@ class BiomedisaTrainingLogic():
             x_scale=parameter.x_scale, 
             y_scale=parameter.y_scale, 
             z_scale=parameter.z_scale,
+            #x_range=x_range, TODO: pass range arguments
+            #y_range=y_range,
+            #z_range=z_range,
             train=True)

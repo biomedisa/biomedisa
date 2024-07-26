@@ -4,6 +4,7 @@ from SegmentEditorEffects import *
 from Logic.BiomedisaTrainingLogic import BiomedisaTrainingLogic
 from SegmentEditorCommon.AbstractBiomedisaSegmentEditorEffect import AbstractBiomedisaSegmentEditorEffect
 from biomedisa_extension.SegmentEditorBiomedisaTraining.Logic.BiomedisaTrainingParameter import BiomedisaTrainingParameter
+from biomedisa_extension.SegmentEditorCommon.AxisControl import AxisControl
 
 class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
   """This effect uses the Biomedisa algorithm to segment large 3D volumetric images"""
@@ -82,11 +83,11 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     self.swapaxes.toolTip = 'Randomly swap two axes during training'
     collapsibleLayout.addRow("Swap axes:", self.swapaxes)
 
-    self.flip_x = qt.QCheckBox("x")
+    self.flip_x = qt.QCheckBox("Sagittal (X)")
     self.flip_x.toolTip = 'Randomly flip x-axis during training'
-    self.flip_y = qt.QCheckBox("y")
+    self.flip_y = qt.QCheckBox("Coronal (Y)")
     self.flip_y.toolTip = 'Randomly flip y-axis during training'
-    self.flip_z = qt.QCheckBox("z")
+    self.flip_z = qt.QCheckBox("Axial (Z)")
     self.flip_z.toolTip = 'Randomly flip z-axis during training'
     self.flip_layout = qt.QHBoxLayout()
     self.flip_layout.addWidget(self.flip_x)
@@ -121,13 +122,13 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     self.z_scale.value = 256
 
     self.scale_layout = qt.QHBoxLayout()
-    self.scale_layout.addWidget(qt.QLabel("X:"))
+    self.scale_layout.addWidget(qt.QLabel("Sagittal (X):"))
     self.scale_layout.addWidget(self.x_scale)
     self.scale_layout.addStretch()
-    self.scale_layout.addWidget(qt.QLabel("Y:"))
+    self.scale_layout.addWidget(qt.QLabel("Coronal (Y):"))
     self.scale_layout.addWidget(self.y_scale)
     self.scale_layout.addStretch()
-    self.scale_layout.addWidget(qt.QLabel("Z:"))
+    self.scale_layout.addWidget(qt.QLabel("Axial (Z):"))
     self.scale_layout.addWidget(self.z_scale)
     collapsibleLayout.addRow("Scale:", self.scale_layout)
 
@@ -153,6 +154,18 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     self.validation_split.value = 0.0
     collapsibleLayout.addRow("Validation split:", self.validation_split)
 
+    self.xControl = AxisControl()
+    self.yControl = AxisControl()
+    self.zControl = AxisControl()
+    boundingBoxLayout = qt.QHBoxLayout()
+    boundingBoxLayout.addStretch()
+    boundingBoxLayout.addWidget(qt.QLabel("Training area"))
+    boundingBoxLayout.addStretch()
+    collapsibleLayout.addRow("", boundingBoxLayout)
+    collapsibleLayout.addRow("Sagittal (X):", self.xControl)
+    collapsibleLayout.addRow("Coronal (Y):", self.yControl)
+    collapsibleLayout.addRow("Axial (Z):", self.zControl)
+
     self.runButton = qt.QPushButton("Train")
     self.runButton.objectName = self.__class__.__name__ + 'Run'
     self.runButton.setToolTip("Train neural network")
@@ -160,7 +173,18 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     self.runButton.clicked.connect(self.onRun)
     self.scriptedEffect.addOptionsWidget(self.runButton)
 
+    self.setParameterToGui(BiomedisaTrainingParameter())
+
     collapsibleLayout.addRow("Parameter:", self.createParameterGui())
+
+  def sourceVolumeNodeChanged(self):
+    sourceImageData = self.scriptedEffect.parameterSetNode().GetSourceVolumeNode().GetImageData()
+    if sourceImageData is None:
+      return
+    dim = sourceImageData.GetDimensions()
+    self.xControl.updateMaximum(dim[0])
+    self.yControl.updateMaximum(dim[1])
+    self.zControl.updateMaximum(dim[2])
 
   def onSaveParameter(self):
     text = qt.QInputDialog.getText(None, "Parameter name", "Enter the name of the parameter set")
@@ -194,6 +218,12 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
       parameter.x_scale = self.x_scale.value
       parameter.y_scale = self.y_scale.value
       parameter.z_scale = self.z_scale.value
+      parameter.x_min = self.xControl.getMinValue()
+      parameter.x_max = self.xControl.getMaxValue()
+      parameter.y_min = self.yControl.getMinValue()
+      parameter.y_max = self.yControl.getMaxValue()
+      parameter.z_min = self.yControl.getMinValue()
+      parameter.z_max = self.yControl.getMaxValue()
       return parameter
 
   def setParameterToGui(self, parameter: BiomedisaTrainingParameter):
@@ -210,6 +240,12 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
       self.x_scale.value = parameter.x_scale
       self.y_scale.value = parameter.y_scale
       self.z_scale.value = parameter.z_scale
+      self.xControl.setMinValue(parameter.x_min)
+      self.xControl.setMaxValue(parameter.x_max)
+      self.yControl.setMinValue(parameter.y_min)
+      self.yControl.setMaxValue(parameter.y_max)
+      self.zControl.setMinValue(parameter.z_min)
+      self.zControl.setMaxValue(parameter.z_max)
 
   def onPathToModelTextChanged(self):
     # Check if the path is to an existing file
