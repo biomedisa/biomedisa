@@ -51,14 +51,15 @@ class BiomedisaLogic():
                    -labelBounds[3] + 0.5,
                    labelBounds[4] + 0.5]
 
-        # Iterate over the label data and copy it to the new image data at the correct position
-        for z in range(labelExtent[4], labelExtent[5] + 1):
-            for y in range(labelExtent[2], labelExtent[3] + 1):
-                for x in range(labelExtent[0], labelExtent[1] + 1):
-                    zz = int(z - offsets[2])
-                    yy = int(y - offsets[1])
-                    xx = int(x - offsets[0])
-                    newLabelNumpyArray[z, y, x] = labelNumpyArray[zz, yy, xx]
+        # Copy label data to the new image data at the correct position
+        zmin, zmax = labelExtent[4], labelExtent[5] + 1
+        ymin, ymax = labelExtent[2], labelExtent[3] + 1
+        xmin, xmax = labelExtent[0], labelExtent[1] + 1
+        zminOffset, zmaxOffset = int(round(zmin-offsets[2])), int(round(zmax-offsets[2]))
+        yminOffset, ymaxOffset = int(round(ymin-offsets[1])), int(round(ymax-offsets[1]))
+        xminOffset, xmaxOffset = int(round(xmin-offsets[0])), int(round(xmax-offsets[0]))
+        newLabelNumpyArray[zmin:zmax, ymin:ymax, xmin:xmax] \
+            = labelNumpyArray[zminOffset:zmaxOffset, yminOffset:ymaxOffset, xminOffset:xmaxOffset]
 
         # Convert the NumPy array back to a VTK array and set it as the scalars of the new VTK image data object
         newLabelVtkArray = vtk_np.numpy_to_vtk(newLabelNumpyArray.ravel(), deep=True, array_type=vtk.VTK_UNSIGNED_CHAR)
@@ -126,3 +127,4 @@ class BiomedisaLogic():
         regular_result = results['regular']
 
         return BiomedisaLogic._getBinaryLabelMaps(regular_result)
+

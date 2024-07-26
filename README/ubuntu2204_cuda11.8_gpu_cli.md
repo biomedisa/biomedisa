@@ -34,6 +34,7 @@ source ~/.bashrc
 ```
 
 #### Install CUDA 11.8
+You may choose any CUDA version compatible with your NVIDIA GPU architecture [NVIDIA Documentation](https://docs.nvidia.com/deeplearning/cudnn/latest/reference/support-matrix.html) if you skip the TensorFlow installation for the Deep Learning module below.
 ```
 # Add NVIDIA package repositories
 wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-ubuntu2204.pin
