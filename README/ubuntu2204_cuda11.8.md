@@ -104,6 +104,7 @@ python3 manage.py createsuperuser
 ```
 
 #### Install CUDA 11.8
+You may choose any CUDA version compatible with your NVIDIA GPU architecture [NVIDIA Documentation](https://docs.nvidia.com/deeplearning/cudnn/latest/reference/support-matrix.html) if you skip the TensorFlow installation for the Deep Learning module below.
 ```
 # Add NVIDIA package repositories
 wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-ubuntu2204.pin
@@ -137,7 +138,8 @@ PATH=/usr/local/cuda-11.8/bin:${PATH} pip3 install --upgrade pycuda
 python3 ~/git/biomedisa/features/pycuda_test.py
 ```
 
-#### Install TensorFlow
+#### Install TensorFlow (optional)
+Only required if you want to use Deep Learning
 ```
 # Install development and runtime libraries.
 sudo apt-get install --no-install-recommends \
