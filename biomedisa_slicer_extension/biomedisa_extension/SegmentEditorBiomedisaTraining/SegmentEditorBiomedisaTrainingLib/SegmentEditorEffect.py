@@ -49,7 +49,7 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
 
   def createCursor(self, widget):
     return slicer.util.mainWindow().cursor
-  
+
   def setupOptionsFrame(self):
     # Network file
     self.path_to_model = qt.QLineEdit()
@@ -182,9 +182,9 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     if sourceImageData is None:
       return
     dim = sourceImageData.GetDimensions()
-    self.xControl.updateMaximum(dim[0])
-    self.yControl.updateMaximum(dim[1])
-    self.zControl.updateMaximum(dim[2])
+    self.xControl.updateMaximum(dim[0]-1)
+    self.yControl.updateMaximum(dim[1]-1)
+    self.zControl.updateMaximum(dim[2]-1)
 
   def onSaveParameter(self):
     text = qt.QInputDialog.getText(None, "Parameter name", "Enter the name of the parameter set")
@@ -222,8 +222,8 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
       parameter.x_max = self.xControl.getMaxValue()
       parameter.y_min = self.yControl.getMinValue()
       parameter.y_max = self.yControl.getMaxValue()
-      parameter.z_min = self.yControl.getMinValue()
-      parameter.z_max = self.yControl.getMaxValue()
+      parameter.z_min = self.zControl.getMinValue()
+      parameter.z_max = self.zControl.getMaxValue()
       return parameter
 
   def setParameterToGui(self, parameter: BiomedisaTrainingParameter):
@@ -276,7 +276,7 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     fileName = qt.QFileDialog.getSaveFileName(self.selectModelButton, "Create model file", "", fileFilter)
     if fileName:
         self.path_to_model.text = fileName
-  
+
   def runAlgorithm(self):
     segmentationNode = self.scriptedEffect.parameterSetNode().GetSegmentationNode()
     segmentation = segmentationNode.GetSegmentation()
@@ -289,7 +289,7 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     # TODO: make sure not to train potentionally faulty data. Maybe have an extra confirm button.
 
     BiomedisaTrainingLogic.trainDeepLearning(
-      sourceImageData, 
-      binaryLabelmap, 
+      sourceImageData,
+      binaryLabelmap,
       self.getParameterFromGui())
 
