@@ -25,36 +25,35 @@ class BiomedisaPredictionLogic():
                 raise RuntimeError('unknow type')
         return numpy_data
 
-    def _getBinaryLabelMap(label: np.array, input: vtkMRMLScalarVolumeNode) -> vtkMRMLLabelMapVolumeNode:
+    def _getBinaryLabelMap(label: np.array, volumeNode) -> vtkMRMLLabelMapVolumeNode:
         vtkImageData = slicer.vtkOrientedImageData()
-        spacing = input.GetSpacing()
-        origin = input.GetOrigin()
-        directions = np.zeros((3,3))
-        input.GetDirections(directions)
         vtkImageData.SetDimensions(label.shape[2], label.shape[1], label.shape[0])
-        vtkImageData.SetDirections(directions)
-        vtkImageData.SetSpacing(spacing)
-        vtkImageData.SetOrigin(origin)
+        direction_matrix = np.zeros((3,3))
+        volumeNode.GetIJKToRASDirections(direction_matrix)
+        vtkImageData.SetDirections(direction_matrix)
+        vtkImageData.SetSpacing(volumeNode.GetSpacing())
+        vtkImageData.SetOrigin(volumeNode.GetOrigin())
         vtkImageData.AllocateScalars(vtk.VTK_UNSIGNED_CHAR, 1)
         vtkArray = vtk_np.numpy_to_vtk(num_array=label.ravel(), deep=True, array_type=vtk.VTK_UNSIGNED_CHAR)
         vtkImageData.GetPointData().SetScalars(vtkArray)
         return vtkImageData
 
     def _getBinaryLabelMaps(labelmapArray: np.array,
-                            input: vtkMRMLScalarVolumeNode) -> list:
+                            volumeNode) -> list:
         uniqueLabels = np.unique(labelmapArray)
         labelMapList = []
         for label in uniqueLabels:
             if label == 0:
                 continue
             binaryLabelmapArray = np.where(labelmapArray == label, 1, 0).astype(np.uint8)
-            vtkBinaryLabelmap  = BiomedisaPredictionLogic._getBinaryLabelMap(binaryLabelmapArray, input)
+            vtkBinaryLabelmap  = BiomedisaPredictionLogic._getBinaryLabelMap(binaryLabelmapArray, volumeNode)
             labelMapList.append((int(label), vtkBinaryLabelmap))
 
         return labelMapList
 
     def predictDeepLearning(
                 input: vtkMRMLScalarVolumeNode,
+                volumeNode,
                 parameter: BiomedisaPredictionParameter) -> list:
         numpyImage = BiomedisaPredictionLogic._vtkToNumpy(input)
 
@@ -72,4 +71,5 @@ class BiomedisaPredictionLogic():
 
         regular_result = results['regular']
 
-        return BiomedisaPredictionLogic._getBinaryLabelMaps(regular_result, input)
+        return BiomedisaPredictionLogic._getBinaryLabelMaps(regular_result, volumeNode)
+
