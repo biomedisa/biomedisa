@@ -1,5 +1,6 @@
 import os
 import qt, ctk, slicer
+import numpy as np
 from SegmentEditorEffects import *
 from Logic.BiomedisaLogic import BiomedisaLogic
 from Logic.BiomedisaParameter import BiomedisaParameter
@@ -148,12 +149,17 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     # Get modifier labelmap
     binaryLabelmap = segment.GetRepresentation(slicer.vtkSegmentationConverter.GetSegmentationBinaryLabelmapRepresentationName())
     # Get source volume image data
-    sourceImageData = self.scriptedEffect.sourceVolumeImageData()
+    volumeNode = self.scriptedEffect.parameterSetNode().GetSourceVolumeNode()
+    sourceImageData = volumeNode.GetImageData()
+    # Get direction matrix
+    direction_matrix = np.zeros((3,3))
+    volumeNode.GetIJKToRASDirections(direction_matrix)
 
     parameter = self.getBiomedisaParameter()
     # Run the algorithm
-    resultLabelMaps = BiomedisaLogic.runBiomedisa(input=sourceImageData, labels=binaryLabelmap, parameter=parameter)
-    
+    resultLabelMaps = BiomedisaLogic.runBiomedisa(input=sourceImageData,
+        labels=binaryLabelmap, direction_matrix=direction_matrix, parameter=parameter)
+
     for label, binaryLabelmap in resultLabelMaps:
       # Get segment ID from label index. This is 0 based even though first the voxel value is 1.
       segmentID = segmentation.GetNthSegmentID(int(label) - 1)
@@ -163,3 +169,4 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
         segmentID, 
         slicer.vtkSlicerSegmentationsModuleLogic.MODE_REPLACE, 
         binaryLabelmap.GetExtent())
+
