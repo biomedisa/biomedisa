@@ -36,7 +36,7 @@ Drag and Drop the following directories in the field "Additional module paths"
 Use only the first line if you only want to install Smart Interpolation.
 ```
 git/biomedisa/biomedisa_slicer_extension/biomedisa_extension/SegmentEditorBiomedisa
-git/biomedisa/biomedisa_slicer_extension/biomedisa_extension/SegmentEditorBiomedisaDeepLearning
+git/biomedisa/biomedisa_slicer_extension/biomedisa_extension/SegmentEditorBiomedisaPrediction
 git/biomedisa/biomedisa_slicer_extension/biomedisa_extension/SegmentEditorBiomedisaTraining
 ```
 Restart 3D Slicer
