@@ -225,7 +225,7 @@ $(document).ready(addClickHandlers);
 
     <div class="col c0">
       </br>
-      <h2> <span> Tomographic data </span> </h2>
+      <!-- <h2> <span> Tomographic data </span> </h2>
       {% for img in tomographic_data %}
           {% if img.imageType == 1 %}
             <div id="img{{ img.id }}" >
@@ -241,7 +241,7 @@ $(document).ready(addClickHandlers);
               </p>
             </div>
           {% endif %}
-      {% endfor %}
+      {% endfor %} -->
 
       {% if processed_data %}
           <h2> <span> Processed data </span> </h2>
@@ -286,7 +286,7 @@ $(document).ready(addClickHandlers);
                   <p style="text-align:left;">
                   <a href=# onclick="visualizationFunction({{img.id}},'processed','{{specimen.repository.name}}')"><img src="/static/file_mesh.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
                   <a href=# onclick="downloadFunction({{img.id}},'processed','{{specimen.repository.name}}')"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
-                  <a href=# onclick="visualizationFunction({{img.id}},'processed','{{specimen.repository.name}}')"><img src="/static/visualization.svg" title="visualization" style="width:32px;height:20px;"></a>
+                  <a href=# onclick="visualizationFunction({{img.id}},'processed','{{specimen.repository.name}}')"><img src="/static/mesh.svg" title="visualization" style="width:20px;height:20px;"></a>
                   <span class="share_link" id="{{img.id}}"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
                   <input type="checkbox" name="selected" value="{{img.id}}"/>
                   {{ img.pic.name }}

@@ -219,42 +219,6 @@ $(document).ready(addClickHandlers);
 
   <form>
     <table style="width:100%" border="0">
-    <!-- iterate over all specimens with model -->
-    {% for img in specimens_with_model %}
-      {%if forloop.counter0|divisibleby:"2" %}
-        <tr>
-      {% endif %}
-      <td>
-        <div id="img{{ img.id }}" >
-          <p style="text-align:left;">
-          <!-- sketchfab animation -->
-          {% if img.sketchfab %}
-            <iframe id="view360Iframe" style="width: 425px; height: 238px" scrolling="0" src="https://sketchfab.com/models/{{img.sketchfab}}/embed?ui_infos=0&amp;ui_watermark=0&amp;ui_help=0&amp;ui_settings=0&amp;ui_inspector=0&amp;ui_annotations=0&amp;ui_stop=1&amp;ui_vr=0&amp;preload=1&amp;autostart=0&amp;ui_hint=2&amp;autospin=0.2">
-            </iframe>
-          </br></br>
-          {% endif %}
-          <!-- get name of specimen -->
-          {% if img.name_recommended or img.subfamily or img.caste or img.specimen_code %}
-              <span>{{ img.name_recommended }} | {{ img.subfamily }} | {{ img.caste }} | {{ img.specimen_code }}</span>
-              {% else %}
-              <span>{{ img.internal_id }}</span>
-          {% endif %}
-          <!-- feature buttons --></br>
-          <a href="/{{repository.name}}/specimen/{{img.id}}"><img src="/static/info.png" alt="info" style="width:20px;height:20px;border:0;"></a>
-          <a href=# onclick="sliceviewerFunction({{img.id}},'{{repository.name}}')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
-          <a href=# onclick="visualizationFunction({{img.id}},'{{repository.name}}')"><img src="/static/visualization.svg" title="visualization" style="width:32px;height:20px;"></a>
-          </p>
-        </div>
-      </td>
-      {%if forloop.counter|divisibleby:"2" %}
-        <tr>
-      {% endif %}
-    {% endfor %}
-    </table>
-  </form>
-
-  <form>
-    <table style="width:100%" border="0">
     <!-- iterate over all specimens without model -->
     {% for img in specimens %}
       {%if forloop.counter0|divisibleby:"2" %}
@@ -264,7 +228,7 @@ $(document).ready(addClickHandlers);
         <div id="img{{ img.id }}" >
           <p style="text-align:left;">
           <!-- screenshot -->
-          <a href="/media/screenshots/{{img.internal_id}}.png"><img src="/media/screenshots/{{img.internal_id}}.png" title="screenshot" style="width:425px;height:238px;border:0"></a>
+          <a href="/{{repository.name}}/specimen/{{img.id}}"><img src="/media/screenshots/{{img.internal_id}}.png" title="screenshot" style="width:425px;height:238px;border:0"></a>
           </br></br>
           <!-- get name of specimen -->
           {% if img.name_recommended or img.subfamily or img.caste or img.specimen_code %}
@@ -275,7 +239,7 @@ $(document).ready(addClickHandlers);
           <!-- feature buttons --></br>
           <a href="/{{repository.name}}/specimen/{{img.id}}"><img src="/static/info.png" alt="info" style="width:20px;height:20px;border:0;"></a>
           <a href=# onclick="sliceviewerFunction({{img.id}},'{{repository.name}}')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
-          <a href=# onclick="visualizationFunction({{img.id}},'{{repository.name}}')"><img src="/static/visualization.svg" title="visualization" style="width:32px;height:20px;"></a>
+          <a href=# onclick="visualizationFunction({{img.id}},'{{repository.name}}')"><img src="/static/mesh.svg" title="visualization" style="width:20px;height:20px;"></a>
           </p>
         </div>
       </td>
