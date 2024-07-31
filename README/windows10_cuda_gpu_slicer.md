@@ -99,7 +99,7 @@ cd "AppData\Local\slicer.org\Slicer 5.6.2\bin"
 PythonSlicer.exe -m pip install pip setuptools testresources scikit-build
 PythonSlicer.exe -m pip install numpy scipy h5py colorama numpy-stl \
     numba imagecodecs tifffile scikit-image opencv-python netCDF4 mrcfile \
-    Pillow nibabel medpy SimpleITK itk vtk matplotlib biomedisa \
+    Pillow nibabel medpy SimpleITK mpi4py itk vtk matplotlib biomedisa \
     importlib_metadata PyQt5
 ```
 
