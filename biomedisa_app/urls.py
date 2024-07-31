@@ -28,6 +28,7 @@
 
 from django.conf.urls import url
 from . import views
+from . import repository
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib.auth import views as auth_views
@@ -36,24 +37,24 @@ urlpatterns = [
     # biomedisa
     url(r'^$', views.index, name='index'),
     # repository
-    url(r'^repository/(?P<id>\d+)/$', views.repository, name='repository'),
-    url(r'^repository/specimen/(?P<id>\d+)/$', views.specimen_info, name='specimen_info'),
-    url(r'^repository/data/(?P<id>\d+)/$', views.tomographic_info, name='tomographic_info'),
-    url(r'^repository/sliceviewer/$', views.sliceviewer_repository, name='sliceviewer_repository'),
-    url(r'^repository/visualization/$', views.visualization_repository, name='visualization_repository'),
-    url(r'^repository/download/$', views.download_repository, name='download_repository'),
-    url(r'^repository/share_data/$', views.share_repository_data, name='share_repository_data'),
+    url(r'^repository/(?P<id>\d+)/$', repository.repository, name='repository'),
+    url(r'^repository/specimen/(?P<id>\d+)/$', repository.specimen_info, name='specimen_info'),
+    url(r'^repository/data/(?P<id>\d+)/$', repository.tomographic_info, name='tomographic_info'),
+    url(r'^repository/sliceviewer/$', repository.sliceviewer_repository, name='sliceviewer_repository'),
+    url(r'^repository/visualization/$', repository.visualization_repository, name='visualization_repository'),
+    url(r'^repository/download/$', repository.download_repository, name='download_repository'),
+    url(r'^repository/share_data/$', repository.share_repository_data, name='share_repository_data'),
     # manage repository
-    url(r'^repository/unsubscribe/(?P<id>\d+)/$', views.unsubscribe_from_repository, name='unsubscribe_from_repository'),
-    url(r'^share_repository/$', views.share_repository, name='share_repository'),
+    url(r'^repository/unsubscribe/(?P<id>\d+)/$', repository.unsubscribe_from_repository, name='unsubscribe_from_repository'),
+    url(r'^share_repository/$', repository.share_repository, name='share_repository'),
     # antscan
-    url(r'^antscan/$', views.repository, name='repository'),
-    url(r'^antscan/specimen/(?P<id>\d+)/$', views.specimen_info, name='specimen_info'),
-    url(r'^antscan/data/(?P<id>\d+)/$', views.tomographic_info, name='tomographic_info'),
-    url(r'^antscan/sliceviewer/$', views.sliceviewer_repository, name='sliceviewer_repository'),
-    url(r'^antscan/visualization/$', views.visualization_repository, name='visualization_repository'),
-    url(r'^antscan/download/$', views.download_repository, name='download_repository'),
-    url(r'^antscan/share_data/$', views.share_repository_data, name='share_repository_data'),
+    url(r'^antscan/$', repository.repository, name='repository'),
+    url(r'^antscan/specimen/(?P<id>\d+)/$', repository.specimen_info, name='specimen_info'),
+    url(r'^antscan/data/(?P<id>\d+)/$', repository.tomographic_info, name='tomographic_info'),
+    url(r'^antscan/sliceviewer/$', repository.sliceviewer_repository, name='sliceviewer_repository'),
+    url(r'^antscan/visualization/$', repository.visualization_repository, name='visualization_repository'),
+    url(r'^antscan/download/$', repository.download_repository, name='download_repository'),
+    url(r'^antscan/share_data/$', repository.share_repository_data, name='share_repository_data'),
     # app
     url(r'^app/$', views.app, name='app'),
     # demo
