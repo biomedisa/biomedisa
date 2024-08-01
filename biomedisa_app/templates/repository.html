@@ -1,8 +1,6 @@
 {% extends 'base.html' %}
 
 {% block scripts %}
-<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.js"></script>
-<script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.8.16/jquery-ui.js"></script>
 <script type="text/javascript">
 function alertFunction(state) {
     alert(state);
@@ -233,7 +231,7 @@ $(document).ready(addClickHandlers);
         <div id="img{{ img.id }}" >
           <p style="text-align:left;">
           <!-- screenshot -->
-          <a href="/{{repository.name}}/specimen/{{img.id}}"><img src="/media/screenshots/{{img.internal_id}}.png" title="screenshot" style="width:425px;height:238px;border:0"></a>
+          <a href="/{{repository.name}}/specimen/{{img.id}}"><img src="/media/screenshots/{{img.internal_id}}.png" title="info" style="width:425px;height:238px;border:0"></a>
           </br></br>
           <!-- get name of specimen -->
           {% if img.name_recommended or img.subfamily or img.caste or img.specimen_code %}
