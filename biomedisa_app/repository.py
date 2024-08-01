@@ -68,24 +68,27 @@ def repository(request, id=1):
         state = None
     # get repository
     repository = get_object_or_404(Repository, pk=int(id))
-    # search for specimen containing query
+    # search for specimen containing query and sort alphabetically
     query = request.GET.get('search')
     show_all = True
     if query:
         specimens = Specimen.objects.filter(Q(internal_id__icontains=query) | Q(subfamily__icontains=query) | Q(genus__icontains=query)\
-         | Q(species__icontains=query) | Q(caste__icontains=query), repository=repository, sketchfab=None)
-        specimens_with_model = Specimen.objects.filter(Q(internal_id__icontains=query) | Q(subfamily__icontains=query) | Q(genus__icontains=query)\
-         | Q(species__icontains=query) | Q(caste__icontains=query), repository=repository).exclude(sketchfab=None)
+         | Q(species__icontains=query) | Q(caste__icontains=query), repository=repository).order_by('name_recommended').values()
     else:
-        specimens = Specimen.objects.filter(repository=repository, sketchfab=None)
-        specimens_with_model = Specimen.objects.filter(repository=repository).exclude(sketchfab=None)
+        specimens = Specimen.objects.filter(repository=repository).order_by('name_recommended').values()
         show_all = request.GET.get('show_all') == 'True'
         if not show_all:
             specimens = specimens[:100]
     all_specimens = Specimen.objects.filter(repository=repository)
+    # featured img
+    imshape_x, imshape_y = None, None
+    if repository.featured_img:
+        imshape = np.asarray(Image.open(BASE_DIR + f'/biomedisa_app/static/{repository.featured_img}')).shape
+        imshape_x = 960
+        imshape_y = int(imshape[0]/imshape[1]*960)
     return render(request, 'repository.html', {'state':state, 'specimens':specimens, 'repository':repository,
-                'specimens_with_model':specimens_with_model, 'all_specimens':all_specimens, 'featured_img':repository.featured_img,
-                'featured_img_width':repository.featured_img_width, 'featured_img_height':repository.featured_img_height,
+                'all_specimens':all_specimens, 'featured_img':repository.featured_img,
+                'featured_img_width':imshape_x, 'featured_img_height':imshape_y,
                 'show_all': show_all})
 
 @login_required
@@ -203,10 +206,10 @@ def specimen_info(request, id):
         # specimen form
         specimen_form = SpecimenForm(initial=initial)
         name = specimen.internal_id if not any([specimen.name_recommended, specimen.subfamily, specimen.caste, specimen.specimen_code]) else "{name_recommended} | {subfamily} | {caste} | {specimen_code}".format(name_recommended=specimen.name_recommended, subfamily=specimen.subfamily, caste=specimen.caste, specimen_code=specimen.specimen_code)
-        tomographic_data = TomographicData.objects.filter(specimen=specimen)
+        #tomographic_data = TomographicData.objects.filter(specimen=specimen)
         processed_data = ProcessedData.objects.filter(specimen=specimen)
         sketchfab_id = specimen.sketchfab
-        return render(request, 'specimen_info.html', {'specimen_form':specimen_form,'tomographic_data':tomographic_data,
+        return render(request, 'specimen_info.html', {'specimen_form':specimen_form,#'tomographic_data':tomographic_data,
                                                       'processed_data':processed_data,'name':name,'specimen':specimen,
                                                       'imshape_x':imshape[1], 'imshape_y':imshape[0],'paths':images,
                                                       'user_can_edit':user_can_edit})
@@ -267,9 +270,10 @@ def sliceviewer_repository(request):
     if request.method == 'GET':
         id = int(request.GET.get('id'))
         obj = str(request.GET.get('object'))[:11]
-        if obj == 'tomographic':
-            tomographic_data = get_object_or_404(TomographicData, pk=id)
-        elif obj == 'processed':
+        #if obj == 'tomographic':
+        #    specimen = get_object_or_404(ProcessedData, pk=id)
+        #    tomographic_data = ProcessedData.objects.filter(specimen=specimen, )
+        if obj == 'processed':
             tomographic_data = get_object_or_404(ProcessedData, pk=id)
         elif obj == 'specimen':
             specimen = get_object_or_404(Specimen, pk=id)
@@ -298,10 +302,11 @@ def download_repository(request):
     if request.method == 'GET':
         id = int(request.GET.get('id'))
         obj = str(request.GET.get('object'))[:11]
-        if obj == 'tomographic':
-            tomographic_data = get_object_or_404(TomographicData, pk=id)
-        elif obj == 'processed':
+        if obj == 'processed':
             tomographic_data = get_object_or_404(ProcessedData, pk=id)
+        elif obj == 'specimen':
+            specimen = get_object_or_404(Specimen, pk=id)
+            tomographic_data = ProcessedData.objects.filter(specimen=specimen, imageType=1)[0]
         filename = tomographic_data.pic.name
         path_to_file = tomographic_data.pic.path
         wrapper = FileWrapper(open(path_to_file, 'rb'))
@@ -327,10 +332,10 @@ def share_repository_data(request):
     results = {'success':False}
     if request.method == 'GET':
         id = int(request.GET.get('id'))
-        tomographic_data = get_object_or_404(TomographicData, pk=id)
+        processed_data = get_object_or_404(ProcessedData, pk=id)
 
         # new file path
-        shortfilename = tomographic_data.pic.name.replace('/','_')
+        shortfilename = processed_data.pic.name.replace('/','_')
         pic_path = 'images/' + request.user.username + '/' + shortfilename
 
         # rename image if path already exists
@@ -343,12 +348,12 @@ def share_repository_data(request):
         img = Upload.objects.create(pic=pic_path, user=request.user, project=0, shortfilename=shortfilename)
 
         # copy file
-        shutil.copy2(tomographic_data.pic.path, img.pic.path)
+        shutil.copy2(processed_data.pic.path, img.pic.path)
 
         # copy slices
-        path_to_src = os.path.dirname(tomographic_data.pic.path) + '/slices'
-        path_to_dest = img.pic.path.replace('images', 'sliceviewer', 1)
+        path_to_src = os.path.splitext(processed_data.pic.path)[0]
         if os.path.exists(path_to_src):
+            path_to_dest = img.pic.path.replace('images', 'sliceviewer', 1)
             copytree(path_to_src, path_to_dest)
 
         results = {'success':True, 'msg':'Successfully shared data.'}
