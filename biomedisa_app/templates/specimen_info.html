@@ -148,7 +148,7 @@ function addClickHandlers() {
   });
 
   $(".share_link").click( function() {
-    var r = confirm("Copy to storage?");
+    var r = confirm("Copy to storage? This may take a while. Please be patient until completion");
     if (r == true) {
       shareFunction(this.id);
     }
@@ -252,8 +252,11 @@ $(document).ready(addClickHandlers);
                   <img src="/static/file_image.svg" title="visualization" style="width:50px;height:50px;border:0;">
                   <a href=# onclick="downloadFunction({{img.id}},'processed','{{specimen.repository.name}}')"><img src="/static/downloads.png" alt="download" style="width:20px;height:20px;border:0;"></a>
                   <a href=# onclick="sliceviewerFunction({{img.id}},'processed','{{specimen.repository.name}}')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
+                  {% if user.is_authenticated %}
                   <span class="share_link" id="{{img.id}}"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
-                  <input type="checkbox" name="selected" value="{{img.id}}"/>
+                  {% else %}
+                  <a href=# onclick="alertFunction('Login in to copy to storage')"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;"></a>
+                  {% endif %}
                   {{ img.pic.name }}
                   <span style="float:right;"> </br> {{ img.upload_date }}</span>
                   </p>
@@ -264,8 +267,11 @@ $(document).ready(addClickHandlers);
                   <img src="/static/file_label.svg" title="visualization" style="width:50px;height:50px;border:0;">
                   <a href=# onclick="downloadFunction({{img.id}},'processed','{{specimen.repository.name}}')"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
                   <a href=# onclick="sliceviewerFunction({{img.id}},'processed','{{specimen.repository.name}}')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
+                  {% if user.is_authenticated %}
                   <span class="share_link" id="{{img.id}}"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
-                  <input type="checkbox" name="selected" value="{{img.id}}"/>
+                  {% else %}
+                  <a href=# onclick="alertFunction('Login in to copy to storage')"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;"></a>
+                  {% endif %}
                   {{ img.pic.name }}
                   <span style="float:right;"> </br>> {{ img.upload_date }}</span>
                   </p>
@@ -275,8 +281,11 @@ $(document).ready(addClickHandlers);
                   <p style="text-align:left;">
                   <a href='#'><img src="/static/file_ai.svg" title="network" style="width:50px;height:50px;border:0;"></a>
                   <a href=# onclick="downloadFunction({{img.id}},'processed','{{specimen.repository.name}}')"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+                  {% if user.is_authenticated %}
                   <span class="share_link" id="{{img.id}}"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
-                  <input type="checkbox" name="selected" value="{{img.id}}"/>
+                  {% else %}
+                  <a href=# onclick="alertFunction('Login in to copy to storage')"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;"></a>
+                  {% endif %}
                   {{ img.pic.name }}
                   <span style="float:right;"> </br> {{ img.upload_date }}</span>
                   </p>
@@ -287,8 +296,11 @@ $(document).ready(addClickHandlers);
                   <a href=# onclick="visualizationFunction({{img.id}},'processed','{{specimen.repository.name}}')"><img src="/static/file_mesh.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
                   <a href=# onclick="downloadFunction({{img.id}},'processed','{{specimen.repository.name}}')"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
                   <a href=# onclick="visualizationFunction({{img.id}},'processed','{{specimen.repository.name}}')"><img src="/static/mesh.svg" title="visualization" style="width:20px;height:20px;"></a>
+                  {% if user.is_authenticated %}
                   <span class="share_link" id="{{img.id}}"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
-                  <input type="checkbox" name="selected" value="{{img.id}}"/>
+                  {% else %}
+                  <a href=# onclick="alertFunction('Login in to copy to storage')"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;"></a>
+                  {% endif %}
                   {{ img.pic.name }}
                   <span style="float:right;"> </br> {{ img.upload_date }}</span>
                   </p>
@@ -299,8 +311,11 @@ $(document).ready(addClickHandlers);
                   <img src="/static/file_final.svg" title="visualization" style="width:50px;height:50px;border:0;">
                   <a href=# onclick="downloadFunction({{img.id}},'processed','{{specimen.repository.name}}')"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
                   <a href=# onclick="sliceviewerFunction({{img.id}},'processed','{{specimen.repository.name}}')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
+                  {% if user.is_authenticated %}
                   <span class="share_link" id="{{img.id}}"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
-                  <input type="checkbox" name="selected" value="{{img.id}}"/>
+                  {% else %}
+                  <a href=# onclick="alertFunction('Login in to copy to storage')"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;"></a>
+                  {% endif %}
                   {{ img.pic.name }}
                   <span style="float:right;"> </br> {{ img.upload_date }}</span>
                   </p>

@@ -15,6 +15,11 @@ function sliceviewerFunction(id, repository_name) {
     window.close();
 }
 
+function downloadFunction(id, obj, repository_name) {
+    window.location.href = "/" + repository_name + "/download/?id=" + id + "&object=" + obj;
+    window.close();
+}
+
 function visualizationFunction(id, repository_name) {
     window.location.href = "/" + repository_name + "/visualization/?id=" + id + "&object=specimen";
     window.close();
@@ -237,9 +242,10 @@ $(document).ready(addClickHandlers);
               <span>{{ img.internal_id }}</span>
           {% endif %}
           <!-- feature buttons --></br>
-          <a href="/{{repository.name}}/specimen/{{img.id}}"><img src="/static/info.png" alt="info" style="width:20px;height:20px;border:0;"></a>
+          <a href=# onclick="downloadFunction({{img.id}},'specimen','{{repository.name}}')"><img src="/static/downloads.png" alt="download" style="width:20px;height:20px;border:0;"></a>
           <a href=# onclick="sliceviewerFunction({{img.id}},'{{repository.name}}')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
           <a href=# onclick="visualizationFunction({{img.id}},'{{repository.name}}')"><img src="/static/mesh.svg" title="visualization" style="width:20px;height:20px;"></a>
+          <a href="/{{repository.name}}/specimen/{{img.id}}"><img src="/static/info.png" alt="info" style="width:20px;height:20px;border:0;"></a>
           </p>
         </div>
       </td>
