@@ -1100,7 +1100,7 @@ def features(request, action):
                 elif img.imageType == 1:
 
                     # two processing queues
-                    if config['SECOND_QUEUE']:
+                    '''if config['SECOND_QUEUE']:
                         q1 = Queue('first_queue', connection=Redis())
                         q2 = Queue('second_queue', connection=Redis())
                         w1 = Worker.all(queue=q1)[0]
@@ -1117,15 +1117,15 @@ def features(request, action):
                             queue_short = 'A'
                             job = q1.enqueue_call(init_keras_3D, args=(img.id, model, True), timeout=-1)
                             lenq = len(q1)
-                            img.queue = 1
+                            img.queue = 1'''
 
                     # single processing queue
-                    else:
-                        queue_short = 'A'
-                        q = Queue('first_queue', connection=Redis())
-                        job = q.enqueue_call(init_keras_3D, args=(img.id, model, True), timeout=-1)
-                        lenq = len(q)
-                        img.queue = 1
+                    #else:
+                    queue_short = 'A'
+                    q = Queue('first_queue', connection=Redis())
+                    job = q.enqueue_call(init_keras_3D, args=(img.id, model, True), timeout=-1)
+                    lenq = len(q)
+                    img.queue = 1
 
                     # processing message
                     if lenq==0 and ((config['FIRST_QUEUE_HOST'] and queue_short=='A') or (config['SECOND_QUEUE_HOST'] and queue_short=='B')):
