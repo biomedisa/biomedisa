@@ -186,9 +186,9 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     resultLabelMaps = BiomedisaLogic.runBiomedisa(input=sourceImageData,
         labels=binaryLabelmap, direction_matrix=direction_matrix, parameter=parameter)
 
-    for label, binaryLabelmap in resultLabelMaps:
+    for label, binaryLabelmap in enumerate(resultLabelMaps):
       # Get segment ID from label index. This is 0 based even though first the voxel value is 1.
-      segmentID = segmentation.GetNthSegmentID(int(label) - 1)
+      segmentID = segmentation.GetNthSegmentID(label)
       slicer.vtkSlicerSegmentationsModuleLogic.SetBinaryLabelmapToSegment(
         binaryLabelmap, 
         self.previewSegmentationNode, 
