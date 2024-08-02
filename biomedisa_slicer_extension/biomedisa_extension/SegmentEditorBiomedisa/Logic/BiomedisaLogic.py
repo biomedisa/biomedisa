@@ -87,10 +87,9 @@ class BiomedisaLogic():
             binaryLabelmapArray = np.where(labelmapArray == label, 1, 0).astype(np.uint8)
             vtkBinaryLabelmap  = BiomedisaLogic._getBinaryLabelMap(binaryLabelmapArray, direction_matrix, labels)
             print(f"label: {label}")
-            labelMapList.append((int(label), vtkBinaryLabelmap))
-
+            labelMapList.append(vtkBinaryLabelmap)
         return labelMapList
-    
+
     def getLabeledSlices(input: vtkMRMLScalarVolumeNode, labels: vtkMRMLLabelMapVolumeNode):
         extendedLabel = BiomedisaLogic._expandLabelToMatchInputImage(labels, input.GetDimensions())
         numpyLabels = BiomedisaLogic._vtkToNumpy(extendedLabel)

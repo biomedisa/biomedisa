@@ -486,7 +486,8 @@ def save_data(path_to_final, final, header=None, final_image_type=None, compress
         np_to_nc(path_to_final, final, header)
     elif final_image_type in ['.hdr', '.mhd', '.mha', '.nrrd', '.nii', '.nii.gz']:
         simg = sitk.GetImageFromArray(final)
-        simg.CopyInformation(header)
+        if header is not None:
+            simg.CopyInformation(header)
         sitk.WriteImage(simg, path_to_final, useCompression=compress)
     elif final_image_type in ['.zip', 'directory', '']:
         with tempfile.TemporaryDirectory() as temp_dir:
