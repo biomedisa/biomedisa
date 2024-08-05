@@ -78,8 +78,8 @@ class BiomedisaLogic():
         vtkImageData.GetPointData().SetScalars(vtkArray)
         return vtkImageData
 
-    def _getBinaryLabelMaps(labelmapArray: np.array, direction_matrix: np.array, labels: vtkMRMLLabelMapVolumeNode) -> list:
-        uniqueLabels = np.unique(labelmapArray)
+    def _getBinaryLabelMaps(labelmapArray: np.array, direction_matrix: np.array,
+            labels: vtkMRMLLabelMapVolumeNode, uniqueLabels: np.array) -> list:
         labelMapList = []
         for label in uniqueLabels:
             if label == 0:
@@ -140,6 +140,7 @@ class BiomedisaLogic():
         # unify directions if required
         numpyImage = BiomedisaLogic.unify_to_identity(numpyImage, direction_matrix)
         numpyLabels = BiomedisaLogic.unify_to_identity(numpyLabels, direction_matrix)
+        uniqueLabels = np.unique(numpyLabels)
 
         from biomedisa.interpolation import smart_interpolation
         results = smart_interpolation(
@@ -152,7 +153,7 @@ class BiomedisaLogic():
             ignore=parameter.ignore,
             only=parameter.only,
             platform=parameter.platform)
-            
+
         if results is None:
             return None
 
@@ -162,5 +163,5 @@ class BiomedisaLogic():
         # restore original directions
         regular_result = BiomedisaLogic.reverse_unify_to_identity(regular_result, direction_matrix)
 
-        return BiomedisaLogic._getBinaryLabelMaps(regular_result, direction_matrix, labels)
+        return BiomedisaLogic._getBinaryLabelMaps(regular_result, direction_matrix, labels, uniqueLabels)
 
