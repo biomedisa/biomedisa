@@ -97,27 +97,36 @@ sudo apt-get install --no-install-recommends libnvinfer8=8.5.3-1+cuda11.8 \
 sudo apt-mark hold libcudnn8 libcudnn8-dev libnvinfer-dev libnvinfer-plugin8 libnvinfer8 cuda-11-8
 ```
 
-#### Nasty double installation of pip packages (hopefully will be fixed soon)
-3D Slicer uses Python3.9, but installing the following PIP packages directly into the 3D Slicer environment failed. If you do not have Python3.9, install it alongside your standard Python:
+#### Install Python plus development tools
+3D Slicer uses Python3.9. For mpi4py, PyCUDA, and TensorFlow you need Python3.9 plus its development tools installed:
 ```
 sudo add-apt-repository ppa:deadsnakes/ppa
 sudo apt-get install python3.9 python3.9-dev
 sudo apt install python3.9-distutils
 ```
-Install the following PIP packages for Python3.9 and add the location to .bashrc:
+
+#### Install mpi4py, PyCUDA, and TensorFlow
+*Option 1:* Install the following PIP packages for Python3.9:
 ```
 python3.9 -m pip install mpi4py
 PATH=/usr/local/cuda-11.8/bin:${PATH} python3.9 -m pip install pycuda
 python3.9 -m pip install tensorflow==2.13.0
+```
+Update your .bashrc:
+```
 echo 'export PATH=${HOME}/.local/bin:${PATH}' >> ~/.bashrc
 source ~/.bashrc
 ```
-
-#### Install mpi4py, PyCUDA, and TensorFlow into the 3D Slicer environment
+Install the PIP packages into the 3D Slicer environment:
 ```
 ./PythonSlicer -m pip install mpi4py
 PATH=/usr/local/cuda-11.8/bin:${PATH} ./PythonSlicer -m pip install pycuda
 ./PythonSlicer -m pip install tensorflow==2.13.0
+```
+*Option 2:* Direct installation in the 3D Slicer environment:
+```
+./PythonSlicer -c "import os,sys; os.environ['C_INCLUDE_PATH'] = '/usr/include/python3.9'; os.system(f'{sys.executable} -m pip install --no-cache-dir mpi4py')"
+./PythonSlicer -c "import os,sys; os.environ['C_INCLUDE_PATH'] = '/usr/include/python3.9'; os.environ['CPLUS_INCLUDE_PATH'] = '/usr/include/python3.9'; os.environ['CC'] = '/usr/bin/gcc'; os.environ['CXX'] = '/usr/bin/g++'; os.system(f'{sys.executable} -m pip install --no-cache-dir pycuda')"
 ```
 
 #### Verify that PyCUDA is working properly in the 3D Slicer environment
