@@ -355,7 +355,7 @@ def read_img_list(img_list, label_list, temp_img_dir, temp_label_dir):
             label_names.append(label_name)
     return img_names, label_names
 
-def load_training_data(normalize, img_list, label_list, channels, x_scale, y_scale, z_scale, scaling,
+def load_training_data(bm, normalize, img_list, label_list, channels, x_scale, y_scale, z_scale, scaling,
         crop_data, labels_to_compute, labels_to_remove, img_in=None, label_in=None,
         normalization_parameters=None, allLabels=None, header=None, extension='.tif',
         x_puffer=25, y_puffer=25, z_puffer=25):
@@ -509,13 +509,16 @@ def load_training_data(normalize, img_list, label_list, channels, x_scale, y_sca
     img[img<0] = 0
     img[img>1] = 1
 
-    # get labels
-    if allLabels is None:
-        allLabels = np.unique(label)
+    if bm.separation:
+        allLabels = np.array([0,1])
+    else:
+        # get labels
+        if allLabels is None:
+            allLabels = np.unique(label)
 
-    # labels must be in ascending order
-    for k, l in enumerate(allLabels):
-        label[label==l] = k
+        # labels must be in ascending order
+        for k, l in enumerate(allLabels):
+            label[label==l] = k
 
     return img, label, allLabels, normalization_parameters, header, extension, channels
 
@@ -775,7 +778,7 @@ def train_semantic_segmentation(bm,
     header=None, extension='.tif'):
 
     # training data
-    img, label, allLabels, normalization_parameters, header, extension, bm.channels = load_training_data(bm.normalize,
+    img, label, allLabels, normalization_parameters, header, extension, bm.channels = load_training_data(bm, bm.normalize,
                     img_list, label_list, None, bm.x_scale, bm.y_scale, bm.z_scale, bm.scaling, bm.crop_data,
                     bm.only, bm.ignore, img, label, None, None, header, extension)
 
@@ -787,7 +790,7 @@ def train_semantic_segmentation(bm,
 
     # validation data
     if any(val_img_list) or img_val is not None:
-        img_val, label_val, _, _, _, _, _ = load_training_data(bm.normalize,
+        img_val, label_val, _, _, _, _, _ = load_training_data(bm, bm.normalize,
                     val_img_list, val_label_list, bm.channels, bm.x_scale, bm.y_scale, bm.z_scale, bm.scaling, bm.crop_data,
                     bm.only, bm.ignore, img_val, label_val, normalization_parameters, allLabels)
 
@@ -815,7 +818,13 @@ def train_semantic_segmentation(bm,
         for k in range(0, zsh-bm.z_patch+1, bm.stride_size):
             for l in range(0, ysh-bm.y_patch+1, bm.stride_size):
                 for m in range(0, xsh-bm.x_patch+1, bm.stride_size):
-                    list_IDs_fg.append(k*ysh*xsh+l*xsh+m)
+                    if bm.separation:
+                        centerLabel = label[k+bm.z_patch//2,l+bm.y_patch//2,m+bm.x_patch//2]
+                        patch = label[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]
+                        if centerLabel>0 and np.any(np.logical_and(patch>0, patch!=centerLabel)):
+                            list_IDs_fg.append(k*ysh*xsh+l*xsh+m)
+                    else:
+                        list_IDs_fg.append(k*ysh*xsh+l*xsh+m)
 
     if img_val is not None:
 
@@ -838,7 +847,13 @@ def train_semantic_segmentation(bm,
             for k in range(0, zsh_val-bm.z_patch+1, bm.validation_stride_size):
                 for l in range(0, ysh_val-bm.y_patch+1, bm.validation_stride_size):
                     for m in range(0, xsh_val-bm.x_patch+1, bm.validation_stride_size):
-                        list_IDs_val_fg.append(k*ysh_val*xsh_val+l*xsh_val+m)
+                        if bm.separation:
+                            centerLabel = label_val[k+bm.z_patch//2,l+bm.y_patch//2,m+bm.x_patch//2]
+                            patch = label_val[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]
+                            if centerLabel>0 and np.any(np.logical_and(patch>0, patch!=centerLabel)):
+                                list_IDs_val_fg.append(k*ysh_val*xsh_val+l*xsh_val+m)
+                        else:
+                            list_IDs_val_fg.append(k*ysh_val*xsh_val+l*xsh_val+m)
 
     # number of labels
     nb_labels = len(allLabels)
@@ -1031,6 +1046,23 @@ def append_ghost_areas(bm, img):
         img = np.append(img, img[:,:,-x_rest:][:,:,::-1], axis=2)
     return img, z_rest, y_rest, x_rest
 
+def gradient(volData):
+    grad = np.zeros(volData.shape, dtype=np.uint8)
+    tmp = np.abs(volData[:-1] - volData[1:])
+    tmp[tmp>0]=1
+    grad[:-1] += tmp
+    grad[1:] += tmp
+    tmp = np.abs(volData[:,:-1] - volData[:,1:])
+    tmp[tmp>0]=1
+    grad[:,:-1] += tmp
+    grad[:,1:] += tmp
+    tmp = np.abs(volData[:,:,:-1] - volData[:,:,1:])
+    tmp[tmp>0]=1
+    grad[:,:,:-1] += tmp
+    grad[:,:,1:] += tmp
+    grad[grad>0]=1
+    return grad
+
 def predict_semantic_segmentation(bm,
     header, img_header, allLabels,
     region_of_interest, extension, img_data,
@@ -1065,6 +1097,12 @@ def predict_semantic_segmentation(bm,
         zsh = len(tif.pages)
         ysh, xsh = tif.pages[0].shape
 
+        # load mask
+        if bm.separation:
+            mask, _ = load_data(bm.mask)
+            mask = mask.reshape(zsh, ysh, xsh, 1)
+            mask, _, _, _ = append_ghost_areas(bm, mask)
+
         # determine new image size after appending ghost areas to make image dimensions divisible by patch size
         z_rest = bm.z_patch - (zsh % bm.z_patch)
         if z_rest == bm.z_patch:
@@ -1087,7 +1125,10 @@ def predict_semantic_segmentation(bm,
         for k in range(0, zsh-bm.z_patch+1, bm.stride_size):
             for l in range(0, ysh-bm.y_patch+1, bm.stride_size):
                 for m in range(0, xsh-bm.x_patch+1, bm.stride_size):
-                    list_IDs.append(k*ysh*xsh+l*xsh+m)
+                    if bm.separation and mask[k+bm.z_patch//2,l+bm.y_patch//2,m+bm.x_patch//2]:
+                        list_IDs.append(k*ysh*xsh+l*xsh+m)
+                    else:
+                        list_IDs.append(k*ysh*xsh+l*xsh+m)
 
         # make length of list divisible by batch size
         rest = bm.batch_size - (len(list_IDs) % bm.batch_size)
@@ -1182,7 +1223,10 @@ def predict_semantic_segmentation(bm,
             # get Ids of patches
             for l in range(0, ysh-bm.y_patch+1, bm.stride_size):
                 for m in range(0, xsh-bm.x_patch+1, bm.stride_size):
-                    list_IDs.append(z*ysh*xsh+l*xsh+m)
+                    if bm.separation and mask[z+bm.z_patch//2,l+bm.y_patch//2,m+bm.x_patch//2]:
+                        list_IDs.append(z*ysh*xsh+l*xsh+m)
+                    else:
+                        list_IDs.append(z*ysh*xsh+l*xsh+m)
 
             # make length of list divisible by batch size
             max_i = len(list_IDs)
@@ -1223,24 +1267,29 @@ def predict_semantic_segmentation(bm,
                     l = rest // xsh
                     m = rest % xsh
                     if i < max_i:
-                        probs[:,l:l+bm.y_patch,m:m+bm.x_patch] += Y[i]
+                        if bm.separation:
+                            patch = np.argmax(Y[i], axis=-1).astype(np.uint8)
+                            label[z:z+bm.z_patch,l:l+bm.y_patch,m:m+bm.x_patch] += gradient(patch)
+                        else:
+                            probs[:,l:l+bm.y_patch,m:m+bm.x_patch] += Y[i]
 
-            # overlap in z direction
-            if bm.stride_size < bm.z_patch:
-                if j>0:
-                    probs[:bm.stride_size] += overlap
-                overlap = probs[bm.stride_size:].copy()
+            if not bm.separation:
+                # overlap in z direction
+                if bm.stride_size < bm.z_patch:
+                    if j>0:
+                        probs[:bm.stride_size] += overlap
+                    overlap = probs[bm.stride_size:].copy()
 
-            # calculate result
-            if z==z_indices[-1]:
-                label[z:z+bm.z_patch] = np.argmax(probs, axis=-1).astype(np.uint8)
-                if bm.return_probs:
-                    final[z:z+bm.z_patch] = probs
-            else:
-                block_zsh = min(bm.stride_size, bm.z_patch)
-                label[z:z+block_zsh] = np.argmax(probs[:block_zsh], axis=-1).astype(np.uint8)
-                if bm.return_probs:
-                    final[z:z+block_zsh] = probs[:block_zsh]
+                # calculate result
+                if z==z_indices[-1]:
+                    label[z:z+bm.z_patch] = np.argmax(probs, axis=-1).astype(np.uint8)
+                    if bm.return_probs:
+                        final[z:z+bm.z_patch] = probs
+                else:
+                    block_zsh = min(bm.stride_size, bm.z_patch)
+                    label[z:z+block_zsh] = np.argmax(probs[:block_zsh], axis=-1).astype(np.uint8)
+                    if bm.return_probs:
+                        final[z:z+block_zsh] = probs[:block_zsh]
 
     # remove appendix
     if bm.return_probs:
@@ -1280,7 +1329,8 @@ def predict_semantic_segmentation(bm,
         label = np.copy(tmp, order='C')
 
     # get result
-    label = get_labels(label, allLabels)
+    if not bm.separation:
+        label = get_labels(label, allLabels)
     results['regular'] = label
 
     # load header from file
