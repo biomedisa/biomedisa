@@ -76,7 +76,8 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
     path=None, success=True, return_probs=False, patch_normalization=False,
     z_patch=64, y_patch=64, x_patch=64, path_to_logfile=None, img_id=None, label_id=None,
     remote=False, queue=0, username=None, shortfilename=None, dice_loss=False,
-    acwe=False, acwe_alpha=1.0, acwe_smooth=1, acwe_steps=3, clean=None, fill=None):
+    acwe=False, acwe_alpha=1.0, acwe_smooth=1, acwe_steps=3, clean=None, fill=None,
+    separation=False):
 
     # create biomedisa
     bm = Biomedisa()
@@ -479,6 +480,10 @@ if __name__ == '__main__':
                         help='Processing queue when using a remote server')
     parser.add_argument('-hf','--header_file', type=str, metavar='PATH', default=None,
                         help='Location of header file')
+    parser.add_argument('-s','--separation', action='store_true', default=False,
+                        help='Instance segmentation of objects such as cells or rock particles')
+    parser.add_argument('-m','--mask', type=str, metavar='PATH', default=None,
+                        help='Location of mask')
     bm = parser.parse_args()
     bm.success = True
 
