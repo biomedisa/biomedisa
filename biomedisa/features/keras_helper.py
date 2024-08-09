@@ -1032,7 +1032,7 @@ def append_ghost_areas(bm, img):
     return img, z_rest, y_rest, x_rest
 
 def predict_semantic_segmentation(bm,
-    header, img_header, allLabels,
+    header, img_header,
     region_of_interest, extension, img_data,
     channels, normalization_parameters):
 
@@ -1040,7 +1040,8 @@ def predict_semantic_segmentation(bm,
     results = {}
 
     # number of labels
-    nb_labels = len(allLabels)
+    nb_labels = len(bm.allLabels)
+    results['allLabels'] = bm.allLabels
 
     # load model
     if bm.dice_loss:
@@ -1222,7 +1223,7 @@ def predict_semantic_segmentation(bm,
                     rest = ID % (ysh*xsh)
                     l = rest // xsh
                     m = rest % xsh
-                    if i < max_i:
+                    if step*bm.batch_size+i < max_i:
                         probs[:,l:l+bm.y_patch,m:m+bm.x_patch] += Y[i]
 
             # overlap in z direction
@@ -1280,7 +1281,7 @@ def predict_semantic_segmentation(bm,
         label = np.copy(tmp, order='C')
 
     # get result
-    label = get_labels(label, allLabels)
+    label = get_labels(label, bm.allLabels)
     results['regular'] = label
 
     # load header from file
