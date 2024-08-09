@@ -1,0 +1,19 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python Debugger: Attach using Process Id",
+            "type": "debugpy",
+            "request": "attach",
+            "processId": "${command:pickProcess}",
+            "pathMappings": [
+                {
+                    "localRoot": "${workspaceFolder}",
+                }
+            ]
+            // Use the following lines in code to make sure it connects properly
+            // import debugpy
+            // debugpy.wait_for_client()            
+        }
+    ]
+}
