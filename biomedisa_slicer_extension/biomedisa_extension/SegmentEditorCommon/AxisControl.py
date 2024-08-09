@@ -5,7 +5,7 @@ class AxisControl(qt.QWidget):
 
     def __init__(self, parent=None):
         super(AxisControl, self).__init__(parent)
-        self.min_distance: int = 64
+        self.min_distance: int = 63 #resulting in 64 layers
 
         # Create controls
         self.minSpinBox = qt.QSpinBox()
@@ -44,7 +44,6 @@ class AxisControl(qt.QWidget):
         
     def onMaxSpinBoxChanged(self, value):
         self.minSpinBox.setRange(0, value - self.min_distance)
-
         if value < self.minSpinBox.value:
             self.minSpinBox.setValue(value)
         self.rangeSlider.setMaximumValue(value)
@@ -82,11 +81,11 @@ class AxisControl(qt.QWidget):
         return self.maxSpinBox.value
     
     def setMinValue(self, value):
-        if value:
+        if value is not None:
             self.minSpinBox.value = value
     
     def setMaxValue(self, value):
-        if value:
+        if value is not None:
             self.maxSpinBox.value = value
     
     def setValues(self, min_value, max_value):
