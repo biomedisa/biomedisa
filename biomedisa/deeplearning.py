@@ -77,7 +77,7 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
     z_patch=64, y_patch=64, x_patch=64, path_to_logfile=None, img_id=None, label_id=None,
     remote=False, queue=0, username=None, shortfilename=None, dice_loss=False,
     acwe=False, acwe_alpha=1.0, acwe_smooth=1, acwe_steps=3, clean=None, fill=None,
-    separation=False):
+    separation=False, mask=None):
 
     # create biomedisa
     bm = Biomedisa()
