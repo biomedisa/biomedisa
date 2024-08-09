@@ -974,6 +974,10 @@ def load_prediction_data(bm, channels, normalize, normalization_parameters,
             img_header = None
             tif = TiffFile(bm.path_to_image)
             img = imread(bm.path_to_image, key=range(z,min(len(tif.pages),z+bm.z_patch)))
+            if img.shape[0] < bm.z_patch:
+                rest = bm.z_patch - img.shape[0]
+                tmp = imread(bm.path_to_image, key=range(len(tif.pages)-rest,len(tif.pages)))
+                img = np.append(img, tmp[::-1], axis=0)
         else:
             img, img_header = load_data(bm.path_to_image, 'first_queue')
 
@@ -1125,8 +1129,9 @@ def predict_semantic_segmentation(bm,
         for k in range(0, zsh-bm.z_patch+1, bm.stride_size):
             for l in range(0, ysh-bm.y_patch+1, bm.stride_size):
                 for m in range(0, xsh-bm.x_patch+1, bm.stride_size):
-                    if bm.separation and mask[k+bm.z_patch//2,l+bm.y_patch//2,m+bm.x_patch//2]:
-                        list_IDs.append(k*ysh*xsh+l*xsh+m)
+                    if bm.separation:
+                        if mask[k+bm.z_patch//2,l+bm.y_patch//2,m+bm.x_patch//2]:
+                            list_IDs.append(k*ysh*xsh+l*xsh+m)
                     else:
                         list_IDs.append(k*ysh*xsh+l*xsh+m)
 
@@ -1223,8 +1228,9 @@ def predict_semantic_segmentation(bm,
             # get Ids of patches
             for l in range(0, ysh-bm.y_patch+1, bm.stride_size):
                 for m in range(0, xsh-bm.x_patch+1, bm.stride_size):
-                    if bm.separation and mask[z+bm.z_patch//2,l+bm.y_patch//2,m+bm.x_patch//2]:
-                        list_IDs.append(z*ysh*xsh+l*xsh+m)
+                    if bm.separation:
+                        if mask[z+bm.z_patch//2,l+bm.y_patch//2,m+bm.x_patch//2]:
+                            list_IDs.append(z*ysh*xsh+l*xsh+m)
                     else:
                         list_IDs.append(z*ysh*xsh+l*xsh+m)
 
