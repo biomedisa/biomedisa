@@ -959,6 +959,10 @@ def load_prediction_data(bm, channels, normalize, normalization_parameters,
             img_header = None
             tif = TiffFile(bm.path_to_image)
             img = imread(bm.path_to_image, key=range(z,min(len(tif.pages),z+bm.z_patch)))
+            if img.shape[0] < bm.z_patch:
+                rest = bm.z_patch - img.shape[0]
+                tmp = imread(bm.path_to_image, key=range(len(tif.pages)-rest,len(tif.pages)))
+                img = np.append(img, tmp[::-1], axis=0)
         else:
             img, img_header = load_data(bm.path_to_image, 'first_queue')
 
