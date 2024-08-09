@@ -1266,7 +1266,7 @@ def predict_semantic_segmentation(bm,
                     rest = ID % (ysh*xsh)
                     l = rest // xsh
                     m = rest % xsh
-                    if i < max_i:
+                    if step*bm.batch_size+i < max_i:
                         if bm.separation:
                             patch = np.argmax(Y[i], axis=-1).astype(np.uint8)
                             label[z:z+bm.z_patch,l:l+bm.y_patch,m:m+bm.x_patch] += gradient(patch)
