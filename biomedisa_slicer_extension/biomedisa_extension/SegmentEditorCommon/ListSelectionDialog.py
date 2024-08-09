@@ -1,8 +1,11 @@
 from PyQt5.QtWidgets import QDialog, QVBoxLayout, QPushButton, QListWidget, QHBoxLayout
+from PyQt5.QtCore import pyqtSignal
 
 class ListSelectionDialog(QDialog):
+    dialogClosed = pyqtSignal(str)  # Custom signal
+
     def __init__(self, items, parent=None):
-        super().__init__(parent)
+        super(ListSelectionDialog, self).__init__(parent)
         
         # Set up the dialog layout
         self.setWindowTitle("Select a parameter set")
@@ -25,9 +28,14 @@ class ListSelectionDialog(QDialog):
         self.setLayout(layout)
         
         # Connect buttons to slot methods
-        self.okButton.clicked.connect(self.accept)
-        self.cancelButton.clicked.connect(self.reject)
+        self.okButton.clicked.connect(self.onOkClicked)
+        self.cancelButton.clicked.connect(self.onCancelClicked)
+        
+    def onOkClicked(self):
+        selected_item = self.listWidget.currentItem().text() if self.listWidget.currentItem() else None
+        self.dialogClosed.emit(selected_item)
+        self.close()
 
-    def getSelectedItem(self):
-        return self.listWidget.currentItem().text() if self.listWidget.currentItem() else None
-    
+    def onCancelClicked(self):
+        self.dialogClosed.emit(None)
+        self.close()

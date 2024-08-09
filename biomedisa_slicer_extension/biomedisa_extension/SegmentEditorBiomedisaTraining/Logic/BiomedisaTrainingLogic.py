@@ -54,24 +54,13 @@ class BiomedisaTrainingLogic():
             parameter: BiomedisaTrainingParameter):
 
         dimensions = input.GetDimensions()
-        x_range = [parameter.x_min, parameter.x_max] if parameter.x_min > 0 or dimensions[0]-1 > parameter.x_max else None
-        y_range = [parameter.y_min, parameter.y_max] if parameter.y_min > 0 or dimensions[1]-1 > parameter.y_max else None
-        z_range = [parameter.z_min, parameter.z_max] if parameter.z_min > 0 or dimensions[2]-1 > parameter.z_max else None
         numpyLabels = BiomedisaTrainingLogic._expandLabelToMatchInputImage(labels, dimensions)
-        #numpyLabels = Helper._vtkToNumpy(extendedLabel)
-        numpyImage = Helper._vtkToNumpy(input)
+        numpyImage = Helper.vtkToNumpy(input)
 
         # crop training data
-        if z_range is not None:
-            numpyImage = numpyImage[z_range[0]:z_range[1]+1].copy()
-            numpyLabels = numpyLabels[z_range[0]:z_range[1]+1].copy()
-        if y_range is not None:
-            numpyImage = numpyImage[:,y_range[0]:y_range[1]+1].copy()
-            numpyLabels = numpyLabels[:,y_range[0]:y_range[1]+1].copy()
-        if x_range is not None:
-            numpyImage = numpyImage[:,:,x_range[0]:x_range[1]+1].copy()
-            numpyLabels = numpyLabels[:,:,x_range[0]:x_range[1]+1].copy()
-
+        numpyImage = Helper.crop(numpyImage, dimensions, parameter.x_min, parameter.x_max, parameter.y_min, parameter.y_max, parameter.z_min, parameter.z_max)
+        numpyLabels = Helper.crop(numpyLabels, dimensions, parameter.x_min, parameter.x_max, parameter.y_min, parameter.y_max, parameter.z_min, parameter.z_max)
+       
         print(f"Running biomedisa training with: {parameter}")
 
         from biomedisa.deeplearning import deep_learning

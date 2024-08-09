@@ -1,24 +1,23 @@
 class BiomedisaTrainingParameter:
-    def __init__(self):
-        self.path_to_model: str = ""
-        self.stride_size: int = 32
-        self.epochs: int = 100
-        self.validation_split: float = 0.0
-        self.balance: bool = False
-        self.swapaxes: bool = False
-        self.flip_x: bool = False
-        self.flip_y: bool = False
-        self.flip_z: bool = False
-        self.scaling: bool = False
-        self.x_scale: int = 256
-        self.y_scale: int = 256
-        self.z_scale: int = 256
-        self.x_min: int = None
-        self.x_max: int = None
-        self.y_min: int = None
-        self.y_max: int = None
-        self.z_min: int = None
-        self.z_max: int = None
+    path_to_model: str = ""
+    stride_size: int = 32
+    epochs: int = 100
+    validation_split: float = 0.0
+    balance: bool = False
+    swapaxes: bool = False
+    flip_x: bool = False
+    flip_y: bool = False
+    flip_z: bool = False
+    scaling: bool = False
+    x_scale: int = 256
+    y_scale: int = 256
+    z_scale: int = 256
+    x_min: int = None
+    x_max: int = None
+    y_min: int = None
+    y_max: int = None
+    z_min: int = None
+    z_max: int = None
 
     def __str__(self):
         header = "BiomedisaTrainingParameter:"

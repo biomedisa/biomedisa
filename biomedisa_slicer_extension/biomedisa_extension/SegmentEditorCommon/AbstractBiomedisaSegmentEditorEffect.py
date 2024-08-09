@@ -1,8 +1,9 @@
+from abc import abstractmethod
 from typing import Type, TypeVar
 import qt, slicer, json
 from SegmentEditorEffects import AbstractScriptedSegmentEditorEffect
-from SegmentEditorCommon.ListSelectionDialog import ListSelectionDialog
 from PyQt5.QtWidgets import QDialog
+from SegmentEditorCommon.ListSelectionDialog import ListSelectionDialog
 
 T = TypeVar('T')
 
@@ -14,17 +15,26 @@ class AbstractBiomedisaSegmentEditorEffect(AbstractScriptedSegmentEditorEffect):
         self.previewSegmentationNode = None
         super().__init__(scriptedEffect)
 
+    def createCursor(self, widget):
+        return slicer.util.mainWindow().cursor
+
+    @abstractmethod                
     def runAlgorithm(self):
         pass
 
-    def onSaveParameter(self):
-        pass
-
+    @abstractmethod                
     def onLoadParameter(self):
         pass
-                
+
+    @abstractmethod                
     def onRestoreParameter(self):
         pass
+
+    def onSaveParameter(self):
+        text = qt.QInputDialog.getText(None, "Parameter name", "Enter the name of the parameter set")
+        if text:
+            parameter = self.getParameterFromGui()
+            self.saveParameter(parameter, text)
 
     def createParameterGui(self, createSave: bool = True, createLoad: bool = True, createRestore: bool = True) -> qt.QWidget:
         self.parameter_layout = qt.QHBoxLayout()
@@ -164,15 +174,7 @@ class AbstractBiomedisaSegmentEditorEffect(AbstractScriptedSegmentEditorEffect):
         finally:
             qt.QApplication.restoreOverrideCursor()
 
-    def showParameterSelectionDialog(self, items):
-        dialog = ListSelectionDialog(items)
-        result = dialog.exec_()
-        if result == QDialog.Accepted:
-            return dialog.getSelectedItem()
-        else:
-            return None
-
-    def saveParameter(self, parameter, parameterName: str):
+    def saveParameter(self, parameter: T, parameterName: str):
         """Save parameters to the module settings."""
         # Location in Windows: %USERPROFILE%\AppData\Roaming\slicer.org\Slicer.ini
         settings = slicer.app.settings()
