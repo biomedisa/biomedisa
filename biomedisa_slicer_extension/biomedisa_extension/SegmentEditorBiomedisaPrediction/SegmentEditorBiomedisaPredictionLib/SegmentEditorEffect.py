@@ -168,8 +168,12 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     self.batch_size.setEnabled(state == qt.Qt.Checked)
 
   def onPathToModelTextChanged(self):
-    # Check if the path is to an existing file
-    if os.path.isfile(self.path_to_model.text):
+    self.updateRunButtonState()
+
+  def updateRunButtonState(self):
+    if self.running:
+        self.runButton.setEnabled(False)
+    elif os.path.isfile(self.path_to_model.text):
         self.runButton.setEnabled(True)
     else:
         self.runButton.setEnabled(False)
