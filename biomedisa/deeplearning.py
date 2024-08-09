@@ -220,7 +220,7 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
             normalization_parameters = np.array(meta['normalization'], dtype=float)
         else:
             normalization_parameters = np.array([[mu],[sig]])
-        allLabels = np.array(meta.get('labels'))
+        bm.allLabels = np.array(meta.get('labels'))
         if 'patch_normalization' in meta:
             bm.patch_normalization = bool(meta['patch_normalization'][()])
         if 'scaling' in meta:
@@ -293,7 +293,7 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
 
                 # make prediction
                 results, bm = predict_semantic_segmentation(bm,
-                    header, img_header, allLabels,
+                    header, img_header,
                     region_of_interest, extension, img_data,
                     channels, normalization_parameters)
 
