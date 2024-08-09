@@ -5,6 +5,7 @@ from vtkmodules.util.numpy_support import vtk_to_numpy
 from slicer import vtkMRMLScalarVolumeNode
 from slicer import vtkMRMLLabelMapVolumeNode
 from biomedisa_extension.SegmentEditorBiomedisaPrediction.Logic.BiomedisaPredictionParameter import BiomedisaPredictionParameter
+from biomedisa_extension.SegmentEditorCommon.Helper import Helper
 
 class BiomedisaPredictionLogic():
 
@@ -39,13 +40,18 @@ class BiomedisaPredictionLogic():
         return vtkImageData
 
     def _getBinaryLabelMaps(labelmapArray: np.array,
-                            volumeNode) -> list:
+                            volumeNode,
+                            dimensions,
+                            parameter: BiomedisaPredictionParameter) -> list:
         uniqueLabels = np.unique(labelmapArray)
         labelMapList = []
         for label in uniqueLabels:
             if label == 0:
                 continue
             binaryLabelmapArray = np.where(labelmapArray == label, 1, 0).astype(np.uint8)
+            print(f"binaryLabelmapArray: {binaryLabelmapArray.shape}")
+            binaryLabelmapArray = Helper.embed(binaryLabelmapArray, dimensions, parameter.x_min, parameter.x_max, parameter.y_min, parameter.y_max, parameter.z_min, parameter.z_max)
+            print(f"uncropped: {binaryLabelmapArray.shape}")
             vtkBinaryLabelmap  = BiomedisaPredictionLogic._getBinaryLabelMap(binaryLabelmapArray, volumeNode)
             labelMapList.append((int(label), vtkBinaryLabelmap))
 
@@ -55,10 +61,16 @@ class BiomedisaPredictionLogic():
                 input: vtkMRMLScalarVolumeNode,
                 volumeNode,
                 parameter: BiomedisaPredictionParameter) -> list:
+        
         numpyImage = BiomedisaPredictionLogic._vtkToNumpy(input)
-
+        dimensions = input.GetDimensions()
+        print(f"numpyImage: {numpyImage.shape}")
+        numpyImage = Helper.crop(numpyImage, dimensions, parameter.x_min, parameter.x_max, parameter.y_min, parameter.y_max, parameter.z_min, parameter.z_max)
         print(f"Running biomedisa prediction with: {parameter}")
 
+        print(f"dimensions: {dimensions}")
+        print(f"crop: {numpyImage.shape}")
+        
         batch_size = parameter.batch_size if parameter.batch_size_active else None
         from biomedisa.deeplearning import deep_learning
         results = deep_learning(numpyImage, 
@@ -67,9 +79,18 @@ class BiomedisaPredictionLogic():
                                 batch_size=batch_size, 
                                 predict=True)
         if results is None:
+            print("No result")
             return None
+
+        if False:
+            import debugpy
+            print("Waiting for debugger attach...")
+            debugpy.wait_for_client()
+            print("Debugger attached, continuing execution...")
 
         regular_result = results['regular']
 
-        return BiomedisaPredictionLogic._getBinaryLabelMaps(regular_result, volumeNode)
+        labelmapList = BiomedisaPredictionLogic._getBinaryLabelMaps(regular_result, volumeNode, dimensions, parameter)
+
+        return labelmapList
 
