@@ -1130,7 +1130,10 @@ def predict_semantic_segmentation(bm,
             for l in range(0, ysh-bm.y_patch+1, bm.stride_size):
                 for m in range(0, xsh-bm.x_patch+1, bm.stride_size):
                     if bm.separation:
-                        if mask[k+bm.z_patch//2,l+bm.y_patch//2,m+bm.x_patch//2]:
+                        centerLabel = mask[k+bm.z_patch//2,l+bm.y_patch//2,m+bm.x_patch//2]
+                        patch = mask[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]
+                        if centerLabel>0 and np.any(patch!=centerLabel):
+                            #if mask[k+bm.z_patch//2,l+bm.y_patch//2,m+bm.x_patch//2]:
                             list_IDs.append(k*ysh*xsh+l*xsh+m)
                     else:
                         list_IDs.append(k*ysh*xsh+l*xsh+m)
@@ -1229,7 +1232,10 @@ def predict_semantic_segmentation(bm,
             for l in range(0, ysh-bm.y_patch+1, bm.stride_size):
                 for m in range(0, xsh-bm.x_patch+1, bm.stride_size):
                     if bm.separation:
-                        if mask[z+bm.z_patch//2,l+bm.y_patch//2,m+bm.x_patch//2]:
+                        centerLabel = mask[z+bm.z_patch//2,l+bm.y_patch//2,m+bm.x_patch//2]
+                        patch = mask[z:z+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]
+                        if centerLabel>0 and np.any(patch!=centerLabel):
+                            #if mask[z+bm.z_patch//2,l+bm.y_patch//2,m+bm.x_patch//2]:
                             list_IDs.append(z*ysh*xsh+l*xsh+m)
                     else:
                         list_IDs.append(z*ysh*xsh+l*xsh+m)
