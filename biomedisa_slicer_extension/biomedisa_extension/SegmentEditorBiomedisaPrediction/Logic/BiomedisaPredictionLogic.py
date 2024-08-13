@@ -9,23 +9,6 @@ from biomedisa_extension.SegmentEditorCommon.Helper import Helper
 
 class BiomedisaPredictionLogic():
 
-    #source: https://discourse.vtk.org/t/convert-vtk-array-to-numpy-array/3152/3
-    def _vtkToNumpy(data):
-        temp = vtk_to_numpy(data.GetPointData().GetScalars())
-        dims = data.GetDimensions()
-        component = data.GetNumberOfScalarComponents()
-        if component == 1:
-            numpy_data = temp.reshape(dims[2], dims[1], dims[0])
-            numpy_data = numpy_data.transpose(0, 1, 2) # Not like in source
-        elif component == 3 or component == 4:
-            if dims[2] == 1: # a 2D RGB image
-                numpy_data = temp.reshape(dims[1], dims[0], component)
-                numpy_data = numpy_data.transpose(0, 1, 2)
-                numpy_data = np.flipud(numpy_data)
-            else:
-                raise RuntimeError('unknow type')
-        return numpy_data
-
     def _getBinaryLabelMap(label: np.array, volumeNode) -> vtkMRMLLabelMapVolumeNode:
         vtkImageData = slicer.vtkOrientedImageData()
         vtkImageData.SetDimensions(label.shape[2], label.shape[1], label.shape[0])
@@ -62,10 +45,10 @@ class BiomedisaPredictionLogic():
                 volumeNode,
                 parameter: BiomedisaPredictionParameter) -> list:
         
-        numpyImage = BiomedisaPredictionLogic._vtkToNumpy(input)
+        numpyImage = Helper.vtkToNumpy(input)
         dimensions = input.GetDimensions()
         print(f"numpyImage: {numpyImage.shape}")
-        numpyImage = Helper.crop(numpyImage, dimensions, parameter.x_min, parameter.x_max, parameter.y_min, parameter.y_max, parameter.z_min, parameter.z_max)
+        numpyImage = Helper.crop(numpyImage, parameter.x_min, parameter.x_max, parameter.y_min, parameter.y_max, parameter.z_min, parameter.z_max)
         print(f"Running biomedisa prediction with: {parameter}")
 
         print(f"dimensions: {dimensions}")
