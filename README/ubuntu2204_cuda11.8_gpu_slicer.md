@@ -112,7 +112,7 @@ python3.9 -m pip install mpi4py
 PATH=/usr/local/cuda-11.8/bin:${PATH} python3.9 -m pip install pycuda
 python3.9 -m pip install tensorflow==2.13.0
 ```
-Update your .bashrc:
+Add local pip directory to PATH variable:
 ```
 echo 'export PATH=${HOME}/.local/bin:${PATH}' >> ~/.bashrc
 source ~/.bashrc

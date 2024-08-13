@@ -21,16 +21,18 @@ sudo apt-get install libsm6 libxrender-dev unzip \
     openmpi-bin openmpi-doc libopenmpi-dev libgl1
 ```
 
+#### Add local pip directory to PATH variable
+```
+echo 'export PATH=${HOME}/.local/bin:${PATH}' >> ~/.bashrc
+source ~/.bashrc
+```
+
 #### Install pip packages
 ```
 pip3 install --upgrade pip setuptools testresources scikit-build
 pip3 install --upgrade numpy scipy h5py colorama numpy-stl \
     numba imagecodecs tifffile scikit-image opencv-python netCDF4 mrcfile \
     Pillow nibabel medpy SimpleITK mpi4py itk vtk matplotlib biomedisa
-
-# Add 'export PATH=${HOME}/.local/bin:${PATH}' to '~/.bashrc'
-echo 'export PATH=${HOME}/.local/bin:${PATH}' >> ~/.bashrc
-source ~/.bashrc
 ```
 
 #### Install CUDA 11.8

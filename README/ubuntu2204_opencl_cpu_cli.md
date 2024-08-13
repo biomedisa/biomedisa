@@ -30,6 +30,12 @@ sudo ./install.sh
 ```
 Follow installation instructions (ignore "Missing optional prerequisites -- Unsupported OS").
 
+#### Add local pip directory to PATH variable
+```
+echo 'export PATH=${HOME}/.local/bin:${PATH}' >> ~/.bashrc
+source ~/.bashrc
+```
+
 #### Install pip packages
 ```
 pip install --upgrade pip setuptools testresources scikit-build wheel
@@ -37,10 +43,6 @@ pip install --upgrade numpy scipy h5py colorama numpy-stl \
     numba imagecodecs tifffile scikit-image opencv-python netCDF4 mrcfile \
     Pillow nibabel medpy SimpleITK mpi4py itk vtk matplotlib pyopencl biomedisa
 pip install tensorflow==2.13.0
-
-# Add 'export PATH=${HOME}/.local/bin:${PATH}' to '~/.bashrc'
-echo 'export PATH=${HOME}/.local/bin:${PATH}' >> ~/.bashrc
-source ~/.bashrc
 ```
 
 #### Biomedisa example
