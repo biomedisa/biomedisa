@@ -23,13 +23,15 @@ sudo apt-get install libsm6 libxrender-dev libmysqlclient-dev pkg-config \
     openmpi-bin openmpi-doc libopenmpi-dev redis-server git libgl1
 ```
 
+#### Add local pip directory to PATH variable
+```
+echo 'export PATH=${HOME}/.local/bin:${PATH}' >> ~/.bashrc
+source ~/.bashrc
+```
+
 #### Install pip packages
 Note: If you run Biomedisa with an Apache Server (optional), you must install your packages system-wide using `sudo -H pip3 install --upgrade <package>`.
 ```
-# Add '${HOME}/.local/bin' to the PATH variable
-echo 'export PATH=${HOME}/.local/bin:${PATH}' >> ~/.bashrc
-source ~/.bashrc
-
 pip3 install --upgrade pip setuptools testresources scikit-build
 pip3 install --upgrade numpy scipy h5py colorama wget numpy-stl \
     numba imagecodecs tifffile scikit-image opencv-python netCDF4 mrcfile \
