@@ -1,8 +1,14 @@
-import os, qt, ctk, slicer
+import os, qt, ctk, slicer, sys
 import numpy as np
-from Logic.BiomedisaLogic import BiomedisaLogic
-from Logic.BiomedisaParameter import BiomedisaParameter
-from SegmentEditorCommon.AbstractBiomedisaSegmentEditorEffect import AbstractBiomedisaSegmentEditorEffect
+
+current_dir = os.path.dirname(os.path.abspath(__file__))
+root_dir = os.path.abspath(os.path.join(current_dir, '..', '..', '..'))
+sys.path.append(root_dir)
+
+from biomedisa_extension.SegmentEditorBiomedisa.Logic.BiomedisaLogic import BiomedisaLogic
+from biomedisa_extension.SegmentEditorBiomedisa.Logic.BiomedisaParameter import BiomedisaParameter
+from biomedisa_extension.SegmentEditorCommon.AbstractBiomedisaSegmentEditorEffect import AbstractBiomedisaSegmentEditorEffect
+from biomedisa_extension.SegmentEditorCommon.ListSelectionDialog import ListSelectionDialog
 
 class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
   """This effect uses the Biomedisa algorithm to segment large 3D volumetric images"""
@@ -18,7 +24,7 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     clonedEffect = effects.qSlicerSegmentEditorScriptedEffect(None)
     clonedEffect.setPythonSource(__file__.replace('\\','/'))
     return clonedEffect
-
+  
   def icon(self):
     # It should not be necessary to modify this method
     iconPath = os.path.join(os.path.dirname(__file__), 'SegmentEditorEffect.png')
@@ -47,9 +53,6 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
       <p><u>Contributors:</u> <i>Matthias Fabian, Philipp Lösel</i></p>
       <p>
     </html>"""
-
-  def createCursor(self, widget):
-    return slicer.util.mainWindow().cursor
 
   def setupOptionsFrame(self):
     collapsibleButton = ctk.ctkCollapsibleButton()
@@ -99,6 +102,8 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     self.platform.setPlaceholderText('Enter one of "cuda", "opencl_NVIDIA_GPU", "opencl_Intel_CPU", "None", ...')
     collapsibleLayout.addRow("Platform:", self.platform)
     
+    self.setParameterToGui(BiomedisaParameter())
+ 
     collapsibleLayout.addRow("Parameter:", self.createParameterGui())
     AbstractBiomedisaSegmentEditorEffect.setupOptionsFrame(self)
 
@@ -119,19 +124,16 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
 
     return ''
 
-  def onSaveParameter(self):
-    text = qt.QInputDialog.getText(None, "Parameter name", "Enter the name of the parameter set")
-    if text:
-      parameter = self.getParameterFromGui()
-      self.saveParameter(parameter, text)
-
   def onLoadParameter(self):
     parameterList = self.getSavedParameter()
-    selectedParameterSet = self.showParameterSelectionDialog(parameterList)
-    if selectedParameterSet:
-      parameter = self.loadParameter(BiomedisaParameter, selectedParameterSet)
-      self.setParameterToGui(parameter)
-            
+    self.dialog = ListSelectionDialog(parameterList)
+    def handleDialogClosed(selected_item):
+      if selected_item:
+        parameter = self.loadParameter(BiomedisaParameter, selected_item)
+        self.setParameterToGui(parameter)
+    self.dialog.dialogClosed.connect(handleDialogClosed)
+    self.dialog.show()
+        
   def onRestoreParameter(self):
     parameter = BiomedisaParameter()
     self.setParameterToGui(parameter)
