@@ -2,8 +2,10 @@ import qt
 import ctk
 
 class AxisControl(qt.QWidget):
+
     def __init__(self, parent=None):
         super(AxisControl, self).__init__(parent)
+        self.min_distance: int = 63 #resulting in 64 layers
 
         # Create controls
         self.minSpinBox = qt.QSpinBox()
@@ -35,22 +37,35 @@ class AxisControl(qt.QWidget):
         self.rangeSlider.maximumPositionChanged.connect(self.onSliderMaxChanged)
         
     def onMinSpinBoxChanged(self, value):
+        self.maxSpinBox.setRange(value + self.min_distance, self.current_maximum)
         if value > self.maxSpinBox.value:
             self.maxSpinBox.setValue(value)
         self.rangeSlider.setMinimumValue(value)
         
     def onMaxSpinBoxChanged(self, value):
+        self.minSpinBox.setRange(0, value - self.min_distance)
         if value < self.minSpinBox.value:
             self.minSpinBox.setValue(value)
         self.rangeSlider.setMaximumValue(value)
         
     def onSliderMinChanged(self, value):
+        # Ensure the minimum distance constraint
+        max_value = self.rangeSlider.maximumValue
+        if value > max_value - self.min_distance:
+            self.rangeSlider.setMinimumValue(max_value - self.min_distance)
+            return
         self.minSpinBox.setValue(value)
         
     def onSliderMaxChanged(self, value):
+        # Ensure the minimum distance constraint
+        min_value = self.rangeSlider.minimumValue
+        if value < min_value + self.min_distance:
+            self.rangeSlider.setMaximumValue(min_value + self.min_distance)
+            return
         self.maxSpinBox.setValue(value)
 
     def updateMaximum(self, maximum):
+        self.current_maximum = maximum
         setValueToMax = True if self.rangeSlider.maximumValue == self.rangeSlider.maximum else False
         self.minSpinBox.setRange(0, maximum)
         self.maxSpinBox.setRange(0, maximum)
@@ -66,11 +81,11 @@ class AxisControl(qt.QWidget):
         return self.maxSpinBox.value
     
     def setMinValue(self, value):
-        if value:
+        if value is not None:
             self.minSpinBox.value = value
     
     def setMaxValue(self, value):
-        if value:
+        if value is not None:
             self.maxSpinBox.value = value
     
     def setValues(self, min_value, max_value):

@@ -1,9 +1,10 @@
 import os
 import qt, ctk, slicer
 from SegmentEditorEffects import *
-from Logic.BiomedisaTrainingLogic import BiomedisaTrainingLogic
-from SegmentEditorCommon.AbstractBiomedisaSegmentEditorEffect import AbstractBiomedisaSegmentEditorEffect
+from biomedisa_extension.SegmentEditorBiomedisaTraining.Logic.BiomedisaTrainingLogic import BiomedisaTrainingLogic
 from biomedisa_extension.SegmentEditorBiomedisaTraining.Logic.BiomedisaTrainingParameter import BiomedisaTrainingParameter
+from biomedisa_extension.SegmentEditorCommon.AbstractBiomedisaSegmentEditorEffect import AbstractBiomedisaSegmentEditorEffect
+from biomedisa_extension.SegmentEditorCommon.ListSelectionDialog import ListSelectionDialog
 from biomedisa_extension.SegmentEditorCommon.AxisControl import AxisControl
 
 class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
@@ -46,9 +47,6 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
       </p>
       <p><u>Contributors:</u> <i>Matthias Fabian, Philipp Lösel<i></p>
       <p></html>"""
-
-  def createCursor(self, widget):
-    return slicer.util.mainWindow().cursor
 
   def setupOptionsFrame(self):
     # Network file
@@ -186,18 +184,15 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     self.yControl.updateMaximum(dim[1]-1)
     self.zControl.updateMaximum(dim[2]-1)
 
-  def onSaveParameter(self):
-    text = qt.QInputDialog.getText(None, "Parameter name", "Enter the name of the parameter set")
-    if text:
-      parameter = self.getParameterFromGui()
-      self.saveParameter(parameter, text)
-
   def onLoadParameter(self):
     parameterList = self.getSavedParameter()
-    selectedParameterSet = self.showParameterSelectionDialog(parameterList)
-    if selectedParameterSet:
-      parameter = self.loadParameter(BiomedisaTrainingParameter, selectedParameterSet)
-      self.setParameterToGui(parameter)
+    self.dialog = ListSelectionDialog(parameterList)
+    def handleDialogClosed(selected_item):
+      if selected_item:
+        parameter = self.loadParameter(BiomedisaTrainingParameter, selected_item)
+        self.setParameterToGui(parameter)
+    self.dialog.dialogClosed.connect(handleDialogClosed)
+    self.dialog.show()
 
   def onRestoreParameter(self):
       parameter = BiomedisaTrainingParameter()

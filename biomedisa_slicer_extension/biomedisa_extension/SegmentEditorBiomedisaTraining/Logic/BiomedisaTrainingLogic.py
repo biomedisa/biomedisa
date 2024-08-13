@@ -8,69 +8,17 @@ from biomedisa_extension.SegmentEditorBiomedisaTraining.Logic.BiomedisaTrainingP
 
 class BiomedisaTrainingLogic():
 
-    def _expandLabelToMatchInputImage(labelImageData, inputDimensions) -> vtk.vtkImageData:
-        # Initialize the new VTK image data object with the same dimensions as the input image
-        #newLabelImageData = vtk.vtkImageData()
-        #newLabelImageData.SetDimensions(inputDimensions)
-        #newLabelImageData.AllocateScalars(vtk.VTK_UNSIGNED_CHAR, 1)
-
-        # Get the bounds and extent of the original label image data
-        #labelBounds = labelImageData.GetBounds()
-        labelExtent = labelImageData.GetExtent()
-
-        # Convert the label image data to a NumPy array
-        labelPointData = labelImageData.GetPointData()
-        labelVtkArray = labelPointData.GetScalars()
-        labelNumpyArray = vtk_np.vtk_to_numpy(labelVtkArray)
-        labelNumpyArray = labelNumpyArray.reshape(labelImageData.GetDimensions()[::-1])
-
-        # Initialize the NumPy array for the new label image data with zeros
-        newLabelNumpyArray = np.zeros(inputDimensions, dtype=np.uint8)
-        newLabelNumpyArray = newLabelNumpyArray.reshape(inputDimensions[::-1])
-
-        # Calculate the offset for copying the label data to the correct position in the new image
-        #offsets = [-labelBounds[1] + 0.5,
-        #           -labelBounds[3] + 0.5,
-        #           labelBounds[4] + 0.5]
-
-        # Copy label data to the new image data at the correct position
-        zmin, zmax = labelExtent[4], labelExtent[5] + 1
-        ymin, ymax = labelExtent[2], labelExtent[3] + 1
-        xmin, xmax = labelExtent[0], labelExtent[1] + 1
-        #zminOffset, zmaxOffset = int(round(zmin-offsets[2])), int(round(zmax-offsets[2]))
-        #yminOffset, ymaxOffset = int(round(ymin-offsets[1])), int(round(ymax-offsets[1]))
-        #xminOffset, xmaxOffset = int(round(xmin-offsets[0])), int(round(xmax-offsets[0]))
-        newLabelNumpyArray[zmin:zmax, ymin:ymax, xmin:xmax] = labelNumpyArray
-        #= labelNumpyArray[zminOffset:zmaxOffset, yminOffset:ymaxOffset, xminOffset:xmaxOffset]
-
-        # Convert the NumPy array back to a VTK array and set it as the scalars of the new VTK image data object
-        #newLabelVtkArray = vtk_np.numpy_to_vtk(newLabelNumpyArray.ravel(), deep=True, array_type=vtk.VTK_UNSIGNED_CHAR)
-        #newLabelImageData.GetPointData().SetScalars(newLabelVtkArray)
-        return newLabelNumpyArray
-
     def trainDeepLearning(
             input: vtkMRMLScalarVolumeNode,
             labels: vtkMRMLLabelMapVolumeNode,
             parameter: BiomedisaTrainingParameter):
 
-        dimensions = input.GetDimensions()
-        x_range = [parameter.x_min, parameter.x_max] if parameter.x_min > 0 or dimensions[0]-1 > parameter.x_max else None
-        y_range = [parameter.y_min, parameter.y_max] if parameter.y_min > 0 or dimensions[1]-1 > parameter.y_max else None
-        z_range = [parameter.z_min, parameter.z_max] if parameter.z_min > 0 or dimensions[2]-1 > parameter.z_max else None
-        numpyLabels = BiomedisaTrainingLogic._expandLabelToMatchInputImage(labels, dimensions)
-        #numpyLabels = Helper._vtkToNumpy(extendedLabel)
-        numpyImage = Helper._vtkToNumpy(input)
+        numpyLabels = Helper.expandLabelToMatchInputImage(labels, input.GetDimensions())
+        numpyImage = Helper.vtkToNumpy(input)
 
         # crop training data
-        if z_range is not None:
-            numpyImage = numpyImage[z_range[0]:z_range[1]+1].copy()
-            numpyLabels = numpyLabels[z_range[0]:z_range[1]+1].copy()
-        if y_range is not None:
-            numpyImage = numpyImage[:,y_range[0]:y_range[1]+1].copy()
-            numpyLabels = numpyLabels[:,y_range[0]:y_range[1]+1].copy()
-        if x_range is not None:
-            numpyImage = numpyImage[:,:,x_range[0]:x_range[1]+1].copy()
-            numpyLabels = numpyLabels[:,:,x_range[0]:x_range[1]+1].copy()
+        numpyImage = Helper.crop(numpyImage, parameter.x_min, parameter.x_max, parameter.y_min, parameter.y_max, parameter.z_min, parameter.z_max)
+        numpyLabels = Helper.crop(numpyLabels, parameter.x_min, parameter.x_max, parameter.y_min, parameter.y_max, parameter.z_min, parameter.z_max)
 
         print(f"Running biomedisa training with: {parameter}")
 
