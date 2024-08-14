@@ -25,12 +25,11 @@ Biomedisa (https://biomedisa.info) is a free and easy-to-use open-source applica
 ## Installation (command-line based)
 + [Ubuntu 22.04 + Smart Interpolation](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu2204_interpolation_cli.md)
 + [Ubuntu 22.04 + Smart Interpolation + Deep Learning](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu2204_cuda11.8_gpu_cli.md)
-+ [Windows 10 + CUDA + GPU (recommended)](https://github.com/biomedisa/biomedisa/blob/master/README/windows10_cuda_gpu_cli.md)
-+ [Windows 10 + OpenCL + GPU (easy to install but lacks features like allaxis, smoothing, uncertainty, optimized GPU memory usage)](https://github.com/biomedisa/biomedisa/blob/master/README/windows10_opencl_gpu_cli.md)
++ [Windows 10 + Smart Interpolation + Deep Learning](https://github.com/biomedisa/biomedisa/blob/master/README/windows10_cuda_gpu_cli.md)
 
 ## Installation (3D Slicer extension)
 + [Ubuntu 22.04 + Smart Interpolation + Deep Learning](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu2204_cuda11.8_gpu_slicer.md)
-+ [Windows 10 + Smart Interpolation)](https://github.com/biomedisa/biomedisa/blob/master/README/windows10_cuda_gpu_slicer.md)
++ [Windows 10 + Smart Interpolation](https://github.com/biomedisa/biomedisa/blob/master/README/windows10_cuda_gpu_slicer.md)
 
 ## Installation (browser based)
 + [Ubuntu 22.04](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu2204_cuda11.8.md)
