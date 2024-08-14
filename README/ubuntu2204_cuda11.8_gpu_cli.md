@@ -71,10 +71,6 @@ Download Biomedisa [dependencies](https://biomedisa.info/media/requirements.txt)
 ```
 wget https://biomedisa.info/media/requirements.txt
 python3 -m pip install -r requirements.txt
-```
-
-#### Install PyCUDA
-```
 PATH=/usr/local/cuda-11.8/bin:${PATH} pip3 install pycuda==2022.2.2
 ```
 
