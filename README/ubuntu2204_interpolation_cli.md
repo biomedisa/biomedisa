@@ -2,7 +2,7 @@
 
 - [Install Python and pip](#install-python-and-pip)
 - [Install software dependencies](#install-software-dependencies)
-- [Install CUDA](#install-cuda)
+- [Install CUDA Toolkit](#install-cuda-toolkit)
 - [Install pip packages](#install-pip-packages)
 - [Biomedisa examples](#biomedisa-examples)
 - [Install Biomedisa from source (optional)](#install-biomedisa-from-source-optional)
@@ -19,8 +19,8 @@ sudo apt-get install libsm6 libxrender-dev unzip \
     openmpi-bin openmpi-doc libopenmpi-dev libgl1
 ```
 
-#### Install CUDA
-Install [CUDA Toolkit](https://developer.nvidia.com/cuda-downloads). You may choose any CUDA version compatible with your NVIDIA GPU architecture as outlined in the [NVIDIA Documentation](https://docs.nvidia.com/deeplearning/cudnn/latest/reference/support-matrix.html). If you select a version other than 12.6, you will need to adjust the following steps accordingly.
+#### Install CUDA Toolkit
+Install [CUDA](https://developer.nvidia.com/cuda-downloads) Toolkit. You may choose any CUDA version compatible with your NVIDIA GPU architecture as outlined in the [NVIDIA Documentation](https://docs.nvidia.com/deeplearning/cudnn/latest/reference/support-matrix.html). If you select a version other than 12.6, you will need to adjust the following steps accordingly.
 
 #### Verifying Driver Installation
 Reboot and verify whether the NVIDIA drivers are installed and working properly by running:
