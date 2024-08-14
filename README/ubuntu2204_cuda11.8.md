@@ -2,9 +2,9 @@
 
 - [Install Python and pip](#install-python-and-pip)
 - [Install software dependencies](#install-software-dependencies)
+- [Clone Biomedisa](#clone-biomedisa)
 - [Install CUDA 11.8](#install-cuda-11.8)
 - [Install TensorFlow](#install-tensorflow)
-- [Clone Biomedisa](#clone-biomedisa)
 - [Install pip packages](#install-pip-packages)
 - [Install MySQL database](#install-mysql-database)
 - [Config Biomedisa](#config-biomedisa)
@@ -21,6 +21,13 @@ sudo apt-get install python3 python3-dev python3-pip
 sudo apt-get install libsm6 libxrender-dev libmysqlclient-dev pkg-config \
     libboost-python-dev build-essential screen libssl-dev cmake unzip \
     openmpi-bin openmpi-doc libopenmpi-dev redis-server git libgl1 wget
+```
+
+#### Clone Biomedisa
+```
+mkdir ~/git
+cd ~/git
+git clone https://github.com/biomedisa/biomedisa.git
 ```
 
 #### Install CUDA 11.8
@@ -41,13 +48,22 @@ sudo apt-get install --no-install-recommends cuda-11-8
 
 # Reboot. Check that GPUs are visible using the command
 nvidia-smi
+```
 
-# Add the CUDA paths to your '~/.bashrc' file
+#### Adapt PATH variables
+Add the Biomedisa base directory to the PYTHONPATH variable and the local pip directory to the PATH variable:
+```
+echo 'export PYTHONPATH=${HOME}/git/biomedisa:${PYTHONPATH}' >> ~/.bashrc
+echo 'export PATH=${HOME}/.local/bin:${PATH}' >> ~/.bashrc
+```
+Add the CUDA paths:
+```
 echo 'export CUDA_HOME=/usr/local/cuda-11.8' >> ~/.bashrc
 echo 'export LD_LIBRARY_PATH=${CUDA_HOME}/lib64' >> ~/.bashrc
 echo 'export PATH=${CUDA_HOME}/bin:${PATH}' >> ~/.bashrc
-
-# Reload .bashrc and verify that CUDA is installed properly
+```
+Reload .bashrc and verify that CUDA is installed properly:
+```
 source ~/.bashrc
 nvcc --version
 ```
@@ -64,23 +80,8 @@ sudo apt-get install --no-install-recommends \
 sudo apt-mark hold libcudnn8 libcudnn8-dev cuda-11-8
 ```
 
-#### Clone Biomedisa
-```
-mkdir ~/git
-cd ~/git
-git clone https://github.com/biomedisa/biomedisa.git
-```
-
-#### Adapt PATH variables
-Add the Biomedisa base directory to the PYTHONPATH variable and the local pip directory to the PATH variable:
-```
-echo 'export PYTHONPATH=${HOME}/git/biomedisa:${PYTHONPATH}' >> ~/.bashrc
-echo 'export PATH=${HOME}/.local/bin:${PATH}' >> ~/.bashrc
-source ~/.bashrc
-```
-
 #### Install pip packages
-Download Biomedisa [dependencies](https://biomedisa.info/media/requirements.txt) and install packages. Note: If you run Biomedisa with an Apache Server (optional), you must install your packages system-wide using `sudo -H python3 -m pip install <package>`.
+Download Biomedisa [dependencies](https://biomedisa.info/media/requirements.txt) and install the packages. Note: If you run Biomedisa with an Apache Server (optional), you must install your packages system-wide using `sudo -H python3 -m pip install <package>`.
 ```
 wget https://biomedisa.info/media/requirements.txt
 python3 -m pip install -r requirements.txt
