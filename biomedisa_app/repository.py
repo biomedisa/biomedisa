@@ -341,7 +341,8 @@ def share_repository_data(request):
             shortfilename = os.path.basename(path_to_data)
 
         # create object
-        img = Upload.objects.create(pic=pic_path, user=request.user, project=0, shortfilename=shortfilename)
+        img = Upload.objects.create(pic=pic_path, user=request.user, project=0,
+            shortfilename=shortfilename, imageType=processed_data.imageType)
 
         # copy file
         shutil.copy2(processed_data.pic.path, img.pic.path)
