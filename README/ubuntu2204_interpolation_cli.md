@@ -28,8 +28,8 @@ source ~/.bashrc
 
 #### Install pip packages
 ```
-python3 -m pip install --upgrade pip setuptools testresources scikit-build
-python3 -m pip install --upgrade numpy scipy h5py colorama numpy-stl \
+python3 -m pip install pip setuptools testresources scikit-build
+python3 -m pip install numpy scipy h5py colorama numpy-stl \
     numba imagecodecs tifffile scikit-image opencv-python netCDF4 mrcfile \
     Pillow nibabel medpy SimpleITK mpi4py itk vtk matplotlib biomedisa
 ```
@@ -64,7 +64,7 @@ nvcc --version
 
 #### Install PyCUDA
 ```
-PATH=/usr/local/cuda-12.6/bin:${PATH} python3 -m pip install --upgrade pycuda
+PATH=/usr/local/cuda-12.6/bin:${PATH} python3 -m pip install pycuda
 ```
 
 #### Verify that PyCUDA is working properly
