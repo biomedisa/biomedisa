@@ -4,9 +4,9 @@
 - [Install software dependencies](#install-software-dependencies)
 - [Install CUDA 11.8](#install-cuda-11.8)
 - [Install TensorFlow](#install-tensorflow)
+- [Clone Biomedisa](#clone-biomedisa)
 - [Install pip packages](#install-pip-packages)
 - [Install MySQL database](#install-mysql-database)
-- [Clone Biomedisa](#clone-biomedisa)
 - [Config Biomedisa](#config-biomedisa)
 - [Run Biomedisa](#run-biomedisa)
 - [Install Apache Server (optional)](#install-apache-server-optional)
@@ -80,19 +80,12 @@ source ~/.bashrc
 ```
 
 #### Install pip packages
-Download Biomedisa [dependencies](https://biomedisa.info/media/requirements.txt) and install packages. Note: If you run Biomedisa with an Apache Server (optional), you must install your packages system-wide using `sudo -H pip3 install <package>`.
+Download Biomedisa [dependencies](https://biomedisa.info/media/requirements.txt) and install packages. Note: If you run Biomedisa with an Apache Server (optional), you must install your packages system-wide using `sudo -H python3 -m pip install <package>`.
 ```
 wget https://biomedisa.info/media/requirements.txt
 python3 -m pip install -r requirements.txt
-```
-Some additional packages:
-```
-python3 -m pip3 install mysqlclient rq wget django==3.2.6
-```
-
-#### Install PyCUDA
-```
-PATH=/usr/local/cuda-11.8/bin:${PATH} pip3 install pycuda==2022.2.2
+python3 -m pip install mysqlclient rq wget django==3.2.6
+PATH=/usr/local/cuda-11.8/bin:${PATH} python3 -m pip install pycuda==2022.2.2
 ```
 
 #### Verify that PyCUDA is working properly
