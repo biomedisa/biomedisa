@@ -19,62 +19,19 @@ $(function() {
 
 function alertFunction(state) {
     alert(state);
-    window.location.href = "/cleanstate/storage";
-    window.close();
+    window.location.href = "/app";
 }
 
 function sliceviewerFunction(id, obj, repository_name) {
     window.location.href = "/" + repository_name + "/sliceviewer/?id=" + id + "&object=" + obj;
-    window.close();
 }
 
 function downloadFunction(id, obj, repository_name) {
     window.location.href = "/" + repository_name + "/download/?id=" + id + "&object=" + obj;
-    window.close();
 }
 
 function visualizationFunction(id, obj, repository_name) {
     window.location.href = "/" + repository_name + "/visualization/?id=" + id + "&object=" + obj;
-    window.close();
-}
-
-function changeFunction(id, val) {
-    window.location.href = "/change_active_final/" + id + "/" + val + "/?next=storage";
-    window.close();
-}
-
-function toggle(value) {
-    checkboxes = document.getElementsByName('selected');
-    for (var i = 0,
-        n = checkboxes.length; i < n; i++) {
-        checkboxes[i].checked = value;
-    }
-}
-
-function deleteFunction(id) {
-  $.getJSON("/delete/", { id:id, object:'tomographic'}, function(json){
-    if (json['success'] == true) {
-        divid = "#img" + id;
-        $(divid).hide();
-    } else {
-      alert("Something went wrong... ");
-    }
-  });
-}
-
-function moveFunction(id, project) {
-  $.getJSON("/move/", { id:id, project:project }, function(json){
-    if (json['success'] == true) {
-      if ('msg' in json) {
-        alert(json['msg']);
-      } else {
-        divid = "#img" + id;
-        $(divid).hide();
-      }
-    } else {
-      alert("Something went wrong... ");
-    }
-  });
 }
 
 function shareFunction(id) {
@@ -89,89 +46,11 @@ function shareFunction(id) {
   });
 }
 
-function acceptFunction(id) {
-  $.getJSON("/accept/", { id:id }, function(json){
-    if (json['success'] == true) {
-      if ('msg' in json) {
-        alert(json['msg']);
-      }
-      setTimeout(function(){
-        window.location.reload();
-      });
-    } else {
-      alert("Something went wrong... ");
-    }
-  });
-}
-
-function renameFunction(id, filename) {
-  $.getJSON("/rename/", { id:id, filename:filename }, function(json){
-    if (json['success'] == true) {
-      if ('msg' in json) {
-        alert(json['msg']);
-      } else {
-          window.location.reload();
-      }
-    } else {
-      alert("Something went wrong... ");
-    }
-  });
-}
-
-function createFunction(id) {
-  $.getJSON("/dummy/", { id:id }, function(json){
-    if (json['success'] == true) {
-      window.location.href = "/create/" + id;
-      window.close();
-    } else {
-      alert("Something went wrong... ");
-    }
-  });
-}
-
 function addClickHandlers() {
-  $(".delete_link").click( function() {
-    var r = confirm("Delete File?");
-    if (r == true) {
-      deleteFunction(this.id);
-    }
-  });
-
-  $(".move_link").click( function() {
-    var project = prompt("Move to Project");
-    if (project != '' && project != null) {
-      project = parseInt(project);
-      if (!isNaN(project) && project > 0 && project < 10) {
-        moveFunction(this.id, project);
-      }
-    }
-  });
-
   $(".share_link").click( function() {
     var r = confirm("Copy to storage? This may take a while. Please be patient until completion");
     if (r == true) {
       shareFunction(this.id);
-    }
-  });
-
-  $(".rename_link").click( function() {
-    var res = (this.id).split(",");
-    var id = parseInt(res[0]);
-    var name = res[1];
-    var filename = prompt("Enter new filename", name);
-    if (filename != '' && filename != null) {
-      renameFunction(id, filename);
-    }
-  });
-
-  $(".accept_link").click( function() {
-    var res = (this.id).split(",")
-    var id = res[0]
-    var shared_by = res[1]
-
-    var r = confirm("Accept file shared by " + shared_by + "?");
-    if (r == true) {
-      acceptFunction(id);
     }
   });
 }

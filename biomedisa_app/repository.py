@@ -62,10 +62,6 @@ def repository(request, id=1):
     id: int
         Id of the repository
     '''
-    try:
-        state = request.session['state']
-    except KeyError:
-        state = None
     # get repository
     repository = get_object_or_404(Repository, pk=int(id))
     # search for specimen containing query and sort alphabetically
@@ -86,7 +82,7 @@ def repository(request, id=1):
         imshape = np.asarray(Image.open(BASE_DIR + f'/biomedisa_app/static/{repository.featured_img}')).shape
         imshape_x = 960
         imshape_y = int(imshape[0]/imshape[1]*960)
-    return render(request, 'repository.html', {'state':state, 'specimens':specimens, 'repository':repository,
+    return render(request, 'repository.html', {'specimens':specimens, 'repository':repository,
                 'all_specimens':all_specimens, 'featured_img':repository.featured_img,
                 'featured_img_width':imshape_x, 'featured_img_height':imshape_y,
                 'show_all': show_all})

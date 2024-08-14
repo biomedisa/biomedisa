@@ -5,27 +5,22 @@
 function alertFunction(state) {
     alert(state);
     window.location.href = "/cleanstate/storage";
-    window.close();
 }
 
 function sliceviewerFunction(id) {
     window.location.href = "/sliceviewer/" + id + "/?next=storage";
-    window.close();
 }
 
 function visualizationFunction(id) {
     window.location.href = "/visualization/?selected=" + id + "&next=storage";
-    window.close();
 }
 
 function viewFunction(id) {
     window.location.href = "/imageviewer/" + id;
-    window.close();
 }
 
 function changeFunction(id, val) {
     window.location.href = "/change_active_final/" + id + "/" + val + "/?next=storage";
-    window.close();
 }
 
 function toggle(value) {
@@ -109,7 +104,6 @@ function createFunction(id) {
   $.getJSON("/dummy/", { id:id }, function(json){
     if (json['success'] == true) {
       window.location.href = "/create/" + id;
-      window.close();
     } else {
       alert("Something went wrong... ");
     }
