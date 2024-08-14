@@ -20,7 +20,7 @@ sudo apt-get install libsm6 libxrender-dev unzip \
 ```
 
 #### Install CUDA
-Install [CUDA](https://developer.nvidia.com/cuda-downloads). You may choose any CUDA version compatible with your NVIDIA GPU architecture as outlined in the [NVIDIA Documentation](https://docs.nvidia.com/deeplearning/cudnn/latest/reference/support-matrix.html). If you select a version other than 12.6, you will need to adjust the following steps accordingly.
+Install [CUDA Toolkit](https://developer.nvidia.com/cuda-downloads). You may choose any CUDA version compatible with your NVIDIA GPU architecture as outlined in the [NVIDIA Documentation](https://docs.nvidia.com/deeplearning/cudnn/latest/reference/support-matrix.html). If you select a version other than 12.6, you will need to adjust the following steps accordingly.
 
 #### Verifying Driver Installation
 Reboot and verify whether the NVIDIA drivers are installed and working properly by running:
