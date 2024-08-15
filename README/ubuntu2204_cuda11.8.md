@@ -4,10 +4,10 @@
 - [Install software dependencies](#install-software-dependencies)
 - [Clone Biomedisa](#clone-biomedisa)
 - [Install CUDA 11.8](#install-cuda-11.8)
-- [Install TensorFlow](#install-tensorflow)
+- [Install cuDNN](#install-cudnn)
 - [Install pip packages](#install-pip-packages)
 - [Install MySQL database](#install-mysql-database)
-- [Config Biomedisa](#config-biomedisa)
+- [Configure Biomedisa](#configure-biomedisa)
 - [Run Biomedisa](#run-biomedisa)
 - [Install Apache Server (optional)](#install-apache-server-optional)
 
@@ -31,22 +31,24 @@ git clone https://github.com/biomedisa/biomedisa.git
 ```
 
 #### Install CUDA 11.8
-You may choose any CUDA version compatible with your NVIDIA GPU architecture [NVIDIA Documentation](https://docs.nvidia.com/deeplearning/cudnn/latest/reference/support-matrix.html) if you skip the TensorFlow installation for the Deep Learning module below.
+Add NVIDIA package repositories:
 ```
-# Add NVIDIA package repositories
 wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-ubuntu2204.pin
 sudo mv cuda-ubuntu2204.pin /etc/apt/preferences.d/cuda-repository-pin-600
 sudo apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/3bf863cc.pub
 sudo add-apt-repository "deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/ /"
-
-# If W: Key is stored in legacy trusted.gpg keyring (/etc/apt/trusted.gpg)
+```
+If W: Key is stored in legacy trusted.gpg keyring (/etc/apt/trusted.gpg):
+```
 sudo apt-key export 3BF863CC | sudo gpg --dearmour -o /etc/apt/trusted.gpg.d/cuda-tools.gpg
-
-# Install CUDA
+```
+Install CUDA Toolkit:
+```
 sudo apt-get update
 sudo apt-get install --no-install-recommends cuda-11-8
-
-# Reboot. Check that GPUs are visible using the command
+```
+Reboot and check that your GPUs are visible using the following command:
+```
 nvidia-smi
 ```
 
@@ -68,15 +70,16 @@ source ~/.bashrc
 nvcc --version
 ```
 
-#### Install TensorFlow (optional)
-Only required if you want to use Deep Learning.
+#### Install cuDNN
+Install development and runtime libraries:
 ```
-# Install development and runtime libraries.
 sudo apt-get install --no-install-recommends \
     libcudnn8=8.8.0.121-1+cuda11.8 \
     libcudnn8-dev=8.8.0.121-1+cuda11.8
-
-# OPTIONAL: hold packages to avoid crash after system update
+sudo apt-mark hold libcudnn8 libcudnn8-dev cuda-11-8
+```
+OPTIONAL: hold packages to avoid crash after a system update:
+```
 sudo apt-mark hold libcudnn8 libcudnn8-dev cuda-11-8
 ```
 
@@ -94,38 +97,50 @@ PATH=/usr/local/cuda-11.8/bin:${PATH} python3 -m pip install pycuda==2022.2.2
 python3 -m biomedisa.features.pycuda_test
 ```
 
-#### Install MySQL database
+#### Verify that TensorFlow detects your GPUs
 ```
-# Install MySQL
+python3 -c "import tensorflow as tf; print('Detected GPUs:', len(tf.config.list_physical_devices('GPU')))"
+```
+
+#### Install MySQL database
+Install MySQL:
+```
 sudo apt-get install mysql-server
-
-# Login to MySQL (as root)
+```
+Login to MySQL (as root):
+```
 sudo mysql -u root -p
-
-# If ERROR 2002 (HY000): Can't connect to local MySQL server through socket '/var/run/mysqld/mysqld.sock' (2)
+```
+If ERROR 2002 (HY000): Can't connect to local MySQL server through socket '/var/run/mysqld/mysqld.sock' (2):
+```
 sudo service mysql stop
 sudo usermod -d /var/lib/mysql/ mysql
 sudo service mysql start
 sudo mysql -u root -p
-
-# Set root password for MySQL database
+```
+Set root password for MySQL database:
+```
 ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'biomedisa_root_password';
 quit;
 sudo service mysql stop
 sudo service mysql start
-
-# Login to MySQL (with the 'biomedisa_root_password' you just set)
+```
+Login to MySQL (with the 'biomedisa_root_password' you just set):
+```
 mysql -u root -p
-
-# Create a user 'biomedisa' with password 'biomedisa_user_password' (same as set for 'DJANGO_DATABASE')
+```
+Create a user 'biomedisa' with password 'biomedisa_user_password' (same as set for 'DJANGO_DATABASE'):
+```
 CREATE USER 'biomedisa'@'localhost' IDENTIFIED BY 'biomedisa_user_password';
 GRANT ALL PRIVILEGES ON *.* TO 'biomedisa'@'localhost' WITH GRANT OPTION;
-
-# Create Biomedisa database
+```
+Create Biomedisa database:
+```
 CREATE DATABASE biomedisa_database;
 exit;
-
-# Add the following line to /etc/mysql/mysql.conf.d/mysqld.cnf
+```
+Add the following line to /etc/mysql/mysql.conf.d/mysqld.cnf:
+```
 wait_timeout = 604800
 ```
 

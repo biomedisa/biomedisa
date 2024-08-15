@@ -6,14 +6,11 @@
 - [Add Biomedisa modules to 3D Slicer](#add-biomedisa-modules-to-3d-slicer)
 - [Install pip packages](#install-pip-packages)
 - [Install CUDA 11.8](#install-cuda-11.8)
-- [Install TensorFlow (optional)](#install-tensorflow-optional)
-- [Nasty double installation](#nasty-double-installation)
+- [Install cuDNN (optional)](#install-cudnn-optional)
 - [Install mpi4py, PyCUDA, and TensorFlow](#install-mpi4py,-pycuda,-and-tensorflow)
-- [Verify PyCUDA](#verify-that-pycuda)
 
 #### Download 3D Slicer
 Download [3D Slicer](https://download.slicer.org/) and extract the files to a location of your choice.
-
 
 #### Install software dependencies
 ```
@@ -39,7 +36,7 @@ git/biomedisa/biomedisa_slicer_extension/biomedisa_extension/SegmentEditorBiomed
 git/biomedisa/biomedisa_slicer_extension/biomedisa_extension/SegmentEditorBiomedisaPrediction
 git/biomedisa/biomedisa_slicer_extension/biomedisa_extension/SegmentEditorBiomedisaTraining
 ```
-Restart 3D Slicer
+Restart 3D Slicer.
 
 #### Install pip packages using the Python environment in 3D Slicer
 You need to run `PythonSlicer` from within `Slicer-VERSION-linux-amd64/bin`:
@@ -52,49 +49,52 @@ You need to run `PythonSlicer` from within `Slicer-VERSION-linux-amd64/bin`:
 ```
 
 #### Install CUDA 11.8
-You may choose any CUDA version compatible with your NVIDIA GPU architecture [NVIDIA Documentation](https://docs.nvidia.com/deeplearning/cudnn/latest/reference/support-matrix.html) if you skip the TensorFlow installation for the Deep Learning module below.
+You may choose any CUDA version compatible with your NVIDIA GPU architecture as outlined in the [NVIDIA Documentation](https://docs.nvidia.com/deeplearning/cudnn/latest/reference/support-matrix.html) if you skip the cuDNN installation for the Deep Learning module below. If you select a version other than 12.6, you will need to adjust the following steps accordingly:
+Add NVIDIA package repositories:
 ```
-# Add NVIDIA package repositories
 wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-ubuntu2204.pin
 sudo mv cuda-ubuntu2204.pin /etc/apt/preferences.d/cuda-repository-pin-600
 sudo apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/3bf863cc.pub
 sudo add-apt-repository "deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/ /"
-
-# If W: Key is stored in legacy trusted.gpg keyring (/etc/apt/trusted.gpg)
+```
+If W: Key is stored in legacy trusted.gpg keyring (/etc/apt/trusted.gpg):
+```
 sudo apt-key export 3BF863CC | sudo gpg --dearmour -o /etc/apt/trusted.gpg.d/cuda-tools.gpg
-
-# Install CUDA
+```
+Install CUDA Toolkit:
+```
 sudo apt-get update
 sudo apt-get install --no-install-recommends cuda-11-8
-
-# Reboot. Check that GPUs are visible using the command
+```
+Reboot and check that your GPUs are visible using the following command:
+```
 nvidia-smi
+```
 
-# Add the CUDA paths to your '~/.bashrc' file
+#### Adapt PATH variables
+Add the CUDA paths to your '~/.bashrc' file:
+```
 echo 'export CUDA_HOME=/usr/local/cuda-11.8' >> ~/.bashrc
 echo 'export LD_LIBRARY_PATH=${CUDA_HOME}/lib64' >> ~/.bashrc
 echo 'export PATH=${CUDA_HOME}/bin:${PATH}' >> ~/.bashrc
-
-# Reload .bashrc and verify that CUDA is installed properly
+```
+Reload .bashrc and verify that CUDA is installed properly:
+```
 source ~/.bashrc
 nvcc --version
 ```
 
-#### Install TensorFlow (optional)
-Only required if you want to use Deep Learning.
+#### Install cuDNN (optional)
+Only required if you want to use Deep Learning. Install development and runtime libraries:
 ```
-# Install development and runtime libraries.
 sudo apt-get install --no-install-recommends \
     libcudnn8=8.8.0.121-1+cuda11.8 \
     libcudnn8-dev=8.8.0.121-1+cuda11.8
-
-# Install TensorRT. Requires that libcudnn8 is installed above.
-sudo apt-get install --no-install-recommends libnvinfer8=8.5.3-1+cuda11.8 \
-    libnvinfer-dev=8.5.3-1+cuda11.8 \
-    libnvinfer-plugin8=8.5.3-1+cuda11.8
-
-# OPTIONAL: hold packages to avoid crash after system update
-sudo apt-mark hold libcudnn8 libcudnn8-dev libnvinfer-dev libnvinfer-plugin8 libnvinfer8 cuda-11-8
+sudo apt-mark hold libcudnn8 libcudnn8-dev cuda-11-8
+```
+OPTIONAL: hold packages to avoid crash after a system update:
+```
+sudo apt-mark hold libcudnn8 libcudnn8-dev cuda-11-8
 ```
 
 #### Install Python 3.9 and development tools
@@ -133,3 +133,9 @@ PATH=/usr/local/cuda-11.8/bin:${PATH} ./PythonSlicer -m pip install pycuda
 ```
 ./PythonSlicer -m biomedisa.features.pycuda_test
 ```
+
+#### Verify that TensorFlow detects your GPUs
+```
+./PythonSlicer -c "import tensorflow as tf; print('Detected GPUs:', len(tf.config.list_physical_devices('GPU')))"
+```
+
