@@ -6,8 +6,8 @@
 - [Install CUDA 11.8](#install-cuda-11.8)
 - [Install cuDNN](#install-cudnn)
 - [Install pip packages](#install-pip-packages)
-- [Install MySQL database](#install-mysql-database)
 - [Configure Biomedisa](#configure-biomedisa)
+- [Install MySQL database](#install-mysql-database)
 - [Run Biomedisa](#run-biomedisa)
 - [Install Apache Server (optional)](#install-apache-server-optional)
 
@@ -38,7 +38,7 @@ sudo mv cuda-ubuntu2204.pin /etc/apt/preferences.d/cuda-repository-pin-600
 sudo apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/3bf863cc.pub
 sudo add-apt-repository "deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/ /"
 ```
-If W: Key is stored in legacy trusted.gpg keyring (/etc/apt/trusted.gpg):
+If the error `W: Key is stored in legacy trusted.gpg keyring (/etc/apt/trusted.gpg)` occurs:
 ```
 sudo apt-key export 3BF863CC | sudo gpg --dearmour -o /etc/apt/trusted.gpg.d/cuda-tools.gpg
 ```
@@ -84,7 +84,7 @@ sudo apt-mark hold libcudnn8 libcudnn8-dev cuda-11-8
 ```
 
 #### Install pip packages
-Download Biomedisa [dependencies](https://biomedisa.info/media/requirements.txt) and install the packages. Note: If you run Biomedisa with an Apache Server (optional), you must install your packages system-wide using `sudo -H python3 -m pip install <package>`.
+Download the Biomedisa [dependencies](https://biomedisa.info/media/requirements.txt) and install the packages. Note: If you run Biomedisa with an Apache Server (optional), you must install your packages system-wide using `sudo -H python3 -m pip install <package>`.
 ```
 wget https://biomedisa.info/media/requirements.txt
 python3 -m pip install -r requirements.txt
@@ -102,6 +102,18 @@ python3 -m biomedisa.features.pycuda_test
 python3 -c "import tensorflow as tf; print('Detected GPUs:', len(tf.config.list_physical_devices('GPU')))"
 ```
 
+#### Configure Biomedisa
+Make `config.py` as a copy of `config_example.py`:
+```
+cp ~/git/biomedisa/biomedisa_app/config_example.py ~/git/biomedisa/biomedisa_app/config.py
+```
+Adapt the following lines in `~/git/biomedisa/biomedisa_app/config.py`:
+```
+'SECRET_KEY' : 'vl[cihu8uN!FrJoDbEqUymgMR()n}y7744$2;YLDm3Q8;MMX-g', # some random string
+'DJANGO_DATABASE' : 'biomedisa_user_password', # password for the user 'biomedisa' that you created in the previous step
+'ALLOWED_HOSTS' : ['localhost', '0.0.0.0'], # you must tell django explicitly which hosts are allowed (e.g. your IP and/or the URL of your homepage when running an APACHE server)
+```
+
 #### Install MySQL database
 Install MySQL:
 ```
@@ -111,7 +123,7 @@ Login to MySQL (as root):
 ```
 sudo mysql -u root -p
 ```
-If ERROR 2002 (HY000): Can't connect to local MySQL server through socket '/var/run/mysqld/mysqld.sock' (2):
+If the error `ERROR 2002 (HY000): Can't connect to local MySQL server through socket '/var/run/mysqld/mysqld.sock' (2)` occurs:
 ```
 sudo service mysql stop
 sudo usermod -d /var/lib/mysql/ mysql
@@ -139,21 +151,9 @@ Create Biomedisa database:
 CREATE DATABASE biomedisa_database;
 exit;
 ```
-Add the following line to /etc/mysql/mysql.conf.d/mysqld.cnf:
+Add the following line to `/etc/mysql/mysql.conf.d/mysqld.cnf`:
 ```
 wait_timeout = 604800
-```
-
-#### Configure Biomedisa
-Make `config.py` as a copy of `config_example.py`:
-```
-cp ~/git/biomedisa/biomedisa_app/config_example.py ~/git/biomedisa/biomedisa_app/config.py
-```
-Adapt the following lines in `~/git/biomedisa/biomedisa_app/config.py`:
-```
-'SECRET_KEY' : 'vl[cihu8uN!FrJoDbEqUymgMR()n}y7744$2;YLDm3Q8;MMX-g', # some random string
-'DJANGO_DATABASE' : 'biomedisa_user_password', # password for the user 'biomedisa' that you created in the previous step
-'ALLOWED_HOSTS' : ['localhost', '0.0.0.0'], # you must tell django explicitly which hosts are allowed (e.g. your IP and/or the URL of your homepage when running an APACHE server)
 ```
 Migrate the database and create a superuser:
 ```
