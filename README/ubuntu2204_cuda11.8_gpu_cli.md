@@ -28,7 +28,7 @@ sudo mv cuda-ubuntu2204.pin /etc/apt/preferences.d/cuda-repository-pin-600
 sudo apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/3bf863cc.pub
 sudo add-apt-repository "deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/ /"
 ```
-If W: Key is stored in legacy trusted.gpg keyring (/etc/apt/trusted.gpg):
+If the error `W: Key is stored in legacy trusted.gpg keyring (/etc/apt/trusted.gpg)` occurs:
 ```
 sudo apt-key export 3BF863CC | sudo gpg --dearmour -o /etc/apt/trusted.gpg.d/cuda-tools.gpg
 ```
@@ -73,7 +73,7 @@ sudo apt-mark hold libcudnn8 libcudnn8-dev cuda-11-8
 ```
 
 #### Install pip packages
-Download Biomedisa [dependencies](https://biomedisa.info/media/requirements.txt) and install the packages:
+Download the Biomedisa [dependencies](https://biomedisa.info/media/requirements.txt) and install the packages:
 ```
 wget https://biomedisa.info/media/requirements.txt
 python3 -m pip install -r requirements.txt
