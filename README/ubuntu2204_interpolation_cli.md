@@ -20,7 +20,16 @@ sudo apt-get install libsm6 libxrender-dev unzip \
 ```
 
 #### Install CUDA Toolkit
-Install [CUDA](https://developer.nvidia.com/cuda-downloads) Toolkit. You may choose any CUDA version compatible with your NVIDIA GPU architecture as outlined in the [NVIDIA Documentation](https://docs.nvidia.com/deeplearning/cudnn/latest/reference/support-matrix.html). If you select a version other than 12.6, you will need to adjust the following steps accordingly.
+Install [CUDA](https://developer.nvidia.com/cuda-downloads) Toolkit. You may choose any CUDA version compatible with your NVIDIA GPU architecture as outlined in the [NVIDIA Documentation](https://docs.nvidia.com/deeplearning/cudnn/latest/reference/support-matrix.html). If you select a version other than 12.6, you will need to adjust the following steps accordingly:
+```
+wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-ubuntu2204.pin
+sudo mv cuda-ubuntu2204.pin /etc/apt/preferences.d/cuda-repository-pin-600
+wget https://developer.download.nvidia.com/compute/cuda/12.6.0/local_installers/cuda-repo-ubuntu2204-12-6-local_12.6.0-560.28.03-1_amd64.deb
+sudo dpkg -i cuda-repo-ubuntu2204-12-6-local_12.6.0-560.28.03-1_amd64.deb
+sudo cp /var/cuda-repo-ubuntu2204-12-6-local/cuda-*-keyring.gpg /usr/share/keyrings/
+sudo apt-get update
+sudo apt-get -y install cuda-toolkit-12-6
+```
 
 #### Verifying Driver Installation
 Reboot and verify whether the NVIDIA drivers are installed and working properly by running:
@@ -56,7 +65,8 @@ nvcc --version
 python3 -m pip install pip setuptools testresources scikit-build
 python3 -m pip install numpy scipy h5py colorama numpy-stl \
     numba imagecodecs tifffile scikit-image opencv-python netCDF4 mrcfile \
-    Pillow nibabel medpy SimpleITK mpi4py itk vtk matplotlib biomedisa
+    Pillow nibabel medpy SimpleITK mpi4py itk vtk matplotlib biomedisa \
+    importlib_metadata
 PATH=/usr/local/cuda-12.6/bin:${PATH} python3 -m pip install pycuda
 ```
 
@@ -73,3 +83,4 @@ python3 -m biomedisa.interpolation Downloads/tumor.tif Downloads/labels.tumor.ti
 
 #### Install Biomedisa from source (optional)
 To develop Biomedisa or for the latest version install Biomedisa from [source](https://github.com/biomedisa/biomedisa/blob/master/README/installation_from_source.md).
+
