@@ -107,7 +107,7 @@ def random_rotation_3d(image, max_angle=180):
 class DataGenerator(tf.keras.utils.Sequence):
     'Generates data for Keras'
     def __init__(self, img, label, list_IDs_fg, list_IDs_bg, shuffle, train, classification, batch_size=32, dim=(32,32,32),
-                 dim_img=(32,32,32), n_classes=10, n_channels=1, augment=(False,False,False,False,0), patch_normalization=False):
+                 dim_img=(32,32,32), n_classes=10, n_channels=1, augment=(False,False,False,False,0), patch_normalization=False, separation=False):
         'Initialization'
         self.dim = dim
         self.dim_img = dim_img
@@ -124,6 +124,7 @@ class DataGenerator(tf.keras.utils.Sequence):
         self.classification = classification
         self.on_epoch_end()
         self.patch_normalization = patch_normalization
+        self.separation = separation
 
     def __len__(self):
         'Denotes the number of batches per epoch'
@@ -246,6 +247,13 @@ class DataGenerator(tf.keras.utils.Sequence):
                 # get patch
                 tmp_X = self.img[k:k+self.dim[0],l:l+self.dim[1],m:m+self.dim[2]]
                 tmp_y = self.label[k:k+self.dim[0],l:l+self.dim[1],m:m+self.dim[2]]
+
+                # center label gets value 1
+                if self.separation:
+                    centerLabel = tmp_y[self.dim[0]//2,self.dim[1]//2,self.dim[2]//2]
+                    tmp_y = tmp_y.copy()
+                    tmp_y[tmp_y!=centerLabel]=0
+                    tmp_y[tmp_y==centerLabel]=1
 
                 # augmentation
                 if self.train:

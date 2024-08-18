@@ -9,3 +9,4 @@ paraview.zip
 !**/.gitkeep
 NotificationsAllUsers.txt
 biomedisa_slicer_extension/biomedisa_extension/biomedisa_module/Resources/*.pth
+.vscode/
