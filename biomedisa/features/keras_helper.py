@@ -868,7 +868,8 @@ def train_semantic_segmentation(bm,
               'n_classes': nb_labels,
               'n_channels': bm.channels,
               'augment': (bm.flip_x, bm.flip_y, bm.flip_z, bm.swapaxes, bm.rotate),
-              'patch_normalization': bm.patch_normalization}
+              'patch_normalization': bm.patch_normalization,
+              'separation': bm.separation}
 
     # data generator
     validation_generator = None
