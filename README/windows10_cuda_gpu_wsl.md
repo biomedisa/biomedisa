@@ -16,7 +16,7 @@ At Intel it is typically called "Intel Virtualization Technology" and can be fou
 #### Install WSL and Ubuntu 22.04 with administrative privileges
 Open command prompt with administrative privileges and run:
 ```
-wsl --install --d Ubuntu-22.04
+wsl --install -d Ubuntu-22.04
 ```
 Reboot Windows to complete the installation.
 
