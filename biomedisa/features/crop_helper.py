@@ -542,7 +542,8 @@ def load_and_train(normalize,path_to_img,path_to_labels,path_to_model,
                 cropping_weights.append(arr)
 
     # configuration data
-    cropping_config = np.array([channels, x_scale, y_scale, z_scale, normalize, 0, 1])
+    cropping_config = np.array([channels, x_scale, y_scale, z_scale, normalize,
+        normalization_parameters[0,0], normalization_parameters[1,0]])
 
     return cropping_weights, cropping_config, normalization_parameters
 

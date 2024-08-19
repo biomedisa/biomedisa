@@ -780,7 +780,9 @@ def train_semantic_segmentation(bm,
                     bm.only, bm.ignore, img, label, None, None, header, extension)
 
     # configuration data
-    configuration_data = np.array([bm.channels, bm.x_scale, bm.y_scale, bm.z_scale, bm.normalize, 0, 1])
+    configuration_data = np.array([bm.channels,
+        bm.x_scale, bm.y_scale, bm.z_scale, bm.normalize,
+        normalization_parameters[0,0], normalization_parameters[1,0]])
 
     # img shape
     zsh, ysh, xsh, _ = img.shape
