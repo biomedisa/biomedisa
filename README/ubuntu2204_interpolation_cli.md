@@ -38,7 +38,7 @@ nvidia-smi
 ```
 
 #### Installing NVIDIA Drivers Separately
-If the NVIDIA drivers are not installed, you can install them separately with:
+If the NVIDIA drivers are **not** installed, you can install them separately with:
 ```
 sudo apt install nvidia-driver-<version>
 ```
