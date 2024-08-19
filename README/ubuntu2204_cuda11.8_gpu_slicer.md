@@ -90,7 +90,6 @@ Only required if you want to use Deep Learning. Install development and runtime 
 sudo apt-get install --no-install-recommends \
     libcudnn8=8.8.0.121-1+cuda11.8 \
     libcudnn8-dev=8.8.0.121-1+cuda11.8
-sudo apt-mark hold libcudnn8 libcudnn8-dev cuda-11-8
 ```
 OPTIONAL: hold packages to avoid crash after a system update:
 ```
