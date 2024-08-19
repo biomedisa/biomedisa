@@ -65,7 +65,6 @@ Install development and runtime libraries:
 sudo apt-get install --no-install-recommends \
     libcudnn8=8.8.0.121-1+cuda11.8 \
     libcudnn8-dev=8.8.0.121-1+cuda11.8
-sudo apt-mark hold libcudnn8 libcudnn8-dev cuda-11-8
 ```
 OPTIONAL: hold packages to avoid crash after a system update:
 ```
@@ -77,7 +76,7 @@ Download the Biomedisa [dependencies](https://biomedisa.info/media/requirements.
 ```
 wget https://biomedisa.info/media/requirements.txt
 python3 -m pip install -r requirements.txt
-PATH=/usr/local/cuda-11.8/bin:${PATH} python3 -m pip install pycuda==2022.2.2
+PATH=/usr/local/cuda-11.8/bin:${PATH} python3 -m pip install pycuda
 ```
 
 #### Verify that PyCUDA is working properly
