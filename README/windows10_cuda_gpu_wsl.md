@@ -36,9 +36,9 @@ Follow the Biomedisa installation instructions for [Ubuntu](https://github.com/b
 
 
 #### Run Biomedisa
-Within WSL you will usually find your Windows user directory under `/mnt/c/$USER`, e.g.:
+Within WSL you will usually find your Windows user directory under `/mnt/c/Users/$USER`, e.g.:
 ```
-python -m biomedisa.interpolation /mnt/c/$USER/Downloads/tumor.tif /mnt/c/$USER/Downloads/labels.tumor.tif
+python3 -m biomedisa.interpolation /mnt/c/Users/$USER/Downloads/tumor.tif /mnt/c/Users/$USER/Downloads/labels.tumor.tif
 
 ```
 
