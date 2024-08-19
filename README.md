@@ -26,7 +26,7 @@ Biomedisa (https://biomedisa.info) is a free and easy-to-use open-source applica
 + [Ubuntu 22.04 + Smart Interpolation](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu2204_interpolation_cli.md)
 + [Ubuntu 22.04 + Smart Interpolation + Deep Learning](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu2204_cuda11.8_gpu_cli.md)
 + [Windows 10 + Smart Interpolation + Deep Learning](https://github.com/biomedisa/biomedisa/blob/master/README/windows10_cuda_gpu_cli.md)
-+ [Windows + Smart Interpolation + Deep Learning (WSL)](https://github.com/biomedisa/biomedisa/blob/master/README/windows_wsl.md)
++ [Windows (WSL) + Smart Interpolation + Deep Learning](https://github.com/biomedisa/biomedisa/blob/master/README/windows_wsl.md)
 
 ## Installation (3D Slicer extension)
 + [Ubuntu 22.04 + Smart Interpolation + Deep Learning](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu2204_cuda11.8_gpu_slicer.md)
