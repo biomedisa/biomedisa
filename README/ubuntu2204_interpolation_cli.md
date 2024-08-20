@@ -76,7 +76,7 @@ python3 -m biomedisa.features.pycuda_test
 ```
 
 #### Biomedisa example
-Download test files from [Gallery](https://biomedisa.info/gallery/) and run:
+Download test files from the Biomedisa [gallery](https://biomedisa.info/gallery/) and run:
 ```
 python3 -m biomedisa.interpolation Downloads/tumor.tif Downloads/labels.tumor.tif
 ```
