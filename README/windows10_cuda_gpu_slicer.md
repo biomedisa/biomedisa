@@ -79,12 +79,12 @@ Drag and Drop the following directory in the field "Additional module paths"
 ```
 git/biomedisa/biomedisa_slicer_extension/biomedisa_extension/SegmentEditorBiomedisa
 ```
-Restart 3D Slicer
+Restart 3D Slicer.
 
 #### Install Anaconda3
 Download and install [Anaconda3](https://www.anaconda.com/products/individual#windows).
 
-#### Install environment (nasty double installation of pycuda packages, hopefully will be fixed soon)
+#### Install environment (nasty double installation of PyCUDA)
 Open Anaconda Prompt (e.g. Windows Search `Anaconda Prompt`) and install environment:
 ```
 conda create -n slicer_extension python=3.9
@@ -103,10 +103,13 @@ PythonSlicer.exe -m pip install numpy scipy h5py colorama numpy-stl \
     importlib_metadata PyQt5 debugpy
 ```
 
-#### Install PyCUDA and verify it is working properly in the 3D Slicer environment
+#### Install PyCUDA in the 3D Slicer environment
 Conda environment must still be activated.
 ```
 PythonSlicer.exe -m pip install pycuda
-PythonSlicer.exe -m biomedisa.features.pycuda_test
 ```
 
+#### Verify PyCUDA is working properly in the 3D Slicer environment
+```
+PythonSlicer.exe -m biomedisa.features.pycuda_test
+```
