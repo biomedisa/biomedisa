@@ -21,7 +21,7 @@ wsl --install -d Ubuntu-22.04
 Reboot Windows to complete the installation.
 
 #### Start and update Ubuntu
-Start WSL:
+Open command prompt and start WSL:
 ```
 wsl
 ```
@@ -29,6 +29,7 @@ Update Ubuntu:
 ```
 sudo apt-get update
 sudo apt-get dist-upgrade
+sudo apt-get autoremove
 ```
 
 #### Install Biomedisa
