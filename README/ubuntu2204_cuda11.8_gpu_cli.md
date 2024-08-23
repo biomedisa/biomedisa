@@ -21,7 +21,7 @@ sudo apt-get install libsm6 libxrender-dev unzip \
 ```
 
 #### Install CUDA 11.8
-Add NVIDIA package repositories:
+Biomedisa's Deep Learning framework requires TensorFlow 2.13, which is compatible with CUDA 11.8 and cuDNN 8.8.0. Please ensure that you install these specific versions, as higher versions are not yet supported. Add NVIDIA package repositories:
 ```
 wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-ubuntu2204.pin
 sudo mv cuda-ubuntu2204.pin /etc/apt/preferences.d/cuda-repository-pin-600
