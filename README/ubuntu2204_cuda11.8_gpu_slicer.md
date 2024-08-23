@@ -49,8 +49,7 @@ You need to run `PythonSlicer` from within `Slicer-VERSION-linux-amd64/bin`:
 ```
 
 #### Install CUDA 11.8
-You may choose any CUDA version compatible with your NVIDIA GPU architecture as outlined in the [NVIDIA Documentation](https://docs.nvidia.com/deeplearning/cudnn/latest/reference/support-matrix.html) if you skip the cuDNN installation for the Deep Learning module below. If you select a version other than 12.6, you will need to adjust the following steps accordingly:
-Add NVIDIA package repositories:
+Biomedisa's Deep Learning framework requires TensorFlow 2.13, which is compatible with CUDA 11.8 and cuDNN 8.8.0. Please ensure that you install these specific versions, as higher versions are not yet supported. You may choose any CUDA version compatible with your NVIDIA GPU architecture as outlined in the [NVIDIA Documentation](https://docs.nvidia.com/deeplearning/cudnn/latest/reference/support-matrix.html) if you skip the cuDNN installation for the Deep Learning module below. Add NVIDIA package repositories:
 ```
 wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-ubuntu2204.pin
 sudo mv cuda-ubuntu2204.pin /etc/apt/preferences.d/cuda-repository-pin-600
