@@ -382,8 +382,9 @@ def load_training_data(bm, normalize, img_list, label_list, channels, x_scale, y
                 label_names = ['label_1']
             label_dim = label.shape
             label = set_labels_to_zero(label, labels_to_compute, labels_to_remove)
-            label_values, counts = np.unique(label, return_counts=True)
-            print(f'{os.path.basename(label_names[0])}:', 'Labels:', label_values[1:], 'Sizes:', counts[1:])
+            if not bm.separation:
+                label_values, counts = np.unique(label, return_counts=True)
+                print(f'{os.path.basename(label_names[0])}:', 'Labels:', label_values[1:], 'Sizes:', counts[1:])
             if crop_data:
                 argmin_z,argmax_z,argmin_y,argmax_y,argmin_x,argmax_x = predict_blocksize(label, x_puffer, y_puffer, z_puffer)
                 label = np.copy(label[argmin_z:argmax_z,argmin_y:argmax_y,argmin_x:argmax_x], order='C')
@@ -465,8 +466,9 @@ def load_training_data(bm, normalize, img_list, label_list, channels, x_scale, y
                         a = label_in[k]
                     label_dim = a.shape
                     a = set_labels_to_zero(a, labels_to_compute, labels_to_remove)
-                    label_values, counts = np.unique(a, return_counts=True)
-                    print(f'{os.path.basename(label_names[k])}:', 'Labels:', label_values[1:], 'Sizes:', counts[1:])
+                    if not bm.separation:
+                        label_values, counts = np.unique(a, return_counts=True)
+                        print(f'{os.path.basename(label_names[k])}:', 'Labels:', label_values[1:], 'Sizes:', counts[1:])
                     if crop_data:
                         argmin_z,argmax_z,argmin_y,argmax_y,argmin_x,argmax_x = predict_blocksize(a, x_puffer, y_puffer, z_puffer)
                         a = np.copy(a[argmin_z:argmax_z,argmin_y:argmax_y,argmin_x:argmax_x], order='C')
@@ -821,7 +823,7 @@ def train_semantic_segmentation(bm,
                     if bm.separation:
                         centerLabel = label[k+bm.z_patch//2,l+bm.y_patch//2,m+bm.x_patch//2]
                         patch = label[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]
-                        if centerLabel>0 and np.any(np.logical_and(patch>0, patch!=centerLabel)):
+                        if centerLabel>0 and np.any(patch!=centerLabel):
                             list_IDs_fg.append(k*ysh*xsh+l*xsh+m)
                     else:
                         list_IDs_fg.append(k*ysh*xsh+l*xsh+m)
@@ -850,7 +852,7 @@ def train_semantic_segmentation(bm,
                         if bm.separation:
                             centerLabel = label_val[k+bm.z_patch//2,l+bm.y_patch//2,m+bm.x_patch//2]
                             patch = label_val[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]
-                            if centerLabel>0 and np.any(np.logical_and(patch>0, patch!=centerLabel)):
+                            if centerLabel>0 and np.any(patch!=centerLabel):
                                 list_IDs_val_fg.append(k*ysh_val*xsh_val+l*xsh_val+m)
                         else:
                             list_IDs_val_fg.append(k*ysh_val*xsh_val+l*xsh_val+m)
@@ -1134,7 +1136,6 @@ def predict_semantic_segmentation(bm,
                         centerLabel = mask[k+bm.z_patch//2,l+bm.y_patch//2,m+bm.x_patch//2]
                         patch = mask[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]
                         if centerLabel>0 and np.any(patch!=centerLabel):
-                            #if mask[k+bm.z_patch//2,l+bm.y_patch//2,m+bm.x_patch//2]:
                             list_IDs.append(k*ysh*xsh+l*xsh+m)
                     else:
                         list_IDs.append(k*ysh*xsh+l*xsh+m)
@@ -1236,7 +1237,6 @@ def predict_semantic_segmentation(bm,
                         centerLabel = mask[z+bm.z_patch//2,l+bm.y_patch//2,m+bm.x_patch//2]
                         patch = mask[z:z+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]
                         if centerLabel>0 and np.any(patch!=centerLabel):
-                            #if mask[z+bm.z_patch//2,l+bm.y_patch//2,m+bm.x_patch//2]:
                             list_IDs.append(z*ysh*xsh+l*xsh+m)
                     else:
                         list_IDs.append(z*ysh*xsh+l*xsh+m)
