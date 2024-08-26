@@ -61,10 +61,6 @@ class Helper():
              y_min: int, y_max: int,
              z_min: int, z_max: int) -> np.ndarray:
         fullimage = np.zeros((dimensions[2], dimensions[1], dimensions[0]), dtype=image.dtype)
-        print(f"fullimage: {fullimage.shape}")
-        print(f"x_range: {x_min, x_max}")
-        print(f"y_range: {y_min, y_max}")
-        print(f"z_range: {z_min, z_max}")
         fullimage[z_min:z_max+1, y_min:y_max+1, x_min:x_max+1] = image
         return fullimage
 
