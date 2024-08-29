@@ -1,4 +1,5 @@
 class BiomedisaPredictionParameter():
+    name: str = "BiomedisaPredictionParameter"
     path_to_model: str = ""
     stride_size: int = 32
     batch_size_active: bool = False

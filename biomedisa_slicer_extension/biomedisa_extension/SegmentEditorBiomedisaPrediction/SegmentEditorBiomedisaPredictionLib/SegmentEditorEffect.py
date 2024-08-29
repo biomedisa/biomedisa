@@ -8,7 +8,7 @@ from biomedisa_extension.SegmentEditorBiomedisaPrediction.Logic.BiomedisaPredict
 from biomedisa_extension.SegmentEditorBiomedisaPrediction.Logic.BiomedisaPredictionLogic import BiomedisaPredictionLogic
 from biomedisa_extension.SegmentEditorCommon.AbstractBiomedisaSegmentEditorEffect import AbstractBiomedisaSegmentEditorEffect
 from biomedisa_extension.SegmentEditorCommon.ListSelectionDialog import ListSelectionDialog
-from biomedisa_extension.SegmentEditorCommon.AxisControl import AxisControl
+from biomedisa_extension.SegmentEditorCommon.RoiSelectionWidget import ROISelectionWidget
 
 class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
 
@@ -98,20 +98,11 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     self.batch_size_layout.setStretch(1, 1)
     collapsibleLayout.addRow("Batch size:", self.batch_size_layout)
 
-    self.xControl = AxisControl()
-    self.yControl = AxisControl()
-    self.zControl = AxisControl()
-    boundingBoxLayout = qt.QHBoxLayout()
-    boundingBoxLayout.addStretch()
-    boundingBoxLayout.addWidget(qt.QLabel("Prediction area"))
-    boundingBoxLayout.addStretch()
-    collapsibleLayout.addRow("", boundingBoxLayout)
-    collapsibleLayout.addRow("Sagittal (X):", self.xControl)
-    collapsibleLayout.addRow("Coronal (Y):", self.yControl)
-    collapsibleLayout.addRow("Axial (Z):", self.zControl)
+    self.roiSelectionWidget = ROISelectionWidget(self.scriptedEffect, "Biomedisa Prediction ROI")
+    collapsibleLayout.addRow("Prediction area", self.roiSelectionWidget)
 
     self.setParameterToGui(BiomedisaPredictionParameter())
-    
+
     collapsibleLayout.addRow("Parameter:", self.createParameterGui())
     AbstractBiomedisaSegmentEditorEffect.setupOptionsFrame(self)
 
@@ -120,9 +111,6 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     if sourceImageData is None:
       return
     dim = sourceImageData.GetDimensions()
-    self.xControl.updateMaximum(dim[0]-1)
-    self.yControl.updateMaximum(dim[1]-1)
-    self.zControl.updateMaximum(dim[2]-1)
 
   def onLoadParameter(self):
     parameterList = self.getSavedParameter()
@@ -130,6 +118,7 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     def handleDialogClosed(selected_item):
       if selected_item:
         parameter = self.loadParameter(BiomedisaPredictionParameter, selected_item)
+        parameter.name = selected_item
         self.setParameterToGui(parameter)
     self.dialog.dialogClosed.connect(handleDialogClosed)
     self.dialog.show()
@@ -139,17 +128,19 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     self.setParameterToGui(parameter)
 
   def getParameterFromGui(self) -> BiomedisaPredictionParameter:
+    roiXYZ = self.roiSelectionWidget.getXYZMinMax()
+
     parameter = BiomedisaPredictionParameter()
     parameter.path_to_model = self.path_to_model.text
     parameter.stride_size = self.stride_size.value
     parameter.batch_size_active = self.batch_size_active.isChecked()
     parameter.batch_size = self.batch_size.value
-    parameter.x_min = self.xControl.getMinValue()
-    parameter.x_max = self.xControl.getMaxValue()
-    parameter.y_min = self.yControl.getMinValue()
-    parameter.y_max = self.yControl.getMaxValue()
-    parameter.z_min = self.zControl.getMinValue()
-    parameter.z_max = self.zControl.getMaxValue()
+    parameter.x_min = roiXYZ[0]
+    parameter.x_max = roiXYZ[1]
+    parameter.y_min = roiXYZ[2]
+    parameter.y_max = roiXYZ[3]
+    parameter.z_min = roiXYZ[4]
+    parameter.z_max = roiXYZ[5]
     return parameter
   
   def setParameterToGui(self, parameter: BiomedisaPredictionParameter):
@@ -157,12 +148,10 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     self.stride_size.value = parameter.stride_size
     self.batch_size_active.setChecked(parameter.batch_size_active)
     self.batch_size.value = parameter.batch_size
-    self.xControl.setMinValue(parameter.x_min)
-    self.xControl.setMaxValue(parameter.x_max)
-    self.yControl.setMinValue(parameter.y_min)
-    self.yControl.setMaxValue(parameter.y_max)
-    self.zControl.setMinValue(parameter.z_min)
-    self.zControl.setMaxValue(parameter.z_max)
+    self.roiSelectionWidget.setXYZMinMax(parameter.x_min, parameter.x_max,
+                                         parameter.y_min, parameter.y_max, 
+                                         parameter.z_min, parameter.z_max,
+                                         parameter.name)
 
   def onBatchSizeActiveChanged(self, state):
     self.batch_size.setEnabled(state == qt.Qt.Checked)
