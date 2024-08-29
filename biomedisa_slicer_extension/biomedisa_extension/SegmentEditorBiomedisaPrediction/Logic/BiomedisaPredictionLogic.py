@@ -44,16 +44,12 @@ class BiomedisaPredictionLogic():
                 input: vtkMRMLScalarVolumeNode,
                 volumeNode,
                 parameter: BiomedisaPredictionParameter) -> list:
+        print(f"Running biomedisa prediction with: {parameter}")
         
         numpyImage = Helper.vtkToNumpy(input)
         dimensions = input.GetDimensions()
-        print(f"numpyImage: {numpyImage.shape}")
         numpyImage = Helper.crop(numpyImage, parameter.x_min, parameter.x_max, parameter.y_min, parameter.y_max, parameter.z_min, parameter.z_max)
-        print(f"Running biomedisa prediction with: {parameter}")
 
-        print(f"dimensions: {dimensions}")
-        print(f"crop: {numpyImage.shape}")
-        
         batch_size = parameter.batch_size if parameter.batch_size_active else None
         from biomedisa.deeplearning import deep_learning
         results = deep_learning(numpyImage, 
@@ -64,12 +60,6 @@ class BiomedisaPredictionLogic():
         if results is None:
             print("No result")
             return None
-
-        if False:
-            import debugpy
-            print("Waiting for debugger attach...")
-            debugpy.wait_for_client()
-            print("Debugger attached, continuing execution...")
 
         regular_result = results['regular']
 
