@@ -479,6 +479,8 @@ if __name__ == '__main__':
                         help='Processing queue when using a remote server')
     parser.add_argument('-hf','--header_file', type=str, metavar='PATH', default=None,
                         help='Location of header file')
+    parser.add_argument('-ext','--extension', type=str, default='.tif',
+                        help='Save data for example as NRRD file using --extension=".nrrd"')
     bm = parser.parse_args()
     bm.success = True
 
