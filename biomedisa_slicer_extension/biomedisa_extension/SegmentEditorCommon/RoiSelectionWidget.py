@@ -113,24 +113,29 @@ class ROISelectionWidget(qt.QWidget):
         if roiNode:
             self.setUniqueROIName(roiNode, self.baseROIName)
             self.roiObserverTag = roiNode.AddObserver(vtk.vtkCommand.ModifiedEvent, self.enforceRoiLimits)
-
-    def setUniqueROIName(self, roiNode, baseName="ROI"):
-        allROINodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLMarkupsROINode")
-        # Collect the names of all ROI nodes, excluding the current roiNode
-        existingNames = [node.GetName() for node in allROINodes if node.GetID() != roiNode.GetID()]
-        # If the base name is available, use it
-        if baseName not in existingNames:
-            roiNode.SetName(baseName)
-            return
         
-        # If the base name is taken, find the next available name
-        index = 1
-        while True:
-            newName = f"{baseName}_{index}"
-            if newName not in existingNames:
-                roiNode.SetName(newName)
-                return newName
-            index += 1
+    def setUniqueROIName(self, roiNode, baseName="ROI"):
+        # Iterate over the nodes directly to collect names
+        nodeNames = set()
+        allROINodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLMarkupsROINode")
+
+        for i in range(allROINodes.GetNumberOfItems()):
+            node = allROINodes.GetItemAsObject(i)
+            if node != roiNode:  # Exclude the current node itself
+                nodeNames.add(node.GetName())
+        
+        # Explicitly delete the vtkCollection to dispose of it
+        allROINodes.UnRegister(None)
+
+        # Automatically generate a unique name
+        uniqueName = baseName
+        suffix = 1
+        while uniqueName in nodeNames:
+            uniqueName = f"{baseName}_{suffix}"
+            suffix += 1
+
+        # Set the unique name to the ROI node
+        roiNode.SetName(uniqueName)
 
     def updateVisibilityIcon(self, isVisible):
         """Update the visibility icon based on the current visibility state."""
