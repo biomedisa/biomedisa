@@ -190,6 +190,7 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     def handleDialogClosed(selected_item):
       if selected_item:
         parameter = self.loadParameter(BiomedisaTrainingParameter, selected_item)
+        parameter.name = selected_item
         self.setParameterToGui(parameter)
     self.dialog.dialogClosed.connect(handleDialogClosed)
     self.dialog.show()
