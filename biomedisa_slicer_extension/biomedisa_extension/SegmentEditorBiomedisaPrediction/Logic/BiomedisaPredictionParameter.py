@@ -15,6 +15,7 @@ class BiomedisaPredictionParameter():
         header = "BiomedisaPredictionParameter:"
         indent = "    "  # Four spaces for indentation
         parameters = [
+            f"{indent}name: {self.name}",
             f"{indent}path_to_model: {self.path_to_model}",
             f"{indent}stride_size: {self.stride_size}",
             f"{indent}batch_size_active: {self.batch_size_active}",

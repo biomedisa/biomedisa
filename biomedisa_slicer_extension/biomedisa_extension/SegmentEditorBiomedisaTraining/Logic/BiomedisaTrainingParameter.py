@@ -1,4 +1,5 @@
 class BiomedisaTrainingParameter:
+    name: str = "BiomedisaTrainingParameter"
     path_to_model: str = ""
     stride_size: int = 32
     epochs: int = 100
@@ -23,6 +24,7 @@ class BiomedisaTrainingParameter:
         header = "BiomedisaTrainingParameter:"
         indent = "    "  # Four spaces for indentation
         parameters = [
+            f"{indent}name: {self.name}",
             f"{indent}path_to_model: {self.path_to_model}",
             f"{indent}stride_size: {self.stride_size}",
             f"{indent}epochs: {self.epochs}",
