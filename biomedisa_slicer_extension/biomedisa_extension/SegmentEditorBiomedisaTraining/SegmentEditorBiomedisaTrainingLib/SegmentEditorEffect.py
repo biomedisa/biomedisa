@@ -5,7 +5,7 @@ from biomedisa_extension.SegmentEditorBiomedisaTraining.Logic.BiomedisaTrainingL
 from biomedisa_extension.SegmentEditorBiomedisaTraining.Logic.BiomedisaTrainingParameter import BiomedisaTrainingParameter
 from biomedisa_extension.SegmentEditorCommon.AbstractBiomedisaSegmentEditorEffect import AbstractBiomedisaSegmentEditorEffect
 from biomedisa_extension.SegmentEditorCommon.ListSelectionDialog import ListSelectionDialog
-from biomedisa_extension.SegmentEditorCommon.AxisControl import AxisControl
+from biomedisa_extension.SegmentEditorCommon.RoiSelectionWidget import ROISelectionWidget
 
 class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
   """This effect uses the Biomedisa algorithm to segment large 3D volumetric images"""
@@ -96,7 +96,6 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     self.flip_layout.addStretch()
     collapsibleLayout.addRow("Flip:", self.flip_layout)
 
-
     self.scaling = qt.QCheckBox()
     self.scaling.toolTip = 'Resize image and label data to dimensions below'
     collapsibleLayout.addRow("Scaling:", self.scaling)
@@ -152,17 +151,8 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     self.validation_split.value = 0.0
     collapsibleLayout.addRow("Validation split:", self.validation_split)
 
-    self.xControl = AxisControl()
-    self.yControl = AxisControl()
-    self.zControl = AxisControl()
-    boundingBoxLayout = qt.QHBoxLayout()
-    boundingBoxLayout.addStretch()
-    boundingBoxLayout.addWidget(qt.QLabel("Training area"))
-    boundingBoxLayout.addStretch()
-    collapsibleLayout.addRow("", boundingBoxLayout)
-    collapsibleLayout.addRow("Sagittal (X):", self.xControl)
-    collapsibleLayout.addRow("Coronal (Y):", self.yControl)
-    collapsibleLayout.addRow("Axial (Z):", self.zControl)
+    self.roiSelectionWidget = ROISelectionWidget(self.scriptedEffect, "Biomedisa Training ROI")
+    collapsibleLayout.addRow("Training area", self.roiSelectionWidget)
 
     self.runButton = qt.QPushButton("Train")
     self.runButton.objectName = self.__class__.__name__ + 'Run'
@@ -176,13 +166,7 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     collapsibleLayout.addRow("Parameter:", self.createParameterGui())
 
   def sourceVolumeNodeChanged(self):
-    sourceImageData = self.scriptedEffect.parameterSetNode().GetSourceVolumeNode().GetImageData()
-    if sourceImageData is None:
-      return
-    dim = sourceImageData.GetDimensions()
-    self.xControl.updateMaximum(dim[0]-1)
-    self.yControl.updateMaximum(dim[1]-1)
-    self.zControl.updateMaximum(dim[2]-1)
+    pass
 
   def onLoadParameter(self):
     parameterList = self.getSavedParameter()
@@ -214,12 +198,13 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
       parameter.x_scale = self.x_scale.value
       parameter.y_scale = self.y_scale.value
       parameter.z_scale = self.z_scale.value
-      parameter.x_min = self.xControl.getMinValue()
-      parameter.x_max = self.xControl.getMaxValue()
-      parameter.y_min = self.yControl.getMinValue()
-      parameter.y_max = self.yControl.getMaxValue()
-      parameter.z_min = self.zControl.getMinValue()
-      parameter.z_max = self.zControl.getMaxValue()
+      roiXYZ = self.roiSelectionWidget.getXYZMinMax()
+      parameter.x_min = roiXYZ[0]
+      parameter.x_max = roiXYZ[1]
+      parameter.y_min = roiXYZ[2]
+      parameter.y_max = roiXYZ[3]
+      parameter.z_min = roiXYZ[4]
+      parameter.z_max = roiXYZ[5]
       return parameter
 
   def setParameterToGui(self, parameter: BiomedisaTrainingParameter):
@@ -236,12 +221,10 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
       self.x_scale.value = parameter.x_scale
       self.y_scale.value = parameter.y_scale
       self.z_scale.value = parameter.z_scale
-      self.xControl.setMinValue(parameter.x_min)
-      self.xControl.setMaxValue(parameter.x_max)
-      self.yControl.setMinValue(parameter.y_min)
-      self.yControl.setMaxValue(parameter.y_max)
-      self.zControl.setMinValue(parameter.z_min)
-      self.zControl.setMaxValue(parameter.z_max)
+      self.roiSelectionWidget.setXYZMinMax(parameter.x_min, parameter.x_max,
+                                    parameter.y_min, parameter.y_max, 
+                                    parameter.z_min, parameter.z_max,
+                                    parameter.name)
 
   def onPathToModelTextChanged(self):
     # Check if the path is to an existing file
@@ -274,6 +257,7 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
         self.path_to_model.text = fileName
 
   def runAlgorithm(self):
+    print("runAlgorithm")
     segmentationNode = self.scriptedEffect.parameterSetNode().GetSegmentationNode()
     segmentation = segmentationNode.GetSegmentation()
     segmentID = self.scriptedEffect.parameterSetNode().GetSelectedSegmentID()
