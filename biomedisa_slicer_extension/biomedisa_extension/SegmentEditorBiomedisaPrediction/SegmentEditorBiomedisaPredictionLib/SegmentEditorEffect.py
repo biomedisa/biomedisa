@@ -107,10 +107,7 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     AbstractBiomedisaSegmentEditorEffect.setupOptionsFrame(self)
 
   def sourceVolumeNodeChanged(self):
-    sourceImageData = self.scriptedEffect.parameterSetNode().GetSourceVolumeNode().GetImageData()
-    if sourceImageData is None:
-      return
-    dim = sourceImageData.GetDimensions()
+    pass
 
   def onLoadParameter(self):
     parameterList = self.getSavedParameter()

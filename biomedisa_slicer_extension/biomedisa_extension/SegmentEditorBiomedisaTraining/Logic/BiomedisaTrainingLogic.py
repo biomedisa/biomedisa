@@ -13,14 +13,14 @@ class BiomedisaTrainingLogic():
             labels: vtkMRMLLabelMapVolumeNode,
             parameter: BiomedisaTrainingParameter):
 
+        print(f"Running biomedisa training with: {parameter}")
+       
         numpyLabels = Helper.expandLabelToMatchInputImage(labels, input.GetDimensions())
         numpyImage = Helper.vtkToNumpy(input)
 
         # crop training data
         numpyImage = Helper.crop(numpyImage, parameter.x_min, parameter.x_max, parameter.y_min, parameter.y_max, parameter.z_min, parameter.z_max)
         numpyLabels = Helper.crop(numpyLabels, parameter.x_min, parameter.x_max, parameter.y_min, parameter.y_max, parameter.z_min, parameter.z_max)
-
-        print(f"Running biomedisa training with: {parameter}")
 
         from biomedisa.deeplearning import deep_learning
         deep_learning(
