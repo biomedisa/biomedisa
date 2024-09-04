@@ -22,6 +22,6 @@ mpi4py==3.1.5
 itk==5.3.0
 vtk==9.2.6
 matplotlib==3.8.0
-biomedisa==24.7.1
+biomedisa==24.8.1
 importlib_metadata==4.6.4
 tensorflow==2.13.0
