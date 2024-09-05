@@ -289,7 +289,6 @@ class RepositoryUser(models.Model):
         unique_together = ('repository', 'user')
 
 class Specimen(models.Model):
-    pic = models.FileField("", upload_to=repository_directory_path, default=None)
     internal_id = models.CharField(null=True, max_length=255, blank=True)
     upload_date = models.DateTimeField(auto_now_add=True, null=True)
     repository = models.ForeignKey(Repository, on_delete=models.CASCADE, related_name='specimens')
@@ -357,6 +356,7 @@ class Specimen(models.Model):
     exposure_time_per_frame = models.CharField(null=True, max_length=255, blank=True)
     family_or_other = models.CharField(null=True, max_length=255, blank=True)
     antscan_contributor = models.CharField(null=True, max_length=255, blank=True)
+    parent_folder = models.CharField(null=True, max_length=255, blank=True)
 
 class TomographicData(models.Model):
     pic = models.FileField("", upload_to=repository_directory_path)
