@@ -22,7 +22,7 @@ function visualizationFunction(id, repository_name) {
 
 {% block slideshow %}
   {% if featured_img %}
-  <img src="/static/{{featured_img}}" width="{{featured_img_width}}" height="{{featured_img_height}}" alt="" />
+  <a href="{{featured_url}}" target="_blank"><img src="/media/{{featured_img}}" width="{{featured_img_width}}" height="{{featured_img_height}}" alt="" /></a>
   {% endif %}
 {% endblock %}
 
@@ -81,11 +81,11 @@ function visualizationFunction(id, repository_name) {
         <div id="img{{ img.id }}" >
           <p style="text-align:left;">
           <!-- screenshot -->
-          <a href="/{{repository.name}}/specimen/{{img.id}}"><img src="/media/screenshots/{{img.magnification}}/{{img.internal_id}}.png" title="info" style="width:425px;height:238px;border:0"></a>
+          <a href="/{{repository.name}}/specimen/{{img.id}}"><img src="/media/{{img.pic.name}}" title="info" style="width:425px;height:238px;border:0"></a>
           </br></br>
           <!-- get name of specimen -->
-          {% if img.name_recommended or img.subfamily or img.caste or img.specimen_code %}
-              <span>{{ img.name_recommended }} | {{ img.subfamily }} | {{ img.caste }} | {{ img.specimen_code }}</span>
+          {% if img.name or img.subfamily or img.caste or img.specimen_code %}
+              <span>{{ img.name }} | {{ img.subfamily }} | {{ img.caste }} | {{ img.specimen_code }}</span>
               {% else %}
               <span>{{ img.internal_id }}</span>
           {% endif %}
