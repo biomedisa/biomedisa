@@ -42,7 +42,7 @@ from biomedisa_app.config import config
 from biomedisa.features.biomedisa_helper import unique_file_path
 from biomedisa.settings import BASE_DIR, PRIVATE_STORAGE_ROOT
 from biomedisa_app.models import (Upload,
-    Repository, Specimen, SpecimenForm, TomographicData, TomographicDataForm,
+    Repository, Specimen, SpecimenFormInternal, SpecimenFormPublic, TomographicData, TomographicDataForm,
     ProcessedData, RepositoryUser)
 
 from wsgiref.util import FileWrapper
@@ -69,9 +69,9 @@ def repository(request, id=1):
     show_all = True
     if query:
         specimens = Specimen.objects.filter(Q(internal_id__icontains=query) | Q(subfamily__icontains=query) | Q(genus__icontains=query)\
-         | Q(species__icontains=query) | Q(caste__icontains=query), repository=repository).order_by('name_recommended').values()
+         | Q(species__icontains=query) | Q(caste__icontains=query), repository=repository).order_by('name').values()
     else:
-        specimens = Specimen.objects.filter(repository=repository).order_by('name_recommended').values()
+        specimens = Specimen.objects.filter(repository=repository).order_by('name').values()
         show_all = request.GET.get('show_all') == 'True'
         if not show_all:
             specimens = specimens[:100]
@@ -79,13 +79,13 @@ def repository(request, id=1):
     # featured img
     imshape_x, imshape_y = None, None
     if repository.featured_img:
-        imshape = np.asarray(Image.open(BASE_DIR + f'/biomedisa_app/static/{repository.featured_img}')).shape
+        imshape = np.asarray(Image.open(BASE_DIR + f'/media/{repository.featured_img}')).shape
         imshape_x = 960
-        imshape_y = int(imshape[0]/imshape[1]*960)
+        imshape_y = int(round(imshape[0]/imshape[1]*960))
     return render(request, 'repository.html', {'specimens':specimens, 'repository':repository,
                 'all_specimens':all_specimens, 'featured_img':repository.featured_img,
                 'featured_img_width':imshape_x, 'featured_img_height':imshape_y,
-                'show_all': show_all})
+                'show_all': show_all, 'featured_url':repository.featured_url})
 
 @login_required
 def share_repository(request):
@@ -161,20 +161,23 @@ def specimen_info(request, id):
     '''
     id = int(id)
     specimen = get_object_or_404(Specimen, pk=id)
-    # initialization
-    initial = {}
-    specimen_form = SpecimenForm()
-    for key in specimen_form.fields.keys():
-        initial[key] = specimen.__dict__[key]
     # user info
     user_can_edit = False
     if request.user.is_authenticated \
         and RepositoryUser.objects.filter(user=request.user, repository=specimen.repository).exists() \
         and RepositoryUser.objects.get(user=request.user, repository=specimen.repository).can_edit:
         user_can_edit = True
+    # initialization
+    initial = {}
+    if user_can_edit:
+        specimen_form = SpecimenFormInternal()
+    else:
+        specimen_form = SpecimenFormPublic()
+    for key in specimen_form.fields.keys():
+        initial[key] = specimen.__dict__[key]
     # get data
     if request.method=='POST' and user_can_edit:
-        data = SpecimenForm(request.POST)
+        data = SpecimenFormInternal(request.POST)
         if data.is_valid():
             cd = data.cleaned_data
             if cd != initial:
@@ -200,8 +203,11 @@ def specimen_info(request, id):
                 imshape = (imshape_y,imshape_x)
                 images = [img.replace(BASE_DIR,'') for img in images]
         # specimen form
-        specimen_form = SpecimenForm(initial=initial)
-        name = specimen.internal_id if not any([specimen.name_recommended, specimen.subfamily, specimen.caste, specimen.specimen_code]) else "{name_recommended} | {subfamily} | {caste} | {specimen_code}".format(name_recommended=specimen.name_recommended, subfamily=specimen.subfamily, caste=specimen.caste, specimen_code=specimen.specimen_code)
+        if user_can_edit:
+            specimen_form = SpecimenFormInternal(initial=initial)
+        else:
+            specimen_form = SpecimenFormPublic(initial=initial)
+        name = specimen.internal_id if not any([specimen.name, specimen.subfamily, specimen.caste, specimen.specimen_code]) else "{name} | {subfamily} | {caste} | {specimen_code}".format(name=specimen.name, subfamily=specimen.subfamily, caste=specimen.caste, specimen_code=specimen.specimen_code)
         #tomographic_data = TomographicData.objects.filter(specimen=specimen)
         processed_data = ProcessedData.objects.filter(specimen=specimen)
         sketchfab_id = specimen.sketchfab
@@ -288,8 +294,8 @@ def visualization_repository(request):
             specimen = get_object_or_404(ProcessedData, pk=id).specimen
         elif obj == 'specimen':
             specimen = get_object_or_404(Specimen, pk=id)
-        path_to_link = f'/media/antscan/processed/{specimen.magnification}/{specimen.internal_id}.stl'
-        name = specimen.internal_id + '.stl'
+        path_to_link = f'/media/{specimen.pic.name}'.replace('.png','.stl')
+        name = os.path.basename(path_to_link)
         url = config['SERVER'] + path_to_link
         URL = config['SERVER'] + "/paraview/?name=["+name+"]&url=["+url+"]"
         return HttpResponseRedirect(URL)
