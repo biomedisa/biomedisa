@@ -294,7 +294,7 @@ def visualization_repository(request):
             specimen = get_object_or_404(ProcessedData, pk=id).specimen
         elif obj == 'specimen':
             specimen = get_object_or_404(Specimen, pk=id)
-        path_to_link = f'/media/{specimen.pic.name}'.replace('.png','.stl')
+        path_to_link = f'/media/{specimen.parent_folder}/{specimen.internal_id}.stl'
         name = os.path.basename(path_to_link)
         url = config['SERVER'] + path_to_link
         URL = config['SERVER'] + "/paraview/?name=["+name+"]&url=["+url+"]"

@@ -81,7 +81,7 @@ function visualizationFunction(id, repository_name) {
         <div id="img{{ img.id }}" >
           <p style="text-align:left;">
           <!-- screenshot -->
-          <a href="/{{repository.name}}/specimen/{{img.id}}"><img src="/media/{{img.pic.name}}" title="info" style="width:425px;height:238px;border:0"></a>
+          <a href="/{{repository.name}}/specimen/{{img.id}}"><img src="/media/{{img.parent_folder}}/{{img.internal_id}}.png" title="info" style="width:425px;height:238px;border:0"></a>
           </br></br>
           <!-- get name of specimen -->
           {% if img.name or img.subfamily or img.caste or img.specimen_code %}
