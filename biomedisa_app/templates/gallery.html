@@ -12,13 +12,8 @@ function count(){
         setTimeout('count()',zeit);}
     else{
         window.location.href = "/run/demo";
-        window.close();}
     }
-
-function refresh(){
-    window.location.href = "/run/demo";
-    window.close();
-    }
+}
 
 function alertFunction(state) {
     alert(state);
@@ -28,7 +23,6 @@ function sliceViewer(id) {
     var r = confirm('This will download large amounts of data! Continue?');
     if (r == true) {
         window.location.href = "/sliceviewer_demo/?id=" + id;
-        window.close();
         }
     }
 

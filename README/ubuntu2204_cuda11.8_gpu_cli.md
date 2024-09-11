@@ -1,12 +1,11 @@
-# Ubuntu 22.04 LTS + CUDA 11.8 + GPU (command-line-only)
+# Ubuntu 22.04 LTS + Smart Interpolation + Deep Learning (command-line-only)
 
 - [Install Python and pip](#install-python-and-pip)
 - [Install software dependencies](#install-software-dependencies)
-- [Install pip packages](#install-pip-packages)
 - [Install CUDA 11.8](#install-cuda-11.8)
-- [Install TensorFlow (optional)](#install-tensorflow-optional)
+- [Install cuDNN](#install-cudnn)
+- [Install pip packages](#install-pip-packages)
 - [Biomedisa examples](#biomedisa-examples)
-- [Update Biomedisa](#update-biomedisa)
 - [Install Biomedisa from source (optional)](#install-biomedisa-from-source-optional)
 
 #### Install Python and pip
@@ -18,78 +17,80 @@ sudo apt-get install python3 python3-dev python3-pip
 ```
 sudo apt-get install libsm6 libxrender-dev unzip \
     libboost-python-dev build-essential libssl-dev cmake \
-    openmpi-bin openmpi-doc libopenmpi-dev libgl1
-```
-
-#### Install pip packages
-```
-pip3 install --upgrade pip setuptools testresources scikit-build
-pip3 install --upgrade numpy scipy h5py colorama numpy-stl \
-    numba imagecodecs tifffile scikit-image opencv-python netCDF4 mrcfile \
-    Pillow nibabel medpy SimpleITK mpi4py itk vtk matplotlib biomedisa
-
-# Add 'export PATH=${HOME}/.local/bin:${PATH}' to '~/.bashrc'
-echo 'export PATH=${HOME}/.local/bin:${PATH}' >> ~/.bashrc
-source ~/.bashrc
+    openmpi-bin openmpi-doc libopenmpi-dev libgl1 wget
 ```
 
 #### Install CUDA 11.8
-You may choose any CUDA version compatible with your NVIDIA GPU architecture [NVIDIA Documentation](https://docs.nvidia.com/deeplearning/cudnn/latest/reference/support-matrix.html) if you skip the TensorFlow installation for the Deep Learning module below.
+Biomedisa's Deep Learning framework requires TensorFlow 2.13, which is compatible with CUDA 11.8 and cuDNN 8.8.0. Please ensure that you install these specific versions, as higher versions are not yet supported. Add NVIDIA package repositories:
 ```
-# Add NVIDIA package repositories
 wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-ubuntu2204.pin
 sudo mv cuda-ubuntu2204.pin /etc/apt/preferences.d/cuda-repository-pin-600
 sudo apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/3bf863cc.pub
 sudo add-apt-repository "deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/ /"
-
-# If W: Key is stored in legacy trusted.gpg keyring (/etc/apt/trusted.gpg)
+```
+If the error `W: Key is stored in legacy trusted.gpg keyring (/etc/apt/trusted.gpg)` occurs:
+```
 sudo apt-key export 3BF863CC | sudo gpg --dearmour -o /etc/apt/trusted.gpg.d/cuda-tools.gpg
-
-# Install CUDA
+```
+Install CUDA Toolkit:
+```
 sudo apt-get update
 sudo apt-get install --no-install-recommends cuda-11-8
-
-# Reboot. Check that GPUs are visible using the command
+```
+Reboot and check that your GPUs are visible using the following command:
+```
 nvidia-smi
+```
 
-# Add the CUDA paths to your '~/.bashrc' file
+#### Adapt PATH variables
+Add the local pip directory to the PATH variable:
+```
+echo 'export PATH=${HOME}/.local/bin:${PATH}' >> ~/.bashrc
+```
+Add the CUDA paths:
+```
 echo 'export CUDA_HOME=/usr/local/cuda-11.8' >> ~/.bashrc
 echo 'export LD_LIBRARY_PATH=${CUDA_HOME}/lib64' >> ~/.bashrc
 echo 'export PATH=${CUDA_HOME}/bin:${PATH}' >> ~/.bashrc
-
-# Reload .bashrc and verify that CUDA is installed properly
+```
+Reload .bashrc and verify that CUDA is installed properly:
+```
 source ~/.bashrc
 nvcc --version
-
-# Install PyCUDA or PyOpenCL
-PATH=/usr/local/cuda-11.8/bin:${PATH} pip3 install --upgrade pycuda
-
-# Verify that PyCUDA is working properly
-python3 -m biomedisa.features.pycuda_test
 ```
 
-#### Install TensorFlow (optional)
-Only required if you want to use Deep Learning.
+#### Install cuDNN
+Install development and runtime libraries:
 ```
-# Install development and runtime libraries.
 sudo apt-get install --no-install-recommends \
     libcudnn8=8.8.0.121-1+cuda11.8 \
     libcudnn8-dev=8.8.0.121-1+cuda11.8
+```
+OPTIONAL: hold packages to avoid crash after a system update:
+```
+sudo apt-mark hold libcudnn8 libcudnn8-dev cuda-11-8
+```
 
-# Install TensorRT. Requires that libcudnn8 is installed above.
-sudo apt-get install --no-install-recommends libnvinfer8=8.5.3-1+cuda11.8 \
-    libnvinfer-dev=8.5.3-1+cuda11.8 \
-    libnvinfer-plugin8=8.5.3-1+cuda11.8
+#### Install pip packages
+Download the Biomedisa [dependencies](https://biomedisa.info/media/requirements.txt) and install the packages:
+```
+wget https://biomedisa.info/media/requirements.txt
+python3 -m pip install -r requirements.txt
+PATH=/usr/local/cuda-11.8/bin:${PATH} python3 -m pip install pycuda
+```
 
-# OPTIONAL: hold packages to avoid crash after system update
-sudo apt-mark hold libcudnn8 libcudnn8-dev libnvinfer-dev libnvinfer-plugin8 libnvinfer8 cuda-11-8
+#### Verify that PyCUDA is working properly
+```
+python3 -m biomedisa.features.pycuda_test
+```
 
-# Install TensorFlow
-pip3 install tensorflow==2.13.0
+#### Verify that TensorFlow detects your GPUs
+```
+python3 -c "import tensorflow as tf; print('Detected GPUs:', len(tf.config.list_physical_devices('GPU')))"
 ```
 
 #### Biomedisa examples
-Download test files from [Gallery](https://biomedisa.info/gallery/)
+Download test files from [Gallery](https://biomedisa.info/gallery/) and run:
 ```
 # smart interpolation
 python3 -m biomedisa.interpolation Downloads/tumor.tif Downloads/labels.tumor.tif
@@ -98,10 +99,6 @@ python3 -m biomedisa.interpolation Downloads/tumor.tif Downloads/labels.tumor.ti
 python3 -m biomedisa.deeplearning Downloads/testing_axial_crop_pat13.nii.gz Downloads/heart.h5 -p
 ```
 
-#### Update Biomedisa
-```
-pip3 install -U biomedisa
-```
-
 #### Install Biomedisa from source (optional)
 To develop Biomedisa or for the latest version install Biomedisa from [source](https://github.com/biomedisa/biomedisa/blob/master/README/installation_from_source.md).
+

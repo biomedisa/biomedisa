@@ -7,8 +7,9 @@ sys.path.append(root_dir)
 from biomedisa_extension.SegmentEditorBiomedisaPrediction.Logic.BiomedisaPredictionParameter import BiomedisaPredictionParameter
 from biomedisa_extension.SegmentEditorBiomedisaPrediction.Logic.BiomedisaPredictionLogic import BiomedisaPredictionLogic
 from biomedisa_extension.SegmentEditorCommon.AbstractBiomedisaSegmentEditorEffect import AbstractBiomedisaSegmentEditorEffect
+from biomedisa_extension.SegmentEditorCommon.ListSelectionDialog import ListSelectionDialog
+from biomedisa_extension.SegmentEditorCommon.RoiSelectionWidget import ROISelectionWidget
 
-# Source: https://github.com/lassoan/SlicerSegmentEditorExtraEffects
 class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
 
   def __init__(self, scriptedEffect):
@@ -22,7 +23,7 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     clonedEffect = effects.qSlicerSegmentEditorScriptedEffect(None)
     clonedEffect.setPythonSource(__file__.replace('\\','/'))
     return clonedEffect
-
+  
   def icon(self):
     # It should not be necessary to modify this method
     iconPath = os.path.join(os.path.dirname(__file__), 'SegmentEditorEffect.svg')
@@ -46,16 +47,13 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
       <p><u>Contributors:</u> <i>Matthias Fabian, Philipp Lösel</i></p>
       <p>
     </html>"""
-
-  def createCursor(self, widget):
-    return slicer.util.mainWindow().cursor
   
   def setupOptionsFrame(self):
     # Network file
-    self.pathToModel = qt.QLineEdit()
-    self.pathToModel.toolTip = 'Path of the model file'
-    self.pathToModel.setPlaceholderText('Enter the path of the model file here...')
-    self.pathToModel.textChanged.connect(self.onPathToModelTextChanged)
+    self.path_to_model = qt.QLineEdit()
+    self.path_to_model.toolTip = 'Path of the model file'
+    self.path_to_model.setPlaceholderText('Enter the path of the model file here...')
+    self.path_to_model.textChanged.connect(self.onPathToModelTextChanged)
 
     self.selectModelButton = qt.QPushButton("...")
     self.selectModelButton.setFixedWidth(30)
@@ -63,7 +61,7 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     self.selectModelButton.clicked.connect(self.onSelectModelButton)
     
     self.fileLayout = qt.QHBoxLayout()
-    self.fileLayout.addWidget(self.pathToModel)
+    self.fileLayout.addWidget(self.path_to_model)
     self.fileLayout.addWidget(self.selectModelButton)
     self.scriptedEffect.addOptionsWidget(self.fileLayout)
 
@@ -100,46 +98,68 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     self.batch_size_layout.setStretch(1, 1)
     collapsibleLayout.addRow("Batch size:", self.batch_size_layout)
 
+    self.roiSelectionWidget = ROISelectionWidget(self.scriptedEffect, "Biomedisa Prediction ROI")
+    collapsibleLayout.addRow("Prediction area", self.roiSelectionWidget)
+
+    self.setParameterToGui(BiomedisaPredictionParameter())
+
     collapsibleLayout.addRow("Parameter:", self.createParameterGui())
     AbstractBiomedisaSegmentEditorEffect.setupOptionsFrame(self)
 
-  def onSaveParameter(self):
-    text = qt.QInputDialog.getText(None, "Parameter name", "Enter the name of the parameter set")
-    if text:
-      parameter = self.getParameterFromGui()
-      self.saveParameter(parameter, text)
+  def sourceVolumeNodeChanged(self):
+    pass
 
   def onLoadParameter(self):
     parameterList = self.getSavedParameter()
-    selectedParameterSet = self.showParameterSelectionDialog(parameterList)
-    if selectedParameterSet:
-      parameter = self.loadParameter(BiomedisaPredictionParameter, selectedParameterSet)
-      self.setParameterToGui(parameter)
-            
+    self.dialog = ListSelectionDialog(parameterList)
+    def handleDialogClosed(selected_item):
+      if selected_item:
+        parameter = self.loadParameter(BiomedisaPredictionParameter, selected_item)
+        parameter.name = selected_item
+        self.setParameterToGui(parameter)
+    self.dialog.dialogClosed.connect(handleDialogClosed)
+    self.dialog.show()
+
   def onRestoreParameter(self):
     parameter = BiomedisaPredictionParameter()
     self.setParameterToGui(parameter)
 
   def getParameterFromGui(self) -> BiomedisaPredictionParameter:
+    roiXYZ = self.roiSelectionWidget.getXYZMinMax()
+
     parameter = BiomedisaPredictionParameter()
-    parameter.path_to_model = self.pathToModel.text
+    parameter.path_to_model = self.path_to_model.text
     parameter.stride_size = self.stride_size.value
     parameter.batch_size_active = self.batch_size_active.isChecked()
     parameter.batch_size = self.batch_size.value
+    parameter.x_min = roiXYZ[0]
+    parameter.x_max = roiXYZ[1]
+    parameter.y_min = roiXYZ[2]
+    parameter.y_max = roiXYZ[3]
+    parameter.z_min = roiXYZ[4]
+    parameter.z_max = roiXYZ[5]
     return parameter
   
   def setParameterToGui(self, parameter: BiomedisaPredictionParameter):
-    self.pathToModel.text = parameter.path_to_model
+    self.path_to_model.text = parameter.path_to_model
     self.stride_size.value = parameter.stride_size
     self.batch_size_active.setChecked(parameter.batch_size_active)
     self.batch_size.value = parameter.batch_size
+    self.roiSelectionWidget.setXYZMinMax(parameter.x_min, parameter.x_max,
+                                         parameter.y_min, parameter.y_max, 
+                                         parameter.z_min, parameter.z_max,
+                                         parameter.name)
 
   def onBatchSizeActiveChanged(self, state):
     self.batch_size.setEnabled(state == qt.Qt.Checked)
 
   def onPathToModelTextChanged(self):
-    # Check if the path is to an existing file
-    if os.path.isfile(self.pathToModel.text):
+    self.updateRunButtonState()
+
+  def updateRunButtonState(self):
+    if self.running:
+        self.runButton.setEnabled(False)
+    elif os.path.isfile(self.path_to_model.text):
         self.runButton.setEnabled(True)
     else:
         self.runButton.setEnabled(False)
@@ -148,7 +168,7 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     fileFilter = "HDF5 Files (*.h5);;All Files (*)"
     fileName = qt.QFileDialog.getOpenFileName(self.selectModelButton, "Select model file", "", fileFilter)
     if fileName:
-        self.pathToModel.text = fileName
+        self.path_to_model.text = fileName
 
   def runAlgorithm(self):
     self.createPreviewNode()
@@ -165,9 +185,18 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
 
     # Show the result in slicer
     segmentation = self.previewSegmentationNode.GetSegmentation()
+    segmentIDs = segmentation.GetSegmentIDs()
+    availableLabelValues = {segmentation.GetSegment(segmentID).GetLabelValue(): segmentID for segmentID in segmentIDs}
+
     for label, binaryLabelmap in resultLabelMaps:
-      # Get segment ID from label index. This is 0 based even though first the voxel value is 1.
-      segmentID = segmentation.AddEmptySegment()
+      # Map results to the corresponding segements
+      segmentID = availableLabelValues.get(label)
+      if not segmentID:
+        segmentID = segmentation.AddEmptySegment()
+        segmentation.GetSegment(segmentID).SetLabelValue(label)
+
+      segment = segmentation.GetSegment(segmentID)
+      segment.SetLabelValue(label)
       slicer.vtkSlicerSegmentationsModuleLogic.SetBinaryLabelmapToSegment(
         binaryLabelmap, 
         self.previewSegmentationNode, 

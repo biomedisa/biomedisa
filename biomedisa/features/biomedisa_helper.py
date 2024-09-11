@@ -416,25 +416,33 @@ def pre_processing(bm):
     if bm.labelData is None:
         return _error_(bm, 'Invalid label data.')
 
+    # dimension errors
     if len(bm.labelData.shape) != 3:
-        return _error_(bm, 'Label must be three-dimensional.')
-
+        return _error_(bm, 'Label data must be three-dimensional.')
     if bm.data.shape != bm.labelData.shape:
-        return _error_(bm, 'Image and label must have the same x,y,z-dimensions.')
+        return _error_(bm, 'Image and label data must have the same x,y,z-dimensions.')
+
+    # label data type
+    if bm.labelData.dtype in ['float16','float32','float64']:
+        if bm.django_env:
+            return _error_(bm, 'Label data must be of integer type.')
+        print(f'Warning: Potential label loss during conversion from {bm.labelData.dtype} to int32.')
+        bm.labelData = bm.labelData.astype(np.int32)
 
     # get labels
     bm.allLabels = np.unique(bm.labelData)
     index = np.argwhere(bm.allLabels<0)
     bm.allLabels = np.delete(bm.allLabels, index)
 
-    if bm.django_env and np.any(bm.allLabels > 255):
-        return _error_(bm, 'No labels higher than 255 allowed.')
-
+    # labels greater than 255
     if np.any(bm.allLabels > 255):
-        bm.labelData[bm.labelData > 255] = 0
-        index = np.argwhere(bm.allLabels > 255)
-        bm.allLabels = np.delete(bm.allLabels, index)
-        print('Warning: Only labels <=255 are allowed. Labels higher than 255 will be removed.')
+        if bm.django_env:
+            return _error_(bm, 'No labels greater than 255 allowed.')
+        else:
+            bm.labelData[bm.labelData > 255] = 0
+            index = np.argwhere(bm.allLabels > 255)
+            bm.allLabels = np.delete(bm.allLabels, index)
+            print('Warning: Only labels <=255 are allowed. Labels greater than 255 will be removed.')
 
     # add background label if not existing
     if not np.any(bm.allLabels==0):
