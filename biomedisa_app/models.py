@@ -275,8 +275,7 @@ class Repository(models.Model):
         related_name='repositories'
         )
     featured_img = models.TextField(null=True)
-    featured_img_width = models.TextField(null=True)
-    featured_img_height = models.TextField(null=True)
+    featured_url = models.TextField(null=True)
 
 class RepositoryUser(models.Model):
     repository = models.ForeignKey(Repository, on_delete=models.CASCADE)
@@ -341,10 +340,23 @@ class Specimen(models.Model):
     elevation_error = models.CharField(null=True, max_length=255, blank=True)
     biogeographic_region = models.CharField(null=True, max_length=255, blank=True)
     magnification = models.CharField(null=True, max_length=255, blank=True)
-    name_recommended = models.CharField(null=True, max_length=255, blank=True)
+    name = models.CharField(null=True, max_length=255, blank=True)
     lts_box = models.CharField('LTS Box', null=True, max_length=255, blank=True)
     for_more_specimen = models.CharField(null=True, max_length=255, blank=True)
     specimens_left = models.CharField(null=True, max_length=255, blank=True)
+    caste_detail = models.CharField(null=True, max_length=255, blank=True)
+    genome_associated = models.CharField(null=True, max_length=255, blank=True)
+    doi = models.CharField(null=True, max_length=255, blank=True)
+    problems_det = models.CharField(null=True, max_length=255, blank=True)
+    problems_other = models.CharField(null=True, max_length=255, blank=True)
+    stained = models.CharField(null=True, max_length=255, blank=True)
+    voxel_size = models.CharField(null=True, max_length=255, blank=True)
+    filter = models.CharField(null=True, max_length=255, blank=True)
+    projections = models.CharField(null=True, max_length=255, blank=True)
+    exposure_time_per_frame = models.CharField(null=True, max_length=255, blank=True)
+    family_or_other = models.CharField(null=True, max_length=255, blank=True)
+    antscan_contributor = models.CharField(null=True, max_length=255, blank=True)
+    parent_folder = models.CharField(null=True, max_length=255, blank=True)
 
 class TomographicData(models.Model):
     pic = models.FileField("", upload_to=repository_directory_path)
@@ -370,11 +382,22 @@ class ProcessedData(models.Model):
     imageType = models.IntegerField("Type", default=1, null=True)
     shortfilename = models.TextField(null=True)
 
-class SpecimenForm(forms.ModelForm):
+class SpecimenFormPublic(forms.ModelForm):
+    class Meta:
+        model = Specimen
+        fields = ('name', 'specimen_code', 'status', 'collection_code', 'taxon_code',
+                  'caste', 'caste_detail', 'genome_associated', 'doi', 'problems_det', 'problems_other',
+                  'stained', 'voxel_size', 'filter', 'projections', 'exposure_time_per_frame',
+                  'family_or_other', 'subfamily', 'tribe', 'genus', 'species', 'genus_authority',
+                  'located_at', 'owned_by', 'antscan_contributor', 'determined_by', 'collected_by',
+                  'method', 'date_collected_start', 'country', 'adm1', 'latitude', 'longitude',
+                  'elevation')
+
+class SpecimenFormInternal(forms.ModelForm):
     class Meta:
         model = Specimen
         widgets = {'sketchfab': forms.Textarea(attrs={'rows':1})}
-        fields = ('name_recommended', 'subfamily', 'genus', 'species', 'caste', 'status',
+        fields = ('name', 'subfamily', 'genus', 'species', 'caste', 'status',
                   'location', 'date', 'collected_by', 'collection_date',
                   'determined_by', 'collection', 'specimen_id', 'internal_id', 'magnification',
                   'specimen_code', 'collection_code', 'taxon_code', 'lifestagesex',

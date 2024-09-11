@@ -154,6 +154,7 @@ def smart_interpolation(data, labelData, nbrw=10, sorw=4000, acwe=False, acwe_al
                 bm.data /= np.amax(bm.data)
                 bm.data *= 255.0
             if bm.labelData.dtype in ['uint32','int64','uint64']:
+                print(f'Warning: Potential label loss during conversion from {bm.labelData.dtype} to int32.')
                 bm.labelData = bm.labelData.astype(np.int32)
 
             # denoise image data

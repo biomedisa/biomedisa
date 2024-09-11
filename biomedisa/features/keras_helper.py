@@ -785,7 +785,9 @@ def train_semantic_segmentation(bm,
                     bm.only, bm.ignore, img, label, None, None, header, extension)
 
     # configuration data
-    configuration_data = np.array([bm.channels, bm.x_scale, bm.y_scale, bm.z_scale, bm.normalize, 0, 1])
+    configuration_data = np.array([bm.channels,
+        bm.x_scale, bm.y_scale, bm.z_scale, bm.normalize,
+        normalization_parameters[0,0], normalization_parameters[1,0]])
 
     # img shape
     zsh, ysh, xsh, _ = img.shape
@@ -1071,7 +1073,7 @@ def gradient(volData):
     return grad
 
 def predict_semantic_segmentation(bm,
-    header, img_header, allLabels,
+    header, img_header,
     region_of_interest, extension, img_data,
     channels, normalization_parameters):
 
@@ -1079,7 +1081,8 @@ def predict_semantic_segmentation(bm,
     results = {}
 
     # number of labels
-    nb_labels = len(allLabels)
+    nb_labels = len(bm.allLabels)
+    results['allLabels'] = bm.allLabels
 
     # load model
     if bm.dice_loss:

@@ -221,7 +221,7 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
             normalization_parameters = np.array(meta['normalization'], dtype=float)
         else:
             normalization_parameters = np.array([[mu],[sig]])
-        allLabels = np.array(meta.get('labels'))
+        bm.allLabels = np.array(meta.get('labels'))
         if 'patch_normalization' in meta:
             bm.patch_normalization = bool(meta['patch_normalization'][()])
         if 'scaling' in meta:
@@ -294,7 +294,7 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
 
                 # make prediction
                 results, bm = predict_semantic_segmentation(bm,
-                    header, img_header, allLabels,
+                    header, img_header,
                     region_of_interest, extension, img_data,
                     channels, normalization_parameters)
 
@@ -486,6 +486,8 @@ if __name__ == '__main__':
                         help='Location of mask')
     parser.add_argument('-rf','--refinement', action='store_true', default=False,
                         help='Refine segmentation on full size data')
+    parser.add_argument('-ext','--extension', type=str, default='.tif',
+                        help='Save data for example as NRRD file using --extension=".nrrd"')
     bm = parser.parse_args()
     bm.success = True
 

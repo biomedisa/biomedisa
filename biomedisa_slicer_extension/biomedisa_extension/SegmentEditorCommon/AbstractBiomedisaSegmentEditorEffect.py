@@ -1,8 +1,9 @@
+from abc import abstractmethod
 from typing import Type, TypeVar
 import qt, slicer, json
 from SegmentEditorEffects import AbstractScriptedSegmentEditorEffect
-from SegmentEditorCommon.ListSelectionDialog import ListSelectionDialog
 from PyQt5.QtWidgets import QDialog
+from SegmentEditorCommon.ListSelectionDialog import ListSelectionDialog
 
 T = TypeVar('T')
 
@@ -12,19 +13,29 @@ class AbstractBiomedisaSegmentEditorEffect(AbstractScriptedSegmentEditorEffect):
         scriptedEffect.name = name
         self.effectParameterName = name.replace(' ', '_')
         self.previewSegmentationNode = None
+        self.running = False
         super().__init__(scriptedEffect)
 
+    def createCursor(self, widget):
+        return slicer.util.mainWindow().cursor
+
+    @abstractmethod                
     def runAlgorithm(self):
         pass
 
-    def onSaveParameter(self):
-        pass
-
+    @abstractmethod                
     def onLoadParameter(self):
         pass
-                
+
+    @abstractmethod                
     def onRestoreParameter(self):
         pass
+
+    def onSaveParameter(self):
+        text = qt.QInputDialog.getText(None, "Parameter name", "Enter the name of the parameter set")
+        if text:
+            parameter = self.getParameterFromGui()
+            self.saveParameter(parameter, text)
 
     def createParameterGui(self, createSave: bool = True, createLoad: bool = True, createRestore: bool = True) -> qt.QWidget:
         self.parameter_layout = qt.QHBoxLayout()
@@ -51,7 +62,8 @@ class AbstractBiomedisaSegmentEditorEffect(AbstractScriptedSegmentEditorEffect):
         self.runButton.setToolTip("Run the biomedisa algorithm and generate segment data")
         self.runButton.clicked.connect(self.onRun)
         self.scriptedEffect.addOptionsWidget(self.runButton)
-
+        self.updateRunButtonState()
+        
         self.previewShow3DButton = qt.QPushButton("Show 3D")
         self.previewShow3DButton.objectName = self.__class__.__name__ + 'Show3D'
         self.previewShow3DButton.toolTip = "Toggle 3D visibility of the segmentation"
@@ -78,19 +90,27 @@ class AbstractBiomedisaSegmentEditorEffect(AbstractScriptedSegmentEditorEffect):
 
     def onCancel(self):
         # delete preview segmentation node
-        self.runButton.setEnabled(True)
+        self.running = False
+        self.updateRunButtonState()
         self.removePreviewNode()
 
     def onApply(self):
         # move result form preview nod to main node and delete preview segmentation node
         self.originalSegmentationNode.GetSegmentation().DeepCopy(self.previewSegmentationNode.GetSegmentation())
-        self.runButton.setEnabled(True)
+        self.running = False
+        self.updateRunButtonState()
         self.removePreviewNode()
     
     def onShow3DButtonClicked(self):
         showing = self.getPreviewShow3D()
         self.setPreviewShow3D(not showing)
     
+    def updateRunButtonState(self):
+        if self.running:
+            self.runButton.setEnabled(False)
+        else:
+            self.runButton.setEnabled(True)
+
     def getPreviewNode(self):
         if self.previewSegmentationNode is not None:
             return self.previewSegmentationNode
@@ -154,25 +174,19 @@ class AbstractBiomedisaSegmentEditorEffect(AbstractScriptedSegmentEditorEffect):
         qt.QApplication.setOverrideCursor(qt.Qt.WaitCursor)
         try:
             slicer.util.showStatusMessage('Running Biomedisa...', 2000)
-            self.runButton.setEnabled(False)
+            self.running = True
+            self.updateRunButtonState()
             self.scriptedEffect.saveStateForUndo()
             self.runAlgorithm()
             self.updateButtonStates()
             slicer.util.showStatusMessage('Biomedisa finished', 2000)
         except:
-            self.runButton.setEnabled(True)
+            self.running = False
+            self.updateRunButtonState()
         finally:
             qt.QApplication.restoreOverrideCursor()
 
-    def showParameterSelectionDialog(self, items):
-        dialog = ListSelectionDialog(items)
-        result = dialog.exec_()
-        if result == QDialog.Accepted:
-            return dialog.getSelectedItem()
-        else:
-            return None
-
-    def saveParameter(self, parameter, parameterName: str):
+    def saveParameter(self, parameter: T, parameterName: str):
         """Save parameters to the module settings."""
         # Location in Windows: %USERPROFILE%\AppData\Roaming\slicer.org\Slicer.ini
         settings = slicer.app.settings()

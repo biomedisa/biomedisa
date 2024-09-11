@@ -7,7 +7,7 @@ class Helper():
 
     #source: https://discourse.vtk.org/t/convert-vtk-array-to-numpy-array/3152/3
     @staticmethod
-    def _vtkToNumpy(data):
+    def vtkToNumpy(data):
         temp = vtk_to_numpy(data.GetPointData().GetScalars())
         dims = data.GetDimensions()
         component = data.GetNumberOfScalarComponents()
@@ -24,16 +24,10 @@ class Helper():
         return numpy_data
 
     @staticmethod
-    def _expandLabelToMatchInputImage(labelImageData, inputDimensions) -> vtk.vtkImageData:
-        # Initialize the new VTK image data object with the same dimensions as the input image
-        newLabelImageData = vtk.vtkImageData()
-        newLabelImageData.SetDimensions(inputDimensions)
-        newLabelImageData.AllocateScalars(vtk.VTK_UNSIGNED_CHAR, 1)
-
-        # Get the bounds and extent of the original label image data
-        labelBounds = labelImageData.GetBounds()
+    def expandLabelToMatchInputImage(labelImageData, inputDimensions) -> vtk.vtkImageData:
+        # Get extent of the original label image data
         labelExtent = labelImageData.GetExtent()
-        
+
         # Convert the label image data to a NumPy array
         labelPointData = labelImageData.GetPointData()
         labelVtkArray = labelPointData.GetScalars()
@@ -44,22 +38,29 @@ class Helper():
         newLabelNumpyArray = np.zeros(inputDimensions, dtype=np.uint8)
         newLabelNumpyArray = newLabelNumpyArray.reshape(inputDimensions[::-1])
 
-        # Calculate the offset for copying the label data to the correct position in the new image
-        offsets = [-labelBounds[1] + 0.5,
-                   -labelBounds[3] + 0.5,
-                   labelBounds[4] + 0.5]
+        # Copy label data to the new image data at the correct position
+        zmin, zmax = labelExtent[4], labelExtent[5] + 1
+        ymin, ymax = labelExtent[2], labelExtent[3] + 1
+        xmin, xmax = labelExtent[0], labelExtent[1] + 1
+        newLabelNumpyArray[zmin:zmax, ymin:ymax, xmin:xmax] = labelNumpyArray
 
-        # Iterate over the label data and copy it to the new image data at the correct position
-        for z in range(labelExtent[4], labelExtent[5] + 1):
-            for y in range(labelExtent[2], labelExtent[3] + 1):
-                for x in range(labelExtent[0], labelExtent[1] + 1):
-                    zz = int(z - offsets[2])
-                    yy = int(y - offsets[1])
-                    xx = int(x - offsets[0])
-                    newLabelNumpyArray[z, y, x] = labelNumpyArray[zz, yy, xx]
+        return newLabelNumpyArray
 
-        # Convert the NumPy array back to a VTK array and set it as the scalars of the new VTK image data object
-        newLabelVtkArray = vtk_np.numpy_to_vtk(newLabelNumpyArray.ravel(), deep=True, array_type=vtk.VTK_UNSIGNED_CHAR)
-        newLabelImageData.GetPointData().SetScalars(newLabelVtkArray)
+    @staticmethod
+    def crop(image: np.ndarray,
+             x_min: int, x_max: int,
+             y_min: int, y_max: int,
+             z_min: int, z_max: int) -> np.ndarray:
+        image = image[z_min:z_max+1, y_min:y_max+1, x_min:x_max+1].copy()
+        return image
 
-        return newLabelImageData
+    @staticmethod
+    def embed(image: np.ndarray,
+             dimensions,
+             x_min: int, x_max: int,
+             y_min: int, y_max: int,
+             z_min: int, z_max: int) -> np.ndarray:
+        fullimage = np.zeros((dimensions[2], dimensions[1], dimensions[0]), dtype=image.dtype)
+        fullimage[z_min:z_max+1, y_min:y_max+1, x_min:x_max+1] = image
+        return fullimage
+
