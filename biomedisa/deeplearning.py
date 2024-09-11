@@ -77,7 +77,7 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
     z_patch=64, y_patch=64, x_patch=64, path_to_logfile=None, img_id=None, label_id=None,
     remote=False, queue=0, username=None, shortfilename=None, dice_loss=False,
     acwe=False, acwe_alpha=1.0, acwe_smooth=1, acwe_steps=3, clean=None, fill=None,
-    separation=False, mask=None):
+    separation=False, mask=None, refinement=False):
 
     # create biomedisa
     bm = Biomedisa()
@@ -484,6 +484,8 @@ if __name__ == '__main__':
                         help='Instance segmentation of objects such as cells or rock particles')
     parser.add_argument('-m','--mask', type=str, metavar='PATH', default=None,
                         help='Location of mask')
+    parser.add_argument('-rf','--refinement', action='store_true', default=False,
+                        help='Refine segmentation on full size data')
     bm = parser.parse_args()
     bm.success = True
 

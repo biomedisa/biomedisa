@@ -382,7 +382,7 @@ def load_training_data(bm, normalize, img_list, label_list, channels, x_scale, y
                 label_names = ['label_1']
             label_dim = label.shape
             label = set_labels_to_zero(label, labels_to_compute, labels_to_remove)
-            if not bm.separation:
+            if scaling:
                 label_values, counts = np.unique(label, return_counts=True)
                 print(f'{os.path.basename(label_names[0])}:', 'Labels:', label_values[1:], 'Sizes:', counts[1:])
             if crop_data:
@@ -466,7 +466,7 @@ def load_training_data(bm, normalize, img_list, label_list, channels, x_scale, y
                         a = label_in[k]
                     label_dim = a.shape
                     a = set_labels_to_zero(a, labels_to_compute, labels_to_remove)
-                    if not bm.separation:
+                    if scaling:
                         label_values, counts = np.unique(a, return_counts=True)
                         print(f'{os.path.basename(label_names[k])}:', 'Labels:', label_values[1:], 'Sizes:', counts[1:])
                     if crop_data:
@@ -1105,10 +1105,11 @@ def predict_semantic_segmentation(bm,
         ysh, xsh = tif.pages[0].shape
 
         # load mask
-        if bm.separation:
+        if bm.separation or bm.refinement:
             mask, _ = load_data(bm.mask)
             mask = mask.reshape(zsh, ysh, xsh, 1)
             mask, _, _, _ = append_ghost_areas(bm, mask)
+            mask = mask.reshape(mask.shape[:-1])
 
         # determine new image size after appending ghost areas to make image dimensions divisible by patch size
         z_rest = bm.z_patch - (zsh % bm.z_patch)
@@ -1137,10 +1138,15 @@ def predict_semantic_segmentation(bm,
                         patch = mask[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]
                         if centerLabel>0 and np.any(patch!=centerLabel):
                             list_IDs.append(k*ysh*xsh+l*xsh+m)
+                    elif bm.refinement:
+                        patch = mask[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]
+                        if np.any(patch==0) and np.any(patch!=0):
+                            list_IDs.append(k*ysh*xsh+l*xsh+m)
                     else:
                         list_IDs.append(k*ysh*xsh+l*xsh+m)
 
         # make length of list divisible by batch size
+        max_i = len(list_IDs)
         rest = bm.batch_size - (len(list_IDs) % bm.batch_size)
         list_IDs = list_IDs + list_IDs[:rest]
 
@@ -1228,7 +1234,7 @@ def predict_semantic_segmentation(bm,
                 img, _, _, _ = append_ghost_areas(bm, img)
 
             # list of IDs
-            list_IDs = []
+            list_IDs_block = []
 
             # get Ids of patches
             for l in range(0, ysh-bm.y_patch+1, bm.stride_size):
@@ -1237,24 +1243,28 @@ def predict_semantic_segmentation(bm,
                         centerLabel = mask[z+bm.z_patch//2,l+bm.y_patch//2,m+bm.x_patch//2]
                         patch = mask[z:z+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]
                         if centerLabel>0 and np.any(patch!=centerLabel):
-                            list_IDs.append(z*ysh*xsh+l*xsh+m)
+                            list_IDs_block.append(z*ysh*xsh+l*xsh+m)
+                    elif bm.refinement:
+                        patch = mask[z:z+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]
+                        if np.any(patch==0) and np.any(patch!=0):
+                            list_IDs_block.append(z*ysh*xsh+l*xsh+m)
                     else:
-                        list_IDs.append(z*ysh*xsh+l*xsh+m)
+                        list_IDs_block.append(z*ysh*xsh+l*xsh+m)
 
             # make length of list divisible by batch size
-            max_i = len(list_IDs)
-            rest = bm.batch_size - (len(list_IDs) % bm.batch_size)
-            list_IDs = list_IDs + list_IDs[:rest]
+            max_i_block = len(list_IDs_block)
+            rest = bm.batch_size - (len(list_IDs_block) % bm.batch_size)
+            list_IDs_block = list_IDs_block + list_IDs_block[:rest]
 
             # number of patches
-            nb_patches = len(list_IDs)
+            nb_patches = len(list_IDs_block)
 
             # allocate tmp probabilities array
             probs = np.zeros((bm.z_patch, ysh, xsh, nb_labels), dtype=np.float32)
 
             # get one batch of image patches
             for step in range(nb_patches//bm.batch_size):
-                for i, ID in enumerate(list_IDs[step*bm.batch_size:(step+1)*bm.batch_size]):
+                for i, ID in enumerate(list_IDs_block[step*bm.batch_size:(step+1)*bm.batch_size]):
 
                     # get patch indices
                     k=0 if load_blockwise else ID // (ysh*xsh)
@@ -1275,11 +1285,11 @@ def predict_semantic_segmentation(bm,
                 Y = model.predict(X, verbose=0, steps=None, batch_size=bm.batch_size)
 
                 # loop over result patches
-                for i, ID in enumerate(list_IDs[step*bm.batch_size:(step+1)*bm.batch_size]):
+                for i, ID in enumerate(list_IDs_block[step*bm.batch_size:(step+1)*bm.batch_size]):
                     rest = ID % (ysh*xsh)
                     l = rest // xsh
                     m = rest % xsh
-                    if step*bm.batch_size+i < max_i:
+                    if step*bm.batch_size+i < max_i_block:
                         if bm.separation:
                             patch = np.argmax(Y[i], axis=-1).astype(np.uint8)
                             label[z:z+bm.z_patch,l:l+bm.y_patch,m:m+bm.x_patch] += gradient(patch)
@@ -1303,6 +1313,18 @@ def predict_semantic_segmentation(bm,
                     label[z:z+block_zsh] = np.argmax(probs[:block_zsh], axis=-1).astype(np.uint8)
                     if bm.return_probs:
                         final[z:z+block_zsh] = probs[:block_zsh]
+
+    # refine mask data with result
+    if bm.refinement:
+        # loop over boundary patches
+        for i, ID in enumerate(list_IDs):
+            if i < max_i:
+                k = ID // (ysh*xsh)
+                rest = ID % (ysh*xsh)
+                l = rest // xsh
+                m = rest % xsh
+                mask[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch] = label[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]
+        label = mask
 
     # remove appendix
     if bm.return_probs:
