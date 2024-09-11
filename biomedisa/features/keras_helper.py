@@ -1368,7 +1368,7 @@ def predict_semantic_segmentation(bm,
 
     # get result
     if not bm.separation:
-        label = get_labels(label, allLabels)
+        label = get_labels(label, bm.allLabels)
     results['regular'] = label
 
     # load header from file
