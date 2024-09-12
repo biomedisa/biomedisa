@@ -45,7 +45,7 @@ You need to run `PythonSlicer` from within `Slicer-VERSION-linux-amd64/bin`:
 ./PythonSlicer -m pip install numpy scipy h5py colorama numpy-stl \
     numba imagecodecs tifffile scikit-image opencv-python netCDF4 mrcfile \
     Pillow nibabel medpy SimpleITK itk vtk matplotlib biomedisa \
-    importlib_metadata PyQt5 debugpy
+    importlib_metadata PyQt5
 ```
 
 #### Install CUDA 11.8

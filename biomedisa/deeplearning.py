@@ -282,6 +282,8 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
                     if bm.django_env and not bm.remote and not bm.tarfile:
                         bm.path_to_cropped_image = unique_file_path(bm.path_to_cropped_image)
                     filename = 'final.' + filename
+                    if bm.refinement:
+                        filename += '.refined'
                     bm.path_to_final = os.path.dirname(bm.path_to_image) + '/' + filename + extension
                     if bm.django_env and not bm.remote and not bm.tarfile:
                         bm.path_to_final = unique_file_path(bm.path_to_final)
