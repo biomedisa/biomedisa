@@ -100,6 +100,15 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
         bm.normalize = 0
         bm.patch_normalization = True
 
+    # region of interest
+    if any([bm.x_range, bm.y_range, bm.z_range]):
+        if not bm.x_range:
+            bm.x_range = [0,None]
+        if not bm.y_range:
+            bm.y_range = [0,None]
+        if not bm.z_range:
+            bm.z_range = [0,None]
+
     # django environment
     if bm.django_env:
 
@@ -148,7 +157,7 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
         raise Exception("'path_to_model' must be specified")
 
     # disable file saving when called as a function
-    if img_data is not None:
+    if bm.img_data is not None:
         bm.path_to_images = None
         bm.path_to_cropped_image = None
 
@@ -194,19 +203,10 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
         # train automatic cropping
         bm.cropping_weights, bm.cropping_config, bm.cropping_norm = None, None, None
         if bm.crop_data:
-            bm.cropping_weights, bm.cropping_config, bm.cropping_norm = ch.load_and_train(
-                        bm.normalize, bm.path_to_images, bm.path_to_labels, bm.path_to_model,
-                        bm.cropping_epochs, bm.batch_size, bm.validation_split,
-                        bm.flip_x, bm.flip_y, bm.flip_z, bm.rotate, bm.only, bm.ignore,
-                        bm.val_images, bm.val_labels, img_data, label_data,
-                        val_img_data, val_label_data)
+            bm.cropping_weights, bm.cropping_config, bm.cropping_norm = ch.load_and_train(bm)
 
         # train automatic segmentation
-        train_semantic_segmentation(bm, bm.path_to_images, bm.path_to_labels,
-                        bm.val_images, bm.val_labels,
-                        img_data, label_data,
-                        val_img_data, val_label_data,
-                        header, extension)
+        train_segmentation(bm)
 
     if bm.predict:
 
@@ -228,9 +228,11 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
             bm.scaling = bool(meta['scaling'][()])
 
         # check if amira header is available in the network
-        if header is None and meta.get('header') is not None:
-            header = [np.array(meta.get('header'))]
-            extension = '.am'
+        if bm.header is None and meta.get('header') is not None:
+            bm.header = [np.array(meta.get('header'))]
+            bm.extension = '.am'
+
+        # crop data
         crop_data = True if 'cropping_weights' in hf else False
         hf.close()
 
@@ -284,20 +286,19 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
                     filename = 'final.' + filename
                     if bm.refinement:
                         filename += '.refined'
-                    bm.path_to_final = os.path.dirname(bm.path_to_image) + '/' + filename + extension
+                    bm.path_to_final = os.path.dirname(bm.path_to_image) + '/' + filename + bm.extension
                     if bm.django_env and not bm.remote and not bm.tarfile:
                         bm.path_to_final = unique_file_path(bm.path_to_final)
 
                 # crop data
                 region_of_interest, cropped_volume = None, None
-                if crop_data:
-                    region_of_interest, cropped_volume = ch.crop_data(bm.path_to_image, bm.path_to_model, bm.path_to_cropped_image,
-                        bm.batch_size, bm.debug_cropping, bm.save_cropped, img_data, bm.x_range, bm.y_range, bm.z_range)
+                if any([bm.x_range, bm.y_range, bm.z_range]):
+                    region_of_interest = [bm.z_range[0], bm.z_range[1], bm.y_range[0], bm.y_range[1], bm.x_range[0], bm.x_range[1]]
+                elif crop_data:
+                    region_of_interest, cropped_volume = ch.crop_data(bm)
 
                 # make prediction
-                results, bm = predict_semantic_segmentation(bm,
-                    header, img_header,
-                    region_of_interest, extension, img_data,
+                results, bm = predict_segmentation(bm, region_of_interest,
                     channels, normalization_parameters)
 
                 # results
@@ -459,9 +460,9 @@ if __name__ == '__main__':
     parser.add_argument('-xr','--x_range', nargs="+", type=int, default=None,
                         help='Manually crop x-axis of image data for prediction, e.g. -xr 100 200')
     parser.add_argument('-yr','--y_range', nargs="+", type=int, default=None,
-                        help='Manually crop y-axis of image data for prediction, e.g. -xr 100 200')
+                        help='Manually crop y-axis of image data for prediction, e.g. -yr 100 200')
     parser.add_argument('-zr','--z_range', nargs="+", type=int, default=None,
-                        help='Manually crop z-axis of image data for prediction, e.g. -xr 100 200')
+                        help='Manually crop z-axis of image data for prediction, e.g. -zr 100 200')
     parser.add_argument('-rp','--return_probs', action='store_true', default=False,
                         help='Return prediction probabilities for each label')
     parser.add_argument('-pn','--patch_normalization', action='store_true', default=False,

@@ -355,8 +355,7 @@ def read_img_list(img_list, label_list, temp_img_dir, temp_label_dir):
             label_names.append(label_name)
     return img_names, label_names
 
-def load_training_data(bm, normalize, img_list, label_list, channels, x_scale, y_scale, z_scale, scaling,
-        crop_data, labels_to_compute, labels_to_remove, img_in=None, label_in=None,
+def load_training_data(bm, img_list, label_list, channels, img_in=None, label_in=None,
         normalization_parameters=None, allLabels=None, header=None, extension='.tif',
         x_puffer=25, y_puffer=25, z_puffer=25):
 
@@ -381,20 +380,26 @@ def load_training_data(bm, normalize, img_list, label_list, channels, x_scale, y
                 label = label_in
                 label_names = ['label_1']
             label_dim = label.shape
-            label = set_labels_to_zero(label, labels_to_compute, labels_to_remove)
-            if scaling:
+            label = set_labels_to_zero(label, bm.only, bm.ignore)
+            if any([bm.x_range, bm.y_range, bm.z_range]):
+                if len(label_names)>1:
+                    InputError.message = 'Training on region of interest is only supported for one volume.'
+                    raise InputError()
+                argmin_z, argmax_z, argmin_y, argmax_y, argmin_x, argmax_x = \
+                    bm.z_range[0], bm.z_range[1], bm.y_range[0], bm.y_range[1], bm.x_range[0], bm.x_range[1]
+                label = label[argmin_z:argmax_z,argmin_y:argmax_y,argmin_x:argmax_x].copy()
+            elif bm.crop_data:
+                argmin_z,argmax_z,argmin_y,argmax_y,argmin_x,argmax_x = predict_blocksize(label, x_puffer, y_puffer, z_puffer)
+                label = label[argmin_z:argmax_z,argmin_y:argmax_y,argmin_x:argmax_x].copy()
+            if bm.scaling:
                 label_values, counts = np.unique(label, return_counts=True)
                 print(f'{os.path.basename(label_names[0])}:', 'Labels:', label_values[1:], 'Sizes:', counts[1:])
-            if crop_data:
-                argmin_z,argmax_z,argmin_y,argmax_y,argmin_x,argmax_x = predict_blocksize(label, x_puffer, y_puffer, z_puffer)
-                label = np.copy(label[argmin_z:argmax_z,argmin_y:argmax_y,argmin_x:argmax_x], order='C')
-            if scaling:
-                label = img_resize(label, z_scale, y_scale, x_scale, labels=True)
+                label = img_resize(label, bm.z_scale, bm.y_scale, bm.x_scale, labels=True)
 
             # if header is not single data stream Amira Mesh falling back to Multi-TIFF
             if extension != '.am':
                 if extension != '.tif':
-                    print(f'Warning! Please use -hf or --header_file="path_to_training_label{extension}" for prediction to save your result as "{extension}"')
+                    print(f'Warning! Please use --header_file="path_to_training_label{extension}" for prediction to save your result as "{extension}"')
                 extension, header = '.tif', None
             elif len(header) > 1:
                 print('Warning! Multiple data streams are not supported. Falling back to TIFF.')
@@ -429,13 +434,13 @@ def load_training_data(bm, normalize, img_list, label_list, channels, x_scale, y
                 raise InputError()
 
             # crop data
-            if crop_data:
-                img = np.copy(img[argmin_z:argmax_z,argmin_y:argmax_y,argmin_x:argmax_x], order='C')
+            if any([bm.x_range, bm.y_range, bm.z_range]) or bm.crop_data:
+                img = img[argmin_z:argmax_z,argmin_y:argmax_y,argmin_x:argmax_x].copy()
 
             # scale/resize image data
             img = img.astype(np.float32)
-            if scaling:
-                img = img_resize(img, z_scale, y_scale, x_scale)
+            if bm.scaling:
+                img = img_resize(img, bm.z_scale, bm.y_scale, bm.x_scale)
 
             # normalize image data
             for c in range(channels):
@@ -445,7 +450,7 @@ def load_training_data(bm, normalize, img_list, label_list, channels, x_scale, y
                     normalization_parameters = np.zeros((2,channels))
                     normalization_parameters[0,c] = np.mean(img[:,:,:,c])
                     normalization_parameters[1,c] = np.std(img[:,:,:,c])
-                elif normalize:
+                elif bm.normalize:
                     mean, std = np.mean(img[:,:,:,c]), np.std(img[:,:,:,c])
                     img[:,:,:,c] = (img[:,:,:,c] - mean) / std
                     img[:,:,:,c] = img[:,:,:,c] * normalization_parameters[1,c] + normalization_parameters[0,c]
@@ -465,15 +470,14 @@ def load_training_data(bm, normalize, img_list, label_list, channels, x_scale, y
                     else:
                         a = label_in[k]
                     label_dim = a.shape
-                    a = set_labels_to_zero(a, labels_to_compute, labels_to_remove)
-                    if scaling:
-                        label_values, counts = np.unique(a, return_counts=True)
-                        print(f'{os.path.basename(label_names[k])}:', 'Labels:', label_values[1:], 'Sizes:', counts[1:])
-                    if crop_data:
+                    a = set_labels_to_zero(a, bm.only, bm.ignore)
+                    if bm.crop_data:
                         argmin_z,argmax_z,argmin_y,argmax_y,argmin_x,argmax_x = predict_blocksize(a, x_puffer, y_puffer, z_puffer)
                         a = np.copy(a[argmin_z:argmax_z,argmin_y:argmax_y,argmin_x:argmax_x], order='C')
-                    if scaling:
-                        a = img_resize(a, z_scale, y_scale, x_scale, labels=True)
+                    if bm.scaling:
+                        label_values, counts = np.unique(a, return_counts=True)
+                        print(f'{os.path.basename(label_names[k])}:', 'Labels:', label_values[1:], 'Sizes:', counts[1:])
+                        a = img_resize(a, bm.z_scale, bm.y_scale, bm.x_scale, labels=True)
                     label = np.append(label, a, axis=0)
 
                     # append image
@@ -493,15 +497,15 @@ def load_training_data(bm, normalize, img_list, label_list, channels, x_scale, y
                     if a.shape[3] != channels:
                         InputError.message = f'Number of channels must be {channels} for "{os.path.basename(img_names[k])}"'
                         raise InputError()
-                    if crop_data:
+                    if bm.crop_data:
                         a = np.copy(a[argmin_z:argmax_z,argmin_y:argmax_y,argmin_x:argmax_x], order='C')
                     a = a.astype(np.float32)
-                    if scaling:
-                        a = img_resize(a, z_scale, y_scale, x_scale)
+                    if bm.scaling:
+                        a = img_resize(a, bm.z_scale, bm.y_scale, bm.x_scale)
                     for c in range(channels):
                         a[:,:,:,c] -= np.amin(a[:,:,:,c])
                         a[:,:,:,c] /= np.amax(a[:,:,:,c])
-                        if normalize:
+                        if bm.normalize:
                             mean, std = np.mean(a[:,:,:,c]), np.std(a[:,:,:,c])
                             a[:,:,:,c] = (a[:,:,:,c] - mean) / std
                             a[:,:,:,c] = a[:,:,:,c] * normalization_parameters[1,c] + normalization_parameters[0,c]
@@ -772,17 +776,11 @@ def dice_coef_loss(nb_labels):
         return loss
     return loss_fn
 
-def train_semantic_segmentation(bm,
-    img_list, label_list,
-    val_img_list, val_label_list,
-    img=None, label=None,
-    img_val=None, label_val=None,
-    header=None, extension='.tif'):
+def train_segmentation(bm):
 
     # training data
-    img, label, allLabels, normalization_parameters, header, extension, bm.channels = load_training_data(bm, bm.normalize,
-                    img_list, label_list, None, bm.x_scale, bm.y_scale, bm.z_scale, bm.scaling, bm.crop_data,
-                    bm.only, bm.ignore, img, label, None, None, header, extension)
+    bm.img_data, bm.label_data, allLabels, normalization_parameters, bm.header, bm.extension, bm.channels = load_training_data(bm,
+        bm.path_to_images, bm.path_to_labels, None, bm.img_data, bm.label_data, None, None, bm.header, bm.extension)
 
     # configuration data
     configuration_data = np.array([bm.channels,
@@ -790,21 +788,20 @@ def train_semantic_segmentation(bm,
         normalization_parameters[0,0], normalization_parameters[1,0]])
 
     # img shape
-    zsh, ysh, xsh, _ = img.shape
+    zsh, ysh, xsh, _ = bm.img_data.shape
 
     # validation data
-    if any(val_img_list) or img_val is not None:
-        img_val, label_val, _, _, _, _, _ = load_training_data(bm, bm.normalize,
-                    val_img_list, val_label_list, bm.channels, bm.x_scale, bm.y_scale, bm.z_scale, bm.scaling, bm.crop_data,
-                    bm.only, bm.ignore, img_val, label_val, normalization_parameters, allLabels)
+    if any(bm.val_images) or bm.val_img_data is not None:
+        bm.val_img_data, bm.val_label_data, _, _, _, _, _ = load_training_data(bm,
+            bm.val_images, bm.val_labels, bm.channels, bm.val_img_data, bm.val_label_data, normalization_parameters, allLabels)
 
     elif bm.validation_split:
         split = round(zsh * bm.validation_split)
-        img_val = np.copy(img[split:], order='C')
-        label_val = np.copy(label[split:], order='C')
-        img = np.copy(img[:split], order='C')
-        label = np.copy(label[:split], order='C')
-        zsh, ysh, xsh, _ = img.shape
+        bm.val_img_data = bm.img_data[split:].copy()
+        bm.val_label_data = bm.label_data[split:].copy()
+        bm.img_data = bm.img_data[:split].copy()
+        bm.label_data = bm.label_data[:split].copy()
+        zsh, ysh, xsh, _ = bm.img_data.shape
 
     # list of IDs
     list_IDs_fg, list_IDs_bg = [], []
@@ -814,7 +811,7 @@ def train_semantic_segmentation(bm,
         for k in range(0, zsh-bm.z_patch+1, bm.stride_size):
             for l in range(0, ysh-bm.y_patch+1, bm.stride_size):
                 for m in range(0, xsh-bm.x_patch+1, bm.stride_size):
-                    if np.any(label[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]):
+                    if np.any(bm.label_data[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]):
                         list_IDs_fg.append(k*ysh*xsh+l*xsh+m)
                     else:
                         list_IDs_bg.append(k*ysh*xsh+l*xsh+m)
@@ -823,17 +820,17 @@ def train_semantic_segmentation(bm,
             for l in range(0, ysh-bm.y_patch+1, bm.stride_size):
                 for m in range(0, xsh-bm.x_patch+1, bm.stride_size):
                     if bm.separation:
-                        centerLabel = label[k+bm.z_patch//2,l+bm.y_patch//2,m+bm.x_patch//2]
-                        patch = label[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]
+                        centerLabel = bm.label_data[k+bm.z_patch//2,l+bm.y_patch//2,m+bm.x_patch//2]
+                        patch = bm.label_data[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]
                         if centerLabel>0 and np.any(patch!=centerLabel):
                             list_IDs_fg.append(k*ysh*xsh+l*xsh+m)
                     else:
                         list_IDs_fg.append(k*ysh*xsh+l*xsh+m)
 
-    if img_val is not None:
+    if bm.val_img_data is not None:
 
         # img_val shape
-        zsh_val, ysh_val, xsh_val, _ = img_val.shape
+        zsh_val, ysh_val, xsh_val, _ = bm.val_img_data.shape
 
         # list of validation IDs
         list_IDs_val_fg, list_IDs_val_bg = [], []
@@ -843,7 +840,7 @@ def train_semantic_segmentation(bm,
             for k in range(0, zsh_val-bm.z_patch+1, bm.validation_stride_size):
                 for l in range(0, ysh_val-bm.y_patch+1, bm.validation_stride_size):
                     for m in range(0, xsh_val-bm.x_patch+1, bm.validation_stride_size):
-                        if np.any(label_val[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]):
+                        if np.any(bm.val_label_data[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]):
                             list_IDs_val_fg.append(k*ysh_val*xsh_val+l*xsh_val+m)
                         else:
                             list_IDs_val_bg.append(k*ysh_val*xsh_val+l*xsh_val+m)
@@ -852,8 +849,8 @@ def train_semantic_segmentation(bm,
                 for l in range(0, ysh_val-bm.y_patch+1, bm.validation_stride_size):
                     for m in range(0, xsh_val-bm.x_patch+1, bm.validation_stride_size):
                         if bm.separation:
-                            centerLabel = label_val[k+bm.z_patch//2,l+bm.y_patch//2,m+bm.x_patch//2]
-                            patch = label_val[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]
+                            centerLabel = bm.val_label_data[k+bm.z_patch//2,l+bm.y_patch//2,m+bm.x_patch//2]
+                            patch = bm.val_label_data[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]
                             if centerLabel>0 and np.any(patch!=centerLabel):
                                 list_IDs_val_fg.append(k*ysh_val*xsh_val+l*xsh_val+m)
                         else:
@@ -877,18 +874,18 @@ def train_semantic_segmentation(bm,
 
     # data generator
     validation_generator = None
-    training_generator = DataGenerator(img, label, list_IDs_fg, list_IDs_bg, True, True, False, **params)
-    if img_val is not None:
+    training_generator = DataGenerator(bm.img_data, bm.label_data, list_IDs_fg, list_IDs_bg, True, True, False, **params)
+    if bm.val_img_data is not None:
         if bm.val_dice:
-            val_metrics = Metrics(bm, img_val, label_val, list_IDs_val_fg, (zsh_val, ysh_val, xsh_val), nb_labels, False)
+            val_metrics = Metrics(bm, bm.val_img_data, bm.val_label_data, list_IDs_val_fg, (zsh_val, ysh_val, xsh_val), nb_labels, False)
         else:
             params['dim_img'] = (zsh_val, ysh_val, xsh_val)
             params['augment'] = (False, False, False, False, 0)
-            validation_generator = DataGenerator(img_val, label_val, list_IDs_val_fg, list_IDs_val_bg, True, False, False, **params)
+            validation_generator = DataGenerator(bm.val_img_data, bm.val_label_data, list_IDs_val_fg, list_IDs_val_bg, True, False, False, **params)
 
     # monitor dice score on training data
     if bm.train_dice:
-        train_metrics = Metrics(bm, img, label, list_IDs_fg, (zsh, ysh, xsh), nb_labels, True)
+        train_metrics = Metrics(bm, bm.img_data, bm.label_data, list_IDs_fg, (zsh, ysh, xsh), nb_labels, True)
 
     # create a MirroredStrategy
     cdo = tf.distribute.ReductionToOneDevice()
@@ -931,11 +928,11 @@ def train_semantic_segmentation(bm,
 
     # save meta data
     meta_data = MetaData(bm.path_to_model, configuration_data, allLabels,
-        extension, header, bm.crop_data, bm.cropping_weights, bm.cropping_config,
+        bm.extension, bm.header, bm.crop_data, bm.cropping_weights, bm.cropping_config,
         normalization_parameters, bm.cropping_norm, bm.patch_normalization, bm.scaling)
 
     # model checkpoint
-    if img_val is not None:
+    if bm.val_img_data is not None:
         if bm.val_dice:
             callbacks = [val_metrics, meta_data]
         else:
@@ -967,7 +964,7 @@ def train_semantic_segmentation(bm,
               workers=bm.workers)
 
     # save monitoring figure on train end
-    if img_val is not None and not bm.val_dice:
+    if bm.val_img_data is not None and not bm.val_dice:
         save_history(history.history, bm.path_to_model, False, bm.train_dice)
 
 def load_prediction_data(bm, channels, normalize, normalization_parameters,
@@ -1072,10 +1069,7 @@ def gradient(volData):
     grad[grad>0]=1
     return grad
 
-def predict_semantic_segmentation(bm,
-    header, img_header,
-    region_of_interest, extension, img_data,
-    channels, normalization_parameters):
+def predict_segmentation(bm, region_of_interest, channels, normalization_parameters):
 
     # initialize results
     results = {}
@@ -1161,8 +1155,8 @@ def predict_semantic_segmentation(bm,
     if not load_blockwise:
 
         # load prediction data
-        img, img_header, z_shape, y_shape, x_shape, region_of_interest, img_data = load_prediction_data(
-            bm, channels, bm.normalize, normalization_parameters, region_of_interest, img_data, img_header)
+        img, bm.img_header, z_shape, y_shape, x_shape, region_of_interest, bm.img_data = load_prediction_data(
+            bm, channels, bm.normalize, normalization_parameters, region_of_interest, bm.img_data, bm.img_header)
 
         # append ghost areas
         img, z_rest, y_rest, x_rest = append_ghost_areas(bm, img)
@@ -1229,11 +1223,11 @@ def predict_semantic_segmentation(bm,
         z_indices = range(0, zsh-bm.z_patch+1, bm.stride_size)
         for j, z in enumerate(z_indices):
 
-            # load blockwise
+            # load blockwise from TIFF
             if load_blockwise:
                 img, _, _, _, _, _, _ = load_prediction_data(bm,
                     channels, bm.normalize, normalization_parameters,
-                    region_of_interest, img_data, img_header, load_blockwise, z)
+                    region_of_interest, bm.img_data, bm.img_header, load_blockwise, z)
                 img, _, _, _ = append_ghost_areas(bm, img)
 
             # list of IDs
@@ -1373,79 +1367,79 @@ def predict_semantic_segmentation(bm,
 
     # load header from file
     if bm.header_file and os.path.exists(bm.header_file):
-        _, header = load_data(bm.header_file)
+        _, bm.header = load_data(bm.header_file)
         # update file extension
-        if header is not None and bm.path_to_image:
-            extension = os.path.splitext(bm.header_file)[1]
-            if extension == '.gz':
-                extension = '.nii.gz'
-            bm.path_to_final = os.path.splitext(bm.path_to_final)[0] + extension
+        if bm.header is not None and bm.path_to_image:
+            bm.extension = os.path.splitext(bm.header_file)[1]
+            if bm.extension == '.gz':
+                bm.extension = '.nii.gz'
+            bm.path_to_final = os.path.splitext(bm.path_to_final)[0] + bm.extension
             if bm.django_env and not bm.remote and not bm.tarfile:
                 bm.path_to_final = unique_file_path(bm.path_to_final)
 
     # handle amira header
-    if header is not None:
-        if extension == '.am':
-            header = set_image_dimensions(header[0], label)
-            if img_header is not None:
+    if bm.header is not None:
+        if bm.extension == '.am':
+            bm.header = set_image_dimensions(bm.header[0], label)
+            if bm.img_header is not None:
                 try:
-                    header = set_physical_size(header, img_header[0])
+                    bm.header = set_physical_size(bm.header, bm.img_header[0])
                 except:
                     pass
-            header = [header]
+            bm.header = [bm.header]
         else:
             # build new header
-            if img_header is None:
+            if bm.img_header is None:
                 zsh, ysh, xsh = label.shape
-                img_header = sitk.Image(xsh, ysh, zsh, header.GetPixelID())
+                bm.img_header = sitk.Image(xsh, ysh, zsh, bm.header.GetPixelID())
             # copy metadata
-            for key in header.GetMetaDataKeys():
+            for key in bm.header.GetMetaDataKeys():
                 if not (re.match(r'Segment\d+_Extent$', key) or key=='Segmentation_ConversionParameters'):
-                    img_header.SetMetaData(key, header.GetMetaData(key))
-            header = img_header
-    results['header'] = header
+                    bm.img_header.SetMetaData(key, bm.header.GetMetaData(key))
+            bm.header = bm.img_header
+    results['header'] = bm.header
 
     # save result
     if bm.path_to_image:
-        save_data(bm.path_to_final, label, header=header, compress=bm.compression)
+        save_data(bm.path_to_final, label, header=bm.header, compress=bm.compression)
 
         # paths to optional results
-        filename, extension = os.path.splitext(bm.path_to_final)
-        if extension == '.gz':
-            extension = '.nii.gz'
+        filename, bm.extension = os.path.splitext(bm.path_to_final)
+        if bm.extension == '.gz':
+            bm.extension = '.nii.gz'
             filename = filename[:-4]
-        path_to_cleaned = filename + '.cleaned' + extension
-        path_to_filled = filename + '.filled' + extension
-        path_to_cleaned_filled = filename + '.cleaned.filled' + extension
-        path_to_refined = filename + '.refined' + extension
-        path_to_acwe = filename + '.acwe' + extension
+        path_to_cleaned = filename + '.cleaned' + bm.extension
+        path_to_filled = filename + '.filled' + bm.extension
+        path_to_cleaned_filled = filename + '.cleaned.filled' + bm.extension
+        path_to_refined = filename + '.refined' + bm.extension
+        path_to_acwe = filename + '.acwe' + bm.extension
 
     # remove outliers
     if bm.clean:
         cleaned_result = clean(label, bm.clean)
         results['cleaned'] = cleaned_result
         if bm.path_to_image:
-            save_data(path_to_cleaned, cleaned_result, header=header, compress=bm.compression)
+            save_data(path_to_cleaned, cleaned_result, header=bm.header, compress=bm.compression)
     if bm.fill:
         filled_result = clean(label, bm.fill)
         results['filled'] = filled_result
         if bm.path_to_image:
-            save_data(path_to_filled, filled_result, header=header, compress=bm.compression)
+            save_data(path_to_filled, filled_result, header=bm.header, compress=bm.compression)
     if bm.clean and bm.fill:
         cleaned_filled_result = cleaned_result + (filled_result - label)
         results['cleaned_filled'] = cleaned_filled_result
         if bm.path_to_image:
-            save_data(path_to_cleaned_filled, cleaned_filled_result, header=header, compress=bm.compression)
+            save_data(path_to_cleaned_filled, cleaned_filled_result, header=bm.header, compress=bm.compression)
 
     # post-processing with active contour
     if bm.acwe:
-        acwe_result = activeContour(img_data, label, bm.acwe_alpha, bm.acwe_smooth, bm.acwe_steps)
-        refined_result = activeContour(img_data, label, simple=True)
+        acwe_result = activeContour(bm.img_data, label, bm.acwe_alpha, bm.acwe_smooth, bm.acwe_steps)
+        refined_result = activeContour(bm.img_data, label, simple=True)
         results['acwe'] = acwe_result
         results['refined'] = refined_result
         if bm.path_to_image:
-            save_data(path_to_acwe, acwe_result, header=header, compress=bm.compression)
-            save_data(path_to_refined, refined_result, header=header, compress=bm.compression)
+            save_data(path_to_acwe, acwe_result, header=bm.header, compress=bm.compression)
+            save_data(path_to_refined, refined_result, header=bm.header, compress=bm.compression)
 
     return results, bm
 

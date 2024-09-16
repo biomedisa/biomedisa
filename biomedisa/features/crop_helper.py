@@ -393,7 +393,7 @@ def load_data_to_crop(path_to_img, channels, x_scale, y_scale, z_scale,
     return img_rgb, z_shape, y_shape, x_shape, img_data
 
 def crop_volume(img, path_to_model, path_to_final, z_shape, y_shape, x_shape, batch_size,
-        debug_cropping, save_cropped, img_data, x_range, y_range, z_range, x_puffer=25, y_puffer=25, z_puffer=25):
+        debug_cropping, save_cropped, img_data, x_puffer=25, y_puffer=25, z_puffer=25):
 
     # img shape
     zsh, ysh, xsh, channels = img.shape
@@ -467,24 +467,13 @@ def crop_volume(img, path_to_model, path_to_final, z_shape, y_shape, x_shape, ba
         elif np.all(probabilities[k-4:k+5] == np.array([0,1,1,1,1,1,1,1,0])):
             probabilities[k-4:k+5] = 0
 
-    # create final
-    if z_range is not None:
-        z_lower, z_upper = z_range
-    else:
-        z_lower = max(0,np.argmax(probabilities[:z_shape]) - z_puffer)
-        z_upper = min(z_shape,z_shape - np.argmax(np.flip(probabilities[:z_shape])) + z_puffer +1)
-
-    if y_range is not None:
-        y_lower, y_upper = y_range
-    else:
-        y_lower = max(0,np.argmax(probabilities[z_shape:z_shape+y_shape]) - y_puffer)
-        y_upper = min(y_shape,y_shape - np.argmax(np.flip(probabilities[z_shape:z_shape+y_shape])) + y_puffer +1)
-
-    if x_range is not None:
-        x_lower, x_upper = x_range
-    else:
-        x_lower = max(0,np.argmax(probabilities[z_shape+y_shape:]) - x_puffer)
-        x_upper = min(x_shape,x_shape - np.argmax(np.flip(probabilities[z_shape+y_shape:])) + x_puffer +1)
+    # cropping range
+    z_lower = max(0,np.argmax(probabilities[:z_shape]) - z_puffer)
+    z_upper = min(z_shape,z_shape - np.argmax(np.flip(probabilities[:z_shape])) + z_puffer +1)
+    y_lower = max(0,np.argmax(probabilities[z_shape:z_shape+y_shape]) - y_puffer)
+    y_upper = min(y_shape,y_shape - np.argmax(np.flip(probabilities[z_shape:z_shape+y_shape])) + y_puffer +1)
+    x_lower = max(0,np.argmax(probabilities[z_shape+y_shape:]) - x_puffer)
+    x_upper = min(x_shape,x_shape - np.argmax(np.flip(probabilities[z_shape+y_shape:])) + x_puffer +1)
 
     # plot result
     if debug_cropping and path_to_final:
@@ -508,33 +497,27 @@ def crop_volume(img, path_to_model, path_to_final, z_shape, y_shape, x_shape, ba
 # main functions
 #=====================
 
-def load_and_train(normalize,path_to_img,path_to_labels,path_to_model,
-                epochs,batch_size,validation_split,
-                flip_x,flip_y,flip_z,rotate,labels_to_compute,labels_to_remove,
-                path_val_img=[None],path_val_labels=[None],
-                img=None, label=None, img_val=None, label_val=None,
-                x_scale=256, y_scale=256, z_scale=256):
+def load_and_train(bm, x_scale=256, y_scale=256, z_scale=256):
 
     # load training data
-    img, label, normalization_parameters, channels = load_cropping_training_data(normalize,
-                        path_to_img, path_to_labels, x_scale, y_scale, z_scale, labels_to_compute, labels_to_remove,
-                        img, label)
+    img, label, normalization_parameters, channels = load_cropping_training_data(bm.normalize,
+        bm.path_to_images, bm.path_to_labels, x_scale, y_scale, z_scale, bm.only, bm.ignore,
+        bm.img_data, bm.label_data)
 
     # load validation data
-    if any(path_val_img) or img_val is not None:
-        img_val, label_val, _, _ = load_cropping_training_data(normalize,
-                            path_val_img, path_val_labels, x_scale, y_scale, z_scale,
-                            labels_to_compute, labels_to_remove,
-                            img_val, label_val, normalization_parameters, channels)
+    if any(bm.val_images) or bm.val_img_data is not None:
+        img_val, label_val, _, _ = load_cropping_training_data(bm.normalize,
+            bm.val_images, bm.val_labels, x_scale, y_scale, z_scale,
+            bm.only, bm.ignore, bm.val_img_data, bm.val_label_data, normalization_parameters, channels)
 
     # train cropping
-    train_cropping(img, label, path_to_model, epochs,
-                    batch_size, validation_split,
-                    flip_x, flip_y, flip_z, rotate,
-                    img_val, label_val)
+    train_cropping(img, label, bm.path_to_model, bm.cropping_epochs,
+        bm.batch_size, bm.validation_split,
+        bm.flip_x, bm.flip_y, bm.flip_z, bm.rotate,
+        img_val, label_val)
 
     # load weights
-    model = load_model(str(path_to_model))
+    model = load_model(str(bm.path_to_model))
     cropping_weights = []
     for layer in model.layers:
         if layer.get_weights() != []:
@@ -542,17 +525,15 @@ def load_and_train(normalize,path_to_img,path_to_labels,path_to_model,
                 cropping_weights.append(arr)
 
     # configuration data
-    cropping_config = np.array([channels, x_scale, y_scale, z_scale, normalize,
+    cropping_config = np.array([channels, x_scale, y_scale, z_scale, bm.normalize,
         normalization_parameters[0,0], normalization_parameters[1,0]])
 
     return cropping_weights, cropping_config, normalization_parameters
 
-def crop_data(path_to_data, path_to_model, path_to_cropped_image, batch_size,
-    debug_cropping=False, save_cropped=True, img_data=None,
-    x_range=None, y_range=None, z_range=None):
+def crop_data(bm):
 
     # get meta data
-    hf = h5py.File(path_to_model, 'r')
+    hf = h5py.File(bm.path_to_model, 'r')
     meta = hf.get('cropping_meta')
     configuration = meta.get('configuration')
     channels, x_scale, y_scale, z_scale, normalize, mu, sig = np.array(configuration)[:]
@@ -567,13 +548,12 @@ def crop_data(path_to_data, path_to_model, path_to_cropped_image, batch_size,
     hf.close()
 
     # load data
-    img, z_shape, y_shape, x_shape, img_data = load_data_to_crop(path_to_data, channels,
-                    x_scale, y_scale, z_scale, normalize, normalization_parameters, img_data)
+    img, z_shape, y_shape, x_shape, bm.img_data = load_data_to_crop(bm.path_to_image, channels,
+        x_scale, y_scale, z_scale, normalize, normalization_parameters, bm.img_data)
 
     # make prediction
-    z_lower, z_upper, y_lower, y_upper, x_lower, x_upper, cropped_volume = crop_volume(img, path_to_model,
-        path_to_cropped_image, z_shape, y_shape, x_shape, batch_size, debug_cropping, save_cropped, img_data,
-        x_range, y_range, z_range)
+    z_lower, z_upper, y_lower, y_upper, x_lower, x_upper, cropped_volume = crop_volume(img, bm.path_to_model,
+        bm.path_to_cropped_image, z_shape, y_shape, x_shape, bm.batch_size, bm.debug_cropping, bm.save_cropped, bm.img_data)
 
     # region of interest
     region_of_interest = np.array([z_lower, z_upper, y_lower, y_upper, x_lower, x_upper])
