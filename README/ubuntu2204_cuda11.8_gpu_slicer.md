@@ -121,7 +121,7 @@ Install the PIP packages into the 3D Slicer environment:
 PATH=/usr/local/cuda-11.8/bin:${PATH} ./PythonSlicer -m pip install pycuda
 ./PythonSlicer -m pip install tensorflow==2.13.0
 ```
-**Option 2:** Direct installation in the 3D Slicer environment:
+**Option 2 (only mpi4py and PyCUDA):** Direct installation in the 3D Slicer environment:
 ```
 ./PythonSlicer -c "import os,sys; os.environ['C_INCLUDE_PATH'] = '/usr/include/python3.9'; os.system(f'{sys.executable} -m pip install --no-cache-dir mpi4py')"
 ./PythonSlicer -c "import os,sys; os.environ['C_INCLUDE_PATH'] = '/usr/include/python3.9'; os.environ['CPLUS_INCLUDE_PATH'] = '/usr/include/python3.9'; os.environ['CC'] = '/usr/bin/gcc'; os.environ['CXX'] = '/usr/bin/g++'; os.system(f'{sys.executable} -m pip install --no-cache-dir pycuda')"
