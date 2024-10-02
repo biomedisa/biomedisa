@@ -380,6 +380,7 @@ def load_training_data(bm, img_list, label_list, channels, img_in=None, label_in
                 label = label_in
                 label_names = ['label_1']
             label_dim = label.shape
+            label_dtype = label.dtype
             label = set_labels_to_zero(label, bm.only, bm.ignore)
             if any([bm.x_range, bm.y_range, bm.z_range]):
                 if len(label_names)>1:
@@ -455,6 +456,11 @@ def load_training_data(bm, img_list, label_list, channels, img_in=None, label_in
                     img[:,:,:,c] = (img[:,:,:,c] - mean) / std
                     img[:,:,:,c] = img[:,:,:,c] * normalization_parameters[1,c] + normalization_parameters[0,c]
 
+            # pad data
+            if not bm.scaling:
+                img_data_list = [img]
+                label_data_list = [label]
+
             # loop over list of images
             if any(img_list) or type(img_in) is list:
                 number_of_images = len(img_names) if any(img_list) else len(img_in)
@@ -478,7 +484,9 @@ def load_training_data(bm, img_list, label_list, channels, img_in=None, label_in
                         label_values, counts = np.unique(a, return_counts=True)
                         print(f'{os.path.basename(label_names[k])}:', 'Labels:', label_values[1:], 'Sizes:', counts[1:])
                         a = img_resize(a, bm.z_scale, bm.y_scale, bm.x_scale, labels=True)
-                    label = np.append(label, a, axis=0)
+                        label = np.append(label, a, axis=0)
+                    else:
+                        label_data_list.append(a)
 
                     # append image
                     if any(img_list):
@@ -509,7 +517,32 @@ def load_training_data(bm, img_list, label_list, channels, img_in=None, label_in
                             mean, std = np.mean(a[:,:,:,c]), np.std(a[:,:,:,c])
                             a[:,:,:,c] = (a[:,:,:,c] - mean) / std
                             a[:,:,:,c] = a[:,:,:,c] * normalization_parameters[1,c] + normalization_parameters[0,c]
-                    img = np.append(img, a, axis=0)
+                    if bm.scaling:
+                        img = np.append(img, a, axis=0)
+                    else:
+                        img_data_list.append(a)
+
+    # pad and append data to a single volume
+    if not bm.scaling and len(img_data_list)>1:
+        target_y, target_x = 0, 0
+        for img in img_data_list:
+            target_y = max(target_y, img.shape[1])
+            target_x = max(target_x, img.shape[2])
+        img = np.empty((0, target_y, target_x, channels), dtype=np.float32)
+        if label_dtype==np.uint8:
+            label_dtype = np.int16
+        elif label_dtype in [np.uint16, np.uint32]:
+            label_dtype = np.int32
+        label = np.empty((0, target_y, target_x), dtype=label_dtype)
+        for k in range(len(img_data_list)):
+            pad_y = target_y - img_data_list[k].shape[1]
+            pad_x = target_x - img_data_list[k].shape[2]
+            pad_width = [(0, 0), (0, pad_y), (0, pad_x), (0, 0)]
+            tmp = np.pad(img_data_list[k], pad_width, mode='constant', constant_values=0)
+            img = np.append(img, tmp, axis=0)
+            pad_width = [(0, 0), (0, pad_y), (0, pad_x)]
+            tmp = np.pad(label_data_list[k].astype(label_dtype), pad_width, mode='constant', constant_values=-1)
+            label = np.append(label, tmp, axis=0)
 
     # limit intensity range
     img[img<0] = 0
@@ -521,6 +554,8 @@ def load_training_data(bm, img_list, label_list, channels, img_in=None, label_in
         # get labels
         if allLabels is None:
             allLabels = np.unique(label)
+            index = np.argwhere(allLabels<0)
+            allLabels = np.delete(allLabels, index)
 
         # labels must be in ascending order
         for k, l in enumerate(allLabels):
@@ -811,9 +846,9 @@ def train_segmentation(bm):
         for k in range(0, zsh-bm.z_patch+1, bm.stride_size):
             for l in range(0, ysh-bm.y_patch+1, bm.stride_size):
                 for m in range(0, xsh-bm.x_patch+1, bm.stride_size):
-                    if np.any(bm.label_data[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]):
+                    if np.any(bm.label_data[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]>0):
                         list_IDs_fg.append(k*ysh*xsh+l*xsh+m)
-                    else:
+                    elif np.any(bm.label_data[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]>-1):
                         list_IDs_bg.append(k*ysh*xsh+l*xsh+m)
     else:
         for k in range(0, zsh-bm.z_patch+1, bm.stride_size):
@@ -824,7 +859,7 @@ def train_segmentation(bm):
                         patch = bm.label_data[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]
                         if centerLabel>0 and np.any(patch!=centerLabel):
                             list_IDs_fg.append(k*ysh*xsh+l*xsh+m)
-                    else:
+                    elif np.any(bm.label_data[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]>-1):
                         list_IDs_fg.append(k*ysh*xsh+l*xsh+m)
 
     if bm.val_img_data is not None:
@@ -840,9 +875,9 @@ def train_segmentation(bm):
             for k in range(0, zsh_val-bm.z_patch+1, bm.validation_stride_size):
                 for l in range(0, ysh_val-bm.y_patch+1, bm.validation_stride_size):
                     for m in range(0, xsh_val-bm.x_patch+1, bm.validation_stride_size):
-                        if np.any(bm.val_label_data[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]):
+                        if np.any(bm.val_label_data[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]>0):
                             list_IDs_val_fg.append(k*ysh_val*xsh_val+l*xsh_val+m)
-                        else:
+                        elif np.any(bm.label_data[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]>-1):
                             list_IDs_val_bg.append(k*ysh_val*xsh_val+l*xsh_val+m)
         else:
             for k in range(0, zsh_val-bm.z_patch+1, bm.validation_stride_size):
@@ -853,8 +888,12 @@ def train_segmentation(bm):
                             patch = bm.val_label_data[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]
                             if centerLabel>0 and np.any(patch!=centerLabel):
                                 list_IDs_val_fg.append(k*ysh_val*xsh_val+l*xsh_val+m)
-                        else:
+                        elif np.any(bm.label_data[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]>-1):
                             list_IDs_val_fg.append(k*ysh_val*xsh_val+l*xsh_val+m)
+
+    # remove padding label
+    bm.label_data[bm.label_data<0]=0
+    bm.val_label_data[bm.val_label_data<0]=0
 
     # number of labels
     nb_labels = len(allLabels)
