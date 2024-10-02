@@ -90,13 +90,17 @@ python3 -c "import tensorflow as tf; print('Detected GPUs:', len(tf.config.list_
 ```
 
 #### Biomedisa examples
-Download test files from [Gallery](https://biomedisa.info/gallery/) and run:
+Download and run test files from the Biomedisa [Gallery](https://biomedisa.info/gallery/):
 ```
 # smart interpolation
-python3 -m biomedisa.interpolation Downloads/tumor.tif Downloads/labels.tumor.tif
+wget -P ~/Downloads/ https://biomedisa.info/media/images/tumor.tif
+wget -P ~/Downloads/ https://biomedisa.info/media/images/labels.tumor.nrrd
+python3 -m biomedisa.interpolation ~/Downloads/tumor.tif ~/Downloads/labels.tumor.nrrd
 
 # deep learning
-python3 -m biomedisa.deeplearning Downloads/testing_axial_crop_pat13.nii.gz Downloads/heart.h5 -p
+wget -P ~/Downloads/ https://biomedisa.info/media/images/mouse_molar_tooth.tif
+wget -P ~/Downloads/ https://biomedisa.info/media/images/teeth.h5
+python3 -m biomedisa.deeplearning ~/Downloads/mouse_molar_tooth.tif ~/Downloads/teeth.h5 --predict --extension='.nrrd'
 ```
 
 #### Install Biomedisa from source (optional)
