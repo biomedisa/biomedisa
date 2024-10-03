@@ -846,9 +846,16 @@ def train_segmentation(bm):
         for k in range(0, zsh-bm.z_patch+1, bm.stride_size):
             for l in range(0, ysh-bm.y_patch+1, bm.stride_size):
                 for m in range(0, xsh-bm.x_patch+1, bm.stride_size):
-                    if np.any(bm.label_data[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]>0):
+                    if bm.separation:
+                        centerLabel = bm.label_data[k+bm.z_patch//2,l+bm.y_patch//2,m+bm.x_patch//2]
+                        patch = bm.label_data[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]
+                        if centerLabel>0 and np.any(np.logical_and(patch!=centerLabel, patch>0)):
+                            list_IDs_fg.append(k*ysh*xsh+l*xsh+m)
+                        elif centerLabel>0 and np.any(patch!=centerLabel):
+                            list_IDs_bg.append(k*ysh*xsh+l*xsh+m)
+                    elif np.any(bm.label_data[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]>0):
                         list_IDs_fg.append(k*ysh*xsh+l*xsh+m)
-                    elif np.any(bm.label_data[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]>-1):
+                    elif not np.any(bm.label_data[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]==-1):
                         list_IDs_bg.append(k*ysh*xsh+l*xsh+m)
     else:
         for k in range(0, zsh-bm.z_patch+1, bm.stride_size):
@@ -859,7 +866,7 @@ def train_segmentation(bm):
                         patch = bm.label_data[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]
                         if centerLabel>0 and np.any(patch!=centerLabel):
                             list_IDs_fg.append(k*ysh*xsh+l*xsh+m)
-                    elif np.any(bm.label_data[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]>-1):
+                    elif not np.any(bm.label_data[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]==-1):
                         list_IDs_fg.append(k*ysh*xsh+l*xsh+m)
 
     if bm.val_img_data is not None:
@@ -875,9 +882,16 @@ def train_segmentation(bm):
             for k in range(0, zsh_val-bm.z_patch+1, bm.validation_stride_size):
                 for l in range(0, ysh_val-bm.y_patch+1, bm.validation_stride_size):
                     for m in range(0, xsh_val-bm.x_patch+1, bm.validation_stride_size):
-                        if np.any(bm.val_label_data[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]>0):
+                        if bm.separation:
+                            centerLabel = bm.val_label_data[k+bm.z_patch//2,l+bm.y_patch//2,m+bm.x_patch//2]
+                            patch = bm.val_label_data[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]
+                            if centerLabel>0 and np.any(np.logical_and(patch!=centerLabel, patch>0)):
+                                list_IDs_val_fg.append(k*ysh*xsh+l*xsh+m)
+                            elif centerLabel>0 and np.any(patch!=centerLabel):
+                                list_IDs_val_bg.append(k*ysh*xsh+l*xsh+m)
+                        elif np.any(bm.val_label_data[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]>0):
                             list_IDs_val_fg.append(k*ysh_val*xsh_val+l*xsh_val+m)
-                        elif np.any(bm.label_data[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]>-1):
+                        elif not np.any(bm.label_data[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]==-1):
                             list_IDs_val_bg.append(k*ysh_val*xsh_val+l*xsh_val+m)
         else:
             for k in range(0, zsh_val-bm.z_patch+1, bm.validation_stride_size):
@@ -888,7 +902,7 @@ def train_segmentation(bm):
                             patch = bm.val_label_data[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]
                             if centerLabel>0 and np.any(patch!=centerLabel):
                                 list_IDs_val_fg.append(k*ysh_val*xsh_val+l*xsh_val+m)
-                        elif np.any(bm.label_data[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]>-1):
+                        elif not np.any(bm.label_data[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]==-1):
                             list_IDs_val_fg.append(k*ysh_val*xsh_val+l*xsh_val+m)
 
     # remove padding label
