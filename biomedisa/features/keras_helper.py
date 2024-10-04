@@ -380,7 +380,12 @@ def load_training_data(bm, img_list, label_list, channels, img_in=None, label_in
                 label = label_in
                 label_names = ['label_1']
             label_dim = label.shape
+            # no-scaling for list of images needs negative values as it encodes padded areas as -1
             label_dtype = label.dtype
+            if label_dtype==np.uint8:
+                label_dtype = np.int16
+            elif label_dtype in [np.uint16, np.uint32]:
+                label_dtype = np.int32
             label = set_labels_to_zero(label, bm.only, bm.ignore)
             if any([bm.x_range, bm.y_range, bm.z_range]):
                 if len(label_names)>1:
@@ -529,10 +534,6 @@ def load_training_data(bm, img_list, label_list, channels, img_in=None, label_in
             target_y = max(target_y, img.shape[1])
             target_x = max(target_x, img.shape[2])
         img = np.empty((0, target_y, target_x, channels), dtype=np.float32)
-        if label_dtype==np.uint8:
-            label_dtype = np.int16
-        elif label_dtype in [np.uint16, np.uint32]:
-            label_dtype = np.int32
         label = np.empty((0, target_y, target_x), dtype=label_dtype)
         for k in range(len(img_data_list)):
             pad_y = target_y - img_data_list[k].shape[1]
@@ -545,8 +546,9 @@ def load_training_data(bm, img_list, label_list, channels, img_in=None, label_in
             label = np.append(label, tmp, axis=0)
 
     # limit intensity range
-    img[img<0] = 0
-    img[img>1] = 1
+    if bm.normalize:
+        img[img<0] = 0
+        img[img>1] = 1
 
     if bm.separation:
         allLabels = np.array([0,1])
