@@ -125,17 +125,6 @@ class DataGenerator(tf.keras.utils.Sequence):
         self.on_epoch_end()
         self.patch_normalization = patch_normalization
         self.separation = separation
-        if len(self.list_IDs_bg) > 0:
-            # upsample lists of indexes
-            indexes_fg = np.arange(len(self.list_IDs_fg))
-            indexes_bg = np.arange(len(self.list_IDs_bg))
-            len_IDs = max(len(self.list_IDs_fg), len(self.list_IDs_bg))
-            repetitions = len_IDs // len(self.list_IDs_fg) + 1
-            self.indexes_fg = np.tile(indexes_fg, repetitions)
-            repetitions = len_IDs // len(self.list_IDs_bg) + 1
-            self.indexes_bg = np.tile(indexes_bg, repetitions)
-        else:
-            self.indexes_fg = np.arange(len(self.list_IDs_fg))
 
     def __len__(self):
         'Denotes the number of batches per epoch'
@@ -171,7 +160,19 @@ class DataGenerator(tf.keras.utils.Sequence):
         return X, y
 
     def on_epoch_end(self):
-        'Shuffles indexes after each epoch'
+        'Updates indexes after each epoch'
+        if len(self.list_IDs_bg) > 0:
+            # upsample lists of indexes
+            indexes_fg = np.arange(len(self.list_IDs_fg))
+            indexes_bg = np.arange(len(self.list_IDs_bg))
+            len_IDs = max(len(self.list_IDs_fg), len(self.list_IDs_bg))
+            repetitions = len_IDs // len(self.list_IDs_fg) + 1
+            self.indexes_fg = np.tile(indexes_fg, repetitions)
+            repetitions = len_IDs // len(self.list_IDs_bg) + 1
+            self.indexes_bg = np.tile(indexes_bg, repetitions)
+        else:
+            self.indexes_fg = np.arange(len(self.list_IDs_fg))
+        # shuffle indexes
         if self.shuffle == True:
             np.random.shuffle(self.indexes_fg)
             if len(self.list_IDs_bg) > 0:
