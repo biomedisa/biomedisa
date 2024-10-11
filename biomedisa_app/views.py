@@ -914,6 +914,11 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
         # remote server
         if host:
 
+            # update status message
+            if train:
+                image.message = 'Waiting for resources'
+                image.save()
+
             # create user directory
             subprocess.Popen(['ssh', host, 'mkdir', '-p', host_base+'/private_storage/images/'+image.user.username]).wait()
 
