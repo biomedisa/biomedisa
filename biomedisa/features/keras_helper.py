@@ -909,7 +909,8 @@ def train_segmentation(bm):
 
     # remove padding label
     bm.label_data[bm.label_data<0]=0
-    bm.val_label_data[bm.val_label_data<0]=0
+    if bm.val_img_data is not None:
+        bm.val_label_data[bm.val_label_data<0]=0
 
     # number of labels
     nb_labels = len(allLabels)
