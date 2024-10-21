@@ -284,10 +284,18 @@ def imageviewer(request, id):
     id = int(id)
     stock_to_show = get_object_or_404(Upload, pk=id)
     if stock_to_show.user == request.user:
-        # read image file
-        with open(stock_to_show.pic.path, 'rb') as f:
-            image_data = f.read()
-        return HttpResponse(image_data, content_type='image/png')
+        if stock_to_show.pic.path[-4:] != '.png':
+            request.session['state'] = 'No preview available'
+            next = request.GET.get('next', '')
+            if next == 'storage':
+                return redirect(storage)
+            else:
+                return redirect(app)
+        else:
+            # read image file
+            with open(stock_to_show.pic.path, 'rb') as f:
+                image_data = f.read()
+            return HttpResponse(image_data, content_type='image/png')
 
 # 17. sliceviewer
 @login_required
@@ -1008,8 +1016,8 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
                         else:
                             subprocess.Popen(['scp', host+':'+model_on_host, path_to_model]).wait()
                             if validation:
-                                subprocess.Popen(['scp', host+':'+model_on_host.replace('.h5','_acc.png'), path_to_model.replace('.h5','_acc.png')]).wait()
-                                subprocess.Popen(['scp', host+':'+model_on_host.replace('.h5','_loss.png'), path_to_model.replace('.h5','_loss.png')]).wait()
+                                for suffix in ['_acc.png', '_loss.png', '.csv']:
+                                    subprocess.Popen(['scp', host+':'+model_on_host.replace('.h5', suffix), path_to_model.replace('.h5', suffix)]).wait()
 
                         # post processing
                         post_processing(path_to_final, time_str, server_name, False, None,
