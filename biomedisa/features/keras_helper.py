@@ -84,35 +84,37 @@ def save_csv(path, history):
         for row in zip(*history.values()):
             writer.writerow(dict(zip(history.keys(), row)))
 
-def save_history(history, path_to_model, val_dice, train_dice):
-    # summarize history for accuracy
+def save_history(history, path_to_model):
+    # standard accuracy history
     plt.plot(history['accuracy'])
-    plt.plot(history['val_accuracy'])
-    if val_dice and train_dice:
+    legend = ['Accuracy (train)']
+    if 'val_accuracy' in history and len(history['val_accuracy'])>0:
+        plt.plot(history['val_accuracy'])
+        legend.append('Accuracy (test)')
+    # dice history
+    if 'dice' in history and len(history['dice'])>0:
         plt.plot(history['dice'])
+        legend.append('Dice score (train)')
+    if 'val_dice' in history and len(history['val_dice'])>0:
         plt.plot(history['val_dice'])
-        plt.legend(['Accuracy (train)', 'Accuracy (test)', 'Dice score (train)', 'Dice score (test)'], loc='upper left')
-    elif train_dice:
-        plt.plot(history['dice'])
-        plt.legend(['Accuracy (train)', 'Accuracy (test)', 'Dice score (train)'], loc='upper left')
-    elif val_dice:
-        plt.plot(history['val_dice'])
-        plt.legend(['Accuracy (train)', 'Accuracy (test)', 'Dice score (test)'], loc='upper left')
-    else:
-        plt.legend(['Accuracy (train)', 'Accuracy (test)'], loc='upper left')
+        legend.append('Dice score (test)')
     plt.title('model accuracy')
     plt.ylabel('accuracy')
     plt.xlabel('epoch')
+    plt.legend(legend, loc='upper left')
     plt.tight_layout()  # To prevent overlapping of subplots
     plt.savefig(path_to_model.replace('.h5','_acc.png'), dpi=300, bbox_inches='tight')
     plt.clf()
-    # summarize history for loss
+    # loss history
     plt.plot(history['loss'])
-    plt.plot(history['val_loss'])
+    legend = ['train']
+    if 'val_loss' in history and len(history['val_loss'])>0:
+        plt.plot(history['val_loss'])
+        legend.append('test')
     plt.title('model loss')
     plt.ylabel('loss')
     plt.xlabel('epoch')
-    plt.legend(['train', 'test'], loc='upper left')
+    plt.legend(legend, loc='upper left')
     plt.tight_layout()  # To prevent overlapping of subplots
     plt.savefig(path_to_model.replace('.h5','_loss.png'), dpi=300, bbox_inches='tight')
     plt.clf()
@@ -744,7 +746,7 @@ class Metrics(Callback):
                 logs['best_val_dice'] = max(self.history['val_dice'])
 
                 # plot history in figure and save as numpy array
-                save_history(self.history, self.path_to_model, True, self.train_dice)
+                save_history(self.history, self.path_to_model)
 
                 # print accuracies
                 print('\nValidation history:')
@@ -988,8 +990,8 @@ def train_segmentation(bm):
               workers=bm.workers)
 
     # save monitoring figure on train end
-    if bm.val_img_data is not None and not bm.val_dice:
-        save_history(history.history, bm.path_to_model, False, bm.train_dice)
+    if bm.val_img_data is None or not bm.val_dice:
+        save_history(history.history, bm.path_to_model)
 
 def load_prediction_data(bm, channels, normalize, normalization_parameters,
     region_of_interest, img, img_header, load_blockwise=False, z=None):

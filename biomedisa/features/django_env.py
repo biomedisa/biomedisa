@@ -69,7 +69,7 @@ def create_pid_object(pid, remote=False, queue=None, img_id=None, path_to_model=
         image.pid = pid
         image.save()
 
-def post_processing(path_to_final, time_str, server_name, remote, queue, dice=1.0, path_to_model=None, path_to_uq=None, path_to_smooth=None, path_to_cropped_image=None, uncertainty=False, smooth=False, img_id=None, label_id=None, train=False, predict=False, validation=False):
+def post_processing(path_to_final, time_str, server_name, remote, queue, dice=1.0, path_to_model=None, path_to_uq=None, path_to_smooth=None, path_to_cropped_image=None, uncertainty=False, smooth=False, img_id=None, label_id=None, train=False, predict=False):
 
     # remote server
     if remote:
@@ -97,12 +97,11 @@ def post_processing(path_to_final, time_str, server_name, remote, queue, dice=1.
             filename = 'images/' + image.user.username + '/' + shortfilename
             Upload.objects.create(pic=filename, user=image.user, project=image.project, imageType=4, shortfilename=shortfilename)
 
-            if validation:
-                # create monitoring objects
-                for suffix in ['_acc.png', '_loss.png', '.csv']:
-                    shortfilename = os.path.basename(path_to_model.replace('.h5', suffix))
-                    filename = 'images/' + image.user.username + '/' + shortfilename
-                    Upload.objects.create(pic=filename, user=image.user, project=image.project, imageType=6, shortfilename=shortfilename)
+            # create monitoring objects
+            for suffix in ['_acc.png', '_loss.png', '.csv']:
+                shortfilename = os.path.basename(path_to_model.replace('.h5', suffix))
+                filename = 'images/' + image.user.username + '/' + shortfilename
+                Upload.objects.create(pic=filename, user=image.user, project=image.project, imageType=6, shortfilename=shortfilename)
 
         else:
             # create final objects

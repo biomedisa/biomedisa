@@ -997,7 +997,6 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
                         if cropped_on_host=='None':
                             cropped_on_host=None
                         time_str = time_str.replace('-',' ')
-                        validation=True if label.validation_split or (val_img_list and val_label_list) else False
 
                         # local file names
                         path_to_model, path_to_final, path_to_cropped_image = None, None, None
@@ -1015,14 +1014,13 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
                                 subprocess.Popen(['scp', host+':'+cropped_on_host, path_to_cropped_image]).wait()
                         else:
                             subprocess.Popen(['scp', host+':'+model_on_host, path_to_model]).wait()
-                            if validation:
-                                for suffix in ['_acc.png', '_loss.png', '.csv']:
-                                    subprocess.Popen(['scp', host+':'+model_on_host.replace('.h5', suffix), path_to_model.replace('.h5', suffix)]).wait()
+                            for suffix in ['_acc.png', '_loss.png', '.csv']:
+                                subprocess.Popen(['scp', host+':'+model_on_host.replace('.h5', suffix), path_to_model.replace('.h5', suffix)]).wait()
 
                         # post processing
                         post_processing(path_to_final, time_str, server_name, False, None,
                             path_to_cropped_image=path_to_cropped_image, path_to_model=path_to_model,
-                            predict=predict, train=train, validation=validation,
+                            predict=predict, train=train,
                             img_id=image.id, label_id=label.id)
 
                         # remove config file
