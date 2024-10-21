@@ -654,6 +654,9 @@ class Metrics(Callback):
             n_batches = int(np.floor(len_IDs / self.batch_size))
             np.random.shuffle(self.list_IDs)
 
+            # initialize validation loss
+            val_loss = 0
+
             for batch in range(n_batches):
                 # Generate indexes of the batch
                 list_IDs_batch = self.list_IDs[batch*self.batch_size:(batch+1)*self.batch_size]
@@ -689,9 +692,12 @@ class Metrics(Callback):
                     m = rest % self.dim_img[2]
                     result[k:k+self.dim_patch[0],l:l+self.dim_patch[1],m:m+self.dim_patch[2]] += y_predict[i]
 
-            # calculate categorical crossentropy
-            if not self.train:
-                crossentropy = categorical_crossentropy(self.label, softmax(result))
+                    # calculate validation loss
+                    if not self.train:
+                        val_loss += categorical_crossentropy(self.label[k:k+self.dim_patch[0],l:l+self.dim_patch[1],m:m+self.dim_patch[2]], y_predict[i])
+
+            # mean validation loss
+            val_loss /= (n_batches*self.batch_size)
 
             # get result
             result = np.argmax(result, axis=-1)
@@ -725,10 +731,10 @@ class Metrics(Callback):
                     self.history['dice'].append(round(logs['dice'],4))
                 self.history['val_accuracy'].append(round(accuracy,4))
                 self.history['val_dice'].append(round(dice,4))
-                self.history['val_loss'].append(round(crossentropy,4))
+                self.history['val_loss'].append(round(val_loss,4))
 
                 # tensorflow monitoring variables
-                logs['val_loss'] = crossentropy
+                logs['val_loss'] = val_loss
                 logs['val_accuracy'] = accuracy
                 logs['val_dice'] = dice
                 logs['best_acc'] = max(self.history['accuracy'])
