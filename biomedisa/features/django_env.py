@@ -98,15 +98,11 @@ def post_processing(path_to_final, time_str, server_name, remote, queue, dice=1.
             Upload.objects.create(pic=filename, user=image.user, project=image.project, imageType=4, shortfilename=shortfilename)
 
             if validation:
-                # create acc object
-                shortfilename = os.path.basename(path_to_model.replace('.h5','_acc.png'))
-                filename = 'images/' + image.user.username + '/' + shortfilename
-                Upload.objects.create(pic=filename, user=image.user, project=image.project, imageType=6, shortfilename=shortfilename)
-
-                # create loss object
-                shortfilename = os.path.basename(path_to_model.replace('.h5','_loss.png'))
-                filename = 'images/' + image.user.username + '/' + shortfilename
-                Upload.objects.create(pic=filename, user=image.user, project=image.project, imageType=6, shortfilename=shortfilename)
+                # create monitoring objects
+                for suffix in ['_acc.png', '_loss.png', '.csv']:
+                    shortfilename = os.path.basename(path_to_model.replace('.h5', suffix))
+                    filename = 'images/' + image.user.username + '/' + shortfilename
+                    Upload.objects.create(pic=filename, user=image.user, project=image.project, imageType=6, shortfilename=shortfilename)
 
         else:
             # create final objects

@@ -61,10 +61,28 @@ import time
 import h5py
 import atexit
 import tempfile
+import csv
 
 class InputError(Exception):
     def __init__(self, message=None):
         self.message = message
+
+def save_csv(path, history):
+    # remove empty keys
+    to_delete = []
+    for key in history.keys():
+        if len(history[key])==0:
+            to_delete.append(key)
+    for key in to_delete:
+        del history[key]
+    # open a file in write mode
+    with open(path, 'w', newline='') as file:
+        writer = csv.DictWriter(file, fieldnames=history.keys())
+        # write header
+        writer.writeheader()
+        # write data rows (use zip to iterate over values)
+        for row in zip(*history.values()):
+            writer.writerow(dict(zip(history.keys(), row)))
 
 def save_history(history, path_to_model, val_dice, train_dice):
     # summarize history for accuracy
@@ -98,8 +116,8 @@ def save_history(history, path_to_model, val_dice, train_dice):
     plt.tight_layout()  # To prevent overlapping of subplots
     plt.savefig(path_to_model.replace('.h5','_loss.png'), dpi=300, bbox_inches='tight')
     plt.clf()
-    # save history dictonary
-    np.save(path_to_model.replace('.h5','.npy'), history)
+    # save history as csv
+    save_csv(path_to_model.replace('.h5','.csv'), history)
 
 def predict_blocksize(labelData, x_puffer=25, y_puffer=25, z_puffer=25):
     zsh, ysh, xsh = labelData.shape
