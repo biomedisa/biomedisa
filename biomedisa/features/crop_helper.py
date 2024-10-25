@@ -505,6 +505,7 @@ def load_and_train(bm, x_scale=256, y_scale=256, z_scale=256):
         bm.img_data, bm.label_data)
 
     # load validation data
+    img_val, label_val = None, None
     if any(bm.val_images) or bm.val_img_data is not None:
         img_val, label_val, _, _ = load_cropping_training_data(bm.normalize,
             bm.val_images, bm.val_labels, x_scale, y_scale, z_scale,
