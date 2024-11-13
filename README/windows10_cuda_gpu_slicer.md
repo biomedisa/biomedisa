@@ -1,4 +1,4 @@
-# Windows 10 + CUDA + GPU (3D Slicer extension)
+# Windows 10/11 + Smart Interpolation (3D Slicer extension)
 
 - [Install Microsoft Visual Studio 2022](#install-microsoft-visual-studio-2022)
 - [Option 1: Set Path Variable manually](#option-1-set-path-variable-manually)
@@ -63,9 +63,10 @@ Select "msmpisetup.exe"
 Download and install [Git](https://github.com/git-for-windows/git/releases/download/v2.45.1.windows.1/Git-2.45.1-64-bit.exe).
 
 #### Clone Biomedisa
+Open Command Prompt (e.g. Windows Search `cmd`)
 ```
-mkdir ~/git
-cd ~/git
+mkdir git
+cd git
 git clone https://github.com/biomedisa/biomedisa.git
 ```
 
@@ -82,7 +83,7 @@ git/biomedisa/biomedisa_slicer_extension/biomedisa_extension/SegmentEditorBiomed
 Restart 3D Slicer.
 
 #### Install Anaconda3
-Download and install [Anaconda3](https://www.anaconda.com/products/individual#windows).
+Download and install [Anaconda3](https://repo.anaconda.com/archive/Anaconda3-2024.10-1-Windows-x86_64.exe).
 
 #### Install environment (nasty double installation of PyCUDA)
 Open Anaconda Prompt (e.g. Windows Search `Anaconda Prompt`) and install environment:
@@ -93,14 +94,14 @@ python -m pip install pycuda
 ```
 
 #### Install pip packages using the Python environment in 3D Slicer
-You need to run `PythonSlicer.exe` from within `Slicer-VERSION-linux-amd64/bin`:
+You need to run `PythonSlicer.exe` from within `AppData\Local\slicer.org\Slicer VERSION\bin`:
 ```
 cd "AppData\Local\slicer.org\Slicer 5.6.2\bin"
 PythonSlicer.exe -m pip install pip setuptools testresources scikit-build
-PythonSlicer.exe -m pip install numpy scipy h5py colorama numpy-stl \
-    numba imagecodecs tifffile scikit-image opencv-python netCDF4 mrcfile \
-    Pillow nibabel medpy SimpleITK mpi4py itk vtk matplotlib biomedisa \
-    importlib_metadata PyQt5
+PythonSlicer.exe -m pip install numpy scipy h5py colorama numpy-stl
+PythonSlicer.exe -m pip install numba imagecodecs tifffile scikit-image opencv-python netCDF4 mrcfile
+PythonSlicer.exe -m pip install Pillow nibabel medpy SimpleITK mpi4py itk vtk matplotlib biomedisa
+PythonSlicer.exe -m pip install importlib_metadata PyQt5
 ```
 
 #### Install PyCUDA in the 3D Slicer environment
