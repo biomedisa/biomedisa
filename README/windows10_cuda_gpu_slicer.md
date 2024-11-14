@@ -29,13 +29,12 @@ Resolve-Path -Path "C:\Program Files\Microsoft Visual Studio\*\Community\VC\Tool
 ```
 Note: The output should look like `C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.37.32822\bin\Hostx64\x64` but year `2022` and version number `14.37.32822` can be different in your case. Please use exactly the path from the output.
 
-**Option 1: Manually**  
+**Option 1: Via [command-line](https://github.com/biomedisa/biomedisa/blob/master/README/windows_path_powershell.md)**.  
+**Option 2: Manually**  
 Open Windows Search  
 Type `View advanced system settings`  
 Click `Environment Variables...`  
 Add exactly the path from the output to the **System variable** `Path`
-
-**Option 2: Via [command-line](https://github.com/biomedisa/biomedisa/blob/master/README/windows_path_powershell.md)**
 
 #### Install NVIDIA Driver
 Download and install [NVIDIA](https://www.nvidia.com/Download/Find.aspx?lang=en-us).  
