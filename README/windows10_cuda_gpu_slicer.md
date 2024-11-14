@@ -1,8 +1,7 @@
 # Windows 10/11 + Smart Interpolation (3D Slicer extension)
 
 - [Install Microsoft Visual Studio 2022](#install-microsoft-visual-studio-2022)
-- [Option 1: Set Path Variable manually](#option-1-set-path-variable-manually)
-- [Option 2: Set Path Variable using PowerShell](#option-2-set-path-variable-using-powershell)
+- [Set Path Variable](#set-path-variable-manually)
 - [Install NVIDIA driver](#install-nvidia-driver)
 - [Install CUDA Toolkit](#install-cuda-toolkit)
 - [Install Microsoft MPI](#install-microsoft-mpi)
@@ -11,7 +10,7 @@
 - [Install 3D Slicer](#install-3d-slicer)
 - [Add Biomedisa module to 3D Slicer](#add-biomedisa-module-to-3d-slicer)
 - [Install Anaconda3](#install-anaconda3)
-- [Install environment](#install-environment)
+- [Initialize PyCUDA installation](#initialize-pycuda-installation)
 - [Install pip packages](#install-pip-packages)
 - [Install PyCUDA](#install-pycuda)
 
@@ -23,7 +22,7 @@ Install
 Restart Windows
 ```
 
-#### Option 1: Set Path Variable manually
+#### Set Path Variable manually (or via [command-line]](https://github.com/biomedisa/biomedisa/blob/master/README/windows_path_powershell.md))
 Open PowerShell (e.g. Windows Search `PowerShell`) and get the Microsoft Visual Studio path using the following command:
 ```
 Resolve-Path -Path "C:\Program Files\Microsoft Visual Studio\*\Community\VC\Tools\MSVC\*\bin\Hostx64\x64" | select -ExpandProperty Path
@@ -34,16 +33,6 @@ Open Windows Search
 Type `View advanced system settings`  
 Click `Environment Variables...`  
 Add exactly the path from the output to the **System variable** `Path`
-
-#### Option 2: Set Path Variable using PowerShell
-Skip this step if you did it manually.
-Open PowerShell as administrator (e.g. Windows Search `PowerShell`).
-```
-$currentPath = [System.Environment]::GetEnvironmentVariable('PATH', [System.EnvironmentVariableTarget]::Machine)
-$newPath = Resolve-Path -Path "C:\Program Files\Microsoft Visual Studio\*\Community\VC\Tools\MSVC\*\bin\Hostx64\x64" | select -ExpandProperty Path
-$newPathValue = "$currentPath;$newPath"
-[System.Environment]::SetEnvironmentVariable('PATH', $newPathValue, [System.EnvironmentVariableTarget]::Machine)
-```
 
 #### Install NVIDIA Driver
 Download and install [NVIDIA](https://www.nvidia.com/Download/Find.aspx?lang=en-us).  
@@ -63,7 +52,7 @@ Select "msmpisetup.exe"
 Download and install [Git](https://github.com/git-for-windows/git/releases/download/v2.45.1.windows.1/Git-2.45.1-64-bit.exe).
 
 #### Clone Biomedisa
-Open Command Prompt (e.g. Windows Search `cmd`)
+Open Command Prompt (e.g. Windows Search `cmd`) and clone Biomedisa:
 ```
 mkdir git
 cd git
@@ -85,8 +74,8 @@ Restart 3D Slicer.
 #### Install Anaconda3
 Download and install [Anaconda3](https://repo.anaconda.com/archive/Anaconda3-2024.10-1-Windows-x86_64.exe).
 
-#### Install environment (nasty double installation of PyCUDA)
-Open Anaconda Prompt (e.g. Windows Search `Anaconda Prompt`) and install environment:
+#### Initialize PyCUDA installation
+Open Anaconda Prompt (e.g. Windows Search `Anaconda Prompt`) and run:
 ```
 conda create -n slicer_extension python=3.9
 conda activate slicer_extension
