@@ -24,16 +24,15 @@ Restart Windows
 
 #### Set Path Variable
 **Option 1: Via [command-line](https://github.com/biomedisa/biomedisa/blob/master/README/windows_path_powershell.md)**.  
-**Option 2: Manually**  
+**Option 2: Manually:**  
 Open PowerShell (e.g. Windows Search `PowerShell`) and get the Microsoft Visual Studio path using the following command:
 ```
 Resolve-Path -Path "C:\Program Files\Microsoft Visual Studio\*\Community\VC\Tools\MSVC\*\bin\Hostx64\x64" | select -ExpandProperty Path
 ```
 The output should look like `C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.37.32822\bin\Hostx64\x64` but year `2022` and version number `14.37.32822` can be different in your case. Please use exactly the path from the output.  
-Open Windows Search  
-Type `View advanced system settings`  
-Click `Environment Variables...`  
-Add exactly the path from the output to the **System variable** `Path`
+Step 1: Open Windows Search and type `View advanced system settings`  
+Step 2: Click `Environment Variables...`  
+Step 3: Add exactly the path from the output to the **System variable** `Path`
 
 #### Install NVIDIA Driver
 Download and install [NVIDIA](https://www.nvidia.com/Download/Find.aspx?lang=en-us).  
