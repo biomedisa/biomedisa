@@ -23,7 +23,7 @@ Restart Windows
 ```
 
 #### Set Path Variable
-**Option 1: Via [command-line](https://github.com/biomedisa/biomedisa/blob/master/README/windows_path_powershell.md)**. 
+**Option 1: Via [command-line](https://github.com/biomedisa/biomedisa/blob/master/README/windows_path_powershell.md)**.  
 **Option 2: Manually**  
 Open PowerShell (e.g. Windows Search `PowerShell`) and get the Microsoft Visual Studio path using the following command:
 ```
