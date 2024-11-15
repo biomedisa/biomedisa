@@ -47,7 +47,7 @@ Select "msmpisetup.exe"
 ```
 
 #### Install Anaconda3
-Download and install [Git](https://github.com/git-for-windows/git/releases/download/v2.45.1.windows.1/Git-2.45.1-64-bit.exe).
+Download and install [Anaconda3](https://repo.anaconda.com/archive/Anaconda3-2024.10-1-Windows-x86_64.exe).
 
 #### Install Biomedisa environment
 Open Anaconda Prompt (e.g. Windows Search `Anaconda Prompt`). Download and install Biomedisa:
