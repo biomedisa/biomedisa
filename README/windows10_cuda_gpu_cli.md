@@ -1,4 +1,4 @@
-# Windows 10/11 + Smart Interpolation + Deep Learning (command-line-only)
+# Windows 10/11 + Smart Interpolation + Deep Learning (command-line)
 
 - [Install Microsoft Visual Studio 2022](#install-microsoft-visual-studio-2022)
 - [Set Path Variable](#set-path-variable)
