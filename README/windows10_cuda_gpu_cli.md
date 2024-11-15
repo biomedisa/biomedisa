@@ -1,8 +1,7 @@
-# Windows 10 + CUDA + GPU (command-line-only)
+# Windows 10/11 + Smart Interpolation + Deep Learning (command-line-only)
 
 - [Install Microsoft Visual Studio 2022](#install-microsoft-visual-studio-2022)
-- [Option 1: Set Path Variable manually](#option-1-set-path-variable-manually)
-- [Option 2: Set Path Variable using PowerShell](#option-2-set-path-variable-using-powershell)
+- [Set Path Variable](#set-path-variable)
 - [Install NVIDIA driver](#install-nvidia-driver)
 - [Install CUDA Toolkit](#install-cuda-toolkit)
 - [Install Microsoft MPI](#install-microsoft-mpi)
@@ -21,27 +20,17 @@ Install
 Restart Windows
 ```
 
-#### Option 1: Set Path Variable manually
-Open PowerShell (e.g. Windows Search `PowerShell`) and get the Microsoft Visual Studio path using the following command:
+#### Set Path Variable
+**Option 1: Via [command-line](https://github.com/biomedisa/biomedisa/blob/master/README/windows_path_powershell.md)**.  
+**Option 2: Manually:**  
+Step 1: Open PowerShell (e.g. Windows Search `PowerShell`) and get the Microsoft Visual Studio path using the following command:
 ```
 Resolve-Path -Path "C:\Program Files\Microsoft Visual Studio\*\Community\VC\Tools\MSVC\*\bin\Hostx64\x64" | select -ExpandProperty Path
 ```
-Note: The output should look like `C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.37.32822\bin\Hostx64\x64` but year `2022` and version number `14.37.32822` can be different in your case. Please use exactly the path from the output.
-
-Open Windows Search  
-Type `View advanced system settings`  
-Click `Environment Variables...`  
-Add exactly the path from the output to the **System variable** `Path`
-
-#### Option 2: Set Path Variable using PowerShell
-Skip this step if you did it manually.
-Open PowerShell as administrator (e.g. Windows Search `PowerShell`).
-```
-$currentPath = [System.Environment]::GetEnvironmentVariable('PATH', [System.EnvironmentVariableTarget]::Machine)
-$newPath = Resolve-Path -Path "C:\Program Files\Microsoft Visual Studio\*\Community\VC\Tools\MSVC\*\bin\Hostx64\x64" | select -ExpandProperty Path
-$newPathValue = "$currentPath;$newPath"
-[System.Environment]::SetEnvironmentVariable('PATH', $newPathValue, [System.EnvironmentVariableTarget]::Machine)
-```
+The output should look like `C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.37.32822\bin\Hostx64\x64` but year `2022` and version number `14.37.32822` can be different in your case. Please use exactly the path from the output in *Step 4*.  
+Step 2: Open Windows Search and type `View advanced system settings`  
+Step 3: Click `Environment Variables...`  
+Step 4: Add exactly the output from *Step 1* to the **System variable** `Path`
 
 #### Install NVIDIA Driver
 Download and install [NVIDIA](https://www.nvidia.com/Download/Find.aspx?lang=en-us).  
@@ -58,17 +47,17 @@ Select "msmpisetup.exe"
 ```
 
 #### Install Anaconda3
-Download and install [Anaconda3](https://www.anaconda.com/products/individual#windows).
+Download and install [Git](https://github.com/git-for-windows/git/releases/download/v2.45.1.windows.1/Git-2.45.1-64-bit.exe).
 
 #### Install Biomedisa environment
-Download the [Biomedisa environment](https://biomedisa.info/media/conda_environment.yml).
-Open Anaconda Prompt (e.g. Windows Search `Anaconda Prompt`) and install Biomedisa:
+Open Anaconda Prompt (e.g. Windows Search `Anaconda Prompt`). Download and install Biomedisa:
 ```
-conda env create -f C:\Users\%USERNAME%\Downloads\conda_environment.yml
+curl https://raw.githubusercontent.com/biomedisa/biomedisa/refs/heads/master/conda_environment.yml --output conda_environment.yml
+conda env create -f conda_environment.yml
 ```
-Note: If your computer didn't find `conda_environment.yml` the easiest way is to locate the file in your Download directory and drag and drop it onto the Anaconda Prompt after typing `conda env create -f`.
+Note: If your computer didn't find `conda_environment.yml` the easiest way is to locate the file in your User directory and drag and drop it onto the Anaconda Prompt after typing `conda env create -f`.
 
-#### Biomedisa verification and examples
+#### Biomedisa Verification
 Activate conda environment:
 ```
 conda activate biomedisa
@@ -81,12 +70,21 @@ Verify that TensorFlow detects your GPUs:
 ```
 python -c "import tensorflow as tf; print('Detected GPUs:', len(tf.config.list_physical_devices('GPU')))"
 ```
-Download test files from [Gallery](https://biomedisa.info/gallery/) and run:
-```
-# smart interpolation
-python -m biomedisa.interpolation Downloads\tumor.tif Downloads\labels.tumor.tif
 
-# deep learning
+#### Biomedisa Examples
+Download test files from [Gallery](https://biomedisa.info/gallery/) or via command-line:
+```
+curl https://biomedisa.info/media/images/tumor.tif --output C:\Users\%USERNAME%\Downloads\tumor.tif
+curl https://biomedisa.info/media/images/labels.tumor.nrrd --output C:\Users\%USERNAME%\Downloads\labels.tumor.nrrd
+curl https://biomedisa.info/media/images/testing_axial_crop_pat13.nii.gz --output C:\Users\%USERNAME%\Downloads\testing_axial_crop_pat13.nii.gz
+curl https://biomedisa.info/media/images/heart.h5 --output C:\Users\%USERNAME%\Downloads\heart.h5
+```
+Smart Interpolation:
+```
+python -m biomedisa.interpolation Downloads\tumor.tif Downloads\labels.tumor.nrrd
+```
+Deep Learning:
+```
 python -m biomedisa.deeplearning Downloads\testing_axial_crop_pat13.nii.gz Downloads\heart.h5 -p
 ```
 

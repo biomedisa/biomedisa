@@ -72,9 +72,9 @@ sudo apt-mark hold libcudnn8 libcudnn8-dev cuda-11-8
 ```
 
 #### Install pip packages
-Download the Biomedisa [dependencies](https://biomedisa.info/media/requirements.txt) and install the packages:
+Download list of requirements and install pip packages:
 ```
-wget https://biomedisa.info/media/requirements.txt
+wget https://raw.githubusercontent.com/biomedisa/biomedisa/refs/heads/master/requirements.txt
 python3 -m pip install -r requirements.txt
 PATH=/usr/local/cuda-11.8/bin:${PATH} python3 -m pip install pycuda
 ```
@@ -89,17 +89,20 @@ python3 -m biomedisa.features.pycuda_test
 python3 -c "import tensorflow as tf; print('Detected GPUs:', len(tf.config.list_physical_devices('GPU')))"
 ```
 
-#### Biomedisa examples
-Download and run test files from the Biomedisa [Gallery](https://biomedisa.info/gallery/):
+#### Biomedisa Examples
+Download test files from [Gallery](https://biomedisa.info/gallery/) or via command-line:
 ```
-# smart interpolation
 wget -P ~/Downloads/ https://biomedisa.info/media/images/tumor.tif
 wget -P ~/Downloads/ https://biomedisa.info/media/images/labels.tumor.nrrd
-python3 -m biomedisa.interpolation ~/Downloads/tumor.tif ~/Downloads/labels.tumor.nrrd
-
-# deep learning
 wget -P ~/Downloads/ https://biomedisa.info/media/images/mouse_molar_tooth.tif
 wget -P ~/Downloads/ https://biomedisa.info/media/images/teeth.h5
+```
+Smart Interpolation:
+```
+python3 -m biomedisa.interpolation ~/Downloads/tumor.tif ~/Downloads/labels.tumor.nrrd
+```
+Deep Learning:
+```
 python3 -m biomedisa.deeplearning ~/Downloads/mouse_molar_tooth.tif ~/Downloads/teeth.h5 --predict --extension='.nrrd'
 ```
 
