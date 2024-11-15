@@ -1,4 +1,4 @@
-# Ubuntu 22.04 LTS + Smart Interpolation (command-line-only)
+# Ubuntu 22.04 LTS + Smart Interpolation (command-line)
 
 - [Install Python and pip](#install-python-and-pip)
 - [Install software dependencies](#install-software-dependencies)
