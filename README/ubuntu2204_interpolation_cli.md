@@ -75,11 +75,14 @@ PATH=/usr/local/cuda-12.6/bin:${PATH} python3 -m pip install pycuda
 python3 -m biomedisa.features.pycuda_test
 ```
 
-#### Biomedisa example
-Download and run a test example from the Biomedisa [gallery](https://biomedisa.info/gallery/):
+#### Biomedisa Examples
+Download test files from [Gallery](https://biomedisa.info/gallery/) or via command-line:
 ```
 wget -P ~/Downloads/ https://biomedisa.info/media/images/tumor.tif
 wget -P ~/Downloads/ https://biomedisa.info/media/images/labels.tumor.nrrd
+```
+Smart Interpolation:
+```
 python3 -m biomedisa.interpolation ~/Downloads/tumor.tif ~/Downloads/labels.tumor.nrrd
 ```
 

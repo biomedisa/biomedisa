@@ -1,7 +1,7 @@
 # Windows 10/11 + Smart Interpolation (3D Slicer extension)
 
 - [Install Microsoft Visual Studio 2022](#install-microsoft-visual-studio-2022)
-- [Set Path Variable](#set-path-variable-manually)
+- [Set Path Variable](#set-path-variable)
 - [Install NVIDIA driver](#install-nvidia-driver)
 - [Install CUDA Toolkit](#install-cuda-toolkit)
 - [Install Microsoft MPI](#install-microsoft-mpi)
