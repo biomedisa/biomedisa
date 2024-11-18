@@ -5,7 +5,8 @@ config = {
     'DJANGO_DATABASE' : '...', # password of your mysql database
     'ALLOWED_HOSTS' : ['localhost', '0.0.0.0'], # you must tell django explicitly which hosts are allowed (e.g. your IP and/or the URL of your homepage when running an APACHE server)
     'DEBUG' : True, # activate the debug mode if you develop the app. This must be deactivated in production mode for security reasons!
-    #'STORAGE_SIZE' : 1000, # storage size for new users
+    #'STORAGE_SIZE' : 1000, # default storage size for new users
+    #'EPOCHS' : 100, # default maximum epochs in deep learning
 
     'EMAIL_CONFIRMATION' : False, # users must confirm their emails during the registration process (to handle biomedisa's notification service the following email support must be set up)
     'EMAIL' : 'philipp.loesel@anu.edu.au',

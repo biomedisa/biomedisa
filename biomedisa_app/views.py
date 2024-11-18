@@ -46,7 +46,7 @@ from django.db.models import Q
 
 from biomedisa_app.models import (UploadForm, Upload, StorageForm, Profile,
     UserForm, SettingsForm, SettingsPredictionForm, CustomUserCreationForm,
-    Repository)
+    Repository, default_epochs)
 from biomedisa.mesh import init_create_mesh
 from biomedisa.features.process_image import init_process_image
 from biomedisa.features.create_slices import create_slices
@@ -454,7 +454,7 @@ def settings(request, id):
                     for key in cd.keys():
                         image.__dict__[key] = cd[key]
                     image.validation_freq = max(1, int(cd['validation_freq']))
-                    image.epochs = min(100, int(cd['epochs']))
+                    image.epochs = min(default_epochs(), int(cd['epochs']))
                     image.rotate = min(180, max(0, int(cd['rotate'])))
                     image.validation_split = min(1.0, max(0.0, float(cd['validation_split'])))
                     image.stride_size = max(32, int(cd['stride_size']))

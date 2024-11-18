@@ -50,6 +50,13 @@ def default_storage_size():
         storage_size = 1000
     return storage_size
 
+def default_epochs():
+    if 'EPOCHS' in config:
+        epochs = config['EPOCHS']
+    else:
+        epochs = 100
+    return epochs
+
 class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     storage_size = models.IntegerField(default=default_storage_size)
@@ -198,7 +205,7 @@ class Upload(models.Model):
     pid = models.IntegerField(default=0)
     normalize = models.BooleanField("Normalize training data (AI)", default=True)
     compression = models.BooleanField('Compress results', default=True)
-    epochs = models.IntegerField("Number of epochs (AI)", default=100)
+    epochs = models.IntegerField("Number of epochs (AI)", default=default_epochs)
     inverse = models.BooleanField(default=False)
     only = models.CharField("compute only label", default='all', max_length=20)
     position = models.BooleanField("Consider voxel location (AI)", default=False)
