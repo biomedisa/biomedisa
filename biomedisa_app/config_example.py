@@ -28,4 +28,6 @@ config = {
     'THIRD_QUEUE' : False, # seperate queue for AI training. If False, AI tasks are queued in first queue
     'THIRD_QUEUE_HOST' : '', # empty string ('') if it is running on your local machine
     'THIRD_QUEUE_NGPUS' : 'all', # number of GPUs available (e.g. 1, 4, 'all') or list of GPU IDs (e.g. [0,3]). Works only locally.
+
+    'REMOTE_QUEUE_HOST' : '', # empty string ('') if it is running on your local machine
     }
