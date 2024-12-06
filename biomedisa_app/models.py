@@ -50,9 +50,17 @@ def default_storage_size():
         storage_size = 1000
     return storage_size
 
+def default_epochs():
+    if 'EPOCHS' in config:
+        epochs = config['EPOCHS']
+    else:
+        epochs = 100
+    return epochs
+
 class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     storage_size = models.IntegerField(default=default_storage_size)
+    max_epochs = models.IntegerField(default=default_epochs)
     notification = models.BooleanField(default=True)
     activation_key = models.TextField(null=True)
     key_expires = models.DateTimeField(null=True)
@@ -61,10 +69,12 @@ class Profile(models.Model):
 class UserForm(forms.ModelForm):
     notification = forms.BooleanField(required=False)
     storage_size = forms.IntegerField(required=False)
+    max_epochs = forms.IntegerField(required=False)
     platform = forms.CharField(required=False)
     class Meta:
         model = User
-        fields = ('first_name', 'last_name', 'email', 'platform', 'storage_size', 'notification')
+        fields = ('first_name', 'last_name', 'email', 'platform',
+                  'storage_size', 'max_epochs', 'notification')
 
 def validate_file_size(value):
     filesize= value.size
@@ -198,7 +208,7 @@ class Upload(models.Model):
     pid = models.IntegerField(default=0)
     normalize = models.BooleanField("Normalize training data (AI)", default=True)
     compression = models.BooleanField('Compress results', default=True)
-    epochs = models.IntegerField("Number of epochs (AI)", default=100)
+    epochs = models.IntegerField("Number of epochs (AI)")
     inverse = models.BooleanField(default=False)
     only = models.CharField("compute only label", default='all', max_length=20)
     position = models.BooleanField("Consider voxel location (AI)", default=False)
@@ -226,6 +236,13 @@ class Upload(models.Model):
     validation_data = models.BooleanField('Validation data (AI)', default=False)
     header_file = models.CharField("Header file", null=True, blank=True, max_length=100)
     scaling = models.BooleanField("Scale image and label data (AI)", default=True)
+
+    def save(self, *args, **kwargs):
+        if not self.epochs:  # Check if the value is not set
+            # Get the related profile for the user
+            profile = Profile.objects.get(user=self.user)
+            self.epochs = profile.max_epochs  # Set the default value
+        super().save(*args, **kwargs)
 
 class UploadForm(forms.ModelForm):
     class Meta:

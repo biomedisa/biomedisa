@@ -28,22 +28,25 @@
 
 import numpy as np
 import tensorflow as tf
-from scipy.ndimage import gaussian_filter, map_coordinates
+from scipy.ndimage import gaussian_filter, map_coordinates, rotate
+import random
 
 def elastic_transform(image, alpha=100, sigma=20):
-    zsh, ysh, xsh = image.shape
+    ysh, xsh, csh = image.shape
     dx = gaussian_filter((np.random.rand(ysh, xsh) * 2 - 1) * alpha, sigma)
     dy = gaussian_filter((np.random.rand(ysh, xsh) * 2 - 1) * alpha, sigma)
     y, x = np.meshgrid(np.arange(ysh), np.arange(xsh), indexing='ij')
     indices = np.reshape(y+dy, (-1, 1)), np.reshape(x+dx, (-1, 1))
-    for k in range(zsh):
-        image[k] = map_coordinates(image[k], indices, order=1, mode='reflect').reshape(ysh, xsh)
+    for k in range(csh):
+        image[:,:,k] = map_coordinates(image[:,:,k], indices, order=0, mode='reflect').reshape(ysh, xsh)
     return image
 
 class DataGeneratorCrop(tf.keras.utils.Sequence):
     'Generates data for Keras'
-    def __init__(self, img, label, list_IDs_fg, list_IDs_bg, batch_size=32, dim=(32,32,32),
-                 n_channels=3, n_classes=2, shuffle=True):
+    def __init__(self, img, label, list_IDs_fg, list_IDs_bg, batch_size=32,
+            dim=(32,32,32), n_channels=3, n_classes=2, shuffle=True,
+            augment=(False,False,False,0), train=True):
+
         'Initialization'
         self.dim = dim
         self.list_IDs_fg = list_IDs_fg
@@ -54,6 +57,8 @@ class DataGeneratorCrop(tf.keras.utils.Sequence):
         self.n_channels = n_channels
         self.n_classes = n_classes
         self.shuffle = shuffle
+        self.augment = augment
+        self.train = train
         self.on_epoch_end()
 
     def __len__(self):
@@ -108,14 +113,37 @@ class DataGeneratorCrop(tf.keras.utils.Sequence):
     def __data_generation(self, list_IDs_temp):
         'Generates data containing batch_size samples' # X : (n_samples, *dim, n_channels)
 
+        # get augmentation parameter
+        flip_x, flip_y, flip_z, rotation = self.augment
+        elastic = False
+
         # Initialization
         X = np.empty((self.batch_size, *self.dim, self.n_channels), dtype=np.uint8)
         y = np.empty((self.batch_size,), dtype=np.int32)
 
         # Generate data
         for i, ID in enumerate(list_IDs_temp):
-            X[i,...] = self.img[ID,...]
-            y[i] = self.label[ID]
+            tmp_X = self.img[ID,...].copy()
+
+            # augmentation
+            if self.train and (any(self.augment) or elastic):
+                if flip_x and np.random.randint(2) and abs(self.label[ID])!=3:
+                    tmp_X = np.flip(tmp_X, 1)
+                if flip_y and np.random.randint(2):
+                    if abs(self.label[ID])==1:
+                        tmp_X = np.flip(tmp_X, 0)
+                    elif abs(self.label[ID])==3:
+                        tmp_X = np.flip(tmp_X, 1)
+                if flip_z and np.random.randint(2) and abs(self.label[ID])!=1:
+                    tmp_X = np.flip(tmp_X, 0)
+                if rotation:
+                    angle = random.uniform(-rotation, rotation)
+                    tmp_X = rotate(tmp_X, angle, order=0, mode='reflect', reshape=False)
+                if elastic:
+                    tmp_X = elastic_transform(tmp_X)
+
+            X[i,...] = tmp_X
+            y[i] = 0 if self.label[ID] < 0 else 1
 
         return X, y
 

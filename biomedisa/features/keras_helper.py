@@ -61,45 +61,65 @@ import time
 import h5py
 import atexit
 import tempfile
+import csv
 
 class InputError(Exception):
     def __init__(self, message=None):
         self.message = message
 
-def save_history(history, path_to_model, val_dice, train_dice):
-    # summarize history for accuracy
+def save_csv(path, history):
+    # remove empty keys
+    to_delete = []
+    for key in history.keys():
+        if len(history[key])==0:
+            to_delete.append(key)
+    for key in to_delete:
+        del history[key]
+    # open a file in write mode
+    with open(path, 'w', newline='') as file:
+        writer = csv.DictWriter(file, fieldnames=history.keys())
+        # write header
+        writer.writeheader()
+        # write data rows (use zip to iterate over values)
+        for row in zip(*history.values()):
+            writer.writerow(dict(zip(history.keys(), row)))
+
+def save_history(history, path_to_model):
+    # standard accuracy history
     plt.plot(history['accuracy'])
-    plt.plot(history['val_accuracy'])
-    if val_dice and train_dice:
+    legend = ['Accuracy (train)']
+    if 'val_accuracy' in history and len(history['val_accuracy'])>0:
+        plt.plot(history['val_accuracy'])
+        legend.append('Accuracy (test)')
+    # dice history
+    if 'dice' in history and len(history['dice'])>0:
         plt.plot(history['dice'])
+        legend.append('Dice score (train)')
+    if 'val_dice' in history and len(history['val_dice'])>0:
         plt.plot(history['val_dice'])
-        plt.legend(['Accuracy (train)', 'Accuracy (test)', 'Dice score (train)', 'Dice score (test)'], loc='upper left')
-    elif train_dice:
-        plt.plot(history['dice'])
-        plt.legend(['Accuracy (train)', 'Accuracy (test)', 'Dice score (train)'], loc='upper left')
-    elif val_dice:
-        plt.plot(history['val_dice'])
-        plt.legend(['Accuracy (train)', 'Accuracy (test)', 'Dice score (test)'], loc='upper left')
-    else:
-        plt.legend(['Accuracy (train)', 'Accuracy (test)'], loc='upper left')
+        legend.append('Dice score (test)')
     plt.title('model accuracy')
     plt.ylabel('accuracy')
     plt.xlabel('epoch')
+    plt.legend(legend, loc='upper left')
     plt.tight_layout()  # To prevent overlapping of subplots
     plt.savefig(path_to_model.replace('.h5','_acc.png'), dpi=300, bbox_inches='tight')
     plt.clf()
-    # summarize history for loss
+    # loss history
     plt.plot(history['loss'])
-    plt.plot(history['val_loss'])
+    legend = ['train']
+    if 'val_loss' in history and len(history['val_loss'])>0:
+        plt.plot(history['val_loss'])
+        legend.append('test')
     plt.title('model loss')
     plt.ylabel('loss')
     plt.xlabel('epoch')
-    plt.legend(['train', 'test'], loc='upper left')
+    plt.legend(legend, loc='upper left')
     plt.tight_layout()  # To prevent overlapping of subplots
     plt.savefig(path_to_model.replace('.h5','_loss.png'), dpi=300, bbox_inches='tight')
     plt.clf()
-    # save history dictonary
-    np.save(path_to_model.replace('.h5','.npy'), history)
+    # save history as csv
+    save_csv(path_to_model.replace('.h5','.csv'), history)
 
 def predict_blocksize(labelData, x_puffer=25, y_puffer=25, z_puffer=25):
     zsh, ysh, xsh = labelData.shape
@@ -673,6 +693,9 @@ class Metrics(Callback):
             n_batches = int(np.floor(len_IDs / self.batch_size))
             np.random.shuffle(self.list_IDs)
 
+            # initialize validation loss
+            val_loss = 0
+
             for batch in range(n_batches):
                 # Generate indexes of the batch
                 list_IDs_batch = self.list_IDs[batch*self.batch_size:(batch+1)*self.batch_size]
@@ -708,9 +731,12 @@ class Metrics(Callback):
                     m = rest % self.dim_img[2]
                     result[k:k+self.dim_patch[0],l:l+self.dim_patch[1],m:m+self.dim_patch[2]] += y_predict[i]
 
-            # calculate categorical crossentropy
-            if not self.train:
-                crossentropy = categorical_crossentropy(self.label, softmax(result))
+                    # calculate validation loss
+                    if not self.train:
+                        val_loss += categorical_crossentropy(self.label[k:k+self.dim_patch[0],l:l+self.dim_patch[1],m:m+self.dim_patch[2]], y_predict[i])
+
+            # mean validation loss
+            val_loss /= (n_batches*self.batch_size)
 
             # get result
             result = np.argmax(result, axis=-1)
@@ -744,10 +770,10 @@ class Metrics(Callback):
                     self.history['dice'].append(round(logs['dice'],4))
                 self.history['val_accuracy'].append(round(accuracy,4))
                 self.history['val_dice'].append(round(dice,4))
-                self.history['val_loss'].append(round(crossentropy,4))
+                self.history['val_loss'].append(round(val_loss,4))
 
                 # tensorflow monitoring variables
-                logs['val_loss'] = crossentropy
+                logs['val_loss'] = val_loss
                 logs['val_accuracy'] = accuracy
                 logs['val_dice'] = dice
                 logs['best_acc'] = max(self.history['accuracy'])
@@ -757,7 +783,7 @@ class Metrics(Callback):
                 logs['best_val_dice'] = max(self.history['val_dice'])
 
                 # plot history in figure and save as numpy array
-                save_history(self.history, self.path_to_model, True, self.train_dice)
+                save_history(self.history, self.path_to_model)
 
                 # print accuracies
                 print('\nValidation history:')
@@ -1016,8 +1042,8 @@ def train_segmentation(bm):
               workers=bm.workers)
 
     # save monitoring figure on train end
-    if bm.val_img_data is not None and not bm.val_dice:
-        save_history(history.history, bm.path_to_model, False, bm.train_dice)
+    if bm.val_img_data is None or not bm.val_dice:
+        save_history(history.history, bm.path_to_model)
 
 def load_prediction_data(bm, channels, normalize, normalization_parameters,
     region_of_interest, img, img_header, load_blockwise=False, z=None):
@@ -1031,6 +1057,8 @@ def load_prediction_data(bm, channels, normalize, normalization_parameters,
             if img.shape[0] < bm.z_patch:
                 rest = bm.z_patch - img.shape[0]
                 tmp = imread(bm.path_to_image, key=range(len(tif.pages)-rest,len(tif.pages)))
+                if len(tmp.shape)==2:
+                    tmp = tmp.reshape(1,tmp.shape[0],tmp.shape[1])
                 img = np.append(img, tmp[::-1], axis=0)
         else:
             img, img_header = load_data(bm.path_to_image, 'first_queue')

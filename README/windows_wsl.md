@@ -1,4 +1,4 @@
-# Windows 10 (version 21H2 or higher) and Windows 11
+# Windows 10/11 (version 21H2 or higher)
 
 - [Install NVIDIA driver](#install-nvidia-driver)
 - [Enable "Virtualization" in the BIOS](#enable-virtualization-in-the-bios)

@@ -83,9 +83,9 @@ sudo apt-mark hold libcudnn8 libcudnn8-dev cuda-11-8
 ```
 
 #### Install pip packages
-Download the Biomedisa [dependencies](https://biomedisa.info/media/requirements.txt) and install the packages. Note: If you run Biomedisa with an Apache Server (optional), you must install your packages system-wide using `sudo -H python3 -m pip install <package>`.
+Download list of requirements and install pip packages. Note: If you run Biomedisa with an Apache Server (optional), you must install your packages system-wide using `sudo -H python3 -m pip install <package>`.
 ```
-wget https://biomedisa.info/media/requirements.txt
+wget https://raw.githubusercontent.com/biomedisa/biomedisa/refs/heads/master/requirements.txt
 python3 -m pip install -r requirements.txt
 python3 -m pip install mysqlclient rq wget django==3.2.6
 PATH=/usr/local/cuda-11.8/bin:${PATH} python3 -m pip install pycuda
