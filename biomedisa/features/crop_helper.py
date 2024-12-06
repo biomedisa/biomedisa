@@ -44,6 +44,7 @@ import h5py
 import tarfile
 import matplotlib.pyplot as plt
 import tempfile
+import copy
 
 class InputError(Exception):
     def __init__(self, message=None):
@@ -117,9 +118,12 @@ def load_cropping_training_data(normalize, img_list, label_list, x_scale, y_scal
                 a = label_in
             a = a.astype(np.uint8)
             a = set_labels_to_zero(a, labels_to_compute, labels_to_remove)
-            label_z = np.any(a,axis=(1,2))
-            label_y = np.any(a,axis=(0,2))
-            label_x = np.any(a,axis=(0,1))
+            label_z = np.any(a,axis=(1,2)).astype(np.int8) * 1
+            label_y = np.any(a,axis=(0,2)).astype(np.int8) * 2
+            label_x = np.any(a,axis=(0,1)).astype(np.int8) * 3
+            label_z[label_z==0] = -1
+            label_y[label_y==0] = -2
+            label_x[label_x==0] = -3
             label = np.append(label_z,label_y,axis=0)
             label = np.append(label,label_x,axis=0)
 
@@ -178,12 +182,15 @@ def load_cropping_training_data(normalize, img_list, label_list, x_scale, y_scal
                         a = label_in[k]
                     a = a.astype(np.uint8)
                     a = set_labels_to_zero(a, labels_to_compute, labels_to_remove)
-                    next_label_z = np.any(a,axis=(1,2))
-                    next_label_y = np.any(a,axis=(0,2))
-                    next_label_x = np.any(a,axis=(0,1))
-                    label = np.append(label,next_label_z,axis=0)
-                    label = np.append(label,next_label_y,axis=0)
-                    label = np.append(label,next_label_x,axis=0)
+                    label_z = np.any(a,axis=(1,2)).astype(np.int8) * 1
+                    label_y = np.any(a,axis=(0,2)).astype(np.int8) * 2
+                    label_x = np.any(a,axis=(0,1)).astype(np.int8) * 3
+                    label_z[label_z==0] = -1
+                    label_y[label_y==0] = -2
+                    label_x[label_x==0] = -3
+                    label = np.append(label,label_z,axis=0)
+                    label = np.append(label,label_y,axis=0)
+                    label = np.append(label,label_x,axis=0)
 
                     # append image
                     if any(img_list):
@@ -228,20 +235,20 @@ def load_cropping_training_data(normalize, img_list, label_list, x_scale, y_scal
     return img_rgb, label, normalization_parameters, channels
 
 def train_cropping(img, label, path_to_model, epochs, batch_size,
-                    validation_split, flip_x, flip_y, flip_z, rotate,
-                    img_val, label_val):
+    validation_split, flip_x, flip_y, flip_z, rotate,
+    img_val, label_val):
 
     # img shape
     zsh, ysh, xsh, channels = img.shape
 
     # list of IDs
-    list_IDs_fg = list(np.where(label)[0])
-    list_IDs_bg = list(np.where(label==False)[0])
+    list_IDs_fg = list(np.where(label>0)[0])
+    list_IDs_bg = list(np.where(label<0)[0])
 
     # validation data
     if np.any(img_val):
-        list_IDs_val_fg = list(np.where(label_val)[0])
-        list_IDs_val_bg = list(np.where(label_val==False)[0])
+        list_IDs_val_fg = list(np.where(label_val>0)[0])
+        list_IDs_val_bg = list(np.where(label_val<0)[0])
     elif validation_split:
         split_fg = int(len(list_IDs_fg) * validation_split)
         split_bg = int(len(list_IDs_bg) * validation_split)
@@ -287,14 +294,13 @@ def train_cropping(img, label, path_to_model, epochs, batch_size,
               'batch_size': batch_size,
               'n_classes': 2,
               'n_channels': channels,
-              'shuffle': True}
+              'shuffle': True,
+              'augment': (flip_x, flip_y, flip_z, rotate),
+              'train': True}
 
     # validation parameters
-    params_val = {'dim': (ysh, xsh),
-                  'batch_size': batch_size,
-                  'n_classes': 2,
-                  'n_channels': channels,
-                  'shuffle': False}
+    params_val = copy.deepcopy(params)
+    params_val['train'] = False
 
     # data generator
     training_generator = DataGeneratorCrop(img, label, list_IDs_fg, list_IDs_bg, **params)
@@ -497,7 +503,7 @@ def crop_volume(img, path_to_model, path_to_final, z_shape, y_shape, x_shape, ba
 # main functions
 #=====================
 
-def load_and_train(bm, x_scale=256, y_scale=256, z_scale=256):
+def load_and_train(bm, x_scale=256, y_scale=256, z_scale=256, batch_size=24):
 
     # load training data
     img, label, normalization_parameters, channels = load_cropping_training_data(bm.normalize,
@@ -505,14 +511,15 @@ def load_and_train(bm, x_scale=256, y_scale=256, z_scale=256):
         bm.img_data, bm.label_data)
 
     # load validation data
+    img_val, label_val = None, None
     if any(bm.val_images) or bm.val_img_data is not None:
         img_val, label_val, _, _ = load_cropping_training_data(bm.normalize,
             bm.val_images, bm.val_labels, x_scale, y_scale, z_scale,
             bm.only, bm.ignore, bm.val_img_data, bm.val_label_data, normalization_parameters, channels)
 
     # train cropping
-    train_cropping(img, label, bm.path_to_model, bm.cropping_epochs,
-        bm.batch_size, bm.validation_split,
+    train_cropping(img, label, bm.path_to_model,
+        bm.cropping_epochs, batch_size, bm.validation_split,
         bm.flip_x, bm.flip_y, bm.flip_z, bm.rotate,
         img_val, label_val)
 
@@ -530,7 +537,7 @@ def load_and_train(bm, x_scale=256, y_scale=256, z_scale=256):
 
     return cropping_weights, cropping_config, normalization_parameters
 
-def crop_data(bm):
+def crop_data(bm, batch_size=32):
 
     # get meta data
     hf = h5py.File(bm.path_to_model, 'r')
@@ -553,7 +560,7 @@ def crop_data(bm):
 
     # make prediction
     z_lower, z_upper, y_lower, y_upper, x_lower, x_upper, cropped_volume = crop_volume(img, bm.path_to_model,
-        bm.path_to_cropped_image, z_shape, y_shape, x_shape, bm.batch_size, bm.debug_cropping, bm.save_cropped, bm.img_data)
+        bm.path_to_cropped_image, z_shape, y_shape, x_shape, batch_size, bm.debug_cropping, bm.save_cropped, bm.img_data)
 
     # region of interest
     region_of_interest = np.array([z_lower, z_upper, y_lower, y_upper, x_lower, x_upper])

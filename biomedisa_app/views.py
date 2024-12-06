@@ -284,10 +284,18 @@ def imageviewer(request, id):
     id = int(id)
     stock_to_show = get_object_or_404(Upload, pk=id)
     if stock_to_show.user == request.user:
-        # read image file
-        with open(stock_to_show.pic.path, 'rb') as f:
-            image_data = f.read()
-        return HttpResponse(image_data, content_type='image/png')
+        if stock_to_show.pic.path[-4:] != '.png':
+            request.session['state'] = 'No preview available'
+            next = request.GET.get('next', '')
+            if next == 'storage':
+                return redirect(storage)
+            else:
+                return redirect(app)
+        else:
+            # read image file
+            with open(stock_to_show.pic.path, 'rb') as f:
+                image_data = f.read()
+            return HttpResponse(image_data, content_type='image/png')
 
 # 17. sliceviewer
 @login_required
@@ -446,7 +454,7 @@ def settings(request, id):
                     for key in cd.keys():
                         image.__dict__[key] = cd[key]
                     image.validation_freq = max(1, int(cd['validation_freq']))
-                    image.epochs = min(100, int(cd['epochs']))
+                    image.epochs = min(request.user.profile.max_epochs, int(cd['epochs']))
                     image.rotate = min(180, max(0, int(cd['rotate'])))
                     image.validation_split = min(1.0, max(0.0, float(cd['validation_split'])))
                     image.stride_size = max(32, int(cd['stride_size']))
@@ -514,6 +522,7 @@ def update_profile(request):
             profile.notification = cd['notification']
             if request.user.is_superuser:
                 profile.storage_size = cd['storage_size']
+                profile.max_epochs = cd['max_epochs']
             user_form.save()
             profile.save()
             messages.success(request, 'Profile successfully updated!')
@@ -522,9 +531,11 @@ def update_profile(request):
             messages.error(request, 'Please correct the error below.')
     else:
         repositories = Repository.objects.filter(users=user)
-        user_form = UserForm(instance=user, initial={'notification':profile.notification, 'storage_size':profile.storage_size, 'platform':profile.platform})
+        user_form = UserForm(instance=user, initial={'notification':profile.notification,
+            'storage_size':profile.storage_size, 'max_epochs':profile.max_epochs, 'platform':profile.platform})
         if not request.user.is_superuser:
             del user_form.fields['storage_size']
+            del user_form.fields['max_epochs']
 
     return render(request, 'profile.html', {'user_form':user_form, 'repositories':repositories, 'user_list':users})
 
@@ -914,6 +925,11 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
         # remote server
         if host:
 
+            # update status message
+            if train:
+                image.message = 'Waiting for resources'
+                image.save()
+
             # create user directory
             subprocess.Popen(['ssh', host, 'mkdir', '-p', host_base+'/private_storage/images/'+image.user.username]).wait()
 
@@ -984,7 +1000,6 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
                         if cropped_on_host=='None':
                             cropped_on_host=None
                         time_str = time_str.replace('-',' ')
-                        validation=True if label.validation_split or (val_img_list and val_label_list) else False
 
                         # local file names
                         path_to_model, path_to_final, path_to_cropped_image = None, None, None
@@ -1002,14 +1017,13 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
                                 subprocess.Popen(['scp', host+':'+cropped_on_host, path_to_cropped_image]).wait()
                         else:
                             subprocess.Popen(['scp', host+':'+model_on_host, path_to_model]).wait()
-                            if validation:
-                                subprocess.Popen(['scp', host+':'+model_on_host.replace('.h5','_acc.png'), path_to_model.replace('.h5','_acc.png')]).wait()
-                                subprocess.Popen(['scp', host+':'+model_on_host.replace('.h5','_loss.png'), path_to_model.replace('.h5','_loss.png')]).wait()
+                            for suffix in ['_acc.png', '_loss.png', '.csv']:
+                                subprocess.Popen(['scp', host+':'+model_on_host.replace('.h5', suffix), path_to_model.replace('.h5', suffix)]).wait()
 
                         # post processing
                         post_processing(path_to_final, time_str, server_name, False, None,
                             path_to_cropped_image=path_to_cropped_image, path_to_model=path_to_model,
-                            predict=predict, train=train, validation=validation,
+                            predict=predict, train=train,
                             img_id=image.id, label_id=label.id)
 
                         # remove config file

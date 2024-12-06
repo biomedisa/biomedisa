@@ -5,7 +5,8 @@ config = {
     'DJANGO_DATABASE' : '...', # password of your mysql database
     'ALLOWED_HOSTS' : ['localhost', '0.0.0.0'], # you must tell django explicitly which hosts are allowed (e.g. your IP and/or the URL of your homepage when running an APACHE server)
     'DEBUG' : True, # activate the debug mode if you develop the app. This must be deactivated in production mode for security reasons!
-    #'STORAGE_SIZE' : 1000, # storage size for new users
+    #'STORAGE_SIZE' : 1000, # default storage size for new users
+    #'EPOCHS' : 100, # default maximum epochs in deep learning
 
     'EMAIL_CONFIRMATION' : False, # users must confirm their emails during the registration process (to handle biomedisa's notification service the following email support must be set up)
     'EMAIL' : 'philipp.loesel@anu.edu.au',
@@ -27,4 +28,6 @@ config = {
     'THIRD_QUEUE' : False, # seperate queue for AI training. If False, AI tasks are queued in first queue
     'THIRD_QUEUE_HOST' : '', # empty string ('') if it is running on your local machine
     'THIRD_QUEUE_NGPUS' : 'all', # number of GPUs available (e.g. 1, 4, 'all') or list of GPU IDs (e.g. [0,3]). Works only locally.
+
+    'REMOTE_QUEUE_HOST' : '', # empty string ('') if it is running on your local machine
     }

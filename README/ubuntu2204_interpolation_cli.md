@@ -1,4 +1,4 @@
-# Ubuntu 22.04 LTS + Smart Interpolation (command-line-only)
+# Ubuntu 22.04 LTS + Smart Interpolation (command-line)
 
 - [Install Python and pip](#install-python-and-pip)
 - [Install software dependencies](#install-software-dependencies)
@@ -16,11 +16,11 @@ sudo apt-get install python3 python3-dev python3-pip
 ```
 sudo apt-get install libsm6 libxrender-dev unzip \
     libboost-python-dev build-essential libssl-dev cmake \
-    openmpi-bin openmpi-doc libopenmpi-dev libgl1
+    openmpi-bin openmpi-doc libopenmpi-dev libgl1 wget
 ```
 
 #### Install CUDA Toolkit
-Install [CUDA Toolkit](https://developer.nvidia.com/cuda-downloads). You may choose any CUDA version compatible with your NVIDIA GPU architecture as outlined in the [NVIDIA Documentation](https://docs.nvidia.com/deeplearning/cudnn/latest/reference/support-matrix.html). If you select a version other than 12.6, you will need to adjust the following steps accordingly:
+Download and install [CUDA Toolkit](https://developer.nvidia.com/cuda-downloads) or via command-line as follows. You may choose any CUDA version compatible with your NVIDIA GPU architecture as outlined in the [NVIDIA Documentation](https://docs.nvidia.com/deeplearning/cudnn/latest/reference/support-matrix.html). If you select a version other than 12.6, you will need to adjust the following steps accordingly:
 ```
 wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-ubuntu2204.pin
 sudo mv cuda-ubuntu2204.pin /etc/apt/preferences.d/cuda-repository-pin-600
@@ -75,11 +75,14 @@ PATH=/usr/local/cuda-12.6/bin:${PATH} python3 -m pip install pycuda
 python3 -m biomedisa.features.pycuda_test
 ```
 
-#### Biomedisa example
-Download and run a test example from the Biomedisa [gallery](https://biomedisa.info/gallery/):
+#### Biomedisa Examples
+Download test files from [Gallery](https://biomedisa.info/gallery/) or via command-line:
 ```
 wget -P ~/Downloads/ https://biomedisa.info/media/images/tumor.tif
 wget -P ~/Downloads/ https://biomedisa.info/media/images/labels.tumor.nrrd
+```
+Smart Interpolation:
+```
 python3 -m biomedisa.interpolation ~/Downloads/tumor.tif ~/Downloads/labels.tumor.nrrd
 ```
 

@@ -1,8 +1,7 @@
-# Windows 10 + CUDA + GPU (3D Slicer extension)
+# Windows 10/11 + Smart Interpolation (3D Slicer extension)
 
 - [Install Microsoft Visual Studio 2022](#install-microsoft-visual-studio-2022)
-- [Option 1: Set Path Variable manually](#option-1-set-path-variable-manually)
-- [Option 2: Set Path Variable using PowerShell](#option-2-set-path-variable-using-powershell)
+- [Set Path Variable](#set-path-variable)
 - [Install NVIDIA driver](#install-nvidia-driver)
 - [Install CUDA Toolkit](#install-cuda-toolkit)
 - [Install Microsoft MPI](#install-microsoft-mpi)
@@ -11,7 +10,7 @@
 - [Install 3D Slicer](#install-3d-slicer)
 - [Add Biomedisa module to 3D Slicer](#add-biomedisa-module-to-3d-slicer)
 - [Install Anaconda3](#install-anaconda3)
-- [Install environment](#install-environment)
+- [Initialize PyCUDA installation](#initialize-pycuda-installation)
 - [Install pip packages](#install-pip-packages)
 - [Install PyCUDA](#install-pycuda)
 
@@ -23,27 +22,17 @@ Install
 Restart Windows
 ```
 
-#### Option 1: Set Path Variable manually
-Open PowerShell (e.g. Windows Search `PowerShell`) and get the Microsoft Visual Studio path using the following command:
+#### Set Path Variable
+**Option 1: Via [command-line](https://github.com/biomedisa/biomedisa/blob/master/README/windows_path_powershell.md)**.  
+**Option 2: Manually:**  
+Step 1: Open PowerShell (e.g. Windows Search `PowerShell`) and get the Microsoft Visual Studio path using the following command:
 ```
 Resolve-Path -Path "C:\Program Files\Microsoft Visual Studio\*\Community\VC\Tools\MSVC\*\bin\Hostx64\x64" | select -ExpandProperty Path
 ```
-Note: The output should look like `C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.37.32822\bin\Hostx64\x64` but year `2022` and version number `14.37.32822` can be different in your case. Please use exactly the path from the output.
-
-Open Windows Search  
-Type `View advanced system settings`  
-Click `Environment Variables...`  
-Add exactly the path from the output to the **System variable** `Path`
-
-#### Option 2: Set Path Variable using PowerShell
-Skip this step if you did it manually.
-Open PowerShell as administrator (e.g. Windows Search `PowerShell`).
-```
-$currentPath = [System.Environment]::GetEnvironmentVariable('PATH', [System.EnvironmentVariableTarget]::Machine)
-$newPath = Resolve-Path -Path "C:\Program Files\Microsoft Visual Studio\*\Community\VC\Tools\MSVC\*\bin\Hostx64\x64" | select -ExpandProperty Path
-$newPathValue = "$currentPath;$newPath"
-[System.Environment]::SetEnvironmentVariable('PATH', $newPathValue, [System.EnvironmentVariableTarget]::Machine)
-```
+The output should look like `C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.37.32822\bin\Hostx64\x64` but year `2022` and version number `14.37.32822` can be different in your case. Please use exactly the path from the output in *Step 4*.  
+Step 2: Open Windows Search and type `View advanced system settings`  
+Step 3: Click `Environment Variables...`  
+Step 4: Add exactly the output from *Step 1* to the **System variable** `Path`
 
 #### Install NVIDIA Driver
 Download and install [NVIDIA](https://www.nvidia.com/Download/Find.aspx?lang=en-us).  
@@ -63,9 +52,10 @@ Select "msmpisetup.exe"
 Download and install [Git](https://github.com/git-for-windows/git/releases/download/v2.45.1.windows.1/Git-2.45.1-64-bit.exe).
 
 #### Clone Biomedisa
+Open Command Prompt (e.g. Windows Search `cmd`) and clone Biomedisa:
 ```
-mkdir ~/git
-cd ~/git
+mkdir git
+cd git
 git clone https://github.com/biomedisa/biomedisa.git
 ```
 
@@ -82,10 +72,10 @@ git/biomedisa/biomedisa_slicer_extension/biomedisa_extension/SegmentEditorBiomed
 Restart 3D Slicer.
 
 #### Install Anaconda3
-Download and install [Anaconda3](https://www.anaconda.com/products/individual#windows).
+Download and install [Anaconda3](https://repo.anaconda.com/archive/Anaconda3-2024.10-1-Windows-x86_64.exe).
 
-#### Install environment (nasty double installation of PyCUDA)
-Open Anaconda Prompt (e.g. Windows Search `Anaconda Prompt`) and install environment:
+#### Initialize PyCUDA installation
+Open Anaconda Prompt (e.g. Windows Search `Anaconda Prompt`) and run:
 ```
 conda create -n slicer_extension python=3.9
 conda activate slicer_extension
@@ -93,14 +83,14 @@ python -m pip install pycuda
 ```
 
 #### Install pip packages using the Python environment in 3D Slicer
-You need to run `PythonSlicer.exe` from within `Slicer-VERSION-linux-amd64/bin`:
+You need to run `PythonSlicer.exe` from within `AppData\Local\slicer.org\Slicer VERSION\bin`:
 ```
 cd "AppData\Local\slicer.org\Slicer 5.6.2\bin"
 PythonSlicer.exe -m pip install pip setuptools testresources scikit-build
-PythonSlicer.exe -m pip install numpy scipy h5py colorama numpy-stl \
-    numba imagecodecs tifffile scikit-image opencv-python netCDF4 mrcfile \
-    Pillow nibabel medpy SimpleITK mpi4py itk vtk matplotlib biomedisa \
-    importlib_metadata PyQt5
+PythonSlicer.exe -m pip install numpy scipy h5py colorama numpy-stl
+PythonSlicer.exe -m pip install numba imagecodecs tifffile scikit-image opencv-python netCDF4 mrcfile
+PythonSlicer.exe -m pip install Pillow nibabel medpy SimpleITK mpi4py itk vtk matplotlib biomedisa
+PythonSlicer.exe -m pip install importlib_metadata PyQt5
 ```
 
 #### Install PyCUDA in the 3D Slicer environment
