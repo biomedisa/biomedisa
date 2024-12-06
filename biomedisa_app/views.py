@@ -46,7 +46,7 @@ from django.db.models import Q
 
 from biomedisa_app.models import (UploadForm, Upload, StorageForm, Profile,
     UserForm, SettingsForm, SettingsPredictionForm, CustomUserCreationForm,
-    Repository, default_epochs)
+    Repository)
 from biomedisa.mesh import init_create_mesh
 from biomedisa.features.process_image import init_process_image
 from biomedisa.features.create_slices import create_slices
@@ -454,7 +454,7 @@ def settings(request, id):
                     for key in cd.keys():
                         image.__dict__[key] = cd[key]
                     image.validation_freq = max(1, int(cd['validation_freq']))
-                    image.epochs = min(default_epochs(), int(cd['epochs']))
+                    image.epochs = min(request.user.profile.max_epochs, int(cd['epochs']))
                     image.rotate = min(180, max(0, int(cd['rotate'])))
                     image.validation_split = min(1.0, max(0.0, float(cd['validation_split'])))
                     image.stride_size = max(32, int(cd['stride_size']))
@@ -522,6 +522,7 @@ def update_profile(request):
             profile.notification = cd['notification']
             if request.user.is_superuser:
                 profile.storage_size = cd['storage_size']
+                profile.max_epochs = cd['max_epochs']
             user_form.save()
             profile.save()
             messages.success(request, 'Profile successfully updated!')
@@ -530,9 +531,11 @@ def update_profile(request):
             messages.error(request, 'Please correct the error below.')
     else:
         repositories = Repository.objects.filter(users=user)
-        user_form = UserForm(instance=user, initial={'notification':profile.notification, 'storage_size':profile.storage_size, 'platform':profile.platform})
+        user_form = UserForm(instance=user, initial={'notification':profile.notification,
+            'storage_size':profile.storage_size, 'max_epochs':profile.max_epochs, 'platform':profile.platform})
         if not request.user.is_superuser:
             del user_form.fields['storage_size']
+            del user_form.fields['max_epochs']
 
     return render(request, 'profile.html', {'user_form':user_form, 'repositories':repositories, 'user_list':users})
 
