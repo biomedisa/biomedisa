@@ -844,32 +844,30 @@ def train_segmentation(bm):
     list_IDs_fg, list_IDs_bg = [], []
 
     # get IDs of patches
-    if bm.balance:
-        for k in range(0, zsh-bm.z_patch+1, bm.stride_size):
-            for l in range(0, ysh-bm.y_patch+1, bm.stride_size):
-                for m in range(0, xsh-bm.x_patch+1, bm.stride_size):
-                    if bm.separation:
-                        centerLabel = bm.label_data[k+bm.z_patch//2,l+bm.y_patch//2,m+bm.x_patch//2]
-                        patch = bm.label_data[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]
-                        if centerLabel>0 and np.any(np.logical_and(patch!=centerLabel, patch>0)):
-                            list_IDs_fg.append(k*ysh*xsh+l*xsh+m)
-                        elif centerLabel>0 and np.any(patch!=centerLabel):
-                            list_IDs_bg.append(k*ysh*xsh+l*xsh+m)
-                    elif np.any(bm.label_data[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]>0):
-                        list_IDs_fg.append(k*ysh*xsh+l*xsh+m)
-                    elif not np.any(bm.label_data[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]==-1):
-                        list_IDs_bg.append(k*ysh*xsh+l*xsh+m)
-    else:
-        for k in range(0, zsh-bm.z_patch+1, bm.stride_size):
-            for l in range(0, ysh-bm.y_patch+1, bm.stride_size):
-                for m in range(0, xsh-bm.x_patch+1, bm.stride_size):
-                    if bm.separation:
-                        centerLabel = bm.label_data[k+bm.z_patch//2,l+bm.y_patch//2,m+bm.x_patch//2]
-                        patch = bm.label_data[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]
-                        if centerLabel>0 and np.any(patch!=centerLabel):
-                            list_IDs_fg.append(k*ysh*xsh+l*xsh+m)
-                    elif not np.any(bm.label_data[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]==-1):
-                        list_IDs_fg.append(k*ysh*xsh+l*xsh+m)
+    for k in range(0, zsh-bm.z_patch+1, bm.stride_size):
+        for l in range(0, ysh-bm.y_patch+1, bm.stride_size):
+            for m in range(0, xsh-bm.x_patch+1, bm.stride_size):
+                patch = bm.label_data[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]
+                index = k*ysh*xsh+l*xsh+m
+                if not np.any(patch==-1): # ignore padded areas
+                    if bm.balance:
+                        if bm.separation:
+                            centerLabel = bm.label_data[k+bm.z_patch//2,l+bm.y_patch//2,m+bm.x_patch//2]
+                            if centerLabel>0 and np.any(np.logical_and(patch!=centerLabel, patch>0)):
+                                list_IDs_fg.append(index)
+                            elif centerLabel>0 and np.any(patch!=centerLabel):
+                                list_IDs_bg.append(index)
+                        elif np.any(patch>0):
+                            list_IDs_fg.append(index)
+                        else:
+                            list_IDs_bg.append(index)
+                    else:
+                        if bm.separation:
+                            centerLabel = bm.label_data[k+bm.z_patch//2,l+bm.y_patch//2,m+bm.x_patch//2]
+                            if centerLabel>0 and np.any(patch!=centerLabel):
+                                list_IDs_fg.append(index)
+                        else:
+                            list_IDs_fg.append(index)
 
     if bm.val_img_data is not None:
 
@@ -880,32 +878,30 @@ def train_segmentation(bm):
         list_IDs_val_fg, list_IDs_val_bg = [], []
 
         # get validation IDs of patches
-        if bm.balance and not bm.val_dice:
-            for k in range(0, zsh_val-bm.z_patch+1, bm.validation_stride_size):
-                for l in range(0, ysh_val-bm.y_patch+1, bm.validation_stride_size):
-                    for m in range(0, xsh_val-bm.x_patch+1, bm.validation_stride_size):
-                        if bm.separation:
-                            centerLabel = bm.val_label_data[k+bm.z_patch//2,l+bm.y_patch//2,m+bm.x_patch//2]
-                            patch = bm.val_label_data[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]
-                            if centerLabel>0 and np.any(np.logical_and(patch!=centerLabel, patch>0)):
-                                list_IDs_val_fg.append(k*ysh*xsh+l*xsh+m)
-                            elif centerLabel>0 and np.any(patch!=centerLabel):
-                                list_IDs_val_bg.append(k*ysh*xsh+l*xsh+m)
-                        elif np.any(bm.val_label_data[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]>0):
-                            list_IDs_val_fg.append(k*ysh_val*xsh_val+l*xsh_val+m)
-                        elif not np.any(bm.label_data[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]==-1):
-                            list_IDs_val_bg.append(k*ysh_val*xsh_val+l*xsh_val+m)
-        else:
-            for k in range(0, zsh_val-bm.z_patch+1, bm.validation_stride_size):
-                for l in range(0, ysh_val-bm.y_patch+1, bm.validation_stride_size):
-                    for m in range(0, xsh_val-bm.x_patch+1, bm.validation_stride_size):
-                        if bm.separation:
-                            centerLabel = bm.val_label_data[k+bm.z_patch//2,l+bm.y_patch//2,m+bm.x_patch//2]
-                            patch = bm.val_label_data[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]
-                            if centerLabel>0 and np.any(patch!=centerLabel):
-                                list_IDs_val_fg.append(k*ysh_val*xsh_val+l*xsh_val+m)
-                        elif not np.any(bm.label_data[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]==-1):
-                            list_IDs_val_fg.append(k*ysh_val*xsh_val+l*xsh_val+m)
+        for k in range(0, zsh_val-bm.z_patch+1, bm.validation_stride_size):
+            for l in range(0, ysh_val-bm.y_patch+1, bm.validation_stride_size):
+                for m in range(0, xsh_val-bm.x_patch+1, bm.validation_stride_size):
+                    patch = bm.val_label_data[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]
+                    index = k*ysh_val*xsh_val+l*xsh_val+m
+                    if not np.any(patch==-1): # ignore padded areas
+                        if bm.balance and not bm.val_dice:
+                            if bm.separation:
+                                centerLabel = bm.val_label_data[k+bm.z_patch//2,l+bm.y_patch//2,m+bm.x_patch//2]
+                                if centerLabel>0 and np.any(np.logical_and(patch!=centerLabel, patch>0)):
+                                    list_IDs_val_fg.append(index)
+                                elif centerLabel>0 and np.any(patch!=centerLabel):
+                                    list_IDs_val_bg.append(index)
+                            elif np.any(patch>0):
+                                list_IDs_val_fg.append(index)
+                            else:
+                                list_IDs_val_bg.append(index)
+                        else:
+                            if bm.separation:
+                                centerLabel = bm.val_label_data[k+bm.z_patch//2,l+bm.y_patch//2,m+bm.x_patch//2]
+                                if centerLabel>0 and np.any(patch!=centerLabel):
+                                    list_IDs_val_fg.append(index)
+                            else:
+                                list_IDs_val_fg.append(index)
 
     # remove padding label
     bm.label_data[bm.label_data<0]=0
