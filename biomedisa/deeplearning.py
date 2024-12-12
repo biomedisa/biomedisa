@@ -301,6 +301,12 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
                 results, bm = predict_segmentation(bm, region_of_interest,
                     channels, normalization_parameters)
 
+                from mpi4py import MPI
+                comm = MPI.COMM_WORLD
+                rank = comm.Get_rank()
+                if rank>0:
+                    return 0
+
                 # results
                 if cropped_volume is not None:
                     results['cropped_volume'] = cropped_volume
