@@ -1324,7 +1324,7 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
             nprocs = len(z_indices)-j
           else:
             nprocs = ngpus
-          if j % ngpus == rank and z<100:
+          if j % ngpus == rank:
             print(rank, j, z, nprocs)
             # load blockwise from TIFF
             if load_blockwise:
