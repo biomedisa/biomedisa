@@ -1359,12 +1359,11 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
             # number of patches
             nb_patches = len(list_IDs_block)
 
-            # allocate block probabilities array
-            if not bm.separation:
+            # allocate block array
+            if bm.separation:
+                block_label = np.zeros((bm.z_patch, ysh, xsh), dtype=np.uint8)
+            else:
                 block_probs = np.zeros((bm.z_patch, ysh, xsh, nb_labels), dtype=np.float32)
-
-            # allocate block label array
-            block_label = np.zeros((bm.z_patch, ysh, xsh), dtype=np.uint8)
 
             # get one batch of image patches
             for step in range(nb_patches//bm.batch_size):
