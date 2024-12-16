@@ -2105,6 +2105,10 @@ def init_random_walk(image, label):
         # remote server
         if host:
 
+            # set status message
+            image.message = 'Waiting for resources'
+            image.save()
+
             # create user directory
             subprocess.Popen(['ssh', host, 'mkdir', '-p', host_base+'/private_storage/images/'+image.user.username]).wait()
 
@@ -2113,17 +2117,9 @@ def init_random_walk(image, label):
             success+=send_data_to_host(image.pic.path, host+':'+image.pic.path.replace(BASE_DIR,host_base))
             success+=send_data_to_host(label.pic.path, host+':'+label.pic.path.replace(BASE_DIR,host_base))
 
-            # qsub start
-            #if f'{QUEUE}_QUEUE_QSUB' in config and config[f'{QUEUE}_QUEUE_QSUB']:
-            #    subhost, qsub_pid = qsub_start(host, host_base, queue_id)
-
             # check if aborted
-            image = Upload.objects.get(pk=image.id)
-            if image.status==2 and image.queue==queue_id and success==0:
-
-                # set status to processing
-                image.message = 'Processing'
-                image.save()
+            image = Upload.objects.filter(pk=image.id).first()
+            if image and image.status==2 and image.queue==queue_id and success==0:
 
                 # adjust command
                 if subhost:
@@ -2132,7 +2128,12 @@ def init_random_walk(image, label):
                     cmd = ['ssh', host] + cmd
                 cmd += ['-r', f'-q={queue_id}']
 
-                # start interpolation
+                # config files
+                error_path = f'/log/error_{queue_id}'
+                config_path = f'/log/config_{queue_id}'
+                pid_path = f'/log/pid_{queue_id}'
+
+                # submit job
                 if qsub or sbatch:
                     process = subprocess.Popen(cmd, stdout=subprocess.PIPE,
                         stderr=subprocess.PIPE, text=True)
@@ -2144,42 +2145,47 @@ def init_random_walk(image, label):
                     print(f"submit output: {stdout.strip()}")
                     image.pid = job_id
                     image.save()
+
+                    # wait for the server to finish
+                    error, success, started, processing = 1, 1, 1, True
+                    while error!=0 and success!=0 and processing:
+                        time.sleep(30)
+                        error = subprocess.Popen(['scp', host + ':' + host_base + error_path, BASE_DIR + error_path]).wait()
+                        success = subprocess.Popen(['scp', host + ':' + host_base + config_path, BASE_DIR + config_path]).wait()
+                        started = subprocess.Popen(['scp', host + ':' + host_base + pid_path, BASE_DIR + pid_path]).wait()
+                        image = Upload.objects.filter(pk=image.id).first()
+                        if image and image.status==2 and image.queue==queue_id:
+                            if started==0 and image.message != 'Processing':
+                                image.message = 'Processing'
+                                image.save()
+                        else:
+                            processing = False
+
+                # interactive shell
                 else:
                     process = subprocess.Popen(cmd)
+                    image.message = 'Processing'
                     image.pid = process.pid
                     image.save()
                     process.wait()
-
-                # wait for the server to finish
-                path_to_error = BASE_DIR + f'/log/error_{queue_id}'
-                error, success = 1, 1
-                while error!=0 and success!=0 and Upload.objects.get(pk=image.id).status>0:
-                    error = subprocess.Popen(['scp', host + ':' + host_base + f'/log/error_{queue_id}', path_to_error]).wait()
-                    success = subprocess.Popen(['scp', host + ':' + host_base + f'/log/config_{queue_id}', BASE_DIR + f'/log/config_{queue_id}']).wait()
-                    time.sleep(30)
-
-                # get config files
-                #path_to_error = BASE_DIR + f'/log/error_{queue_id}'
-                #error = subprocess.Popen(['scp', host + ':' + host_base + f'/log/error_{queue_id}', path_to_error]).wait()
-                #stopped = subprocess.Popen(['scp', host + ':' + host_base + f'/log/pid_{queue_id}', BASE_DIR + f'/log/pid_{queue_id}']).wait()
+                    error = subprocess.Popen(['scp', host + ':' + host_base + error_path, BASE_DIR + error_path]).wait()
+                    success = subprocess.Popen(['scp', host + ':' + host_base + config_path, BASE_DIR + config_path]).wait()
+                    started = subprocess.Popen(['scp', host + ':' + host_base + pid_path, BASE_DIR + pid_path]).wait()
 
                 if error == 0:
 
                     # create error object
-                    with open(path_to_error, 'r') as errorfile:
+                    with open(BASE_DIR + error_path, 'r') as errorfile:
                         message = errorfile.read()
                     create_error_object(message, img_id=image.id)
 
                     # remove error file
-                    subprocess.Popen(['ssh', host, 'rm', host_base + f'/log/error_{queue_id}']).wait()
+                    subprocess.Popen(['ssh', host, 'rm', host_base + error_path]).wait()
 
                 elif success == 0:
 
-                    # config
-                    #success = subprocess.Popen(['scp', host + ':' + host_base + f'/log/config_{queue_id}', BASE_DIR + f'/log/config_{queue_id}']).wait()
-
                     if success == 0:
-                        with open(BASE_DIR + f'/log/config_{queue_id}', 'r') as configfile:
+                        with open(BASE_DIR + config_path, 'r') as configfile:
                             final_on_host, uncertainty_on_host, smooth_on_host, uncertainty, smooth, time_str, server_name, _, _, dice = configfile.read().split()
                         uncertainty=True if uncertainty=='True' else False
                         smooth=False if smooth=='0' else True
@@ -2204,21 +2210,21 @@ def init_random_walk(image, label):
                             img_id=image.id, label_id=label.id)
 
                         # remove config file
-                        subprocess.Popen(['ssh', host, 'rm', host_base + f'/log/config_{queue_id}']).wait()
+                        subprocess.Popen(['ssh', host, 'rm', host_base + config_path]).wait()
 
                     #else:
                         # something went wrong
                         #return_error(image, 'Something went wrong. Please restart.')
 
                 # remove pid file
-                #if stopped == 0:
-                #    subprocess.Popen(['ssh', host, 'rm', host_base + f'/log/pid_{queue_id}']).wait()
+                if started == 0:
+                    subprocess.Popen(['ssh', host, 'rm', host_base + pid_path]).wait()
 
         # local server
         else:
             # check if aborted
-            image = Upload.objects.get(pk=image.id)
-            if image.status==2 and image.queue==queue_id:
+            image = Upload.objects.filter(pk=image.id).first()
+            if image and image.status==2 and image.queue==queue_id:
 
                 # set status to processing
                 image.message = 'Processing'
@@ -2226,10 +2232,6 @@ def init_random_walk(image, label):
 
                 # start interpolation
                 subprocess.Popen(cmd, env=my_env).wait()
-
-    # qsub stop
-    #if f'{QUEUE}_QUEUE_QSUB' in config and config[f'{QUEUE}_QUEUE_QSUB']:
-    #    qsub_stop(host, host_base, queue_id, queue_name, subhost, qsub_pid)
 
 # 43. run random walks
 @login_required
