@@ -798,6 +798,35 @@ class Metrics(Callback):
                 if self.early_stopping > 0 and max(self.history['val_dice']) not in self.history['val_dice'][-self.early_stopping:]:
                     self.model.stop_training = True
 
+class HistoryCallback(Callback):
+    def __init__(self, bm):
+        self.path_to_model = bm.path_to_model
+        self.train_dice = bm.train_dice
+        self.val_img_data = bm.val_img_data
+
+    def on_train_begin(self, logs={}):
+        self.history = {}
+        self.history['loss'] = []
+        self.history['accuracy'] = []
+        if self.train_dice:
+            self.history['dice'] = []
+        if self.val_img_data is not None:
+            self.history['val_loss'] = []
+            self.history['val_accuracy'] = []
+
+    def on_epoch_end(self, epoch, logs={}):
+        # append history
+        self.history['loss'].append(logs['loss'])
+        self.history['accuracy'].append(logs['accuracy'])
+        if self.train_dice:
+            self.history['dice'].append(logs['dice'])
+        if self.val_img_data is not None:
+            self.history['val_loss'].append(logs['val_loss'])
+            self.history['val_accuracy'].append(logs['val_accuracy'])
+
+        # plot history in figure and save as numpy array
+        save_history(self.history, self.path_to_model)
+
 def softmax(x):
     # Avoiding numerical instability by subtracting the maximum value
     exp_values = np.exp(x - np.max(x, axis=-1, keepdims=True))
@@ -1020,11 +1049,11 @@ def train_segmentation(bm):
                 monitor='val_accuracy',
                 mode='max',
                 save_best_only=True)
-            callbacks = [model_checkpoint_callback, meta_data]
+            callbacks = [model_checkpoint_callback, HistoryCallback(bm), meta_data]
             if bm.early_stopping > 0:
                 callbacks.insert(0, EarlyStopping(monitor='val_accuracy', mode='max', patience=bm.early_stopping))
     else:
-        callbacks = [ModelCheckpoint(filepath=str(bm.path_to_model)), meta_data]
+        callbacks = [ModelCheckpoint(filepath=str(bm.path_to_model)), HistoryCallback(bm), meta_data]
 
     # monitor dice score on training data
     if bm.train_dice:
@@ -1035,15 +1064,11 @@ def train_segmentation(bm):
         callbacks.insert(-1, CustomCallback(bm.img_id, bm.epochs))
 
     # train model
-    history = model.fit(training_generator,
-              epochs=bm.epochs,
-              validation_data=validation_generator,
-              callbacks=callbacks,
-              workers=bm.workers)
-
-    # save monitoring figure on train end
-    if bm.val_img_data is None or not bm.val_dice:
-        save_history(history.history, bm.path_to_model)
+    model.fit(training_generator,
+        epochs=bm.epochs,
+        validation_data=validation_generator,
+        callbacks=callbacks,
+        workers=bm.workers)
 
 def load_prediction_data(bm, channels, normalize, normalization_parameters,
     region_of_interest, img, img_header, load_blockwise=False, z=None):
