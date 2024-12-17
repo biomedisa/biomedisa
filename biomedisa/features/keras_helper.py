@@ -424,8 +424,6 @@ def load_training_data(bm, img_list, label_list, channels, img_in=None, label_in
 
             # if header is not single data stream Amira Mesh falling back to Multi-TIFF
             if extension != '.am':
-                if extension != '.tif':
-                    print(f'Warning! Please use --header_file="path_to_training_label{extension}" for prediction to save your result as "{extension}"')
                 extension, header = '.tif', None
             elif len(header) > 1:
                 print('Warning! Multiple data streams are not supported. Falling back to TIFF.')
