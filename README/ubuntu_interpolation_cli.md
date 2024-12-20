@@ -1,21 +1,26 @@
-# Ubuntu 22.04 LTS + Smart Interpolation (command-line)
+# Ubuntu 22/24 LTS + Smart Interpolation (command-line)
 
+- [Install Python and Pip](#install-python-and-pip)
 - [Install Software Dependencies](#install-software-dependencies)
 - [Install CUDA Toolkit](#install-cuda-toolkit)
 - [Install Pip Packages](#install-pip-packages)
 - [Biomedisa Examples](#biomedisa-examples)
 - [Install Biomedisa from source (optional)](#install-biomedisa-from-source-optional)
 
+#### Install Python and Pip
+```
+sudo apt-get install python3 python3-dev python3-pip python3-venv
+```
+
 #### Install Software Dependencies
 ```
-sudo apt-get install python3 python3-dev python3-pip
-    python3-venv libsm6 libxrender-dev unzip \
+sudo apt-get install libsm6 libxrender-dev unzip \
     libboost-python-dev build-essential libssl-dev cmake \
     openmpi-bin openmpi-doc libopenmpi-dev libgl1 wget
 ```
 
 #### Install CUDA Toolkit
-Download and install [CUDA Toolkit](https://developer.nvidia.com/cuda-downloads) or via command-line as follows. You may choose any CUDA version compatible with your NVIDIA GPU architecture as outlined in the [NVIDIA Documentation](https://docs.nvidia.com/deeplearning/cudnn/latest/reference/support-matrix.html). If you select a version other than 12.6, you will need to adjust the following steps accordingly:
+Download and install [CUDA Toolkit](https://developer.nvidia.com/cuda-downloads) or via command-line as follows. You may choose any CUDA version compatible with your NVIDIA GPU architecture as outlined in the [NVIDIA Documentation](https://docs.nvidia.com/deeplearning/cudnn/latest/reference/support-matrix.html). If you select a version other than Ubuntu 22.04 and CUDA 12.6, you will need to adjust the following steps accordingly:
 ```
 wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb
 sudo dpkg -i cuda-keyring_1.1-1_all.deb
@@ -40,8 +45,8 @@ nvcc --version
 
 #### Create a virtual Python Environment
 ```
-python3 -m venv biomedisa_env
-source biomedisa_env/bin/activate
+python3 -m venv ~/biomedisa_env
+source ~/biomedisa_env/bin/activate
 ```
 
 #### Install Pip Packages
