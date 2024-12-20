@@ -26,8 +26,8 @@ sudo apt-get install libsm6 libxrender-dev unzip \
 
 #### Create a virtual Python Environment
 ```
-python3.10 -m venv ~/biomedisa_env
-source ~/biomedisa_env/bin/activate
+python3.10 -m venv biomedisa_env
+source biomedisa_env/bin/activate
 ```
 
 #### Install Pip Packages
