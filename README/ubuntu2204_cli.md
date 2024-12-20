@@ -1,4 +1,4 @@
-# Ubuntu 22.04 LTS + Smart Interpolation (command-line)
+# Ubuntu 22.04 LTS + Smart Interpolation + Deep Learning (command-line)
 
 - [Install Software Dependencies](#install-software-dependencies)
 - [Install CUDA Toolkit](#install-cuda-toolkit)
@@ -51,8 +51,8 @@ echo 'export PATH=${HOME}/.local/bin:${PATH}' >> ~/.bashrc
 ```
 Download list of requirements and install pip packages:
 ```
-wget https://raw.githubusercontent.com/biomedisa/biomedisa/refs/heads/master/requirements_inter.txt
-python3 -m pip install -r requirements_inter.txt
+wget https://raw.githubusercontent.com/biomedisa/biomedisa/refs/heads/master/requirements_22.04.txt
+python3 -m pip install -r requirements_22.04.txt
 PATH=/usr/local/cuda-12.6/bin:${PATH} python3 -m pip install pycuda
 ```
 
@@ -61,15 +61,26 @@ PATH=/usr/local/cuda-12.6/bin:${PATH} python3 -m pip install pycuda
 python3 -m biomedisa.features.pycuda_test
 ```
 
-#### Biomedisa Example
+#### Verify that TensorFlow detects your GPUs
+```
+python3 -c "import tensorflow as tf; print('Detected GPUs:', len(tf.config.list_physical_devices('GPU')))"
+```
+
+#### Biomedisa Examples
 Download test files from [Gallery](https://biomedisa.info/gallery/) or via command-line:
 ```
 wget -P ~/Downloads/ https://biomedisa.info/media/images/tumor.tif
 wget -P ~/Downloads/ https://biomedisa.info/media/images/labels.tumor.nrrd
+wget -P ~/Downloads/ https://biomedisa.info/media/images/mouse_molar_tooth.tif
+wget -P ~/Downloads/ https://biomedisa.info/media/images/teeth.h5
 ```
 Smart Interpolation:
 ```
 python3 -m biomedisa.interpolation ~/Downloads/tumor.tif ~/Downloads/labels.tumor.nrrd
+```
+Deep Learning:
+```
+python3 -m biomedisa.deeplearning ~/Downloads/mouse_molar_tooth.tif ~/Downloads/teeth.h5 --extension='.nrrd'
 ```
 
 #### Install Biomedisa from source (optional)
