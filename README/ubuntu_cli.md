@@ -37,7 +37,7 @@ Reboot and check that your GPUs are visible using the following command:
 ```
 nvidia-smi
 ```
-Add the CUDA paths:
+Add the CUDA paths and adjust the CUDA version if required:
 ```
 echo 'export CUDA_HOME=/usr/local/cuda-12.6' >> ~/.bashrc
 echo 'export LD_LIBRARY_PATH=${CUDA_HOME}/lib64' >> ~/.bashrc
@@ -64,6 +64,9 @@ Download list of requirements and install pip packages:
 ```
 wget https://raw.githubusercontent.com/biomedisa/biomedisa/refs/heads/master/requirements.txt
 python3.10 -m pip install -r requirements.txt
+```
+Install PyCUDA and adjust the CUDA version if required:
+```
 PATH=/usr/local/cuda-12.6/bin:${PATH} python3.10 -m pip install pycuda
 ```
 
