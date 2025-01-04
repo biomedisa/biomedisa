@@ -868,7 +868,7 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
             cmd = ['sbatch', f'queue_{queue_id}.sh']
             sbatch = True
         elif f'{QUEUE}_QUEUE_QSUB' in config and config[f'{QUEUE}_QUEUE_QSUB']:
-            cmd = ['qsub', f'queue_{queue_id}.sh']
+            cmd = []
             qsub = True
 
         if predict:
@@ -963,11 +963,14 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
             if image and image.status==2 and image.queue==queue_id and success==0:
 
                 # adjust command
+                cmd += ['-re', f'-q={queue_id}']
+                if qsub:
+                    args = " ".join(cmd)
+                    cmd = [f"qsub -v ARGS='{args}' queue_{queue_id}.sh"]
                 if subhost:
                     cmd = ['ssh', host, 'ssh', subhost] + cmd
                 else:
                     cmd = ['ssh', host] + cmd
-                cmd += ['-re', f'-q={queue_id}']
 
                 # config files
                 error_path = f'/log/error_{queue_id}'
@@ -2066,7 +2069,7 @@ def init_random_walk(image, label):
             cmd = ['sbatch', f'queue_{queue_id}.sh']
             sbatch = True
         elif f'{QUEUE}_QUEUE_QSUB' in config and config[f'{QUEUE}_QUEUE_QSUB']:
-            cmd = ['qsub', f'queue_{queue_id}.sh']
+            cmd = []
             qsub = True
 
         cmd += [image.pic.path.replace(BASE_DIR,host_base), label.pic.path.replace(BASE_DIR,host_base)]
@@ -2118,11 +2121,14 @@ def init_random_walk(image, label):
             if image and image.status==2 and image.queue==queue_id and success==0:
 
                 # adjust command
+                cmd += ['-r', f'-q={queue_id}']
+                if qsub:
+                    args = " ".join(cmd)
+                    cmd = [f"qsub -v ARGS='{args}' queue_{queue_id}.sh"]
                 if subhost:
                     cmd = ['ssh', host, 'ssh', subhost] + cmd
                 else:
                     cmd = ['ssh', host] + cmd
-                cmd += ['-r', f'-q={queue_id}']
 
                 # config files
                 error_path = f'/log/error_{queue_id}'
