@@ -100,33 +100,40 @@ class BiomedisaLogic():
             imwrite(image_path, numpyImage)
             imwrite(labels_path, numpyLabels)
 
-            # Path to the desired Python executable
-            python_path = "/usr/bin/python3"
-            executable = python_path.split(';')[0]
-            if len(python_path.split(';')) > 1:
-                lib_path = python_path.split(';')[1]
+            # run interpolation using WSL
+            if os.name == 'nt':
+                cmd = ['wsl','-d','Ubuntu-22.04','-e','bash','-c',"export CUDA_HOME=/usr/local/cuda-12.6 && export LD_LIBRARY_PATH=${CUDA_HOME}/lib64 && export PATH=${CUDA_HOME}/bin:${PATH} && /mnt/c/Users/phili/biomedisa_env/bin/python3.10 -m biomedisa.interpolation " + image_path.replace('\\','/').replace('C:','/mnt/c') + " " + labels_path.replace('\\','/').replace('C:','/mnt/c')]
+                subprocess.Popen(cmd).wait()
+
+            # run interpolation using Linux
             else:
-                lib_path = os.path.expanduser("~")+f'/.local/lib/python3.10/site-packages'
+                # Path to the desired Python executable
+                python_path = "/usr/bin/python3"
+                executable = python_path.split(';')[0]
+                if len(python_path.split(';')) > 1:
+                    lib_path = python_path.split(';')[1]
+                else:
+                    lib_path = os.path.expanduser("~")+f'/.local/lib/python3.10/site-packages'
 
-            # Create a clean environment
-            new_env = os.environ.copy()
+                # Create a clean environment
+                new_env = os.environ.copy()
 
-            # Remove environment variables that may interfere
-            for var in ["PYTHONHOME", "PYTHONPATH", "LD_LIBRARY_PATH"]:
-                new_env.pop(var, None)
+                # Remove environment variables that may interfere
+                for var in ["PYTHONHOME", "PYTHONPATH", "LD_LIBRARY_PATH"]:
+                    new_env.pop(var, None)
 
-            # Set new pythonpath
-            new_env["PYTHONPATH"] = lib_path
+                # Set new pythonpath
+                new_env["PYTHONPATH"] = lib_path
 
-            # Run the Python 3 subprocess
-            subprocess.Popen(
-                [executable, "-c", "import sys; print(sys.version); print(sys.executable); print(sys.path)"],
-                env=new_env
-            )
+                # Run the Python 3 subprocess
+                subprocess.Popen(
+                    [executable, "-c", "import sys; print(sys.version); print(sys.executable); print(sys.path)"],
+                    env=new_env
+                )
 
-            # Example: Run a Python 3.10 script with the correct environment
-            cmd = [executable, '-m', 'biomedisa.interpolation', image_path, labels_path]
-            subprocess.Popen(cmd, env=new_env).wait()
+                # Example: Run a Python 3.10 script with the correct environment
+                cmd = [executable, '-m', 'biomedisa.interpolation', image_path, labels_path]
+                subprocess.Popen(cmd, env=new_env).wait()
 
             # load result
             results = {}
