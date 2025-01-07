@@ -7,6 +7,12 @@ from slicer import vtkMRMLScalarVolumeNode
 from slicer import vtkMRMLLabelMapVolumeNode
 from Logic.BiomedisaParameter import BiomedisaParameter
 from SegmentEditorCommon.Helper import Helper
+import subprocess
+import tempfile
+from tifffile import imread, imwrite
+import sys
+import os
+import json
 
 class BiomedisaLogic():
 
@@ -83,7 +89,50 @@ class BiomedisaLogic():
         numpyLabels = BiomedisaLogic.unify_to_identity(numpyLabels, direction_matrix)
         uniqueLabels = np.unique(numpyLabels)
 
-        from biomedisa.interpolation import smart_interpolation
+        with tempfile.TemporaryDirectory() as temp_dir: #TODO required packages PyQT5, tifffile
+
+            # temporary file paths
+            image_path = temp_dir + f'/biomedisa-image.tif'
+            labels_path = temp_dir + f'/biomedisa-labels.tif'
+            results_path = temp_dir + f'/final.biomedisa-image.tif'
+
+            # save temporary data
+            imwrite(image_path, numpyImage)
+            imwrite(labels_path, numpyLabels)
+
+            # Path to the desired Python executable
+            python_path = "/usr/bin/python3"
+            executable = python_path.split(';')[0]
+            if len(python_path.split(';')) > 1:
+                lib_path = python_path.split(';')[1]
+            else:
+                lib_path = os.path.expanduser("~")+f'/.local/lib/python3.10/site-packages'
+
+            # Create a clean environment
+            new_env = os.environ.copy()
+
+            # Remove environment variables that may interfere
+            for var in ["PYTHONHOME", "PYTHONPATH", "LD_LIBRARY_PATH"]:
+                new_env.pop(var, None)
+
+            # Set new pythonpath
+            new_env["PYTHONPATH"] = lib_path
+
+            # Run the Python 3 subprocess
+            subprocess.Popen(
+                [executable, "-c", "import sys; print(sys.version); print(sys.executable); print(sys.path)"],
+                env=new_env
+            )
+
+            # Example: Run a Python 3.10 script with the correct environment
+            cmd = [executable, '-m', 'biomedisa.interpolation', image_path, labels_path]
+            subprocess.Popen(cmd, env=new_env).wait()
+
+            # load result
+            results = {}
+            results['regular'] = imread(results_path)
+
+        '''from biomedisa.interpolation import smart_interpolation
         results = smart_interpolation(
             numpyImage,
             numpyLabels,
@@ -93,7 +142,7 @@ class BiomedisaLogic():
             sorw=parameter.sorw,
             ignore=parameter.ignore,
             only=parameter.only,
-            platform=parameter.platform)
+            platform=parameter.platform)'''
 
         if results is None:
             return None
