@@ -72,12 +72,23 @@ class BiomedisaLogic():
         original_array = np.transpose(array, inverse_permutation)
         return original_array
 
+    def get_python_version(env_path):
+        try:
+            # Run the Python executable of a pyhthon environment with --version
+            result = subprocess.run(
+                [env_path, '-c', "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"], capture_output=True, text=True, check=True
+            )
+            return result.stdout.strip()
+        except Exception as e:
+            return f"Error: {e}"
+
     def runBiomedisa(
                 input: vtkMRMLScalarVolumeNode,
                 labels: vtkMRMLLabelMapVolumeNode,
                 direction_matrix: np.array,
                 parameter: BiomedisaParameter) -> list:
-
+        env_path = "wsl -d Ubuntu-22.04 -e bash -c export CUDA_HOME=/usr/local/cuda-12.6 && export LD_LIBRARY_PATH=${CUDA_HOME}/lib64 && export PATH=${CUDA_HOME}/bin:${PATH} && /mnt/c/Users/phili/biomedisa_env/bin/python"
+        env_path = None
         # convert data
         numpyLabels = Helper.expandLabelToMatchInputImage(labels, input.GetDimensions())
         numpyImage = Helper.vtkToNumpy(input)
@@ -100,20 +111,38 @@ class BiomedisaLogic():
             imwrite(image_path, numpyImage)
             imwrite(labels_path, numpyLabels)
 
-            # run interpolation using WSL
-            if os.name == 'nt':
-                cmd = ['wsl','-d','Ubuntu-22.04','-e','bash','-c',"export CUDA_HOME=/usr/local/cuda-12.6 && export LD_LIBRARY_PATH=${CUDA_HOME}/lib64 && export PATH=${CUDA_HOME}/bin:${PATH} && /mnt/c/Users/phili/biomedisa_env/bin/python3.10 -m biomedisa.interpolation " + image_path.replace('\\','/').replace('C:','/mnt/c') + " " + labels_path.replace('\\','/').replace('C:','/mnt/c')]
+            # run interpolation on Windows using WSL
+            if os.name == "nt": # TODO: detect cuda
+                image_path = image_path.replace('\\','/').replace('C:','/mnt/c')
+                labels_path = labels_path.replace('\\','/').replace('C:','/mnt/c')
+                if env_path==None:
+                    if os.path.exists(os.path.expanduser("~")+"/biomedisa_env/bin/python"):
+                        python_path = (os.path.expanduser("~")+"/biomedisa_env/bin/python").replace('\\','/').replace('C:','/mnt/c')
+                    else:
+                        python_path = "~/biomedisa_env/bin/python"
+                    cmd = ['wsl','-e','bash','-c',"export CUDA_HOME=/usr/local/cuda-12.6 && export LD_LIBRARY_PATH=${CUDA_HOME}/lib64 && export PATH=${CUDA_HOME}/bin:${PATH} && " + python_path + " -m biomedisa.interpolation " + image_path + " " + labels_path]
+                if env_path!=None:
+                    cmd = [env_path + " -m biomedisa.interpolation " + image_path + " " + labels_path]
                 subprocess.Popen(cmd).wait()
 
-            # run interpolation using Linux
+            # run interpolation on Linux
             else:
                 # Path to the desired Python executable
-                python_path = "/usr/bin/python3"
-                executable = python_path.split(';')[0]
-                if len(python_path.split(';')) > 1:
-                    lib_path = python_path.split(';')[1]
-                else:
-                    lib_path = os.path.expanduser("~")+f'/.local/lib/python3.10/site-packages'
+                if env_path==None:
+                    if os.path.exists(os.path.expanduser("~")+"/biomedisa_env/bin/python"):
+                        env_path = os.path.expanduser("~")+"/biomedisa_env/bin/python"
+                        python_version = BiomedisaLogic.get_python_version(env_path)
+                        lib_path = os.path.expanduser("~")+f"/biomedisa_env/lib/python{python_version}/site-package"
+                    else:
+                        env_path = "/usr/bin/python3"
+                        python_version = BiomedisaLogic.get_python_version(env_path)
+                        lib_path = os.path.expanduser("~")+f"/.local/lib/python{python_version}/site-packages"
+                elif env_path!=None and os.path.exists(env_path):
+                    python_version = BiomedisaLogic.get_python_version(env_path)
+                    if "biomedisa_env" in env_path:
+                        lib_path = env_path.split('/bin/python')[0]+f"/lib/python{python_version}/site-package"
+                    elif "/usr/bin/python" in env_path:
+                        lib_path = os.path.expanduser("~")+f"/.local/lib/python{python_version}/site-packages"
 
                 # Create a clean environment
                 new_env = os.environ.copy()
@@ -127,12 +156,12 @@ class BiomedisaLogic():
 
                 # Run the Python 3 subprocess
                 subprocess.Popen(
-                    [executable, "-c", "import sys; print(sys.version); print(sys.executable); print(sys.path)"],
+                    [env_path, "-c", "import sys; print(sys.version); print(sys.executable); print(sys.path)"],
                     env=new_env
                 )
 
                 # Example: Run a Python 3.10 script with the correct environment
-                cmd = [executable, '-m', 'biomedisa.interpolation', image_path, labels_path]
+                cmd = [env_path, '-m', 'biomedisa.interpolation', image_path, labels_path]
                 subprocess.Popen(cmd, env=new_env).wait()
 
             # load result
