@@ -87,8 +87,7 @@ class BiomedisaLogic():
                 labels: vtkMRMLLabelMapVolumeNode,
                 direction_matrix: np.array,
                 parameter: BiomedisaParameter) -> list:
-        env_path = "wsl -d Ubuntu-22.04 -e bash -c export CUDA_HOME=/usr/local/cuda-12.6 && export LD_LIBRARY_PATH=${CUDA_HOME}/lib64 && export PATH=${CUDA_HOME}/bin:${PATH} && /mnt/c/Users/phili/biomedisa_env/bin/python"
-        env_path = None
+
         # convert data
         numpyLabels = Helper.expandLabelToMatchInputImage(labels, input.GetDimensions())
         numpyImage = Helper.vtkToNumpy(input)
@@ -100,7 +99,11 @@ class BiomedisaLogic():
         numpyLabels = BiomedisaLogic.unify_to_identity(numpyLabels, direction_matrix)
         uniqueLabels = np.unique(numpyLabels)
 
-        with tempfile.TemporaryDirectory() as temp_dir: #TODO required packages PyQT5, tifffile
+        with tempfile.TemporaryDirectory() as temp_dir: #TODO required packages PyQT5, tifffile; pass arguments
+            try:
+                from biomedisa_extension.config import env_path, lib_path
+            except:
+                from biomedisa_extension.config_template import env_path, lib_path
 
             # temporary file paths
             image_path = temp_dir + f'/biomedisa-image.tif'
@@ -112,17 +115,21 @@ class BiomedisaLogic():
             imwrite(labels_path, numpyLabels)
 
             # run interpolation on Windows using WSL
-            if os.name == "nt": # TODO: detect cuda
+            if os.name == "nt":
                 image_path = image_path.replace('\\','/').replace('C:','/mnt/c')
                 labels_path = labels_path.replace('\\','/').replace('C:','/mnt/c')
                 if env_path==None:
-                    if os.path.exists(os.path.expanduser("~")+"/biomedisa_env/bin/python"):
+                    if os.path.exists(os.path.expanduser("~")+"/biomedisa_env/bin"):
                         python_path = (os.path.expanduser("~")+"/biomedisa_env/bin/python").replace('\\','/').replace('C:','/mnt/c')
                     else:
                         python_path = "~/biomedisa_env/bin/python"
-                    cmd = ['wsl','-e','bash','-c',"export CUDA_HOME=/usr/local/cuda-12.6 && export LD_LIBRARY_PATH=${CUDA_HOME}/lib64 && export PATH=${CUDA_HOME}/bin:${PATH} && " + python_path + " -m biomedisa.interpolation " + image_path + " " + labels_path]
+                    cmd = ['wsl','-e','bash','-c',"export CUDA_HOME=/usr/local/cuda && export LD_LIBRARY_PATH=${CUDA_HOME}/lib64 && export PATH=${CUDA_HOME}/bin:${PATH} && " + python_path + " -m biomedisa.interpolation " + image_path + " " + labels_path]
                 if env_path!=None:
-                    cmd = [env_path + " -m biomedisa.interpolation " + image_path + " " + labels_path]
+                    parts = env_path.rsplit(env_path[-1], 1)
+                    new_substring = " -m biomedisa.interpolation " + image_path + " " + labels_path + "'"
+                    command_string = new_substring.join(parts)
+                    before_c, after_c = command_string.split(" -c ", 1)
+                    cmd = before_c.split() + ["-c", after_c]
                 subprocess.Popen(cmd).wait()
 
             # run interpolation on Linux
