@@ -125,11 +125,7 @@ class BiomedisaLogic():
                         python_path = "~/biomedisa_env/bin/python"
                     cmd = ['wsl','-e','bash','-c',"export CUDA_HOME=/usr/local/cuda && export LD_LIBRARY_PATH=${CUDA_HOME}/lib64 && export PATH=${CUDA_HOME}/bin:${PATH} && " + python_path + " -m biomedisa.interpolation " + image_path + " " + labels_path]
                 if env_path!=None:
-                    parts = env_path.rsplit(env_path[-1], 1)
-                    new_substring = " -m biomedisa.interpolation " + image_path + " " + labels_path + "'"
-                    command_string = new_substring.join(parts)
-                    before_c, after_c = command_string.split(" -c ", 1)
-                    cmd = before_c.split() + ["-c", after_c]
+                    cmd = env_path[:-1] + [env_path[-1] + " -m biomedisa.interpolation " + image_path + " " + labels_path]
                 subprocess.Popen(cmd).wait()
 
             # run interpolation on Linux
