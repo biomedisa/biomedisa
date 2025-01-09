@@ -5,7 +5,7 @@ env_path = None
 lib_path = None
 
 # Windows using WSL
-#env_path = "wsl -d Ubuntu-22.04 -e bash -c 'export CUDA_HOME=/usr/local/cuda-12.6 && export LD_LIBRARY_PATH=${CUDA_HOME}/lib64 && export PATH=${CUDA_HOME}/bin:${PATH} && ~/biomedisa_env/bin/python'"
+#env_path = ["wsl","-d","Ubuntu-22.04","-e","bash","-c","export CUDA_HOME=/usr/local/cuda-12.6 && export LD_LIBRARY_PATH=${CUDA_HOME}/lib64 && export PATH=${CUDA_HOME}/bin:${PATH} && ~/biomedisa_env/bin/python"]
 
 # Ubuntu
 # 1st example
