@@ -140,12 +140,6 @@ class BiomedisaLogic():
                         env_path = "/usr/bin/python3"
                         python_version = BiomedisaLogic.get_python_version(env_path)
                         lib_path = os.path.expanduser("~")+f"/.local/lib/python{python_version}/site-packages"
-                elif env_path!=None and os.path.exists(env_path):
-                    python_version = BiomedisaLogic.get_python_version(env_path)
-                    if "biomedisa_env" in env_path:
-                        lib_path = env_path.split('/bin/python')[0]+f"/lib/python{python_version}/site-package"
-                    elif "/usr/bin/python" in env_path:
-                        lib_path = os.path.expanduser("~")+f"/.local/lib/python{python_version}/site-packages"
 
                 # Create a clean environment
                 new_env = os.environ.copy()
