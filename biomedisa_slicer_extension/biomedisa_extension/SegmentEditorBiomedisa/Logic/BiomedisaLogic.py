@@ -178,6 +178,7 @@ class BiomedisaLogic():
                 if lib_path==None:
                     lib_path = "export CUDA_HOME=/usr/local/cuda && export LD_LIBRARY_PATH=${CUDA_HOME}/lib64 && export PATH=${CUDA_HOME}/bin:${PATH}"
                 cmd = wsl_path + [lib_path + " && " + python_path + " " + (" ").join(cmd)]
+                print("Command used:", cmd)
 
             # run interpolation on Linux
             else:
