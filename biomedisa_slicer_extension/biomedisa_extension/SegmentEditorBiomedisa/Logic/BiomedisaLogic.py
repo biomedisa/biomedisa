@@ -82,6 +82,13 @@ class BiomedisaLogic():
         except Exception as e:
             return f"Error: {e}"
 
+    def module_exists(module_name):
+        try:
+            __import__(module_name)
+            return True
+        except ImportError:
+            return False
+
     def runBiomedisa(
                 input: vtkMRMLScalarVolumeNode,
                 labels: vtkMRMLLabelMapVolumeNode,
@@ -99,11 +106,29 @@ class BiomedisaLogic():
         numpyLabels = BiomedisaLogic.unify_to_identity(numpyLabels, direction_matrix)
         uniqueLabels = np.unique(numpyLabels)
 
-        with tempfile.TemporaryDirectory() as temp_dir: #TODO required packages PyQT5, tifffile; pass arguments
-            try:
-                from biomedisa_extension.config import env_path, lib_path
-            except:
-                from biomedisa_extension.config_template import env_path, lib_path
+        try:
+            from biomedisa_extension.config import python_path, lib_path, wsl_path
+        except:
+            from biomedisa_extension.config_template import python_path, lib_path, wsl_path
+
+        # run within Slicer environment
+        if python_path==None and BiomedisaLogic.module_exists("pycuda"):
+            from biomedisa.interpolation import smart_interpolation
+            results = smart_interpolation(
+                numpyImage,
+                numpyLabels,
+                allaxis=parameter.allaxis,
+                denoise=parameter.denoise,
+                nbrw=parameter.nbrw,
+                sorw=parameter.sorw,
+                ignore=parameter.ignore,
+                only=parameter.only,
+                platform=parameter.platform)
+
+        # run in dedicated python environment
+        else:
+
+          with tempfile.TemporaryDirectory() as temp_dir:
 
             # temporary file paths
             image_path = temp_dir + f'/biomedisa-image.tif'
@@ -114,35 +139,58 @@ class BiomedisaLogic():
             imwrite(image_path, numpyImage)
             imwrite(labels_path, numpyLabels)
 
-            # run interpolation on Windows using WSL
+            # Create a clean environment
+            new_env = os.environ.copy()
+
+            # adapt paths for WSL
             if os.name == "nt":
                 image_path = image_path.replace('\\','/').replace('C:','/mnt/c')
                 labels_path = labels_path.replace('\\','/').replace('C:','/mnt/c')
-                if env_path==None:
+
+            # base command
+            cmd = ["-m", "biomedisa.interpolation", image_path, labels_path]
+
+            # append parameters on demand
+            if parameter.ignore != 'none':
+                cmd += [f'-i={parameter.ignore}']
+            if parameter.only != 'all':
+                cmd += [f'-o={parameter.only}']
+            if parameter.nbrw != 10:
+                cmd += [f'--nbrw={parameter.nbrw}']
+            if parameter.sorw != 4000:
+                cmd += [f'--sorw={parameter.sorw}']
+            if parameter.allaxis:
+                cmd += ['-allx']
+            if parameter.denoise:
+                cmd += ['-d']
+            if parameter.platform:
+                cmd += [f'-p={bm.platform}']
+
+            # run interpolation on Windows using WSL
+            if os.name == "nt":
+                if python_path==None:
                     if os.path.exists(os.path.expanduser("~")+"/biomedisa_env/bin"):
                         python_path = (os.path.expanduser("~")+"/biomedisa_env/bin/python").replace('\\','/').replace('C:','/mnt/c')
                     else:
                         python_path = "~/biomedisa_env/bin/python"
-                    cmd = ['wsl','-e','bash','-c',"export CUDA_HOME=/usr/local/cuda && export LD_LIBRARY_PATH=${CUDA_HOME}/lib64 && export PATH=${CUDA_HOME}/bin:${PATH} && " + python_path + " -m biomedisa.interpolation " + image_path + " " + labels_path]
-                if env_path!=None:
-                    cmd = env_path[:-1] + [env_path[-1] + " -m biomedisa.interpolation " + image_path + " " + labels_path]
-                subprocess.Popen(cmd).wait()
+                if wsl_path==None:
+                    wsl_path = ['wsl','-e','bash','-c']
+                if lib_path==None:
+                    lib_path = "export CUDA_HOME=/usr/local/cuda && export LD_LIBRARY_PATH=${CUDA_HOME}/lib64 && export PATH=${CUDA_HOME}/bin:${PATH}"
+                cmd = wsl_path + [lib_path + " && " + python_path + " " + (" ").join(cmd)]
 
             # run interpolation on Linux
             else:
                 # Path to the desired Python executable
-                if env_path==None:
+                if python_path==None:
                     if os.path.exists(os.path.expanduser("~")+"/biomedisa_env/bin/python"):
-                        env_path = os.path.expanduser("~")+"/biomedisa_env/bin/python"
-                        python_version = BiomedisaLogic.get_python_version(env_path)
+                        python_path = os.path.expanduser("~")+"/biomedisa_env/bin/python"
+                        python_version = BiomedisaLogic.get_python_version(python_path)
                         lib_path = os.path.expanduser("~")+f"/biomedisa_env/lib/python{python_version}/site-package"
                     else:
-                        env_path = "/usr/bin/python3"
-                        python_version = BiomedisaLogic.get_python_version(env_path)
+                        python_path = "/usr/bin/python3"
+                        python_version = BiomedisaLogic.get_python_version(python_path)
                         lib_path = os.path.expanduser("~")+f"/.local/lib/python{python_version}/site-packages"
-
-                # Create a clean environment
-                new_env = os.environ.copy()
 
                 # Remove environment variables that may interfere
                 for var in ["PYTHONHOME", "PYTHONPATH", "LD_LIBRARY_PATH"]:
@@ -153,29 +201,19 @@ class BiomedisaLogic():
 
                 # Run the Python 3 subprocess
                 subprocess.Popen(
-                    [env_path, "-c", "import sys; print(sys.version); print(sys.executable); print(sys.path)"],
+                    [python_path, "-c", "import sys; print(sys.version); print(sys.executable); print(sys.path)"],
                     env=new_env
                 )
 
-                # Example: Run a Python 3.10 script with the correct environment
-                cmd = [env_path, '-m', 'biomedisa.interpolation', image_path, labels_path]
-                subprocess.Popen(cmd, env=new_env).wait()
+                # command
+                cmd = [python_path] + cmd
+
+            # run interpolation
+            subprocess.Popen(cmd, env=new_env).wait()
 
             # load result
             results = {}
             results['regular'] = imread(results_path)
-
-        '''from biomedisa.interpolation import smart_interpolation
-        results = smart_interpolation(
-            numpyImage,
-            numpyLabels,
-            allaxis=parameter.allaxis,
-            denoise=parameter.denoise,
-            nbrw=parameter.nbrw,
-            sorw=parameter.sorw,
-            ignore=parameter.ignore,
-            only=parameter.only,
-            platform=parameter.platform)'''
 
         if results is None:
             return None
