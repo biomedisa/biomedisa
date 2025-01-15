@@ -143,7 +143,7 @@ class BiomedisaLogic():
             new_env = os.environ.copy()
 
             # adapt paths for WSL
-            if os.name == "nt":
+            if os.name == "nt" and wsl_path!=False:
                 image_path = image_path.replace('\\','/').replace('C:','/mnt/c')
                 labels_path = labels_path.replace('\\','/').replace('C:','/mnt/c')
 
@@ -167,7 +167,7 @@ class BiomedisaLogic():
                 cmd += [f'-p={bm.platform}']
 
             # run interpolation on Windows using WSL
-            if os.name == "nt":
+            if os.name == "nt" and wsl_path!=False:
                 if python_path==None:
                     if os.path.exists(os.path.expanduser("~")+"/biomedisa_env/bin"):
                         python_path = (os.path.expanduser("~")+"/biomedisa_env/bin/python").replace('\\','/').replace('C:','/mnt/c')
@@ -180,7 +180,7 @@ class BiomedisaLogic():
                 cmd = wsl_path + [lib_path + " && " + python_path + " " + (" ").join(cmd)]
                 print("Command used:", cmd)
 
-            # run interpolation on Linux
+            # run interpolation on Linux or Windows without WSL
             else:
                 # Path to the desired Python executable
                 if python_path==None:
