@@ -12,14 +12,15 @@ wsl_path = None
 #-------------------------------
 #python_path = "/home/$USER/biomedisa_env/bin/python" # if the environment is in the WSL home directory
 #python_path = f"/mnt/c/Users/{username}/biomedisa_env/bin/python" # if the environment is in the Windows User directory
+#python_path = "/usr/bin/python3" # if the System Python is used
 #lib_path = "export CUDA_HOME=/usr/local/cuda-12.6 && export LD_LIBRARY_PATH=${CUDA_HOME}/lib64 && export PATH=${CUDA_HOME}/bin:${PATH}"
 #wsl_path = ["wsl","-d","Ubuntu-22.04","-e","bash","-c"]
 
 #-------------------------------
-# Windows without WSL
+# Windows without WSL (not recommended)
 #-------------------------------
 '''1st example (Conda)'''
-#python_path = f"C:/Users/{username}/anaconda3/envs/biomedisa/bin/python.exe"
+#python_path = f"C:/Users/{username}/anaconda3/envs/biomedisa/python.exe"
 #lib_path = f"C:/Users/{username}/anaconda3/envs/biomedisa/lib/site-packages"
 #wsl_path = False
 
