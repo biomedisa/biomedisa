@@ -19,13 +19,13 @@ wsl_path = None
 # Windows without WSL
 #-------------------------------
 '''1st example (Conda)'''
-#python_path = f"C:\Users\{username}\anaconda3\envs\biomedisa\bin\python.exe"
-#lib_path = f"C:\Users\{username}\anaconda3\envs\biomedisa\lib\site-packages"
+#python_path = f"C:/Users/{username}/anaconda3/envs/biomedisa/bin/python.exe"
+#lib_path = f"C:/Users/{username}/anaconda3/envs/biomedisa/lib/site-packages"
 #wsl_path = False
 
 '''2nd example (Slicer environment)'''
-#python_path = f"C:\Users\{username}\AppData\Local\slicer.org\Slicer 5.6.2\bin\PythonSlicer.exe"
-#lib_path = f"C:\Users\{username}\AppData\Local\slicer.org\Slicer 5.6.2\lib\Python\Lib\site-packages"
+#python_path = f"C:/Users/{username}/AppData/Local/slicer.org/Slicer 5.6.2/bin/PythonSlicer.exe"
+#lib_path = f"C:/Users/{username}/AppData/Local/slicer.org/Slicer 5.6.2/lib/Python/Lib/site-packages"
 #wsl_path = False
 
 #-------------------------------

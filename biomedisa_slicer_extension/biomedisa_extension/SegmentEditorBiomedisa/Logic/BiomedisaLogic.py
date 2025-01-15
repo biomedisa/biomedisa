@@ -131,16 +131,13 @@ class BiomedisaLogic():
           with tempfile.TemporaryDirectory() as temp_dir:
 
             # temporary file paths
-            image_path = temp_dir + f'/biomedisa-image.tif'
-            labels_path = temp_dir + f'/biomedisa-labels.tif'
-            results_path = temp_dir + f'/final.biomedisa-image.tif'
+            image_path = temp_dir + '/biomedisa-image.tif'
+            labels_path = temp_dir + '/biomedisa-labels.tif'
+            results_path = temp_dir + '/final.biomedisa-image.tif'
 
             # save temporary data
             imwrite(image_path, numpyImage)
             imwrite(labels_path, numpyLabels)
-
-            # Create a clean environment
-            new_env = os.environ.copy()
 
             # adapt paths for WSL
             if os.name == "nt" and wsl_path!=False:
@@ -165,6 +162,9 @@ class BiomedisaLogic():
                 cmd += ['-d']
             if parameter.platform:
                 cmd += [f'-p={bm.platform}']
+
+            # Create a clean environment
+            new_env = os.environ.copy()
 
             # run interpolation on Windows using WSL
             if os.name == "nt" and wsl_path!=False:
