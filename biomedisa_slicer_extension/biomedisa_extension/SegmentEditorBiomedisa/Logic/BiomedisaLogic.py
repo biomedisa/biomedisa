@@ -89,6 +89,22 @@ class BiomedisaLogic():
         except ImportError:
             return False
 
+    def check_wsl_path_exists(path):
+        try:
+            # Run the WSL command with `bash -c` to check the path
+            result = subprocess.run(
+                ["wsl", "bash", "-c", f"test -e {path} && echo 'Exists' || echo 'Does not exist'"],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            # Check the output
+            output = result.stdout.strip()
+            return output == "Exists"
+        except subprocess.CalledProcessError as e:
+            print(f"Error checking path: {e}")
+            return False
+
     def runBiomedisa(
                 input: vtkMRMLScalarVolumeNode,
                 labels: vtkMRMLLabelMapVolumeNode,
@@ -171,8 +187,10 @@ class BiomedisaLogic():
                 if python_path==None:
                     if os.path.exists(os.path.expanduser("~")+"/biomedisa_env/bin"):
                         python_path = (os.path.expanduser("~")+"/biomedisa_env/bin/python").replace('\\','/').replace('C:','/mnt/c')
-                    else:
+                    elif BiomedisaLogic.check_wsl_path_exists("~/biomedisa_env/bin"):
                         python_path = "~/biomedisa_env/bin/python"
+                    else:
+                        python_path = "/usr/bin/python3"
                 if wsl_path==None:
                     wsl_path = ['wsl','-e','bash','-c']
                 if lib_path==None:
