@@ -89,11 +89,11 @@ class BiomedisaLogic():
         except ImportError:
             return False
 
-    def check_wsl_path_exists(path):
+    def check_wsl_path_exists(path, wsl_path):
         try:
             # Run the WSL command with `bash -c` to check the path
             result = subprocess.run(
-                ["wsl", "bash", "-c", f"test -e {path} && echo 'Exists' || echo 'Does not exist'"],
+                wsl_path + [f"test -e {path} && echo 'Exists' || echo 'Does not exist'"],
                 capture_output=True,
                 text=True,
                 check=True
@@ -184,17 +184,19 @@ class BiomedisaLogic():
 
             # run interpolation on Windows using WSL
             if os.name == "nt" and wsl_path!=False:
+                if wsl_path==None:
+                    wsl_path = ['wsl','-e','bash','-c']
                 if python_path==None:
                     if os.path.exists(os.path.expanduser("~")+"/biomedisa_env/bin"):
                         python_path = (os.path.expanduser("~")+"/biomedisa_env/bin/python").replace('\\','/').replace('C:','/mnt/c')
-                    elif BiomedisaLogic.check_wsl_path_exists("~/biomedisa_env/bin"):
+                    elif BiomedisaLogic.check_wsl_path_exists("~/biomedisa_env/bin", wsl_path):
                         python_path = "~/biomedisa_env/bin/python"
                     else:
                         python_path = "/usr/bin/python3"
-                if wsl_path==None:
-                    wsl_path = ['wsl','-e','bash','-c']
                 if lib_path==None:
                     lib_path = "export CUDA_HOME=/usr/local/cuda && export LD_LIBRARY_PATH=${CUDA_HOME}/lib64 && export PATH=${CUDA_HOME}/bin:${PATH}"
+                    if python_path == "/usr/bin/python3":
+                        lib_path = lib_path + " && export PATH=${HOME}/.local/bin:${PATH}"
                 cmd = wsl_path + [lib_path + " && " + python_path + " " + (" ").join(cmd)]
                 print("Command used:", cmd)
 
