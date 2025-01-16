@@ -12,7 +12,6 @@ import tempfile
 from tifffile import imread, imwrite
 import sys
 import os
-import json
 
 class BiomedisaLogic():
 
