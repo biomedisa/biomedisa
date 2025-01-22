@@ -10,7 +10,6 @@ from SegmentEditorCommon.Helper import Helper
 import subprocess
 import tempfile
 from tifffile import imread, imwrite
-import sys
 import os
 
 class BiomedisaLogic():
@@ -71,39 +70,6 @@ class BiomedisaLogic():
         original_array = np.transpose(array, inverse_permutation)
         return original_array
 
-    def get_python_version(env_path):
-        try:
-            # Run the Python executable of a pyhthon environment with --version
-            result = subprocess.run(
-                [env_path, '-c', "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"], capture_output=True, text=True, check=True
-            )
-            return result.stdout.strip()
-        except Exception as e:
-            return f"Error: {e}"
-
-    def module_exists(module_name):
-        try:
-            __import__(module_name)
-            return True
-        except ImportError:
-            return False
-
-    def check_wsl_path_exists(path, wsl_path):
-        try:
-            # Run the WSL command with `bash -c` to check the path
-            result = subprocess.run(
-                wsl_path + [f"test -e {path} && echo 'Exists' || echo 'Does not exist'"],
-                capture_output=True,
-                text=True,
-                check=True
-            )
-            # Check the output
-            output = result.stdout.strip()
-            return output == "Exists"
-        except subprocess.CalledProcessError as e:
-            print(f"Error checking path: {e}")
-            return False
-
     def runBiomedisa(
                 input: vtkMRMLScalarVolumeNode,
                 labels: vtkMRMLLabelMapVolumeNode,
@@ -122,12 +88,12 @@ class BiomedisaLogic():
         uniqueLabels = np.unique(numpyLabels)
 
         try:
-            from biomedisa_extension.config import python_path, lib_path, wsl_path
+            from biomedisa_extension.config import python_path, wsl_path
         except:
-            from biomedisa_extension.config_template import python_path, lib_path, wsl_path
+            from biomedisa_extension.config_template import python_path, wsl_path
 
         # run within Slicer environment
-        if python_path==None and BiomedisaLogic.module_exists("pycuda"):
+        if python_path==None and Helper.module_exists("pycuda"):
             from biomedisa.interpolation import smart_interpolation
             results = smart_interpolation(
                 numpyImage,
@@ -178,58 +144,11 @@ class BiomedisaLogic():
             if parameter.platform:
                 cmd += [f'-p={bm.platform}']
 
-            # Create a clean environment
-            new_env = os.environ.copy()
-
-            # run interpolation on Windows using WSL
-            if os.name == "nt" and wsl_path!=False:
-                if wsl_path==None:
-                    wsl_path = ['wsl','-e','bash','-c']
-                if python_path==None:
-                    if os.path.exists(os.path.expanduser("~")+"/biomedisa_env/bin"):
-                        python_path = (os.path.expanduser("~")+"/biomedisa_env/bin/python").replace('\\','/').replace('C:','/mnt/c')
-                    elif BiomedisaLogic.check_wsl_path_exists("~/biomedisa_env/bin", wsl_path):
-                        python_path = "~/biomedisa_env/bin/python"
-                    else:
-                        python_path = "/usr/bin/python3"
-                if lib_path==None:
-                    lib_path = "export CUDA_HOME=/usr/local/cuda && export LD_LIBRARY_PATH=${CUDA_HOME}/lib64 && export PATH=${CUDA_HOME}/bin:${PATH}"
-                    if python_path == "/usr/bin/python3":
-                        lib_path = lib_path + " && export PATH=${HOME}/.local/bin:${PATH}"
-                cmd = wsl_path + [lib_path + " && " + python_path + " " + (" ").join(cmd)]
-                print("Command used:", cmd)
-
-            # run interpolation on Linux or Windows without WSL
-            else:
-                # Path to the desired Python executable
-                if python_path==None:
-                    if os.path.exists(os.path.expanduser("~")+"/biomedisa_env/bin/python"):
-                        python_path = os.path.expanduser("~")+"/biomedisa_env/bin/python"
-                        python_version = BiomedisaLogic.get_python_version(python_path)
-                        lib_path = os.path.expanduser("~")+f"/biomedisa_env/lib/python{python_version}/site-package"
-                    else:
-                        python_path = "/usr/bin/python3"
-                        python_version = BiomedisaLogic.get_python_version(python_path)
-                        lib_path = os.path.expanduser("~")+f"/.local/lib/python{python_version}/site-packages"
-
-                # Remove environment variables that may interfere
-                for var in ["PYTHONHOME", "PYTHONPATH", "LD_LIBRARY_PATH"]:
-                    new_env.pop(var, None)
-
-                # Set new pythonpath
-                new_env["PYTHONPATH"] = lib_path
-
-                # Run the Python 3 subprocess
-                subprocess.Popen(
-                    [python_path, "-c", "import sys; print(sys.version); print(sys.executable); print(sys.path)"],
-                    env=new_env
-                )
-
-                # command
-                cmd = [python_path] + cmd
+            # build environment
+            cmd, env = Helper.build_environment(cmd)
 
             # run interpolation
-            subprocess.Popen(cmd, env=new_env).wait()
+            subprocess.Popen(cmd, env=env).wait()
 
             # load result
             results = {}
