@@ -369,7 +369,7 @@ if __name__ == '__main__':
     parser.add_argument('path_to_images', type=str, metavar='PATH_TO_IMAGES',
                         help='Location of image data (tarball, directory, or file)')
     parser.add_argument('path', type=str, metavar='PATH',
-                        help='Location of label data during training (tarball, directory, or file) or model for prediction (h5)')
+                        help='Location of label data for training (tarball, directory, or file) or model for prediction (.h5)')
 
     # optional arguments
     g.add_argument('-p','--predict', action='store_true', default=False,
@@ -498,6 +498,8 @@ if __name__ == '__main__':
                         help='Refine segmentation on full size data')
     parser.add_argument('-ext','--extension', type=str, default=None,
                         help='Save data in formats like NRRD or TIFF using --extension=".nrrd"')
+    parser.add_argument('-ptm','--path_to_model', type=str, metavar='PATH', default=None,
+                        help='Specify the model location for training')
     bm = parser.parse_args()
     bm.success = True
 
@@ -513,7 +515,8 @@ if __name__ == '__main__':
         bm.path_to_model = bm.path
     if bm.train:
         bm.path_to_labels = bm.path
-        bm.path_to_model = bm.path_to_images + '.h5'
+        if bm.path_to_model is None:
+            bm.path_to_model = bm.path_to_images + '.h5'
 
     # django environment
     if bm.img_id is not None:
