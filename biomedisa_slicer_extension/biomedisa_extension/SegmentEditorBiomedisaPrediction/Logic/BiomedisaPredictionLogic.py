@@ -10,7 +10,6 @@ import subprocess
 import tempfile
 from tifffile import imread, imwrite
 import os
-import sys
 
 class BiomedisaPredictionLogic():
 
