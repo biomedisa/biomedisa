@@ -106,7 +106,7 @@ class BiomedisaLogic():
                 only=parameter.only,
                 platform=parameter.platform)
 
-        # run in dedicated python environment
+        # run within dedicated python environment
         else:
 
           with tempfile.TemporaryDirectory() as temp_dir:

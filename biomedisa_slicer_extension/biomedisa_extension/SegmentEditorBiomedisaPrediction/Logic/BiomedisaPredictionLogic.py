@@ -71,7 +71,7 @@ class BiomedisaPredictionLogic():
                                     batch_size=batch_size,
                                     predict=True)
 
-        # run in dedicated python environment
+        # run within dedicated python environment
         else:
 
           with tempfile.TemporaryDirectory() as temp_dir:
