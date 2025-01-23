@@ -35,11 +35,53 @@ sudo apt-get autoremove
 #### Install Biomedisa
 Follow the Biomedisa installation instructions for [Ubuntu](https://github.com/biomedisa/biomedisa/#installation-command-line-based).
 
-
-#### Run Biomedisa
-Within WSL you will usually find your Windows user directory under `/mnt/c/Users/$USER`, e.g.:
+#### Run Biomedisa on WSL
+**1. Start WSL**
 ```
-python3 -m biomedisa.interpolation /mnt/c/Users/$USER/Downloads/tumor.tif /mnt/c/Users/$USER/Downloads/labels.tumor.nrrd
-
+wsl
+```
+**2. Activate Biomedisa Environment**
+```
+source biomedisa_env/bin/activate
+```
+**3. Set Windows Username (Optional)**
+Define your Windows username as a variable to simplify paths:
+```
+windows_username=$(cmd.exe /c echo %USERNAME% | tr -d '\r')
+```
+**4. Run Biomedisa Interpolation**
+Use the Windows user directory (typically `/mnt/c/Users`) to specify file paths:
+```
+python3 -m biomedisa.interpolation \
+    /mnt/c/Users/$windows_username/Downloads/tumor.tif \
+    /mnt/c/Users/$windows_username/Downloads/labels.tumor.nrrd
+```
+**5. Skip Environment Activation (Direct Execution)**
+If you prefer not to activate the environment:
+```
+biomedisa_env/bin/python3 -m biomedisa.interpolation \
+    /mnt/c/Users/$windows_username/Downloads/tumor.tif \
+    /mnt/c/Users/$windows_username/Downloads/labels.tumor.nrrd
+```
+**6. Run Directly from Command Prompt**
+To execute without starting WSL manually, use:
+```
+wsl -e bash -c \
+"export CUDA_HOME=/usr/local/cuda-12.6 && \
+ export LD_LIBRARY_PATH=${CUDA_HOME}/lib64 && \
+ export PATH=${CUDA_HOME}/bin:${PATH} && \
+ windows_username=$(cmd.exe /c echo %USERNAME% | tr -d '\r') && \
+ /home/$USER/biomedisa_env/bin/python3 -m biomedisa.interpolation \
+ /mnt/c/Users/$windows_username/Downloads/tumor.tif \
+ /mnt/c/Users/$windows_username/Downloads/labels.tumor.nrrd"
+```
+**7. Run Deep Learning Module**
+No need to set CUDA environment variables:
+```
+wsl -e bash -c \
+"windows_username=$(cmd.exe /c echo %USERNAME% | tr -d '\r') && \
+ /home/$USER/biomedisa_env/bin/python3.10 -m biomedisa.deeplearning \
+ /mnt/c/Users/$windows_username/Downloads/mouse_molar_tooth.tif \
+ /mnt/c/Users/$windows_username/Downloads/teeth.h5"
 ```
 

@@ -20,7 +20,7 @@ sudo apt-get install libsm6 libxrender-dev unzip \
 ```
 
 #### Install CUDA Toolkit
-Download and install [CUDA Toolkit](https://developer.nvidia.com/cuda-downloads) or via command-line as follows. You may choose any CUDA version compatible with your NVIDIA GPU architecture as outlined in the [NVIDIA Documentation](https://docs.nvidia.com/deeplearning/cudnn/latest/reference/support-matrix.html). If you select a version other than CUDA 12.6 for Ubuntu 22.04, you will need to adjust the following steps accordingly:
+Download and install [CUDA Toolkit](https://developer.nvidia.com/cuda-downloads) or via command-line as follows. You may choose any CUDA version compatible with your NVIDIA GPU architecture as outlined in the [NVIDIA Documentation](https://docs.nvidia.com/deeplearning/cudnn/latest/reference/support-matrix.html). If you select a version other than **CUDA 12.6** for **Ubuntu 22.04**, you will need to adjust the following steps accordingly:
 ```
 wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb
 sudo dpkg -i cuda-keyring_1.1-1_all.deb
@@ -50,14 +50,10 @@ source biomedisa_env/bin/activate
 ```
 
 #### Install Pip Packages
-Add your local pip directory to the PATH variable:
-```
-echo 'export PATH=${HOME}/.local/bin:${PATH}' >> ~/.bashrc
-```
-Download list of requirements and install pip packages:
+Download the list of requirements and install pip packages:
 ```
 wget https://raw.githubusercontent.com/biomedisa/biomedisa/refs/heads/master/requirements_inter.txt
-python3 -m pip install -r requirements_inter.txt
+python3 -m pip install -r requirements_inter.txt --upgrade
 ```
 Install PyCUDA (adjust the CUDA version if required):
 ```
@@ -78,6 +74,10 @@ wget -P ~/Downloads/ https://biomedisa.info/media/images/labels.tumor.nrrd
 Smart Interpolation:
 ```
 python3 -m biomedisa.interpolation ~/Downloads/tumor.tif ~/Downloads/labels.tumor.nrrd
+```
+If you prefer not to activate the environment (Direct Execution):
+```
+biomedisa_env/bin/python3 -m biomedisa.interpolation ~/Downloads/tumor.tif ~/Downloads/labels.tumor.nrrd
 ```
 
 #### Install Biomedisa from source (optional)

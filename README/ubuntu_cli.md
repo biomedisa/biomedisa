@@ -56,11 +56,7 @@ source biomedisa_env/bin/activate
 ```
 
 #### Install Pip Packages
-Add your local pip directory to the PATH variable:
-```
-echo 'export PATH=${HOME}/.local/bin:${PATH}' >> ~/.bashrc
-```
-Download list of requirements and install pip packages:
+Download the list of requirements and install pip packages:
 ```
 wget https://raw.githubusercontent.com/biomedisa/biomedisa/refs/heads/master/requirements.txt
 python3.10 -m pip install -r requirements.txt
@@ -95,6 +91,11 @@ python3.10 -m biomedisa.interpolation ~/Downloads/tumor.tif ~/Downloads/labels.t
 Deep Learning:
 ```
 python3.10 -m biomedisa.deeplearning ~/Downloads/mouse_molar_tooth.tif ~/Downloads/teeth.h5 --extension='.nrrd'
+```
+If you prefer not to activate the environment (Direct Execution):
+```
+biomedisa_env/bin/python3.10 -m biomedisa.interpolation ~/Downloads/tumor.tif ~/Downloads/labels.tumor.nrrd
+biomedisa_env/bin/python3.10 -m biomedisa.deeplearning ~/Downloads/mouse_molar_tooth.tif ~/Downloads/teeth.h5 --extension='.nrrd'
 ```
 
 #### Install Biomedisa from source (optional)
