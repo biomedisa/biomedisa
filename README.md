@@ -39,7 +39,7 @@ Biomedisa (https://biomedisa.info) is a free and easy-to-use open-source applica
 + Download test data from our [gallery](https://biomedisa.info/gallery/)
 
 ## Revisions
-[Revisions](https://github.com/biomedisa/biomedisa/blob/master/README/revisions.md)
++ [Revisions](https://github.com/biomedisa/biomedisa/blob/master/README/revisions.md)
 
 ## Smart Interpolation
 + [Parameters and Examples](https://github.com/biomedisa/biomedisa/blob/master/README/smart_interpolation.md)

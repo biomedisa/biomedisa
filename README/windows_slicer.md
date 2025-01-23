@@ -49,7 +49,7 @@ Restart 3D Slicer.
 The modules will attempt to automatically locate your Biomedisa installation.
  
 #### Manual Configuration (if needed)
-If the automatic setup does not work, create a configuration file:
+If the automatic setup does not work because the location of your Python environment differs from the default setup, create a configuration file:
 ```
 cd git/biomedisa/biomedisa_slicer_extension/biomedisa_extension
 xcopy config_template.py config.py
