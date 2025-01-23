@@ -36,34 +36,34 @@ sudo apt-get autoremove
 Follow the Biomedisa installation instructions for [Ubuntu](https://github.com/biomedisa/biomedisa/#installation-command-line-based).
 
 #### Run Biomedisa on WSL
-**1. Start WSL**
+1. **Start WSL**
 ```
 wsl
 ```
-**2. Activate Biomedisa Environment**
+2. **Activate Biomedisa Environment**
 ```
 source biomedisa_env/bin/activate
 ```
-**3. Set Windows Username (Optional)**
+3. **Set Windows Username (Optional)** 
 Define your Windows username as a variable to simplify paths:
 ```
 windows_username=$(cmd.exe /c echo %USERNAME% | tr -d '\r')
 ```
-**4. Run Biomedisa Interpolation**
+4. **Run Biomedisa Interpolation** 
 Use the Windows user directory (typically `/mnt/c/Users`) to specify file paths:
 ```
 python3 -m biomedisa.interpolation \
     /mnt/c/Users/$windows_username/Downloads/tumor.tif \
     /mnt/c/Users/$windows_username/Downloads/labels.tumor.nrrd
 ```
-**5. Skip Environment Activation (Direct Execution)**
+5. **Skip Environment Activation (Direct Execution)** 
 If you prefer not to activate the environment:
 ```
 biomedisa_env/bin/python3 -m biomedisa.interpolation \
     /mnt/c/Users/$windows_username/Downloads/tumor.tif \
     /mnt/c/Users/$windows_username/Downloads/labels.tumor.nrrd
 ```
-**6. Run Directly from Command Prompt**
+6. **Run Directly from Command Prompt** 
 To execute without starting WSL manually, use:
 ```
 wsl -e bash -c \
@@ -75,7 +75,7 @@ wsl -e bash -c \
  /mnt/c/Users/$windows_username/Downloads/tumor.tif \
  /mnt/c/Users/$windows_username/Downloads/labels.tumor.nrrd"
 ```
-**7. Run Deep Learning Module**
+7. **Run Deep Learning Module** 
 No need to set CUDA environment variables:
 ```
 wsl -e bash -c \
