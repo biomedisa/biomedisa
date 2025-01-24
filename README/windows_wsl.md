@@ -36,6 +36,7 @@ sudo apt-get autoremove
 Follow the Biomedisa installation instructions for [Ubuntu](https://github.com/biomedisa/biomedisa/#installation-command-line-based).
 
 # Run Biomedisa on WSL
+For simplicity, we use relative paths and assume your Biomedisa environment is located in your Windows user directory (`C:\Users\WINDOWS_USERNAME`), which corresponds to `/mnt/c/Users/WINDOWS_USERNAME` in WSL:
 1. **Start WSL**
 ```
 wsl
@@ -44,33 +45,23 @@ wsl
 ```
 source biomedisa_env/bin/activate
 ```
-3. **Set Windows Username (Optional)**  
-Define your Windows username as a variable to simplify paths:
+3. **Run Biomedisa Interpolation**  
 ```
-windows_username=$(cmd.exe /c echo %USERNAME% | tr -d '\r')
+python3 -m biomedisa.interpolation Downloads/tumor.tif Downloads/labels.tumor.nrrd
 ```
-4. **Run Biomedisa Interpolation**  
-Use the Windows user directory (typically `/mnt/c/Users`) to specify file paths:
-```
-python3 -m biomedisa.interpolation \
-    /mnt/c/Users/$windows_username/Downloads/tumor.tif \
-    /mnt/c/Users/$windows_username/Downloads/labels.tumor.nrrd
-```
-5. **Skip Environment Activation (Direct Execution)**  
+4. **Skip Environment Activation (Direct Execution)**  
 If you prefer not to activate the environment:
 ```
-biomedisa_env/bin/python3 -m biomedisa.interpolation \
-    /mnt/c/Users/$windows_username/Downloads/tumor.tif \
-    /mnt/c/Users/$windows_username/Downloads/labels.tumor.nrrd
+biomedisa_env/bin/python3 -m biomedisa.interpolation Downloads/tumor.tif Downloads/labels.tumor.nrrd
 ```
-6. **Run Directly from Windows Command Prompt**  
+5. **Run Directly from Windows Command Prompt**  
 To execute without starting WSL manually, use:
 ```
-wsl -e bash -c "export CUDA_HOME=/usr/local/cuda-12.6 && export LD_LIBRARY_PATH=${CUDA_HOME}/lib64 && export PATH=${CUDA_HOME}/bin:${PATH} && windows_username=$(cmd.exe /c echo %USERNAME% | tr -d '\r') && biomedisa_env/bin/python3 -m biomedisa.interpolation /mnt/c/Users/$windows_username/Downloads/tumor.tif /mnt/c/Users/$windows_username/Downloads/labels.tumor.nrrd"
+wsl -e bash -c "export CUDA_HOME=/usr/local/cuda-12.6 && export LD_LIBRARY_PATH=${CUDA_HOME}/lib64 && export PATH=${CUDA_HOME}/bin:${PATH} && biomedisa_env/bin/python3 -m biomedisa.interpolation Downloads/tumor.tif Downloads/labels.tumor.nrrd"
 ```
-7. **Run Deep Learning Module from Windows Command Prompt**  
+6. **Run Deep Learning Module from Windows Command Prompt**  
 No need to set CUDA environment variables:
 ```
-wsl -e bash -c "windows_username=$(cmd.exe /c echo %USERNAME% | tr -d '\r') && biomedisa_env/bin/python3 -m biomedisa.deeplearning /mnt/c/Users/$windows_username/Downloads/mouse_molar_tooth.tif /mnt/c/Users/$windows_username/Downloads/teeth.h5"
+wsl -e bash -c "biomedisa_env/bin/python3 -m biomedisa.deeplearning Downloads/mouse_molar_tooth.tif Downloads/teeth.h5"
 ```
 
