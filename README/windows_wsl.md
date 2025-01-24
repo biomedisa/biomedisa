@@ -35,7 +35,7 @@ sudo apt-get autoremove
 #### Install Biomedisa
 Follow the Biomedisa installation instructions for [Ubuntu](https://github.com/biomedisa/biomedisa/#installation-command-line-based).
 
-#### Run Biomedisa on WSL
+# Run Biomedisa on WSL
 1. **Start WSL**
 ```
 wsl
