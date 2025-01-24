@@ -63,7 +63,7 @@ biomedisa_env/bin/python3 -m biomedisa.interpolation \
     /mnt/c/Users/$windows_username/Downloads/tumor.tif \
     /mnt/c/Users/$windows_username/Downloads/labels.tumor.nrrd
 ```
-6. **Run Directly from Command Prompt**  
+6. **Run Directly from Windows Command Prompt**  
 To execute without starting WSL manually, use:
 ```
 wsl -e bash -c "export CUDA_HOME=/usr/local/cuda-12.6 && export LD_LIBRARY_PATH=${CUDA_HOME}/lib64 && export PATH=${CUDA_HOME}/bin:${PATH} && windows_username=$(cmd.exe /c echo %USERNAME% | tr -d '\r') && /home/$USER/biomedisa_env/bin/python3 -m biomedisa.interpolation /mnt/c/Users/$windows_username/Downloads/tumor.tif /mnt/c/Users/$windows_username/Downloads/labels.tumor.nrrd"
