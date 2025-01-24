@@ -68,7 +68,7 @@ To execute without starting WSL manually, use:
 ```
 wsl -e bash -c "export CUDA_HOME=/usr/local/cuda-12.6 && export LD_LIBRARY_PATH=${CUDA_HOME}/lib64 && export PATH=${CUDA_HOME}/bin:${PATH} && windows_username=$(cmd.exe /c echo %USERNAME% | tr -d '\r') && /home/$USER/biomedisa_env/bin/python3 -m biomedisa.interpolation /mnt/c/Users/$windows_username/Downloads/tumor.tif /mnt/c/Users/$windows_username/Downloads/labels.tumor.nrrd"
 ```
-7. **Run Deep Learning Module**  
+7. **Run Deep Learning Module from Windows Command Prompt**  
 No need to set CUDA environment variables:
 ```
 wsl -e bash -c "windows_username=$(cmd.exe /c echo %USERNAME% | tr -d '\r') && /home/$USER/biomedisa_env/bin/python3.10 -m biomedisa.deeplearning /mnt/c/Users/$windows_username/Downloads/mouse_molar_tooth.tif /mnt/c/Users/$windows_username/Downloads/teeth.h5"
