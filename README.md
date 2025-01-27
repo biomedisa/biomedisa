@@ -33,7 +33,7 @@ Biomedisa (https://biomedisa.info) is a free and easy-to-use open-source applica
 + [Windows 10/11](https://github.com/biomedisa/biomedisa/blob/master/README/windows_slicer.md)
 
 ## Installation (browser based)
-+ [Ubuntu 22.04](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu2204_cuda11.8.md)
++ [Ubuntu 22/24](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu_browser.md)
 
 ## Download Data
 + Download test data from our [gallery](https://biomedisa.info/gallery/)
