@@ -1,13 +1,13 @@
 # Windows 10 + OpenCL + GPU (command-line-only)
 
-- [Install NVIDIA driver](#install-nvidia-driver)
+- [Install NVIDIA Driver](#install-nvidia-driver)
 - [Install Microsoft MPI](#install-microsoft-mpi)
 - [Install Anaconda3](#install-anaconda3)
-- [Install Biomedisa environment](#install-biomedisa-environment)
-- [Biomedisa examples](#biomedisa-examples)
+- [Install Biomedisa Environment](#install-biomedisa-environment)
+- [Biomedisa Examples](#biomedisa-examples)
 - [Update Biomedisa](#update-biomedisa)
-- [Remove Biomedisa environment](#remove-biomedisa-environment)
-- [Install Biomedisa from source (optional)](#install-biomedisa-from-source-optional)
+- [Remove Biomedisa Environment](#remove-biomedisa-environment)
+- [Install Biomedisa from Source (Optional)](#install-biomedisa-from-source-optional)
 
 #### Install NVIDIA Driver
 Download and install [NVIDIA](https://www.nvidia.com/Download/Find.aspx?lang=en-us).  
