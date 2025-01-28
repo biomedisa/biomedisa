@@ -93,7 +93,7 @@ class BiomedisaLogic():
             from biomedisa_extension.config_template import python_path, wsl_path
 
         # run within Slicer environment
-        if python_path==None and Helper.module_exists("pycuda"):
+        if python_path==None and (Helper.module_exists("pycuda") or Helper.module_exists("pyopencl")):
             from biomedisa.interpolation import smart_interpolation
             results = smart_interpolation(
                 numpyImage,
