@@ -153,18 +153,25 @@ def load_cropping_training_data(normalize, img_list, label_list, x_scale, y_scal
             img = np.append(img_z,img_y,axis=0)
             img = np.append(img,img_x,axis=0)
 
-            # normalize image data
+            # scale image data
             for c in range(channels):
                 img[:,:,:,c] -= np.amin(img[:,:,:,c])
                 img[:,:,:,c] /= np.amax(img[:,:,:,c])
-                if normalization_parameters is None:
-                    normalization_parameters = np.zeros((2,channels))
-                    normalization_parameters[0,c] = np.mean(img[:,:,:,c])
-                    normalization_parameters[1,c] = np.std(img[:,:,:,c])
-                elif normalize:
+
+            # normalize first validation image
+            if normalize and np.any(normalization_parameters):
+                for c in range(channels):
                     mean, std = np.mean(img[:,:,:,c]), np.std(img[:,:,:,c])
                     img[:,:,:,c] = (img[:,:,:,c] - mean) / std
                     img[:,:,:,c] = img[:,:,:,c] * normalization_parameters[1,c] + normalization_parameters[0,c]
+
+            # get normalization parameters from first image
+            if normalization_parameters is None:
+                normalization_parameters = np.zeros((2,channels))
+                if normalize:
+                    for c in range(channels):
+                        normalization_parameters[0,c] = np.mean(img[:,:,:,c])
+                        normalization_parameters[1,c] = np.std(img[:,:,:,c])
 
             # loop over list of images
             if any(img_list) or type(img_in) is list:
