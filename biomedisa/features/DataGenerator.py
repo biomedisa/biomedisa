@@ -291,7 +291,7 @@ class DataGenerator(tf.keras.utils.Sequence):
 
                 # patch normalization
                 if self.patch_normalization:
-                    tmp_X = tmp_X.copy()
+                    tmp_X = tmp_X.copy().astype(np.float32)
                     for c in range(self.n_channels):
                         tmp_X[:,:,:,c] -= np.mean(tmp_X[:,:,:,c])
                         tmp_X[:,:,:,c] /= max(np.std(tmp_X[:,:,:,c]), 1e-6)
