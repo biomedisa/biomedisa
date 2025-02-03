@@ -400,12 +400,6 @@ def load_training_data(bm, img_list, label_list, channels, img_in=None, label_in
                 label = label_in
                 label_names = ['label_1']
             label_dim = label.shape
-            # no-scaling for list of images needs negative values as it encodes padded areas as -1
-            label_dtype = label.dtype
-            if label_dtype==np.uint8:
-                label_dtype = np.int16
-            elif label_dtype in [np.uint16, np.uint32]:
-                label_dtype = np.int32
             label = set_labels_to_zero(label, bm.only, bm.ignore)
             if any([bm.x_range, bm.y_range, bm.z_range]):
                 if len(label_names)>1:
@@ -461,28 +455,44 @@ def load_training_data(bm, img_list, label_list, channels, img_in=None, label_in
             if any([bm.x_range, bm.y_range, bm.z_range]) or bm.crop_data:
                 img = img[argmin_z:argmax_z,argmin_y:argmax_y,argmin_x:argmax_x].copy()
 
-            # scale/resize image data
-            img = img.astype(np.float32)
+            # resize image data
             if bm.scaling:
+                img = img.astype(np.float32)
                 img = img_resize(img, bm.z_scale, bm.y_scale, bm.x_scale)
 
-            # normalize image data
-            for c in range(channels):
-                img[:,:,:,c] -= np.amin(img[:,:,:,c])
-                img[:,:,:,c] /= np.amax(img[:,:,:,c])
-                if normalization_parameters is None:
-                    normalization_parameters = np.zeros((2,channels))
-                    normalization_parameters[0,c] = np.mean(img[:,:,:,c])
-                    normalization_parameters[1,c] = np.std(img[:,:,:,c])
-                elif bm.normalize:
+            # scale data to the range from 0 to 1
+            if not bm.patch_normalization:
+                img = img.astype(np.float32)
+                for c in range(channels):
+                    img[:,:,:,c] -= np.amin(img[:,:,:,c])
+                    img[:,:,:,c] /= np.amax(img[:,:,:,c])
+
+            # normalize first validation image
+            if bm.normalize and np.any(normalization_parameters):
+                img = img.astype(np.float32)
+                for c in range(channels):
                     mean, std = np.mean(img[:,:,:,c]), np.std(img[:,:,:,c])
                     img[:,:,:,c] = (img[:,:,:,c] - mean) / std
                     img[:,:,:,c] = img[:,:,:,c] * normalization_parameters[1,c] + normalization_parameters[0,c]
+
+            # get normalization parameters from first image
+            if normalization_parameters is None:
+                normalization_parameters = np.zeros((2,channels))
+                if bm.normalize:
+                    for c in range(channels):
+                        normalization_parameters[0,c] = np.mean(img[:,:,:,c])
+                        normalization_parameters[1,c] = np.std(img[:,:,:,c])
 
             # pad data
             if not bm.scaling:
                 img_data_list = [img]
                 label_data_list = [label]
+                # no-scaling for list of images needs negative values as it encodes padded areas as -1
+                label_dtype = label.dtype
+                if label_dtype==np.uint8:
+                    label_dtype = np.int16
+                elif label_dtype in [np.uint16, np.uint32]:
+                    label_dtype = np.int32
 
             # loop over list of images
             if any(img_list) or type(img_in) is list:
@@ -530,13 +540,17 @@ def load_training_data(bm, img_list, label_list, channels, img_in=None, label_in
                         raise InputError()
                     if bm.crop_data:
                         a = np.copy(a[argmin_z:argmax_z,argmin_y:argmax_y,argmin_x:argmax_x], order='C')
-                    a = a.astype(np.float32)
                     if bm.scaling:
+                        a = a.astype(np.float32)
                         a = img_resize(a, bm.z_scale, bm.y_scale, bm.x_scale)
-                    for c in range(channels):
-                        a[:,:,:,c] -= np.amin(a[:,:,:,c])
-                        a[:,:,:,c] /= np.amax(a[:,:,:,c])
-                        if bm.normalize:
+                    if not bm.patch_normalization:
+                        a = a.astype(np.float32)
+                        for c in range(channels):
+                            a[:,:,:,c] -= np.amin(a[:,:,:,c])
+                            a[:,:,:,c] /= np.amax(a[:,:,:,c])
+                    if bm.normalize:
+                        a = a.astype(np.float32)
+                        for c in range(channels):
                             mean, std = np.mean(a[:,:,:,c]), np.std(a[:,:,:,c])
                             a[:,:,:,c] = (a[:,:,:,c] - mean) / std
                             a[:,:,:,c] = a[:,:,:,c] * normalization_parameters[1,c] + normalization_parameters[0,c]

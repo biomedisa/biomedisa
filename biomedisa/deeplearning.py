@@ -95,6 +95,10 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
     # normalization
     bm.normalize = 1 if bm.normalization else 0
 
+    # patch normalization deactivates normalization of entire volume
+    if bm.patch_normalization:
+        bm.normalize = 0
+
     # use patch normalization instead of normalizing the entire volume
     if not bm.scaling:
         bm.normalize = 0
