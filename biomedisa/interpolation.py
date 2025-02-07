@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2019-2024 Philipp Lösel. All rights reserved.         ##
+##  Copyright (c) 2019-2025 Philipp Lösel. All rights reserved.         ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -165,13 +165,8 @@ def smart_interpolation(data, labelData, nbrw=10, sorw=4000, acwe=False, acwe_al
             bm.imageSize = int(bm.data.nbytes * 10e-7)
 
             # add boundaries
-            zsh, ysh, xsh = bm.data.shape
-            tmp = np.zeros((1+zsh+1, 1+ysh+1, 1+xsh+1), dtype=bm.labelData.dtype)
-            tmp[1:-1, 1:-1, 1:-1] = bm.labelData
-            bm.labelData = tmp.copy(order='C')
-            tmp = np.zeros((1+zsh+1, 1+ysh+1, 1+xsh+1), dtype=bm.data.dtype)
-            tmp[1:-1, 1:-1, 1:-1] = bm.data
-            bm.data = tmp.copy(order='C')
+            bm.data = np.pad(bm.data, pad_width=1, mode='constant', constant_values=0)
+            bm.labelData = np.pad(bm.labelData, pad_width=1, mode='constant', constant_values=0)
             bm.zsh, bm.ysh, bm.xsh = bm.data.shape
 
             # check if labeled slices are adjacent
