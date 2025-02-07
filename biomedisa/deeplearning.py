@@ -67,7 +67,7 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
     balance=False, crop_data=False, flip_x=False, flip_y=False, flip_z=False,
     swapaxes=False, train_dice=False, val_dice=True, compression=True, ignore='none', only='all',
     network_filters='32-64-128-256-512', resnet=False, debug_cropping=False,
-    save_cropped=False, epochs=100, normalization=True, rotate=0.0, validation_split=0.0,
+    save_cropped=False, epochs=100, normalization=True, rotate=0.0, rotate3d=0.0, validation_split=0.0,
     learning_rate=0.01, stride_size=32, validation_stride_size=32, validation_freq=1,
     batch_size=None, x_scale=256, y_scale=256, z_scale=256, scaling=True, early_stopping=0,
     pretrained_model=None, fine_tune=False, workers=1, cropping_epochs=50,
@@ -424,6 +424,8 @@ if __name__ == '__main__':
                         help='Disable normalization of 3D image volumes')
     parser.add_argument('-r','--rotate', type=float, default=0.0,
                         help='Randomly rotate during training')
+    parser.add_argument('--rotate3d', action='store_true', default=False,
+                        help='Randomly rotate through three dimensions during training. Uniformly distributed over the sphere.')
     parser.add_argument('-vs','--validation_split', type=float, default=0.0,
                         help='Percentage of data used for training')
     parser.add_argument('-lr','--learning_rate', type=float, default=0.01,
@@ -492,6 +494,11 @@ if __name__ == '__main__':
                         help='Save data for example as NRRD file using --extension=".nrrd"')
     bm = parser.parse_args()
     bm.success = True
+
+    if bm.rotate3d and not bm.scaling:
+        raise RuntimeError("You cannot do true 3d rotation without rescaling the data yet.")
+        # To fix this, have the loading function pass in a list of where the images end,
+        # and use that to figure out the z-centres in biomedisa.features.DataGenerator.rotate_*_3d
 
     # prediction or training
     if not any([bm.train, bm.predict]):
