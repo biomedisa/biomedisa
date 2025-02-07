@@ -7,6 +7,10 @@ from slicer import vtkMRMLScalarVolumeNode
 from slicer import vtkMRMLLabelMapVolumeNode
 from Logic.BiomedisaParameter import BiomedisaParameter
 from SegmentEditorCommon.Helper import Helper
+import subprocess
+import tempfile
+from tifffile import imread, imwrite
+import os
 
 class BiomedisaLogic():
 
@@ -83,17 +87,72 @@ class BiomedisaLogic():
         numpyLabels = BiomedisaLogic.unify_to_identity(numpyLabels, direction_matrix)
         uniqueLabels = np.unique(numpyLabels)
 
-        from biomedisa.interpolation import smart_interpolation
-        results = smart_interpolation(
-            numpyImage,
-            numpyLabels,
-            allaxis=parameter.allaxis,
-            denoise=parameter.denoise,
-            nbrw=parameter.nbrw,
-            sorw=parameter.sorw,
-            ignore=parameter.ignore,
-            only=parameter.only,
-            platform=parameter.platform)
+        try:
+            from biomedisa_extension.config import python_path, wsl_path
+        except:
+            from biomedisa_extension.config_template import python_path, wsl_path
+
+        # run within Slicer environment
+        if python_path==None and (Helper.module_exists("pycuda") or Helper.module_exists("pyopencl")):
+            from biomedisa.interpolation import smart_interpolation
+            results = smart_interpolation(
+                numpyImage,
+                numpyLabels,
+                allaxis=parameter.allaxis,
+                denoise=parameter.denoise,
+                nbrw=parameter.nbrw,
+                sorw=parameter.sorw,
+                ignore=parameter.ignore,
+                only=parameter.only,
+                platform=parameter.platform)
+
+        # run within dedicated python environment
+        else:
+
+          with tempfile.TemporaryDirectory() as temp_dir:
+
+            # temporary file paths
+            image_path = temp_dir + '/biomedisa-image.tif'
+            labels_path = temp_dir + '/biomedisa-labels.tif'
+            results_path = temp_dir + '/final.biomedisa-image.tif'
+
+            # save temporary data
+            imwrite(image_path, numpyImage)
+            imwrite(labels_path, numpyLabels)
+
+            # adapt paths for WSL
+            if os.name == "nt" and wsl_path!=False:
+                image_path = image_path.replace('\\','/').replace('C:','/mnt/c')
+                labels_path = labels_path.replace('\\','/').replace('C:','/mnt/c')
+
+            # base command
+            cmd = ["-m", "biomedisa.interpolation", image_path, labels_path]
+
+            # append parameters on demand
+            if parameter.ignore != 'none':
+                cmd += [f'-i={parameter.ignore}']
+            if parameter.only != 'all':
+                cmd += [f'-o={parameter.only}']
+            if parameter.nbrw != 10:
+                cmd += [f'--nbrw={parameter.nbrw}']
+            if parameter.sorw != 4000:
+                cmd += [f'--sorw={parameter.sorw}']
+            if parameter.allaxis:
+                cmd += ['-allx']
+            if parameter.denoise:
+                cmd += ['-d']
+            if parameter.platform:
+                cmd += [f'-p={bm.platform}']
+
+            # build environment
+            cmd, env = Helper.build_environment(cmd)
+
+            # run interpolation
+            subprocess.Popen(cmd, env=env).wait()
+
+            # load result
+            results = {}
+            results['regular'] = imread(results_path)
 
         if results is None:
             return None

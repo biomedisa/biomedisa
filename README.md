@@ -3,10 +3,10 @@
 - [Overview](#overview)
 - [Hardware Requirements](#hardware-requirements)
 - [Installation (command-line based)](#installation-command-line-based)
+- [Installation (3D Slicer extension)](#installation-3d-slicer-extension)
 - [Installation (browser based)](#installation-browser-based)
 - [Download Data](#download-data)
 - [Revisions](#revisions)
-- [Quickstart](#quickstart)
 - [Smart Interpolation](#smart-interpolation)
 - [Deep Learning](#deep-learning)
 - [Mesh Generator](#mesh-generator)
@@ -17,43 +17,29 @@
 - [License](#license)
 
 ## Overview
-Biomedisa (https://biomedisa.info) is a free and easy-to-use open-source application for segmenting large 3D volumetric images such as CT and MRI scans, developed at [The Australian National University CTLab](https://ctlab.anu.edu.au/). Biomedisa's smart interpolation of sparsely pre-segmented slices enables accurate semi-automated segmentation by considering the complete underlying image data. Additionally, Biomedisa enables deep learning for fully automated segmentation across similar samples and structures. It is compatible with segmentation tools like Amira/Avizo, ImageJ/Fiji and 3D Slicer. If you are using Biomedisa or the data for your research please cite: Lösel, P.D. et al. [Introducing Biomedisa as an open-source online platform for biomedical image segmentation.](https://www.nature.com/articles/s41467-020-19303-w) *Nat. Commun.* **11**, 5577 (2020).
+Biomedisa (https://biomedisa.info) is a free and easy-to-use open-source application for segmenting large 3D volumetric images such as CT and MRI scans, developed at [The Australian National University CTLab](https://ctlab.anu.edu.au/). Biomedisa's smart interpolation of sparsely pre-segmented slices enables accurate semi-automated segmentation by considering the complete underlying image data. Additionally, Biomedisa enables deep learning for fully automated segmentation across similar samples and structures. It is compatible with segmentation tools like Amira/Avizo, ImageJ/Fiji, and 3D Slicer. If you are using Biomedisa or the data for your research please cite: Lösel, P.D. et al. [Introducing Biomedisa as an open-source online platform for biomedical image segmentation.](https://www.nature.com/articles/s41467-020-19303-w) *Nat. Commun.* **11**, 5577 (2020).
 
 ## Hardware Requirements
-+ One or more NVIDIA GPUs with compute capability 3.0 or higher.
++ One or more NVIDIA GPUs
 
 ## Installation (command-line based)
-+ [Ubuntu 22.04 + Smart Interpolation](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu2204_interpolation_cli.md)
-+ [Ubuntu 22.04 + Smart Interpolation + Deep Learning](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu2204_cuda11.8_gpu_cli.md)
-+ [Windows 10 + Smart Interpolation + Deep Learning](https://github.com/biomedisa/biomedisa/blob/master/README/windows10_cuda_gpu_cli.md)
-+ [Windows (WSL) + Smart Interpolation + Deep Learning](https://github.com/biomedisa/biomedisa/blob/master/README/windows_wsl.md)
++ [Ubuntu 22/24 + Smart Interpolation](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu_interpolation_cli.md)
++ [Ubuntu 22/24 + Deep Learning](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu_deeplearning_cli.md)
++ [Ubuntu 22/24 + Smart Interpolation + Deep Learning](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu_cli.md)
++ [Windows 10/11 + Smart Interpolation + Deep Learning](https://github.com/biomedisa/biomedisa/blob/master/README/windows_wsl.md)
 
 ## Installation (3D Slicer extension)
-+ [Ubuntu 22.04 + Smart Interpolation + Deep Learning](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu2204_cuda11.8_gpu_slicer.md)
-+ [Windows 10 + Smart Interpolation](https://github.com/biomedisa/biomedisa/blob/master/README/windows10_cuda_gpu_slicer.md)
++ [Ubuntu 22/24](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu_slicer.md)
++ [Windows 10/11](https://github.com/biomedisa/biomedisa/blob/master/README/windows_slicer.md)
 
 ## Installation (browser based)
-+ [Ubuntu 22.04](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu2204_cuda11.8.md)
++ [Ubuntu 22/24](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu_browser.md)
 
 ## Download Data
 + Download test data from our [gallery](https://biomedisa.info/gallery/)
 
 ## Revisions
-24.7.1
-+ 3D Slicer extension
-+ Prediction of large data block by block
-
-24.5.22
-+ Pip is the preferred installation method
-+ Commands, module names and imports have been changed to conform to the Pip standard
-+ For versions <=23.9.1 please check [README](https://github.com/biomedisa/biomedisa/blob/master/README/deprecated/README_2023.09.1.md)
-
-## Quickstart
-Install the Biomedisa package from the [Python Package Index](https://pypi.org/project/biomedisa/):
-```
-python -m pip install -U biomedisa
-```
-For smart interpolation and deep Learning modules, follow the installation instructions above.
++ [Revisions](https://github.com/biomedisa/biomedisa/blob/master/README/revisions.md)
 
 ## Smart Interpolation
 + [Parameters and Examples](https://github.com/biomedisa/biomedisa/blob/master/README/smart_interpolation.md)
@@ -149,7 +135,7 @@ save_data('final.Head5.am', results['regular'], results['header'])
 
 #### Command-line based (prediction)
 ```
-python -m biomedisa.deeplearning C:\Users\%USERNAME%\Downloads\testing_axial_crop_pat13.nii.gz C:\Users\%USERNAME%\Downloads\heart.h5 -p
+python -m biomedisa.deeplearning C:\Users\%USERNAME%\Downloads\testing_axial_crop_pat13.nii.gz C:\Users\%USERNAME%\Downloads\heart.h5
 ```
 
 ## Mesh Generator

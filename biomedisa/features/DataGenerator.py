@@ -224,39 +224,25 @@ class DataGenerator(tf.keras.utils.Sequence):
     def __len__(self):
         'Denotes the number of batches per epoch'
         if len(self.list_IDs_bg) > 0:
-            len_IDs = 2 * max(len(self.list_IDs_fg), len(self.list_IDs_bg))
+            len_IDs = max(len(self.list_IDs_fg), len(self.list_IDs_bg))
+            n_batches = len_IDs // (self.batch_size // 2)
         else:
             len_IDs = len(self.list_IDs_fg)
-        n_batches = int(np.floor(len_IDs / self.batch_size))
+            n_batches = len_IDs // self.batch_size
         return n_batches
 
     def __getitem__(self, index):
         'Generate one batch of data'
-
         if len(self.list_IDs_bg) > 0:
-
-            # len IDs
-            len_IDs = max(len(self.list_IDs_fg), len(self.list_IDs_bg))
-
-            # upsample lists of indexes to the same size
-            repetitions = int(np.floor(len_IDs / len(self.list_IDs_fg))) + 1
-            upsampled_indexes_fg = np.tile(self.indexes_fg, repetitions)
-            upsampled_indexes_fg = upsampled_indexes_fg[:len_IDs]
-
-            repetitions = int(np.floor(len_IDs / len(self.list_IDs_bg))) + 1
-            upsampled_indexes_bg = np.tile(self.indexes_bg, repetitions)
-            upsampled_indexes_bg = upsampled_indexes_bg[:len_IDs]
-
             # Generate indexes of the batch
-            tmp_batch_size = int(self.batch_size / 2)
-            indexes_fg = upsampled_indexes_fg[index*tmp_batch_size:(index+1)*tmp_batch_size]
-            indexes_bg = upsampled_indexes_bg[index*tmp_batch_size:(index+1)*tmp_batch_size]
+            half_batch_size = self.batch_size // 2
+            indexes_fg = self.indexes_fg[index*half_batch_size:(index+1)*half_batch_size]
+            indexes_bg = self.indexes_bg[index*half_batch_size:(index+1)*half_batch_size]
 
             # Find list of IDs
             list_IDs_temp = [self.list_IDs_fg[k] for k in indexes_fg] + [self.list_IDs_bg[k] for k in indexes_bg]
 
         else:
-
             # Generate indexes of the batch
             indexes_fg = self.indexes_fg[index*self.batch_size:(index+1)*self.batch_size]
 
@@ -270,11 +256,22 @@ class DataGenerator(tf.keras.utils.Sequence):
 
     def on_epoch_end(self):
         'Updates indexes after each epoch'
-        self.indexes_fg = np.arange(len(self.list_IDs_fg))
-        self.indexes_bg = np.arange(len(self.list_IDs_bg))
+        if len(self.list_IDs_bg) > 0:
+            # upsample lists of indexes
+            indexes_fg = np.arange(len(self.list_IDs_fg))
+            indexes_bg = np.arange(len(self.list_IDs_bg))
+            len_IDs = max(len(self.list_IDs_fg), len(self.list_IDs_bg))
+            repetitions = len_IDs // len(self.list_IDs_fg) + 1
+            self.indexes_fg = np.tile(indexes_fg, repetitions)
+            repetitions = len_IDs // len(self.list_IDs_bg) + 1
+            self.indexes_bg = np.tile(indexes_bg, repetitions)
+        else:
+            self.indexes_fg = np.arange(len(self.list_IDs_fg))
+        # shuffle indexes
         if self.shuffle == True:
             np.random.shuffle(self.indexes_fg)
-            np.random.shuffle(self.indexes_bg)
+            if len(self.list_IDs_bg) > 0:
+                np.random.shuffle(self.indexes_bg)
 
     def __data_generation(self, list_IDs_temp):
         'Generates data containing batch_size samples' # X : (n_samples, *dim, n_channels)
@@ -414,7 +411,7 @@ class DataGenerator(tf.keras.utils.Sequence):
 
                 # patch normalization
                 if self.patch_normalization:
-                    tmp_X = tmp_X.copy()
+                    tmp_X = tmp_X.copy().astype(np.float32)
                     for c in range(self.n_channels):
                         tmp_X[:,:,:,c] -= np.mean(tmp_X[:,:,:,c])
                         tmp_X[:,:,:,c] /= max(np.std(tmp_X[:,:,:,c]), 1e-6)

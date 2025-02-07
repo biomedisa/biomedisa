@@ -1,22 +1,27 @@
-#  Ubuntu 22.04 LTS + CUDA 11.8 (browser based)
+#  Ubuntu 22/24 LTS (browser based)
 
-- [Install Python and pip](#install-python-and-pip)
-- [Install software dependencies](#install-software-dependencies)
+- [Install Python 3.10 and Pip](#install-python-and-pip)
+- [Install Software Dependencies](#install-software-dependencies)
 - [Clone Biomedisa](#clone-biomedisa)
-- [Install CUDA 11.8](#install-cuda-11.8)
-- [Install cuDNN](#install-cudnn)
-- [Install pip packages](#install-pip-packages)
+- [Install CUDA Toolkit](#install-cuda-toolkit)
+- [Install Pip Packages](#install-pip-packages)
 - [Configure Biomedisa](#configure-biomedisa)
-- [Install MySQL database](#install-mysql-database)
+- [Install MySQL Database](#install-mysql-database)
 - [Run Biomedisa](#run-biomedisa)
 - [Install Apache Server (optional)](#install-apache-server-optional)
 
-#### Install Python and pip
+#### Install Python 3.10 and Pip
+Ubuntu 22.04:
 ```
 sudo apt-get install python3 python3-dev python3-pip
 ```
+Ubuntu 24.04:
+```
+sudo add-apt-repository ppa:deadsnakes/ppa
+sudo apt-get install python3.10 python3.10-dev python3-pip
+```
 
-#### Install software dependencies
+#### Install Software Dependencies
 ```
 sudo apt-get install libsm6 libxrender-dev libmysqlclient-dev pkg-config \
     libboost-python-dev build-essential screen libssl-dev cmake unzip \
@@ -30,37 +35,21 @@ cd ~/git
 git clone https://github.com/biomedisa/biomedisa.git
 ```
 
-#### Install CUDA 11.8
-Biomedisa's Deep Learning framework requires TensorFlow 2.13, which is compatible with CUDA 11.8 and cuDNN 8.8.0. Please ensure that you install these specific versions, as higher versions are not yet supported. Add NVIDIA package repositories:
+#### Install CUDA Toolkit
+Download and install [CUDA Toolkit](https://developer.nvidia.com/cuda-downloads) or via command-line as follows. You may choose any CUDA version compatible with your NVIDIA GPU architecture as outlined in the [NVIDIA Documentation](https://docs.nvidia.com/deeplearning/cudnn/latest/reference/support-matrix.html). If you select a version other than CUDA 12.6 for Ubuntu 22.04, you will need to adjust the following steps accordingly:
 ```
-wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-ubuntu2204.pin
-sudo mv cuda-ubuntu2204.pin /etc/apt/preferences.d/cuda-repository-pin-600
-sudo apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/3bf863cc.pub
-sudo add-apt-repository "deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/ /"
-```
-If the error `W: Key is stored in legacy trusted.gpg keyring (/etc/apt/trusted.gpg)` occurs:
-```
-sudo apt-key export 3BF863CC | sudo gpg --dearmour -o /etc/apt/trusted.gpg.d/cuda-tools.gpg
-```
-Install CUDA Toolkit:
-```
+wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb
+sudo dpkg -i cuda-keyring_1.1-1_all.deb
 sudo apt-get update
-sudo apt-get install --no-install-recommends cuda-11-8
+sudo apt-get -y install cuda-toolkit-12-6
 ```
 Reboot and check that your GPUs are visible using the following command:
 ```
 nvidia-smi
 ```
-
-#### Adapt PATH variables
-Add the Biomedisa base directory to the PYTHONPATH variable and the local pip directory to the PATH variable:
+Add the CUDA paths (adjust the CUDA version if required):
 ```
-echo 'export PYTHONPATH=${HOME}/git/biomedisa:${PYTHONPATH}' >> ~/.bashrc
-echo 'export PATH=${HOME}/.local/bin:${PATH}' >> ~/.bashrc
-```
-Add the CUDA paths:
-```
-echo 'export CUDA_HOME=/usr/local/cuda-11.8' >> ~/.bashrc
+echo 'export CUDA_HOME=/usr/local/cuda-12.6' >> ~/.bashrc
 echo 'export LD_LIBRARY_PATH=${CUDA_HOME}/lib64' >> ~/.bashrc
 echo 'export PATH=${CUDA_HOME}/bin:${PATH}' >> ~/.bashrc
 ```
@@ -70,25 +59,17 @@ source ~/.bashrc
 nvcc --version
 ```
 
-#### Install cuDNN
-Install development and runtime libraries:
+#### Install Pip Packages
+Add the local pip directory to the PATH variable:
 ```
-sudo apt-get install --no-install-recommends \
-    libcudnn8=8.8.0.121-1+cuda11.8 \
-    libcudnn8-dev=8.8.0.121-1+cuda11.8
+echo 'export PATH=${HOME}/.local/bin:${PATH}' >> ~/.bashrc
 ```
-OPTIONAL: hold packages to avoid crash after a system update:
+Install pip packages. Note: If you run Biomedisa with an Apache Server (optional), you must install your packages system-wide using `sudo -H python3 -m pip install ...`.
 ```
-sudo apt-mark hold libcudnn8 libcudnn8-dev cuda-11-8
-```
-
-#### Install pip packages
-Download the Biomedisa [dependencies](https://biomedisa.info/media/requirements.txt) and install the packages. Note: If you run Biomedisa with an Apache Server (optional), you must install your packages system-wide using `sudo -H python3 -m pip install <package>`.
-```
-wget https://biomedisa.info/media/requirements.txt
+cd ~/git/biomedisa
 python3 -m pip install -r requirements.txt
 python3 -m pip install mysqlclient rq wget django==3.2.6
-PATH=/usr/local/cuda-11.8/bin:${PATH} python3 -m pip install pycuda
+PATH=/usr/local/cuda-12.6/bin:${PATH} python3 -m pip install pycuda
 ```
 
 #### Verify that PyCUDA is working properly

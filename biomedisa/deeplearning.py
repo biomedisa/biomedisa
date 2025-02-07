@@ -71,7 +71,7 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
     learning_rate=0.01, stride_size=32, validation_stride_size=32, validation_freq=1,
     batch_size=None, x_scale=256, y_scale=256, z_scale=256, scaling=True, early_stopping=0,
     pretrained_model=None, fine_tune=False, workers=1, cropping_epochs=50,
-    x_range=None, y_range=None, z_range=None, header=None, extension='.tif',
+    x_range=None, y_range=None, z_range=None, header=None, extension=None,
     img_header=None, img_extension='.tif', average_dice=False, django_env=False,
     path=None, success=True, return_probs=False, patch_normalization=False,
     z_patch=64, y_patch=64, x_patch=64, path_to_logfile=None, img_id=None, label_id=None,
@@ -94,6 +94,10 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
 
     # normalization
     bm.normalize = 1 if bm.normalization else 0
+
+    # patch normalization deactivates normalization of entire volume
+    if bm.patch_normalization:
+        bm.normalize = 0
 
     # use patch normalization instead of normalizing the entire volume
     if not bm.scaling:
@@ -228,9 +232,11 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
             bm.scaling = bool(meta['scaling'][()])
 
         # check if amira header is available in the network
-        if bm.header is None and meta.get('header') is not None:
+        if bm.extension is None and bm.header is None and meta.get('header') is not None:
             bm.header = [np.array(meta.get('header'))]
             bm.extension = '.am'
+        if bm.extension is None:
+            bm.extension = '.tif'
 
         # crop data
         crop_data = True if 'cropping_weights' in hf else False
@@ -301,6 +307,12 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
                 results, bm = predict_segmentation(bm, region_of_interest,
                     channels, normalization_parameters)
 
+                from mpi4py import MPI
+                comm = MPI.COMM_WORLD
+                rank = comm.Get_rank()
+                if rank>0:
+                    return 0
+
                 # results
                 if cropped_volume is not None:
                     results['cropped_volume'] = cropped_volume
@@ -361,7 +373,7 @@ if __name__ == '__main__':
     parser.add_argument('path_to_images', type=str, metavar='PATH_TO_IMAGES',
                         help='Location of image data (tarball, directory, or file)')
     parser.add_argument('path', type=str, metavar='PATH',
-                        help='Location of label data during training (tarball, directory, or file) or model for prediction (h5)')
+                        help='Location of label data for training (tarball, directory, or file) or model for prediction (.h5)')
 
     # optional arguments
     g.add_argument('-p','--predict', action='store_true', default=False,
@@ -490,8 +502,10 @@ if __name__ == '__main__':
                         help='Location of mask')
     parser.add_argument('-rf','--refinement', action='store_true', default=False,
                         help='Refine segmentation on full size data')
-    parser.add_argument('-ext','--extension', type=str, default='.tif',
-                        help='Save data for example as NRRD file using --extension=".nrrd"')
+    parser.add_argument('-ext','--extension', type=str, default=None,
+                        help='Save data in formats like NRRD or TIFF using --extension=".nrrd"')
+    parser.add_argument('-ptm','--path_to_model', type=str, metavar='PATH', default=None,
+                        help='Specify the model location for training')
     bm = parser.parse_args()
     bm.success = True
 
@@ -512,7 +526,8 @@ if __name__ == '__main__':
         bm.path_to_model = bm.path
     if bm.train:
         bm.path_to_labels = bm.path
-        bm.path_to_model = bm.path_to_images + '.h5'
+        if bm.path_to_model is None:
+            bm.path_to_model = bm.path_to_images + '.h5'
 
     # django environment
     if bm.img_id is not None:
