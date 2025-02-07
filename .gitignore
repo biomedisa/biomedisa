@@ -10,3 +10,6 @@ paraview.zip
 NotificationsAllUsers.txt
 biomedisa_slicer_extension/biomedisa_extension/biomedisa_module/Resources/*.pth
 .vscode/
+.ptp-sync-folder
+.ptp-sync
+.pydevproject
