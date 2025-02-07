@@ -30,7 +30,7 @@
 import os
 import biomedisa
 from biomedisa.features.biomedisa_helper import (load_data, save_data,
-    unique_file_path, silent_remove)
+    unique_file_path, silent_remove, unique)
 import numpy as np
 from scipy import ndimage
 import argparse
@@ -60,7 +60,7 @@ def reduce_blocksize(data):
 
 def clean(image, threshold=0.1):
     image_i = np.copy(image, order='C')
-    allLabels = np.unique(image_i)
+    allLabels = unique(image_i)
     mask = np.empty_like(image_i)
     s = [[[0,0,0], [0,1,0], [0,0,0]], [[0,1,0], [1,1,1], [0,1,0]], [[0,0,0], [0,1,0], [0,0,0]]]
     for k in allLabels[1:]:
@@ -99,7 +99,7 @@ def clean(image, threshold=0.1):
 
 def fill(image, threshold=0.9):
     image_i = np.copy(image, order='C')
-    allLabels = np.unique(image_i)
+    allLabels = unique(image_i)
     mask = np.empty_like(image_i)
     s = [[[0,0,0], [0,1,0], [0,0,0]], [[0,1,0], [1,1,1], [0,1,0]], [[0,0,0], [0,1,0], [0,0,0]]]
     for k in allLabels[1:]:

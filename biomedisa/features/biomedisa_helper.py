@@ -1,6 +1,6 @@
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2019-2024 Philipp Lösel. All rights reserved.         ##
+##  Copyright (c) 2019-2025 Philipp Lösel. All rights reserved.         ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -51,6 +51,26 @@ def silent_remove(filename):
         os.remove(filename)
     except OSError:
         pass
+
+# determine all values and their count from an array
+def unique(arr, return_counts=False):
+    try:
+        arr = arr.ravel()
+        counts = np.zeros(np.amax(arr)+1, dtype=int)
+        @numba.jit(nopython=True)
+        def __unique__(arr, size, counts):
+            for k in range(size):
+                counts[arr[k]] += 1
+            return counts
+        counts = __unique__(arr, arr.size, counts)
+        labels = np.where(counts)[0]
+        if return_counts:
+            return labels, counts[labels]
+        else:
+            return labels
+    except Exception as e:
+        print(f"Error: {e}")
+        return None
 
 # create a unique filename
 def unique_file_path(path, dir_path=biomedisa.BASE_DIR+'/private_storage/'):
@@ -105,7 +125,7 @@ def unique_file_path(path, dir_path=biomedisa.BASE_DIR+'/private_storage/'):
 def Dice_score(ground_truth, result, average_dice=False):
     if average_dice:
         dice = 0
-        allLabels = np.unique(ground_truth)
+        allLabels = unique(ground_truth)
         for l in allLabels[1:]:
             dice += 2 * np.logical_and(ground_truth==l, result==l).sum() / float((ground_truth==l).sum() + (result==l).sum())
         dice /= float(len(allLabels)-1)
@@ -120,7 +140,7 @@ def ASSD(ground_truth, result):
         number_of_elements = 0
         distances = 0
         hausdorff = 0
-        for label in np.unique(ground_truth)[1:]:
+        for label in unique(ground_truth)[1:]:
             d, n, h = ASSD_one_label(ground_truth, result, label)
             number_of_elements += n
             distances += d
@@ -157,7 +177,7 @@ def img_resize(a, z_shape, y_shape, x_shape, interpolation=None, labels=False):
 
     if labels:
         data = np.zeros((z_shape, y_shape, x_shape), dtype=a.dtype)
-        for k in np.unique(a):
+        for k in unique(a):
             if k!=0:
                 tmp = np.zeros(a.shape, dtype=np.uint8)
                 tmp[a==k] = 1
@@ -193,7 +213,7 @@ def set_labels_to_zero(label, labels_to_compute, labels_to_remove):
     # compute only specific labels (set rest to zero)
     labels_to_compute = labels_to_compute.split(',')
     if not any([x in ['all', 'All', 'ALL'] for x in labels_to_compute]):
-        allLabels = np.unique(label)
+        allLabels = unique(label)
         labels_to_del = [k for k in allLabels if str(k) not in labels_to_compute and k > 0]
         for k in labels_to_del:
             label[label == k] = 0
@@ -430,7 +450,7 @@ def pre_processing(bm):
         bm.labelData = bm.labelData.astype(np.int32)
 
     # get labels
-    bm.allLabels = np.unique(bm.labelData)
+    bm.allLabels = unique(bm.labelData)
     index = np.argwhere(bm.allLabels<0)
     bm.allLabels = np.delete(bm.allLabels, index)
 
@@ -553,7 +573,7 @@ def color_to_gray(labelData):
     return labelData
 
 def delbackground(labels):
-    allLabels, labelcounts = np.unique(labels, return_counts=True)
+    allLabels, labelcounts = unique(labels, return_counts=True)
     index = np.argmax(labelcounts)
     labels[labels==allLabels[index]] = 0
     return labels
@@ -844,9 +864,8 @@ def _split_indices(indices, ngpus):
     return parts
 
 def get_labels(pre_final, labels):
-    numos = np.unique(pre_final)
     final = np.zeros_like(pre_final)
-    for k in numos[1:]:
+    for k in unique(pre_final)[1:]:
         final[pre_final == k] = labels[k]
     return final
 

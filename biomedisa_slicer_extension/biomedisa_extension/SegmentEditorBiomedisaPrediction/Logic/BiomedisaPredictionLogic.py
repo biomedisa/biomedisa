@@ -6,6 +6,7 @@ from slicer import vtkMRMLScalarVolumeNode
 from slicer import vtkMRMLLabelMapVolumeNode
 from biomedisa_extension.SegmentEditorBiomedisaPrediction.Logic.BiomedisaPredictionParameter import BiomedisaPredictionParameter
 from biomedisa_extension.SegmentEditorCommon.Helper import Helper
+from biomedisa.features.biomedisa_helper import unique
 import subprocess
 import tempfile
 from tifffile import imread, imwrite
@@ -30,9 +31,8 @@ class BiomedisaPredictionLogic():
                             volumeNode,
                             dimensions,
                             parameter: BiomedisaPredictionParameter) -> list:
-        uniqueLabels = np.unique(labelmapArray)
         labelMapList = []
-        for label in uniqueLabels:
+        for label in unique(labelmapArray):
             if label == 0:
                 continue
             binaryLabelmapArray = np.where(labelmapArray == label, 1, 0).astype(np.uint8)

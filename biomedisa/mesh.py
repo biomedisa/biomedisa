@@ -30,7 +30,7 @@
 import os
 import numpy as np
 import biomedisa
-from biomedisa.features.biomedisa_helper import load_data, unique_file_path
+from biomedisa.features.biomedisa_helper import load_data, unique_file_path, unique
 from biomedisa.features.django_env import create_pid_object
 from vtk.util.numpy_support import vtk_to_numpy, numpy_to_vtk
 from stl import mesh
@@ -107,7 +107,7 @@ def save_mesh(path_to_result, labels, x_res=1, y_res=1, z_res=1,
 
     # get labels
     zsh, ysh, xsh = labels.shape
-    allLabels = np.unique(labels)
+    allLabels = unique(labels)
     b = np.empty_like(labels)
     arr = np.empty((0,3,3))
     nTotalCells = [0]
