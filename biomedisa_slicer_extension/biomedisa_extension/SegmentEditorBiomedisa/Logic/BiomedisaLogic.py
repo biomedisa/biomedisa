@@ -7,6 +7,7 @@ from slicer import vtkMRMLScalarVolumeNode
 from slicer import vtkMRMLLabelMapVolumeNode
 from Logic.BiomedisaParameter import BiomedisaParameter
 from SegmentEditorCommon.Helper import Helper
+from biomedisa.features.biomedisa_helper import unique
 import subprocess
 import tempfile
 from tifffile import imread, imwrite
@@ -85,7 +86,7 @@ class BiomedisaLogic():
         # unify directions if required
         numpyImage = BiomedisaLogic.unify_to_identity(numpyImage, direction_matrix)
         numpyLabels = BiomedisaLogic.unify_to_identity(numpyLabels, direction_matrix)
-        uniqueLabels = np.unique(numpyLabels)
+        uniqueLabels = unique(numpyLabels)
 
         try:
             from biomedisa_extension.config import python_path, wsl_path

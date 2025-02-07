@@ -1,6 +1,6 @@
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2019-2024 Philipp Lösel. All rights reserved.         ##
+##  Copyright (c) 2019-2025 Philipp Lösel. All rights reserved.         ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -41,7 +41,7 @@ from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.callbacks import Callback, ModelCheckpoint, EarlyStopping
 from biomedisa.features.DataGenerator import DataGenerator
 from biomedisa.features.PredictDataGenerator import PredictDataGenerator
-from biomedisa.features.biomedisa_helper import (
+from biomedisa.features.biomedisa_helper import (unique,
     img_resize, load_data, save_data, set_labels_to_zero, id_generator, unique_file_path)
 from biomedisa.features.remove_outlier import clean, fill
 from biomedisa.features.active_contour import activeContour
@@ -319,9 +319,8 @@ def make_unet(input_shape, nb_labels, filters='32-64-128-256-512', resnet=False)
     return model
 
 def get_labels(arr, allLabels):
-    np_unique = np.unique(arr)
     final = np.zeros_like(arr)
-    for k in np_unique:
+    for k in unique(arr):
         final[arr == k] = allLabels[k]
     return final
 
@@ -412,7 +411,7 @@ def load_training_data(bm, img_list, label_list, channels, img_in=None, label_in
                 argmin_z,argmax_z,argmin_y,argmax_y,argmin_x,argmax_x = predict_blocksize(label, x_puffer, y_puffer, z_puffer)
                 label = label[argmin_z:argmax_z,argmin_y:argmax_y,argmin_x:argmax_x].copy()
             if bm.scaling:
-                label_values, counts = np.unique(label, return_counts=True)
+                label_values, counts = unique(label, return_counts=True)
                 print(f'{os.path.basename(label_names[0])}:', 'Labels:', label_values[1:], 'Sizes:', counts[1:])
                 label = img_resize(label, bm.z_scale, bm.y_scale, bm.x_scale, labels=True)
 
@@ -514,7 +513,7 @@ def load_training_data(bm, img_list, label_list, channels, img_in=None, label_in
                         argmin_z,argmax_z,argmin_y,argmax_y,argmin_x,argmax_x = predict_blocksize(a, x_puffer, y_puffer, z_puffer)
                         a = np.copy(a[argmin_z:argmax_z,argmin_y:argmax_y,argmin_x:argmax_x], order='C')
                     if bm.scaling:
-                        label_values, counts = np.unique(a, return_counts=True)
+                        label_values, counts = unique(a, return_counts=True)
                         print(f'{os.path.basename(label_names[k])}:', 'Labels:', label_values[1:], 'Sizes:', counts[1:])
                         a = img_resize(a, bm.z_scale, bm.y_scale, bm.x_scale, labels=True)
                         label = np.append(label, a, axis=0)
@@ -587,7 +586,7 @@ def load_training_data(bm, img_list, label_list, channels, img_in=None, label_in
     else:
         # get labels
         if allLabels is None:
-            allLabels = np.unique(label)
+            allLabels = unique(label)
             index = np.argwhere(allLabels<0)
             allLabels = np.delete(allLabels, index)
 

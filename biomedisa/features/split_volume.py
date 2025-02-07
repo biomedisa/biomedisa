@@ -132,17 +132,18 @@ if __name__ == '__main__':
                     labelData = labelData[datamin_z:datamax_z,datamin_y:datamax_y,datamin_x:datamax_x].copy()
 
                 # interpolation
-                results = smart_interpolation(data, labelData, uncertainty=args.uncertainty, allaxis=args.allaxis, smooth=args.smooth)
+                if np.any(labelData):
+                    results = smart_interpolation(data, labelData, uncertainty=args.uncertainty, allaxis=args.allaxis, smooth=args.smooth)
 
-                # append results
-                final[blockmin_z:blockmax_z,blockmin_y:blockmax_y,blockmin_x:blockmax_x] \
-                    = results['regular'][blockmin_z-datamin_z:blockmax_z-datamin_z,blockmin_y-datamin_y:blockmax_y-datamin_y,blockmin_x-datamin_x:blockmax_x-datamin_x]
-                if 'smooth' in results and results['smooth'] is not None:
-                    final_smooth[blockmin_z:blockmax_z,blockmin_y:blockmax_y,blockmin_x:blockmax_x] \
-                        = results['smooth'][blockmin_z-datamin_z:blockmax_z-datamin_z,blockmin_y-datamin_y:blockmax_y-datamin_y,blockmin_x-datamin_x:blockmax_x-datamin_x]
-                if 'uncertainty' in results and results['uncertainty'] is not None:
-                    final_uncertainty[blockmin_z:blockmax_z,blockmin_y:blockmax_y,blockmin_x:blockmax_x] \
-                        = results['uncertainty'][blockmin_z-datamin_z:blockmax_z-datamin_z,blockmin_y-datamin_y:blockmax_y-datamin_y,blockmin_x-datamin_x:blockmax_x-datamin_x]
+                    # append results
+                    final[blockmin_z:blockmax_z,blockmin_y:blockmax_y,blockmin_x:blockmax_x] \
+                        = results['regular'][blockmin_z-datamin_z:blockmax_z-datamin_z,blockmin_y-datamin_y:blockmax_y-datamin_y,blockmin_x-datamin_x:blockmax_x-datamin_x]
+                    if 'smooth' in results and results['smooth'] is not None:
+                        final_smooth[blockmin_z:blockmax_z,blockmin_y:blockmax_y,blockmin_x:blockmax_x] \
+                            = results['smooth'][blockmin_z-datamin_z:blockmax_z-datamin_z,blockmin_y-datamin_y:blockmax_y-datamin_y,blockmin_x-datamin_x:blockmax_x-datamin_x]
+                    if 'uncertainty' in results and results['uncertainty'] is not None:
+                        final_uncertainty[blockmin_z:blockmax_z,blockmin_y:blockmax_y,blockmin_x:blockmax_x] \
+                            = results['uncertainty'][blockmin_z-datamin_z:blockmax_z-datamin_z,blockmin_y-datamin_y:blockmax_y-datamin_y,blockmin_x-datamin_x:blockmax_x-datamin_x]
 
     # path to regular result
     filename, extension = os.path.splitext(os.path.basename(args.path_to_data))
