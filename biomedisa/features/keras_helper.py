@@ -418,8 +418,6 @@ def load_training_data(bm, img_list, label_list, channels, img_in=None, label_in
 
             # if header is not single data stream Amira Mesh falling back to Multi-TIFF
             if extension != '.am':
-                if extension != '.tif':
-                    print(f'Warning! Please use --header_file="path_to_training_label{extension}" for prediction to save your result as "{extension}"')
                 extension, header = '.tif', None
             elif len(header) > 1:
                 print('Warning! Multiple data streams are not supported. Falling back to TIFF.')
@@ -457,23 +455,44 @@ def load_training_data(bm, img_list, label_list, channels, img_in=None, label_in
             if any([bm.x_range, bm.y_range, bm.z_range]) or bm.crop_data:
                 img = img[argmin_z:argmax_z,argmin_y:argmax_y,argmin_x:argmax_x].copy()
 
-            # scale/resize image data
-            img = img.astype(np.float32)
+            # resize image data
             if bm.scaling:
+                img = img.astype(np.float32)
                 img = img_resize(img, bm.z_scale, bm.y_scale, bm.x_scale)
 
-            # normalize image data
-            for c in range(channels):
-                img[:,:,:,c] -= np.amin(img[:,:,:,c])
-                img[:,:,:,c] /= np.amax(img[:,:,:,c])
-                if normalization_parameters is None:
-                    normalization_parameters = np.zeros((2,channels))
-                    normalization_parameters[0,c] = np.mean(img[:,:,:,c])
-                    normalization_parameters[1,c] = np.std(img[:,:,:,c])
-                elif bm.normalize:
+            # scale data to the range from 0 to 1
+            if not bm.patch_normalization:
+                img = img.astype(np.float32)
+                for c in range(channels):
+                    img[:,:,:,c] -= np.amin(img[:,:,:,c])
+                    img[:,:,:,c] /= np.amax(img[:,:,:,c])
+
+            # normalize first validation image
+            if bm.normalize and np.any(normalization_parameters):
+                img = img.astype(np.float32)
+                for c in range(channels):
                     mean, std = np.mean(img[:,:,:,c]), np.std(img[:,:,:,c])
                     img[:,:,:,c] = (img[:,:,:,c] - mean) / std
                     img[:,:,:,c] = img[:,:,:,c] * normalization_parameters[1,c] + normalization_parameters[0,c]
+
+            # get normalization parameters from first image
+            if normalization_parameters is None:
+                normalization_parameters = np.zeros((2,channels))
+                if bm.normalize:
+                    for c in range(channels):
+                        normalization_parameters[0,c] = np.mean(img[:,:,:,c])
+                        normalization_parameters[1,c] = np.std(img[:,:,:,c])
+
+            # pad data
+            if not bm.scaling:
+                img_data_list = [img]
+                label_data_list = [label]
+                # no-scaling for list of images needs negative values as it encodes padded areas as -1
+                label_dtype = label.dtype
+                if label_dtype==np.uint8:
+                    label_dtype = np.int16
+                elif label_dtype in [np.uint16, np.uint32]:
+                    label_dtype = np.int32
 
             # loop over list of images
             if any(img_list) or type(img_in) is list:
@@ -498,7 +517,9 @@ def load_training_data(bm, img_list, label_list, channels, img_in=None, label_in
                         label_values, counts = np.unique(a, return_counts=True)
                         print(f'{os.path.basename(label_names[k])}:', 'Labels:', label_values[1:], 'Sizes:', counts[1:])
                         a = img_resize(a, bm.z_scale, bm.y_scale, bm.x_scale, labels=True)
-                    label = np.append(label, a, axis=0)
+                        label = np.append(label, a, axis=0)
+                    else:
+                        label_data_list.append(a)
 
                     # append image
                     if any(img_list):
@@ -519,21 +540,47 @@ def load_training_data(bm, img_list, label_list, channels, img_in=None, label_in
                         raise InputError()
                     if bm.crop_data:
                         a = np.copy(a[argmin_z:argmax_z,argmin_y:argmax_y,argmin_x:argmax_x], order='C')
-                    a = a.astype(np.float32)
                     if bm.scaling:
+                        a = a.astype(np.float32)
                         a = img_resize(a, bm.z_scale, bm.y_scale, bm.x_scale)
-                    for c in range(channels):
-                        a[:,:,:,c] -= np.amin(a[:,:,:,c])
-                        a[:,:,:,c] /= np.amax(a[:,:,:,c])
-                        if bm.normalize:
+                    if not bm.patch_normalization:
+                        a = a.astype(np.float32)
+                        for c in range(channels):
+                            a[:,:,:,c] -= np.amin(a[:,:,:,c])
+                            a[:,:,:,c] /= np.amax(a[:,:,:,c])
+                    if bm.normalize:
+                        a = a.astype(np.float32)
+                        for c in range(channels):
                             mean, std = np.mean(a[:,:,:,c]), np.std(a[:,:,:,c])
                             a[:,:,:,c] = (a[:,:,:,c] - mean) / std
                             a[:,:,:,c] = a[:,:,:,c] * normalization_parameters[1,c] + normalization_parameters[0,c]
-                    img = np.append(img, a, axis=0)
+                    if bm.scaling:
+                        img = np.append(img, a, axis=0)
+                    else:
+                        img_data_list.append(a)
+
+    # pad and append data to a single volume
+    if not bm.scaling and len(img_data_list)>1:
+        target_y, target_x = 0, 0
+        for img in img_data_list:
+            target_y = max(target_y, img.shape[1])
+            target_x = max(target_x, img.shape[2])
+        img = np.empty((0, target_y, target_x, channels), dtype=np.float32)
+        label = np.empty((0, target_y, target_x), dtype=label_dtype)
+        for k in range(len(img_data_list)):
+            pad_y = target_y - img_data_list[k].shape[1]
+            pad_x = target_x - img_data_list[k].shape[2]
+            pad_width = [(0, 0), (0, pad_y), (0, pad_x), (0, 0)]
+            tmp = np.pad(img_data_list[k], pad_width, mode='constant', constant_values=0)
+            img = np.append(img, tmp, axis=0)
+            pad_width = [(0, 0), (0, pad_y), (0, pad_x)]
+            tmp = np.pad(label_data_list[k].astype(label_dtype), pad_width, mode='constant', constant_values=-1)
+            label = np.append(label, tmp, axis=0)
 
     # limit intensity range
-    img[img<0] = 0
-    img[img>1] = 1
+    if bm.normalize:
+        img[img<0] = 0
+        img[img>1] = 1
 
     if bm.separation:
         allLabels = np.array([0,1])
@@ -541,6 +588,8 @@ def load_training_data(bm, img_list, label_list, channels, img_in=None, label_in
         # get labels
         if allLabels is None:
             allLabels = np.unique(label)
+            index = np.argwhere(allLabels<0)
+            allLabels = np.delete(allLabels, index)
 
         # labels must be in ascending order
         for k, l in enumerate(allLabels):
@@ -761,6 +810,35 @@ class Metrics(Callback):
                 if self.early_stopping > 0 and max(self.history['val_dice']) not in self.history['val_dice'][-self.early_stopping:]:
                     self.model.stop_training = True
 
+class HistoryCallback(Callback):
+    def __init__(self, bm):
+        self.path_to_model = bm.path_to_model
+        self.train_dice = bm.train_dice
+        self.val_img_data = bm.val_img_data
+
+    def on_train_begin(self, logs={}):
+        self.history = {}
+        self.history['loss'] = []
+        self.history['accuracy'] = []
+        if self.train_dice:
+            self.history['dice'] = []
+        if self.val_img_data is not None:
+            self.history['val_loss'] = []
+            self.history['val_accuracy'] = []
+
+    def on_epoch_end(self, epoch, logs={}):
+        # append history
+        self.history['loss'].append(logs['loss'])
+        self.history['accuracy'].append(logs['accuracy'])
+        if self.train_dice:
+            self.history['dice'].append(logs['dice'])
+        if self.val_img_data is not None:
+            self.history['val_loss'].append(logs['val_loss'])
+            self.history['val_accuracy'].append(logs['val_accuracy'])
+
+        # plot history in figure and save as numpy array
+        save_history(self.history, self.path_to_model)
+
 def softmax(x):
     # Avoiding numerical instability by subtracting the maximum value
     exp_values = np.exp(x - np.max(x, axis=-1, keepdims=True))
@@ -833,25 +911,30 @@ def train_segmentation(bm):
     list_IDs_fg, list_IDs_bg = [], []
 
     # get IDs of patches
-    if bm.balance:
-        for k in range(0, zsh-bm.z_patch+1, bm.stride_size):
-            for l in range(0, ysh-bm.y_patch+1, bm.stride_size):
-                for m in range(0, xsh-bm.x_patch+1, bm.stride_size):
-                    if np.any(bm.label_data[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]):
-                        list_IDs_fg.append(k*ysh*xsh+l*xsh+m)
+    for k in range(0, zsh-bm.z_patch+1, bm.stride_size):
+        for l in range(0, ysh-bm.y_patch+1, bm.stride_size):
+            for m in range(0, xsh-bm.x_patch+1, bm.stride_size):
+                patch = bm.label_data[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]
+                index = k*ysh*xsh+l*xsh+m
+                if not np.any(patch==-1): # ignore padded areas
+                    if bm.balance:
+                        if bm.separation:
+                            centerLabel = bm.label_data[k+bm.z_patch//2,l+bm.y_patch//2,m+bm.x_patch//2]
+                            if centerLabel>0 and np.any(np.logical_and(patch!=centerLabel, patch>0)):
+                                list_IDs_fg.append(index)
+                            elif centerLabel>0 and np.any(patch!=centerLabel):
+                                list_IDs_bg.append(index)
+                        elif np.any(patch>0):
+                            list_IDs_fg.append(index)
+                        else:
+                            list_IDs_bg.append(index)
                     else:
-                        list_IDs_bg.append(k*ysh*xsh+l*xsh+m)
-    else:
-        for k in range(0, zsh-bm.z_patch+1, bm.stride_size):
-            for l in range(0, ysh-bm.y_patch+1, bm.stride_size):
-                for m in range(0, xsh-bm.x_patch+1, bm.stride_size):
-                    if bm.separation:
-                        centerLabel = bm.label_data[k+bm.z_patch//2,l+bm.y_patch//2,m+bm.x_patch//2]
-                        patch = bm.label_data[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]
-                        if centerLabel>0 and np.any(patch!=centerLabel):
-                            list_IDs_fg.append(k*ysh*xsh+l*xsh+m)
-                    else:
-                        list_IDs_fg.append(k*ysh*xsh+l*xsh+m)
+                        if bm.separation:
+                            centerLabel = bm.label_data[k+bm.z_patch//2,l+bm.y_patch//2,m+bm.x_patch//2]
+                            if centerLabel>0 and np.any(patch!=centerLabel):
+                                list_IDs_fg.append(index)
+                        else:
+                            list_IDs_fg.append(index)
 
     if bm.val_img_data is not None:
 
@@ -862,25 +945,35 @@ def train_segmentation(bm):
         list_IDs_val_fg, list_IDs_val_bg = [], []
 
         # get validation IDs of patches
-        if bm.balance and not bm.val_dice:
-            for k in range(0, zsh_val-bm.z_patch+1, bm.validation_stride_size):
-                for l in range(0, ysh_val-bm.y_patch+1, bm.validation_stride_size):
-                    for m in range(0, xsh_val-bm.x_patch+1, bm.validation_stride_size):
-                        if np.any(bm.val_label_data[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]):
-                            list_IDs_val_fg.append(k*ysh_val*xsh_val+l*xsh_val+m)
+        for k in range(0, zsh_val-bm.z_patch+1, bm.validation_stride_size):
+            for l in range(0, ysh_val-bm.y_patch+1, bm.validation_stride_size):
+                for m in range(0, xsh_val-bm.x_patch+1, bm.validation_stride_size):
+                    patch = bm.val_label_data[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]
+                    index = k*ysh_val*xsh_val+l*xsh_val+m
+                    if not np.any(patch==-1): # ignore padded areas
+                        if bm.balance and not bm.val_dice:
+                            if bm.separation:
+                                centerLabel = bm.val_label_data[k+bm.z_patch//2,l+bm.y_patch//2,m+bm.x_patch//2]
+                                if centerLabel>0 and np.any(np.logical_and(patch!=centerLabel, patch>0)):
+                                    list_IDs_val_fg.append(index)
+                                elif centerLabel>0 and np.any(patch!=centerLabel):
+                                    list_IDs_val_bg.append(index)
+                            elif np.any(patch>0):
+                                list_IDs_val_fg.append(index)
+                            else:
+                                list_IDs_val_bg.append(index)
                         else:
-                            list_IDs_val_bg.append(k*ysh_val*xsh_val+l*xsh_val+m)
-        else:
-            for k in range(0, zsh_val-bm.z_patch+1, bm.validation_stride_size):
-                for l in range(0, ysh_val-bm.y_patch+1, bm.validation_stride_size):
-                    for m in range(0, xsh_val-bm.x_patch+1, bm.validation_stride_size):
-                        if bm.separation:
-                            centerLabel = bm.val_label_data[k+bm.z_patch//2,l+bm.y_patch//2,m+bm.x_patch//2]
-                            patch = bm.val_label_data[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]
-                            if centerLabel>0 and np.any(patch!=centerLabel):
-                                list_IDs_val_fg.append(k*ysh_val*xsh_val+l*xsh_val+m)
-                        else:
-                            list_IDs_val_fg.append(k*ysh_val*xsh_val+l*xsh_val+m)
+                            if bm.separation:
+                                centerLabel = bm.val_label_data[k+bm.z_patch//2,l+bm.y_patch//2,m+bm.x_patch//2]
+                                if centerLabel>0 and np.any(patch!=centerLabel):
+                                    list_IDs_val_fg.append(index)
+                            else:
+                                list_IDs_val_fg.append(index)
+
+    # remove padding label
+    bm.label_data[bm.label_data<0]=0
+    if bm.val_img_data is not None:
+        bm.val_label_data[bm.val_label_data<0]=0
 
     # number of labels
     nb_labels = len(allLabels)
@@ -968,11 +1061,11 @@ def train_segmentation(bm):
                 monitor='val_accuracy',
                 mode='max',
                 save_best_only=True)
-            callbacks = [model_checkpoint_callback, meta_data]
+            callbacks = [model_checkpoint_callback, HistoryCallback(bm), meta_data]
             if bm.early_stopping > 0:
                 callbacks.insert(0, EarlyStopping(monitor='val_accuracy', mode='max', patience=bm.early_stopping))
     else:
-        callbacks = [ModelCheckpoint(filepath=str(bm.path_to_model)), meta_data]
+        callbacks = [ModelCheckpoint(filepath=str(bm.path_to_model)), HistoryCallback(bm), meta_data]
 
     # monitor dice score on training data
     if bm.train_dice:
@@ -983,15 +1076,11 @@ def train_segmentation(bm):
         callbacks.insert(-1, CustomCallback(bm.img_id, bm.epochs))
 
     # train model
-    history = model.fit(training_generator,
-              epochs=bm.epochs,
-              validation_data=validation_generator,
-              callbacks=callbacks,
-              workers=bm.workers)
-
-    # save monitoring figure on train end
-    if bm.val_img_data is None or not bm.val_dice:
-        save_history(history.history, bm.path_to_model)
+    model.fit(training_generator,
+        epochs=bm.epochs,
+        validation_data=validation_generator,
+        callbacks=callbacks,
+        workers=bm.workers)
 
 def load_prediction_data(bm, channels, normalize, normalization_parameters,
     region_of_interest, img, img_header, load_blockwise=False, z=None):
@@ -1099,6 +1188,21 @@ def gradient(volData):
 
 def predict_segmentation(bm, region_of_interest, channels, normalization_parameters):
 
+    from mpi4py import MPI
+    comm = MPI.COMM_WORLD
+    rank = comm.Get_rank()
+    ngpus = comm.Get_size()
+
+    # Set the visible GPU by ID
+    gpus = tf.config.experimental.list_physical_devices('GPU')
+    if gpus:
+        try:
+            # Restrict TensorFlow to only use the specified GPU
+            tf.config.experimental.set_visible_devices(gpus[rank], 'GPU')
+            tf.config.experimental.set_memory_growth(gpus[rank], True)
+        except RuntimeError as e:
+            print(e)
+
     # initialize results
     results = {}
 
@@ -1125,6 +1229,7 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
     load_blockwise = False
     if not bm.scaling and not bm.normalize and bm.path_to_image and not np.any(region_of_interest) and \
       os.path.splitext(bm.path_to_image)[1] in ['.tif', '.tiff'] and not bm.acwe:
+        # get image shape
         tif = TiffFile(bm.path_to_image)
         zsh = len(tif.pages)
         ysh, xsh = tif.pages[0].shape
@@ -1240,17 +1345,23 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
         # stream data batchwise to GPU to reduce memory usage
         X = np.empty((bm.batch_size, bm.z_patch, bm.y_patch, bm.x_patch, channels), dtype=np.float32)
 
-        # allocate final array
-        if bm.return_probs:
+        # allocate final probabilities array
+        if rank==0 and bm.return_probs:
             final = np.zeros((zsh, ysh, xsh, nb_labels), dtype=np.float32)
 
-        # allocate result array
-        label = np.zeros((zsh, ysh, xsh), dtype=np.uint8)
+        # allocate final result array
+        if rank==0:
+            label = np.zeros((zsh, ysh, xsh), dtype=np.uint8)
 
         # predict segmentation block by block
         z_indices = range(0, zsh-bm.z_patch+1, bm.stride_size)
         for j, z in enumerate(z_indices):
-
+          # handle len(z_indices) % ngpus != 0
+          if len(z_indices)-1-j < ngpus:
+            nprocs = len(z_indices)-j
+          else:
+            nprocs = ngpus
+          if j % ngpus == rank:
             # load blockwise from TIFF
             if load_blockwise:
                 img, _, _, _, _, _, _ = load_prediction_data(bm,
@@ -1284,8 +1395,11 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
             # number of patches
             nb_patches = len(list_IDs_block)
 
-            # allocate tmp probabilities array
-            probs = np.zeros((bm.z_patch, ysh, xsh, nb_labels), dtype=np.float32)
+            # allocate block array
+            if bm.separation:
+                block_label = np.zeros((bm.z_patch, ysh, xsh), dtype=np.uint8)
+            else:
+                block_probs = np.zeros((bm.z_patch, ysh, xsh, nb_labels), dtype=np.float32)
 
             # get one batch of image patches
             for step in range(nb_patches//bm.batch_size):
@@ -1317,157 +1431,186 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
                     if step*bm.batch_size+i < max_i_block:
                         if bm.separation:
                             patch = np.argmax(Y[i], axis=-1).astype(np.uint8)
-                            label[z:z+bm.z_patch,l:l+bm.y_patch,m:m+bm.x_patch] += gradient(patch)
+                            block_label[:,l:l+bm.y_patch,m:m+bm.x_patch] += gradient(patch)
                         else:
-                            probs[:,l:l+bm.y_patch,m:m+bm.x_patch] += Y[i]
+                            block_probs[:,l:l+bm.y_patch,m:m+bm.x_patch] += Y[i]
 
-            if not bm.separation:
-                # overlap in z direction
-                if bm.stride_size < bm.z_patch:
-                    if j>0:
-                        probs[:bm.stride_size] += overlap
-                    overlap = probs[bm.stride_size:].copy()
-
-                # calculate result
-                if z==z_indices[-1]:
-                    label[z:z+bm.z_patch] = np.argmax(probs, axis=-1).astype(np.uint8)
-                    if bm.return_probs:
-                        final[z:z+bm.z_patch] = probs
+            # communicate results
+            if bm.separation:
+                if rank==0:
+                    label[z:z+bm.z_patch] += block_label
+                    for source in range(1, nprocs):
+                        receivedata = np.empty_like(block_label)
+                        for i in range(bm.z_patch):
+                            comm.Recv([receivedata[i], MPI.BYTE], source=source, tag=i)
+                        block_start = z_indices[j+source]
+                        label[block_start:block_start+bm.z_patch] += receivedata
                 else:
-                    block_zsh = min(bm.stride_size, bm.z_patch)
-                    label[z:z+block_zsh] = np.argmax(probs[:block_zsh], axis=-1).astype(np.uint8)
-                    if bm.return_probs:
-                        final[z:z+block_zsh] = probs[:block_zsh]
+                    for i in range(bm.z_patch):
+                        comm.Send([block_label[i].copy(), MPI.BYTE], dest=0, tag=i)
+            else:
+                if rank==0:
+                    for source in range(nprocs):
+                        if source>0:
+                            probs = np.empty_like(block_probs)
+                            for i in range(bm.z_patch):
+                                comm.Recv([probs[i], MPI.FLOAT], source=source, tag=i)
+                        else:
+                            probs = block_probs
 
-    # refine mask data with result
-    if bm.refinement:
-        # loop over boundary patches
-        for i, ID in enumerate(list_IDs):
-            if i < max_i:
-                k = ID // (ysh*xsh)
-                rest = ID % (ysh*xsh)
-                l = rest // xsh
-                m = rest % xsh
-                mask[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch] = label[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]
-        label = mask
+                        # overlap in z direction
+                        if bm.stride_size < bm.z_patch:
+                            if j+source>0:
+                                probs[:bm.stride_size] += overlap
+                            overlap = probs[bm.stride_size:].copy()
 
-    # remove appendix
-    if bm.return_probs:
-        final = final[:-z_rest,:-y_rest,:-x_rest]
-    label = label[:-z_rest,:-y_rest,:-x_rest]
-    zsh, ysh, xsh = label.shape
+                        # calculate result
+                        block_z = z_indices[j+source]
+                        if j+source==len(z_indices)-1:
+                            label[block_z:block_z+bm.z_patch] = np.argmax(probs, axis=-1).astype(np.uint8)
+                            if bm.return_probs:
+                                final[block_z:block_z+bm.z_patch] = probs
+                        else:
+                            block_zsh = min(bm.stride_size, bm.z_patch)
+                            label[block_z:block_z+block_zsh] = np.argmax(probs[:block_zsh], axis=-1).astype(np.uint8)
+                            if bm.return_probs:
+                                final[block_z:block_z+block_zsh] = probs[:block_zsh]
+                else:
+                    for i in range(bm.z_patch):
+                        comm.Send([block_probs[i].copy(), MPI.FLOAT], dest=0, tag=i)
+    if rank==0:
 
-    # return probabilities
-    if bm.return_probs:
-        counter = np.zeros((zsh, ysh, xsh, nb_labels), dtype=np.float32)
-        nb = 0
-        for k in range(0, zsh-bm.z_patch+1, bm.stride_size):
-            for l in range(0, ysh-bm.y_patch+1, bm.stride_size):
-                for m in range(0, xsh-bm.x_patch+1, bm.stride_size):
-                    counter[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch] += 1
-                    nb += 1
-        counter[counter==0] = 1
-        probabilities = final / counter
+        # refine mask data with result
+        if bm.refinement:
+            # loop over boundary patches
+            for i, ID in enumerate(list_IDs):
+                if i < max_i:
+                    k = ID // (ysh*xsh)
+                    rest = ID % (ysh*xsh)
+                    l = rest // xsh
+                    m = rest % xsh
+                    mask[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch] = label[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]
+            label = mask
+
+        # remove appendix
+        if bm.return_probs:
+            final = final[:-z_rest,:-y_rest,:-x_rest]
+        label = label[:-z_rest,:-y_rest,:-x_rest]
+        zsh, ysh, xsh = label.shape
+
+        # return probabilities
+        if bm.return_probs:
+            counter = np.zeros((zsh, ysh, xsh, nb_labels), dtype=np.float32)
+            nb = 0
+            for k in range(0, zsh-bm.z_patch+1, bm.stride_size):
+                for l in range(0, ysh-bm.y_patch+1, bm.stride_size):
+                    for m in range(0, xsh-bm.x_patch+1, bm.stride_size):
+                        counter[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch] += 1
+                        nb += 1
+            counter[counter==0] = 1
+            probabilities = final / counter
+            if bm.scaling:
+                probabilities = img_resize(probabilities, z_shape, y_shape, x_shape)
+            if np.any(region_of_interest):
+                min_z,max_z,min_y,max_y,min_x,max_x,original_zsh,original_ysh,original_xsh = region_of_interest[:]
+                tmp = np.zeros((original_zsh, original_ysh, original_xsh, nb_labels), dtype=np.float32)
+                tmp[min_z:max_z,min_y:max_y,min_x:max_x] = probabilities
+                probabilities = np.copy(tmp, order='C')
+            results['probs'] = probabilities
+
+        # rescale final to input size
         if bm.scaling:
-            probabilities = img_resize(probabilities, z_shape, y_shape, x_shape)
+            label = img_resize(label, z_shape, y_shape, x_shape, labels=True)
+
+        # revert automatic cropping
         if np.any(region_of_interest):
             min_z,max_z,min_y,max_y,min_x,max_x,original_zsh,original_ysh,original_xsh = region_of_interest[:]
-            tmp = np.zeros((original_zsh, original_ysh, original_xsh, nb_labels), dtype=np.float32)
-            tmp[min_z:max_z,min_y:max_y,min_x:max_x] = probabilities
-            probabilities = np.copy(tmp, order='C')
-        results['probs'] = probabilities
+            tmp = np.zeros((original_zsh, original_ysh, original_xsh), dtype=np.uint8)
+            tmp[min_z:max_z,min_y:max_y,min_x:max_x] = label
+            label = np.copy(tmp, order='C')
 
-    # rescale final to input size
-    if bm.scaling:
-        label = img_resize(label, z_shape, y_shape, x_shape, labels=True)
+        # get result
+        if not bm.separation:
+            label = get_labels(label, bm.allLabels)
+        results['regular'] = label
 
-    # revert automatic cropping
-    if np.any(region_of_interest):
-        min_z,max_z,min_y,max_y,min_x,max_x,original_zsh,original_ysh,original_xsh = region_of_interest[:]
-        tmp = np.zeros((original_zsh, original_ysh, original_xsh), dtype=np.uint8)
-        tmp[min_z:max_z,min_y:max_y,min_x:max_x] = label
-        label = np.copy(tmp, order='C')
+        # load header from file
+        if bm.header_file and os.path.exists(bm.header_file):
+            _, bm.header = load_data(bm.header_file)
+            # update file extension
+            if bm.header is not None and bm.path_to_image:
+                bm.extension = os.path.splitext(bm.header_file)[1]
+                if bm.extension == '.gz':
+                    bm.extension = '.nii.gz'
+                bm.path_to_final = os.path.splitext(bm.path_to_final)[0] + bm.extension
+                if bm.django_env and not bm.remote and not bm.tarfile:
+                    bm.path_to_final = unique_file_path(bm.path_to_final)
 
-    # get result
-    if not bm.separation:
-        label = get_labels(label, bm.allLabels)
-    results['regular'] = label
+        # handle amira header
+        if bm.header is not None:
+            if bm.extension == '.am':
+                bm.header = set_image_dimensions(bm.header[0], label)
+                if bm.img_header is not None:
+                    try:
+                        bm.header = set_physical_size(bm.header, bm.img_header[0])
+                    except:
+                        pass
+                bm.header = [bm.header]
+            else:
+                # build new header
+                if bm.img_header is None:
+                    zsh, ysh, xsh = label.shape
+                    bm.img_header = sitk.Image(xsh, ysh, zsh, bm.header.GetPixelID())
+                # copy metadata
+                for key in bm.header.GetMetaDataKeys():
+                    if not (re.match(r'Segment\d+_Extent$', key) or key=='Segmentation_ConversionParameters'):
+                        bm.img_header.SetMetaData(key, bm.header.GetMetaData(key))
+                bm.header = bm.img_header
+        results['header'] = bm.header
 
-    # load header from file
-    if bm.header_file and os.path.exists(bm.header_file):
-        _, bm.header = load_data(bm.header_file)
-        # update file extension
-        if bm.header is not None and bm.path_to_image:
-            bm.extension = os.path.splitext(bm.header_file)[1]
+        # save result
+        if bm.path_to_image:
+            save_data(bm.path_to_final, label, header=bm.header, compress=bm.compression)
+
+            # paths to optional results
+            filename, bm.extension = os.path.splitext(bm.path_to_final)
             if bm.extension == '.gz':
                 bm.extension = '.nii.gz'
-            bm.path_to_final = os.path.splitext(bm.path_to_final)[0] + bm.extension
-            if bm.django_env and not bm.remote and not bm.tarfile:
-                bm.path_to_final = unique_file_path(bm.path_to_final)
+                filename = filename[:-4]
+            path_to_cleaned = filename + '.cleaned' + bm.extension
+            path_to_filled = filename + '.filled' + bm.extension
+            path_to_cleaned_filled = filename + '.cleaned.filled' + bm.extension
+            path_to_refined = filename + '.refined' + bm.extension
+            path_to_acwe = filename + '.acwe' + bm.extension
 
-    # handle amira header
-    if bm.header is not None:
-        if bm.extension == '.am':
-            bm.header = set_image_dimensions(bm.header[0], label)
-            if bm.img_header is not None:
-                try:
-                    bm.header = set_physical_size(bm.header, bm.img_header[0])
-                except:
-                    pass
-            bm.header = [bm.header]
-        else:
-            # build new header
-            if bm.img_header is None:
-                zsh, ysh, xsh = label.shape
-                bm.img_header = sitk.Image(xsh, ysh, zsh, bm.header.GetPixelID())
-            # copy metadata
-            for key in bm.header.GetMetaDataKeys():
-                if not (re.match(r'Segment\d+_Extent$', key) or key=='Segmentation_ConversionParameters'):
-                    bm.img_header.SetMetaData(key, bm.header.GetMetaData(key))
-            bm.header = bm.img_header
-    results['header'] = bm.header
+        # remove outliers
+        if bm.clean:
+            cleaned_result = clean(label, bm.clean)
+            results['cleaned'] = cleaned_result
+            if bm.path_to_image:
+                save_data(path_to_cleaned, cleaned_result, header=bm.header, compress=bm.compression)
+        if bm.fill:
+            filled_result = clean(label, bm.fill)
+            results['filled'] = filled_result
+            if bm.path_to_image:
+                save_data(path_to_filled, filled_result, header=bm.header, compress=bm.compression)
+        if bm.clean and bm.fill:
+            cleaned_filled_result = cleaned_result + (filled_result - label)
+            results['cleaned_filled'] = cleaned_filled_result
+            if bm.path_to_image:
+                save_data(path_to_cleaned_filled, cleaned_filled_result, header=bm.header, compress=bm.compression)
 
-    # save result
-    if bm.path_to_image:
-        save_data(bm.path_to_final, label, header=bm.header, compress=bm.compression)
+        # post-processing with active contour
+        if bm.acwe:
+            acwe_result = activeContour(bm.img_data, label, bm.acwe_alpha, bm.acwe_smooth, bm.acwe_steps)
+            refined_result = activeContour(bm.img_data, label, simple=True)
+            results['acwe'] = acwe_result
+            results['refined'] = refined_result
+            if bm.path_to_image:
+                save_data(path_to_acwe, acwe_result, header=bm.header, compress=bm.compression)
+                save_data(path_to_refined, refined_result, header=bm.header, compress=bm.compression)
 
-        # paths to optional results
-        filename, bm.extension = os.path.splitext(bm.path_to_final)
-        if bm.extension == '.gz':
-            bm.extension = '.nii.gz'
-            filename = filename[:-4]
-        path_to_cleaned = filename + '.cleaned' + bm.extension
-        path_to_filled = filename + '.filled' + bm.extension
-        path_to_cleaned_filled = filename + '.cleaned.filled' + bm.extension
-        path_to_refined = filename + '.refined' + bm.extension
-        path_to_acwe = filename + '.acwe' + bm.extension
-
-    # remove outliers
-    if bm.clean:
-        cleaned_result = clean(label, bm.clean)
-        results['cleaned'] = cleaned_result
-        if bm.path_to_image:
-            save_data(path_to_cleaned, cleaned_result, header=bm.header, compress=bm.compression)
-    if bm.fill:
-        filled_result = clean(label, bm.fill)
-        results['filled'] = filled_result
-        if bm.path_to_image:
-            save_data(path_to_filled, filled_result, header=bm.header, compress=bm.compression)
-    if bm.clean and bm.fill:
-        cleaned_filled_result = cleaned_result + (filled_result - label)
-        results['cleaned_filled'] = cleaned_filled_result
-        if bm.path_to_image:
-            save_data(path_to_cleaned_filled, cleaned_filled_result, header=bm.header, compress=bm.compression)
-
-    # post-processing with active contour
-    if bm.acwe:
-        acwe_result = activeContour(bm.img_data, label, bm.acwe_alpha, bm.acwe_smooth, bm.acwe_steps)
-        refined_result = activeContour(bm.img_data, label, simple=True)
-        results['acwe'] = acwe_result
-        results['refined'] = refined_result
-        if bm.path_to_image:
-            save_data(path_to_acwe, acwe_result, header=bm.header, compress=bm.compression)
-            save_data(path_to_refined, refined_result, header=bm.header, compress=bm.compression)
-
-    return results, bm
+        return results, bm
+    else:
+        return None, None
 

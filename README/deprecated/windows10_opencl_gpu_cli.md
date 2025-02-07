@@ -1,13 +1,13 @@
 # Windows 10 + OpenCL + GPU (command-line-only)
 
-- [Install NVIDIA driver](#install-nvidia-driver)
+- [Install NVIDIA Driver](#install-nvidia-driver)
 - [Install Microsoft MPI](#install-microsoft-mpi)
 - [Install Anaconda3](#install-anaconda3)
-- [Install Biomedisa environment](#install-biomedisa-environment)
-- [Biomedisa examples](#biomedisa-examples)
+- [Install Biomedisa Environment](#install-biomedisa-environment)
+- [Biomedisa Examples](#biomedisa-examples)
 - [Update Biomedisa](#update-biomedisa)
-- [Remove Biomedisa environment](#remove-biomedisa-environment)
-- [Install Biomedisa from source (optional)](#install-biomedisa-from-source-optional)
+- [Remove Biomedisa Environment](#remove-biomedisa-environment)
+- [Install Biomedisa from Source (Optional)](#install-biomedisa-from-source-optional)
 
 #### Install NVIDIA Driver
 Download and install [NVIDIA](https://www.nvidia.com/Download/Find.aspx?lang=en-us).  
@@ -21,17 +21,17 @@ Select "msmpisetup.exe"
 ```
 
 #### Install Anaconda3
-Download and install [Anaconda3](https://www.anaconda.com/products/individual#windows).
+Download and install [Anaconda3](https://repo.anaconda.com/archive/Anaconda3-2024.10-1-Windows-x86_64.exe).
 
-#### Install Biomedisa environment
-Download [Biomedisa environment](https://biomedisa.info/media/conda_environment.yml).
-Open Anaconda Prompt (e.g. Windows Search `Anaconda Prompt`) and install Biomedisa:
+#### Install Biomedisa Environment
+Open Anaconda Prompt (e.g. Windows Search `Anaconda Prompt`). Download and install Biomedisa:
 ```
-conda env create -f C:\Users\%USERNAME%\Downloads\conda_environment.yml
+curl https://raw.githubusercontent.com/biomedisa/biomedisa/refs/heads/master/conda_environment.yml --output conda_environment.yml
+conda env create -f conda_environment.yml
 ```
-Note: If your computer didn't find `conda_environment.yml` the easiest way is to locate the file in your Download directory and drag and drop it onto the Anaconda Prompt after typing `conda env create -f`.
+Note: If your computer didn't find `conda_environment.yml` the easiest way is to locate the file in your User directory and drag and drop it onto the Anaconda Prompt after typing `conda env create -f`.
 
-#### Biomedisa examples
+#### Biomedisa Examples
 Activate conda environment:
 ```
 conda activate biomedisa
@@ -42,7 +42,7 @@ Download test files from [Gallery](https://biomedisa.info/gallery/) and run:
 python -m biomedisa.interpolation Downloads\tumor.tif Downloads\labels.tumor.tif --platform=opencl_NVIDIA_GPU
 
 # deep learning
-python -m biomedisa.deeplearning Downloads\testing_axial_crop_pat13.nii.gz Downloads\heart.h5 -p
+python -m biomedisa.deeplearning Downloads\testing_axial_crop_pat13.nii.gz Downloads\heart.h5
 ```
 
 #### Update Biomedisa
@@ -55,7 +55,7 @@ Update Biomedisa package:
 pip install -U biomedisa
 ```
 
-#### Remove Biomedisa environment
+#### Remove Biomedisa Environment
 Deactivate Biomedisa environment:
 ```
 conda deactivate
@@ -70,5 +70,5 @@ cd C:\Users\%USERNAME%\anaconda3\envs
 rmdir /s /q biomedisa
 ```
 
-#### Install Biomedisa from source (optional)
+#### Install Biomedisa from Source (Optional)
 To develop Biomedisa or for the latest version install Biomedisa from [source](https://github.com/biomedisa/biomedisa/blob/master/README/installation_from_source.md).

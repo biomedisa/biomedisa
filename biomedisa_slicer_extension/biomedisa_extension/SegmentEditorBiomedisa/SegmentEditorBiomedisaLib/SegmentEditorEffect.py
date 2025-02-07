@@ -97,7 +97,7 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     collapsibleLayout.addRow("Only:", self.only)
 
     self.platform = qt.QLineEdit()
-    self.platform.text = self.getPlatform()
+    self.platform.text = ''#self.getPlatform()
     self.platform.toolTip = 'One of "cuda", "opencl_NVIDIA_GPU", "opencl_Intel_CPU"'
     self.platform.setPlaceholderText('Enter one of "cuda", "opencl_NVIDIA_GPU", "opencl_Intel_CPU", "None", ...')
     collapsibleLayout.addRow("Platform:", self.platform)

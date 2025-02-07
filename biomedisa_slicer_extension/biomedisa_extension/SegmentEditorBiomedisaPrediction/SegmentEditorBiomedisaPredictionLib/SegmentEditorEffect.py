@@ -86,8 +86,8 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
 
     self.batch_size = qt.QSpinBox()
     self.batch_size.toolTip = 'Number of patches per batch.'
-    self.batch_size.minimum = 6
-    self.batch_size.maximum = 24
+    self.batch_size.minimum = 1
+    self.batch_size.maximum = 1024
     self.batch_size.value = 12
     self.batch_size.setEnabled(False)
 

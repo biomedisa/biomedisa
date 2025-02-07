@@ -454,7 +454,7 @@ def settings(request, id):
                     for key in cd.keys():
                         image.__dict__[key] = cd[key]
                     image.validation_freq = max(1, int(cd['validation_freq']))
-                    image.epochs = min(100, int(cd['epochs']))
+                    image.epochs = min(request.user.profile.max_epochs, int(cd['epochs']))
                     image.rotate = min(180, max(0, int(cd['rotate'])))
                     image.validation_split = min(1.0, max(0.0, float(cd['validation_split'])))
                     image.stride_size = max(32, int(cd['stride_size']))
@@ -522,6 +522,7 @@ def update_profile(request):
             profile.notification = cd['notification']
             if request.user.is_superuser:
                 profile.storage_size = cd['storage_size']
+                profile.max_epochs = cd['max_epochs']
             user_form.save()
             profile.save()
             messages.success(request, 'Profile successfully updated!')
@@ -530,9 +531,11 @@ def update_profile(request):
             messages.error(request, 'Please correct the error below.')
     else:
         repositories = Repository.objects.filter(users=user)
-        user_form = UserForm(instance=user, initial={'notification':profile.notification, 'storage_size':profile.storage_size, 'platform':profile.platform})
+        user_form = UserForm(instance=user, initial={'notification':profile.notification,
+            'storage_size':profile.storage_size, 'max_epochs':profile.max_epochs, 'platform':profile.platform})
         if not request.user.is_superuser:
             del user_form.fields['storage_size']
+            del user_form.fields['max_epochs']
 
     return render(request, 'profile.html', {'user_form':user_form, 'repositories':repositories, 'user_list':users})
 
@@ -818,6 +821,8 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
     host_base = BASE_DIR
     subhost, qsub_pid = None, None
     host = config[f'{QUEUE}_QUEUE_HOST']
+    if host and f'{QUEUE}_QUEUE_SUBHOST' in config:
+        subhost = config[f'{QUEUE}_QUEUE_SUBHOST']
     if host and f'{QUEUE}_QUEUE_BASE_DIR' in config:
         host_base = config[f'{QUEUE}_QUEUE_BASE_DIR']
 
@@ -825,6 +830,7 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
     if image.status > 0:
 
         # set status to processing
+        image.path_to_model = ''
         image.status = 2
         image.save()
 
@@ -855,11 +861,19 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
             my_env = os.environ.copy()
             my_env['CUDA_VISIBLE_DEVICES'] = gpu_ids
 
-        # command
-        cmd = ['python3','deeplearning.py']
+        # base command
+        qsub, sbatch = False, False
+        cmd = ['python3', '-m', 'biomedisa.deeplearning']
+        if f'{QUEUE}_QUEUE_SBATCH' in config and config[f'{QUEUE}_QUEUE_SBATCH']:
+            cmd = ['sbatch', f'queue_{queue_id}.sh']
+            sbatch = True
+        elif f'{QUEUE}_QUEUE_QSUB' in config and config[f'{QUEUE}_QUEUE_QSUB']:
+            cmd = []
+            qsub = True
+
         if predict:
             cmd += [image.pic.path.replace(BASE_DIR,host_base),
-                    label.pic.path.replace(BASE_DIR,host_base),'-p','-sc']
+                    label.pic.path.replace(BASE_DIR,host_base),'--predict','-sc']
         else:
             cmd += [img_list.replace(BASE_DIR,host_base),
                     label_list.replace(BASE_DIR,host_base),'-t']
@@ -916,16 +930,12 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
             header_file = BASE_DIR + f'/private_storage/images/{label.user.username}/{label.header_file}'
             cmd += [f'-hf={header_file.replace(BASE_DIR,host_base)}']
 
-        # change working directory
-        cwd = host_base + '/biomedisa/'
-
         # remote server
         if host:
 
             # update status message
-            if train:
-                image.message = 'Waiting for resources'
-                image.save()
+            image.message = 'Waiting for resources'
+            image.save()
 
             # create user directory
             subprocess.Popen(['ssh', host, 'mkdir', '-p', host_base+'/private_storage/images/'+image.user.username]).wait()
@@ -948,51 +958,78 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
                     for path in val_label_list.split(',')[:-1]:
                         success+=send_data_to_host(path, host+':'+path.replace(BASE_DIR,host_base))
 
-            # qsub start
-            if f'{QUEUE}_QUEUE_QSUB' in config and config[f'{QUEUE}_QUEUE_QSUB']:
-                subhost, qsub_pid = qsub_start(host, host_base, queue_id)
-
             # check if aborted
-            image = Upload.objects.get(pk=image.id)
-            if image.status==2 and image.queue==queue_id and success==0:
+            image = Upload.objects.filter(pk=image.id).first()
+            if image and image.status==2 and image.queue==queue_id and success==0:
 
-                # set pid and status to processing
-                image.message = 'Processing'
-                image.path_to_model = ''
-                image.pid = -1
-                image.save()
-
-                # start deep learning
-                cmd[1] = cwd+'deeplearning.py'
+                # adjust command
+                cmd += ['-re', f'-q={queue_id}']
+                if qsub:
+                    args = " ".join(cmd)
+                    cmd = [f"qsub -v ARGS='{args}' queue_{queue_id}.sh"]
                 if subhost:
-                    cmd = ['ssh', '-t', host, 'ssh', subhost] + cmd
+                    cmd = ['ssh', host, 'ssh', subhost] + cmd
                 else:
                     cmd = ['ssh', host] + cmd
-                cmd += ['-re', f'-q={queue_id}']
-                subprocess.Popen(cmd).wait()
 
-                # get error or stopped
-                path_to_error = BASE_DIR + f'/log/error_{queue_id}'
-                error = subprocess.Popen(['scp', host + ':' + host_base + f'/log/error_{queue_id}', path_to_error]).wait()
-                stopped = subprocess.Popen(['scp', host + ':' + host_base + f'/log/pid_{queue_id}', BASE_DIR + f'/log/pid_{queue_id}']).wait()
+                # config files
+                error_path = f'/log/error_{queue_id}'
+                config_path = f'/log/config_{queue_id}'
+                pid_path = f'/log/pid_{queue_id}'
+
+                # submit job
+                if qsub or sbatch:
+                    process = subprocess.Popen(cmd, stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE, text=True)
+                    stdout, stderr = process.communicate()
+                    if sbatch:
+                        job_id = stdout.strip().split()[-1]
+                    else:
+                        job_id = stdout.strip().split('.')[0]
+                    print(f"submit output: {stdout.strip()}")
+                    image.pid = job_id
+                    image.save()
+
+                    # wait for the server to finish
+                    error, success, started, processing = 1, 1, 1, True
+                    while error!=0 and success!=0 and processing:
+                        time.sleep(30)
+                        error = subprocess.Popen(['scp', host + ':' + host_base + error_path, BASE_DIR + error_path]).wait()
+                        success = subprocess.Popen(['scp', host + ':' + host_base + config_path, BASE_DIR + config_path]).wait()
+                        started = subprocess.Popen(['scp', host + ':' + host_base + pid_path, BASE_DIR + pid_path]).wait()
+                        image = Upload.objects.filter(pk=image.id).first()
+                        if image and image.status==2 and image.queue==queue_id:
+                            if started==0 and image.message != 'Processing':
+                                image.message = 'Processing'
+                                image.save()
+                        else:
+                            processing = False
+
+                # interactive shell
+                else:
+                    process = subprocess.Popen(cmd)
+                    image.message = 'Processing'
+                    image.pid = process.pid
+                    image.save()
+                    process.wait()
+                    error = subprocess.Popen(['scp', host + ':' + host_base + error_path, BASE_DIR + error_path]).wait()
+                    success = subprocess.Popen(['scp', host + ':' + host_base + config_path, BASE_DIR + config_path]).wait()
+                    started = subprocess.Popen(['scp', host + ':' + host_base + pid_path, BASE_DIR + pid_path]).wait()
 
                 if error == 0:
 
                     # create error object
-                    with open(path_to_error, 'r') as errorfile:
+                    with open(BASE_DIR + error_path, 'r') as errorfile:
                         message = errorfile.read()
                     create_error_object(message, img_id=image.id)
 
                     # remove error file
-                    subprocess.Popen(['ssh', host, 'rm', host_base + f'/log/error_{queue_id}']).wait()
+                    subprocess.Popen(['ssh', host, 'rm', host_base + error_path]).wait()
 
-                elif stopped == 0:
-
-                    # config
-                    success = subprocess.Popen(['scp', host + ':' + host_base + f'/log/config_{queue_id}', BASE_DIR + f'/log/config_{queue_id}']).wait()
+                elif success == 0:
 
                     if success == 0:
-                        with open(BASE_DIR + f'/log/config_{queue_id}', 'r') as configfile:
+                        with open(BASE_DIR + config_path, 'r') as configfile:
                             final_on_host, _, _, _, _, time_str, server_name, model_on_host, cropped_on_host, _ = configfile.read().split()
                         if cropped_on_host=='None':
                             cropped_on_host=None
@@ -1024,21 +1061,21 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
                             img_id=image.id, label_id=label.id)
 
                         # remove config file
-                        subprocess.Popen(['ssh', host, 'rm', host_base + f'/log/config_{queue_id}']).wait()
+                        subprocess.Popen(['ssh', host, 'rm', host_base + config_path]).wait()
 
-                    else:
+                    #else:
                         # something went wrong
-                        return_error(image, 'Something went wrong. Please restart.')
+                        #return_error(image, 'Something went wrong. Please restart.')
 
                 # remove pid file
-                if stopped == 0:
-                    subprocess.Popen(['ssh', host, 'rm', host_base + f'/log/pid_{queue_id}']).wait()
+                if started == 0:
+                    subprocess.Popen(['ssh', host, 'rm', host_base + pid_path]).wait()
 
         # local server
         else:
             # check if aborted
-            image = Upload.objects.get(pk=image.id)
-            if image.status==2 and image.queue==queue_id:
+            image = Upload.objects.filter(pk=image.id).first()
+            if image and image.status==2 and image.queue==queue_id:
 
                 # set status to processing
                 if predict:
@@ -1047,15 +1084,10 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
                     image.message = 'Train automatic cropping'
                 else:
                     image.message = 'Progress 0%'
-                image.path_to_model = ''
                 image.save()
 
                 # start deep learning
-                subprocess.Popen(cmd, cwd=cwd, env=my_env).wait()
-
-    # qsub stop
-    if f'{QUEUE}_QUEUE_QSUB' in config and config[f'{QUEUE}_QUEUE_QSUB']:
-        qsub_stop(host, host_base, queue_id, queue_name, subhost, qsub_pid)
+                subprocess.Popen(cmd, env=my_env).wait()
 
 # 25. features
 def features(request, action):
@@ -1973,6 +2005,8 @@ def init_random_walk(image, label):
     host_base = BASE_DIR
     subhost, qsub_pid = None, None
     host = config[f'{QUEUE}_QUEUE_HOST']
+    if host and f'{QUEUE}_QUEUE_SUBHOST' in config:
+        subhost = config[f'{QUEUE}_QUEUE_SUBHOST']
     if host and f'{QUEUE}_QUEUE_BASE_DIR' in config:
         host_base = config[f'{QUEUE}_QUEUE_BASE_DIR']
 
@@ -2028,8 +2062,16 @@ def init_random_walk(image, label):
                 else:
                     ngpus = str(bm.available_devices)
 
-        # command
-        cmd = ['mpiexec', '-np', ngpus, 'python3', 'interpolation.py']
+        # base command
+        qsub, sbatch = False, False
+        cmd = ['mpiexec', '-np', ngpus, 'python3', '-m', 'biomedisa.interpolation']
+        if f'{QUEUE}_QUEUE_SBATCH' in config and config[f'{QUEUE}_QUEUE_SBATCH']:
+            cmd = ['sbatch', f'queue_{queue_id}.sh']
+            sbatch = True
+        elif f'{QUEUE}_QUEUE_QSUB' in config and config[f'{QUEUE}_QUEUE_QSUB']:
+            cmd = []
+            qsub = True
+
         cmd += [image.pic.path.replace(BASE_DIR,host_base), label.pic.path.replace(BASE_DIR,host_base)]
         cmd += [f'-iid={image.id}', f'-lid={label.id}']
 
@@ -2051,8 +2093,7 @@ def init_random_walk(image, label):
             if bm.platform.split('_')[-1] == 'CPU':
                 cmd = cmd[3:]
 
-        # change working directory
-        cwd = host_base + '/biomedisa/'
+        # hostfile
         workers_host = host_base + '/log/workers_host'
 
         # cluster
@@ -2063,6 +2104,10 @@ def init_random_walk(image, label):
         # remote server
         if host:
 
+            # set status message
+            image.message = 'Waiting for resources'
+            image.save()
+
             # create user directory
             subprocess.Popen(['ssh', host, 'mkdir', '-p', host_base+'/private_storage/images/'+image.user.username]).wait()
 
@@ -2071,50 +2116,78 @@ def init_random_walk(image, label):
             success+=send_data_to_host(image.pic.path, host+':'+image.pic.path.replace(BASE_DIR,host_base))
             success+=send_data_to_host(label.pic.path, host+':'+label.pic.path.replace(BASE_DIR,host_base))
 
-            # qsub start
-            if f'{QUEUE}_QUEUE_QSUB' in config and config[f'{QUEUE}_QUEUE_QSUB']:
-                subhost, qsub_pid = qsub_start(host, host_base, queue_id)
-
             # check if aborted
-            image = Upload.objects.get(pk=image.id)
-            if image.status==2 and image.queue==queue_id and success==0:
+            image = Upload.objects.filter(pk=image.id).first()
+            if image and image.status==2 and image.queue==queue_id and success==0:
 
-                # set pid and status to processing
-                image.message = 'Processing'
-                image.pid = -1
-                image.save()
-
-                # start interpolation
+                # adjust command
+                cmd += ['-r', f'-q={queue_id}']
+                if qsub:
+                    args = " ".join(cmd)
+                    cmd = [f"qsub -v ARGS='{args}' queue_{queue_id}.sh"]
                 if subhost:
-                    cmd = ['ssh', '-t', host, 'ssh', subhost] + cmd
+                    cmd = ['ssh', host, 'ssh', subhost] + cmd
                 else:
                     cmd = ['ssh', host] + cmd
-                cmd += ['-r', f'-q={queue_id}']
-                cmd[cmd.index('interpolation.py')] = cwd + 'interpolation.py'
-                subprocess.Popen(cmd).wait()
 
-                # get config files
-                path_to_error = BASE_DIR + f'/log/error_{queue_id}'
-                error = subprocess.Popen(['scp', host + ':' + host_base + f'/log/error_{queue_id}', path_to_error]).wait()
-                stopped = subprocess.Popen(['scp', host + ':' + host_base + f'/log/pid_{queue_id}', BASE_DIR + f'/log/pid_{queue_id}']).wait()
+                # config files
+                error_path = f'/log/error_{queue_id}'
+                config_path = f'/log/config_{queue_id}'
+                pid_path = f'/log/pid_{queue_id}'
+
+                # submit job
+                if qsub or sbatch:
+                    process = subprocess.Popen(cmd, stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE, text=True)
+                    stdout, stderr = process.communicate()
+                    if sbatch:
+                        job_id = stdout.strip().split()[-1]
+                    else:
+                        job_id = stdout.strip().split('.')[0]
+                    print(f"submit output: {stdout.strip()}")
+                    image.pid = job_id
+                    image.save()
+
+                    # wait for the server to finish
+                    error, success, started, processing = 1, 1, 1, True
+                    while error!=0 and success!=0 and processing:
+                        time.sleep(30)
+                        error = subprocess.Popen(['scp', host + ':' + host_base + error_path, BASE_DIR + error_path]).wait()
+                        success = subprocess.Popen(['scp', host + ':' + host_base + config_path, BASE_DIR + config_path]).wait()
+                        started = subprocess.Popen(['scp', host + ':' + host_base + pid_path, BASE_DIR + pid_path]).wait()
+                        image = Upload.objects.filter(pk=image.id).first()
+                        if image and image.status==2 and image.queue==queue_id:
+                            if started==0 and image.message != 'Processing':
+                                image.message = 'Processing'
+                                image.save()
+                        else:
+                            processing = False
+
+                # interactive shell
+                else:
+                    process = subprocess.Popen(cmd)
+                    image.message = 'Processing'
+                    image.pid = process.pid
+                    image.save()
+                    process.wait()
+                    error = subprocess.Popen(['scp', host + ':' + host_base + error_path, BASE_DIR + error_path]).wait()
+                    success = subprocess.Popen(['scp', host + ':' + host_base + config_path, BASE_DIR + config_path]).wait()
+                    started = subprocess.Popen(['scp', host + ':' + host_base + pid_path, BASE_DIR + pid_path]).wait()
 
                 if error == 0:
 
                     # create error object
-                    with open(path_to_error, 'r') as errorfile:
+                    with open(BASE_DIR + error_path, 'r') as errorfile:
                         message = errorfile.read()
                     create_error_object(message, img_id=image.id)
 
                     # remove error file
-                    subprocess.Popen(['ssh', host, 'rm', host_base + f'/log/error_{queue_id}']).wait()
+                    subprocess.Popen(['ssh', host, 'rm', host_base + error_path]).wait()
 
-                elif stopped == 0:
-
-                    # config
-                    success = subprocess.Popen(['scp', host + ':' + host_base + f'/log/config_{queue_id}', BASE_DIR + f'/log/config_{queue_id}']).wait()
+                elif success == 0:
 
                     if success == 0:
-                        with open(BASE_DIR + f'/log/config_{queue_id}', 'r') as configfile:
+                        with open(BASE_DIR + config_path, 'r') as configfile:
                             final_on_host, uncertainty_on_host, smooth_on_host, uncertainty, smooth, time_str, server_name, _, _, dice = configfile.read().split()
                         uncertainty=True if uncertainty=='True' else False
                         smooth=False if smooth=='0' else True
@@ -2139,32 +2212,28 @@ def init_random_walk(image, label):
                             img_id=image.id, label_id=label.id)
 
                         # remove config file
-                        subprocess.Popen(['ssh', host, 'rm', host_base + f'/log/config_{queue_id}']).wait()
+                        subprocess.Popen(['ssh', host, 'rm', host_base + config_path]).wait()
 
-                    else:
+                    #else:
                         # something went wrong
-                        return_error(image, 'Something went wrong. Please restart.')
+                        #return_error(image, 'Something went wrong. Please restart.')
 
                 # remove pid file
-                if stopped == 0:
-                    subprocess.Popen(['ssh', host, 'rm', host_base + f'/log/pid_{queue_id}']).wait()
+                if started == 0:
+                    subprocess.Popen(['ssh', host, 'rm', host_base + pid_path]).wait()
 
         # local server
         else:
             # check if aborted
-            image = Upload.objects.get(pk=image.id)
-            if image.status==2 and image.queue==queue_id:
+            image = Upload.objects.filter(pk=image.id).first()
+            if image and image.status==2 and image.queue==queue_id:
 
                 # set status to processing
                 image.message = 'Processing'
                 image.save()
 
                 # start interpolation
-                subprocess.Popen(cmd, cwd=cwd, env=my_env).wait()
-
-    # qsub stop
-    if f'{QUEUE}_QUEUE_QSUB' in config and config[f'{QUEUE}_QUEUE_QSUB']:
-        qsub_stop(host, host_base, queue_id, queue_name, subhost, qsub_pid)
+                subprocess.Popen(cmd, env=my_env).wait()
 
 # 43. run random walks
 @login_required
@@ -2254,9 +2323,31 @@ def stop_running_job(pid, queue_id):
         else:
             host = ''
 
-    # kill process
+    # command
+    cmd = ['kill', str(pid)]
+    qsub, sbatch = False, False
+    if f'{QUEUE}_QUEUE_QSUB' in config and config[f'{QUEUE}_QUEUE_QSUB']:
+        cmd = ['qdel', str(pid)]
+        qsub = True
+    elif f'{QUEUE}_QUEUE_SBATCH' in config and config[f'{QUEUE}_QUEUE_SBATCH']:
+        cmd = ['scancel', str(pid)]
+        sbatch = True
+    if host and (qsub or sbatch):
+        cmd = ['ssh', host] + cmd
+        if f'{QUEUE}_QUEUE_SUBHOST' in config:
+            subhost = config[f'{QUEUE}_QUEUE_SUBHOST']
+            cmd = ['ssh', host, 'ssh', subhost] + cmd[2:]
+
+    # stop process
     try:
+        subprocess.Popen(cmd)
+    except:
+        pass
+
+    # kill process
+    ''''try:
         if host:
+
             host_base = BASE_DIR
             if host and f'{QUEUE}_QUEUE_BASE_DIR' in config:
                 host_base = config[f'{QUEUE}_QUEUE_BASE_DIR']
@@ -2270,11 +2361,12 @@ def stop_running_job(pid, queue_id):
                 cmd = ['ssh', '-t', host, 'ssh', subhost, 'python3', host_base+f'/biomedisa/features/pid.py', str(queue_id)]
             else:
                 cmd = ['ssh', host, 'python3', host_base+f'/biomedisa/features/pid.py', str(queue_id)]
+
             subprocess.Popen(cmd)
         else:
             subprocess.Popen(['kill', str(pid)])
     except:
-        pass
+        pass'''
 
 # 45. remove_from_queue or kill process
 @login_required
@@ -2317,7 +2409,7 @@ def remove_from_queue(request):
                     job.delete()
 
                 # kill running process
-                if image_to_stop.status in [2,3] and image_to_stop.pid != 0:
+                if image_to_stop.status in [2,3] and image_to_stop.pid != 0: #TODO >0
                     q = Queue('stop_job', connection=Redis())
                     job = q.enqueue_call(stop_running_job, args=(image_to_stop.pid, image_to_stop.queue), timeout=-1)
                     image_to_stop.pid = 0
