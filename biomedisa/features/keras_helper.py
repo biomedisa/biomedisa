@@ -894,7 +894,7 @@ def train_segmentation(bm):
               'dim_img': (zsh, ysh, xsh),
               'n_classes': nb_labels,
               'n_channels': bm.channels,
-              'augment': (bm.flip_x, bm.flip_y, bm.flip_z, bm.swapaxes, bm.rotate),
+              'augment': (bm.flip_x, bm.flip_y, bm.flip_z, bm.swapaxes, bm.rotate, bm.rotate3d),
               'patch_normalization': bm.patch_normalization,
               'separation': bm.separation}
 
@@ -906,7 +906,7 @@ def train_segmentation(bm):
             val_metrics = Metrics(bm, bm.val_img_data, bm.val_label_data, list_IDs_val_fg, (zsh_val, ysh_val, xsh_val), nb_labels, False)
         else:
             params['dim_img'] = (zsh_val, ysh_val, xsh_val)
-            params['augment'] = (False, False, False, False, 0)
+            params['augment'] = (False, False, False, False, 0, False)
             validation_generator = DataGenerator(bm.val_img_data, bm.val_label_data, list_IDs_val_fg, list_IDs_val_bg, True, False, False, **params)
 
     # monitor dice score on training data
