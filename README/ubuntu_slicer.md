@@ -22,8 +22,9 @@ git clone https://github.com/biomedisa/biomedisa.git
 Download [3D Slicer](https://download.slicer.org/) and extract the files to a location of your choice.
 
 #### Install pip packages using the Python environment in 3D Slicer
-You need to run `PythonSlicer` from within `Slicer-VERSION-linux-amd64/bin`:
+Run `PythonSlicer` from `Slicer-<VERSION>-linux-amd64/bin` (replace `<VERSION>` with your specific version):
 ```
+cd Slicer-<VERSION>-linux-amd64/bin
 ./PythonSlicer -m pip install PyQt5 tifffile
 ```
 
