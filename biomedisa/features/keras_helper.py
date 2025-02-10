@@ -436,7 +436,7 @@ def load_training_data(bm, img_list, label_list, channels, img_in=None, label_in
             else:
                 img = img_in
                 img_names = ['img_1']
-            if label_dim != img.shape[:3]:
+            if label_dim[:3] != img.shape[:3]:
                 InputError.message = f'Dimensions of "{os.path.basename(img_names[0])}" and "{os.path.basename(label_names[0])}" do not match'
                 raise InputError()
 
@@ -528,7 +528,7 @@ def load_training_data(bm, img_list, label_list, channels, img_in=None, label_in
                             raise InputError()
                     else:
                         a = img_in[k]
-                    if label_dim != a.shape[:3]:
+                    if label_dim[:3] != a.shape[:3]:
                         InputError.message = f'Dimensions of "{os.path.basename(img_names[k])}" and "{os.path.basename(label_names[k])}" do not match'
                         raise InputError()
                     if len(a.shape)==3:
@@ -879,6 +879,42 @@ def dice_coef_loss(nb_labels):
         return loss
     return loss_fn
 
+def custom_loss(y_true, y_pred):
+    # Extract labels and ignore mask
+    labels = tf.cast(y_true[..., 0], tf.int32)  # First channel contains class labels
+    ignore_mask = tf.cast(y_true[..., 1], tf.float32)  # Second channel contains mask (0 = ignore, 1 = include)
+
+    # Convert integer labels to one-hot encoding
+    y_true_one_hot = tf.one_hot(labels, depth=2)
+
+    # Clip y_pred to avoid log(0)
+    y_pred = tf.clip_by_value(y_pred, 1e-7, 1.0)
+
+    # Compute categorical cross-entropy
+    loss = -tf.reduce_sum(y_true_one_hot * tf.math.log(y_pred), axis=-1)
+
+    # Apply ignore mask (ignore = 0 → loss is zero, include = 1 → loss is counted)
+    loss = loss * ignore_mask
+
+    # Return mean loss over valid (non-ignored) samples
+    return tf.reduce_sum(loss) / tf.reduce_sum(ignore_mask)
+
+def custom_accuracy(y_true, y_pred):
+    labels = tf.cast(y_true[..., 0], tf.int32)  # Extract actual values
+    ignore_mask = y_true[..., 1]  # Extract mask (1 = include, 0 = ignore)
+
+    # Convert predictions to discrete values (assuming regression: round values)
+    y_pred_class = tf.argmax(y_pred, axis=-1, output_type=tf.int32)
+
+    # Compute correct predictions (1 where correct, 0 where incorrect)
+    correct_predictions = tf.cast(tf.equal(labels, y_pred_class), tf.float32)
+
+    # Apply ignore mask
+    masked_correct_predictions = correct_predictions * ignore_mask
+
+    # Compute accuracy only over valid (non-ignored) pixels
+    return tf.reduce_sum(masked_correct_predictions) / tf.reduce_sum(ignore_mask)
+
 def train_segmentation(bm):
 
     # training data
@@ -992,6 +1028,7 @@ def train_segmentation(bm):
 
     # data generator
     validation_generator = None
+    from biomedisa.features.DataGeneratorCustom import DataGenerator
     training_generator = DataGenerator(bm.img_data, bm.label_data, list_IDs_fg, list_IDs_bg, True, True, False, **params)
     if bm.val_img_data is not None:
         if bm.val_dice:
@@ -1038,11 +1075,19 @@ def train_segmentation(bm):
         # optimizer
         sgd = SGD(learning_rate=bm.learning_rate, decay=1e-6, momentum=0.9, nesterov=True)
 
+        # Rename the function to appear as "accuracy" in logs
+        #metrics=['accuracy']
+        custom_accuracy.__name__ = "accuracy"
+        metrics=[custom_accuracy]
+
+        # loss function
+        #loss=dice_coef_loss(nb_labels) if bm.dice_loss else 'categorical_crossentropy'
+        loss=custom_loss
+
         # comile model
-        loss=dice_coef_loss(nb_labels) if bm.dice_loss else 'categorical_crossentropy'
         model.compile(loss=loss,
                       optimizer=sgd,
-                      metrics=['accuracy'])
+                      metrics=metrics)
 
     # save meta data
     meta_data = MetaData(bm.path_to_model, configuration_data, allLabels,
