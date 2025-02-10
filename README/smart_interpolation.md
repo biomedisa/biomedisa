@@ -62,3 +62,9 @@ biomedisa.interpolation.smart_interpolation(
 ```
 mpiexec -np 4 python3 -m biomedisa.interpolation Downloads\NMB_F2875.tif Downloads\labels.NMB_F2875.tif
 ```
+
+#### If you encounter GPU or host memory issues, you can split your volume into smaller segments and merge the results. For instance, you could use 8 sub-volumes
+```
+python -m biomedisa.features.split_volume Downloads\NMB_F2875.tif Downloads\labels.NMB_F2875.tif --split_x=2 --split_y=2 --split_z=2
+```
+
