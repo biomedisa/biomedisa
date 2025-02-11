@@ -565,14 +565,14 @@ def load_training_data(bm, img_list, label_list, channels, img_in=None, label_in
             target_y = max(target_y, img.shape[1])
             target_x = max(target_x, img.shape[2])
         img = np.empty((0, target_y, target_x, channels), dtype=np.float32)
-        label = np.empty((0, target_y, target_x), dtype=label_dtype)
+        label = np.empty((0, target_y, target_x, 2), dtype=label_dtype)
         for k in range(len(img_data_list)):
             pad_y = target_y - img_data_list[k].shape[1]
             pad_x = target_x - img_data_list[k].shape[2]
             pad_width = [(0, 0), (0, pad_y), (0, pad_x), (0, 0)]
             tmp = np.pad(img_data_list[k], pad_width, mode='constant', constant_values=0)
             img = np.append(img, tmp, axis=0)
-            pad_width = [(0, 0), (0, pad_y), (0, pad_x)]
+            pad_width = [(0, 0), (0, pad_y), (0, pad_x), (0, 0)]
             tmp = np.pad(label_data_list[k].astype(label_dtype), pad_width, mode='constant', constant_values=-1)
             label = np.append(label, tmp, axis=0)
 
@@ -586,13 +586,13 @@ def load_training_data(bm, img_list, label_list, channels, img_in=None, label_in
     else:
         # get labels
         if allLabels is None:
-            allLabels = unique(label)
+            allLabels = unique(label[...,0])
             index = np.argwhere(allLabels<0)
             allLabels = np.delete(allLabels, index)
 
         # labels must be in ascending order
         for k, l in enumerate(allLabels):
-            label[label==l] = k
+            label[...,0][label[...,0]==l] = k
 
     return img, label, allLabels, normalization_parameters, header, extension, channels
 
