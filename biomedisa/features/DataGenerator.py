@@ -301,12 +301,12 @@ class DataGenerator(tf.keras.utils.Sequence):
                     tmp_y = np.empty((*self.dim, label_channels), dtype=np.int32)
                     cos_a = cos_angle[i]
                     sin_a = sin_angle[i]
-                    for c in range(self.n_channels):
-                        tmp_X[...,c] = rotate_img_patch(self.img[...,c],tmp_X[...,c],k,l,m,cos_a,sin_a,
+                    for ch in range(self.n_channels):
+                        tmp_X[...,ch] = rotate_img_patch(self.img[...,ch],tmp_X[...,ch],k,l,m,cos_a,sin_a,
                             self.dim[0],self.dim[1],self.dim[2],
                             self.dim_img[1],self.dim_img[2])
-                    for c in range(label_channels):
-                        tmp_y[...,c] = rotate_label_patch(self.label[...,c],tmp_y[...,c],k,l,m,cos_a,sin_a,
+                    for ch in range(label_channels):
+                        tmp_y[...,ch] = rotate_label_patch(self.label[...,ch],tmp_y[...,ch],k,l,m,cos_a,sin_a,
                             self.dim[0],self.dim[1],self.dim[2],
                             self.dim_img[1],self.dim_img[2])
 
@@ -323,13 +323,13 @@ class DataGenerator(tf.keras.utils.Sequence):
                     rm_zx = rot_mtx[i, 2, 0]
                     rm_zy = rot_mtx[i, 2, 1]
                     rm_zz = rot_mtx[i, 2, 2]
-                    for c in range(self.n_channels):
-                        tmp_X[...,c] = rotate_img_patch_3d(self.img[...,c],tmp_X[...,c],k,l,m,
+                    for ch in range(self.n_channels):
+                        tmp_X[...,ch] = rotate_img_patch_3d(self.img[...,ch],tmp_X[...,ch],k,l,m,
                             rm_xx,rm_xy,rm_xz,rm_yx,rm_yy,rm_yz,rm_zx,rm_zy,rm_zz,
                             self.dim[0],self.dim[1],self.dim[2],
                             256, self.dim_img[0],self.dim_img[1],self.dim_img[2])
-                    for c in range(label_channels):
-                        tmp_y[...,c] = rotate_label_patch_3d(self.label[...,c],tmp_y[...,c],k,l,m,
+                    for ch in range(label_channels):
+                        tmp_y[...,ch] = rotate_label_patch_3d(self.label[...,ch],tmp_y[...,ch],k,l,m,
                             rm_xx,rm_xy,rm_xz,rm_yx,rm_yy,rm_yz,rm_zx,rm_zy,rm_zz,
                             self.dim[0],self.dim[1],self.dim[2],
                             256, self.dim_img[0],self.dim_img[1],self.dim_img[2])
@@ -357,9 +357,9 @@ class DataGenerator(tf.keras.utils.Sequence):
             # patch normalization
             if self.patch_normalization:
                 tmp_X = tmp_X.copy().astype(np.float32)
-                for c in range(self.n_channels):
-                    tmp_X[...,c] -= np.mean(tmp_X[...,c])
-                    tmp_X[...,c] /= max(np.std(tmp_X[...,c]), 1e-6)
+                for ch in range(self.n_channels):
+                    tmp_X[...,ch] -= np.mean(tmp_X[...,ch])
+                    tmp_X[...,ch] /= max(np.std(tmp_X[...,ch]), 1e-6)
 
             # assign to batch
             X[i] = tmp_X

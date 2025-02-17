@@ -1,6 +1,6 @@
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2019-2024 Philipp Lösel. All rights reserved.         ##
+##  Copyright (c) 2019-2025 Philipp Lösel. All rights reserved.         ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -77,10 +77,10 @@ class PredictDataGenerator(tf.keras.utils.Sequence):
             # get patch
             tmp_X = self.img[k:k+self.dim[0],l:l+self.dim[1],m:m+self.dim[2]]
             if self.patch_normalization:
-                tmp_X = np.copy(tmp_X, order='C')
-                for c in range(self.n_channels):
-                    tmp_X[:,:,:,c] -= np.mean(tmp_X[:,:,:,c])
-                    tmp_X[:,:,:,c] /= max(np.std(tmp_X[:,:,:,c]), 1e-6)
+                tmp_X = tmp_X.copy().astype(np.float32)
+                for ch in range(self.n_channels):
+                    tmp_X[...,ch] -= np.mean(tmp_X[...,ch])
+                    tmp_X[...,ch] /= max(np.std(tmp_X[...,ch]), 1e-6)
             X[i] = tmp_X
 
         return X
