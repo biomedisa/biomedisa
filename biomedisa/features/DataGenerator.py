@@ -1,6 +1,6 @@
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2019-2024 Philipp Lösel. All rights reserved.         ##
+##  Copyright (c) 2019-2025 Philipp Lösel. All rights reserved.         ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -79,7 +79,6 @@ def rotate_img_patch(src,trg,k,l,m,cos_a,sin_a,z_patch,y_patch,x_patch,imageHeig
                 val += (sy) * (sx) * float(src[z,idx_src_y1,idx_src_x1])
                 trg[z-k,y-l,x-m] = val
     return trg
-
 
 @numba.jit(nopython=True)#parallel=True
 def rotate_img_patch_3d(src,trg,k,l,m,rm_xx,rm_xy,rm_xz,rm_yx,rm_yy,rm_yz,rm_zx,rm_zy,rm_zz,z_patch,y_patch,x_patch,imageVertStride,imageDepth,imageHeight,imageWidth):
@@ -175,34 +174,11 @@ def rotate_label_patch_3d(src,trg,k,l,m,rm_xx,rm_xy,rm_xz,rm_yx,rm_yy,rm_yz,rm_z
                 trg[z-k,y-l,x-m] = src[idx_src_z,idx_src_y,idx_src_x]
     return trg
 
-def random_rotation_3d(image, max_angle=180):
-    """ Randomly rotate an image by a random angle (-max_angle, max_angle).
-
-    Arguments:
-    max_angle: `float`. The maximum rotation angle.
-
-    Returns:
-    batch of rotated 3D images
-    """
-
-    # rotate along x-axis
-    angle = random.uniform(-max_angle, max_angle)
-    image2 = scipy.ndimage.rotate(image, angle, mode='nearest', axes=(0, 1), reshape=False)
-
-    # rotate along y-axis
-    angle = random.uniform(-max_angle, max_angle)
-    image3 = scipy.ndimage.rotate(image2, angle, mode='nearest', axes=(0, 2), reshape=False)
-
-    # rotate along z-axis
-    angle = random.uniform(-max_angle, max_angle)
-    image_rot = scipy.ndimage.rotate(image3, angle, mode='nearest', axes=(1, 2), reshape=False)
-
-    return image_rot
-
 class DataGenerator(tf.keras.utils.Sequence):
     'Generates data for Keras'
-    def __init__(self, img, label, list_IDs_fg, list_IDs_bg, shuffle, train, classification, batch_size=32, dim=(32,32,32),
-                 dim_img=(32,32,32), n_classes=10, n_channels=1, augment=(False,False,False,False,0,False), patch_normalization=False, separation=False):
+    def __init__(self, img, label, list_IDs_fg, list_IDs_bg, shuffle, train, batch_size=32, dim=(32,32,32),
+                 dim_img=(32,32,32), n_classes=10, n_channels=1, augment=(False,False,False,False,0,False),
+                 patch_normalization=False, separation=False, ignore_mask=False):
         'Initialization'
         self.dim = dim
         self.dim_img = dim_img
@@ -216,10 +192,10 @@ class DataGenerator(tf.keras.utils.Sequence):
         self.shuffle = shuffle
         self.augment = augment
         self.train = train
-        self.classification = classification
         self.on_epoch_end()
         self.patch_normalization = patch_normalization
         self.separation = separation
+        self.ignore_mask = ignore_mask
 
     def __len__(self):
         'Denotes the number of batches per epoch'
@@ -276,12 +252,12 @@ class DataGenerator(tf.keras.utils.Sequence):
     def __data_generation(self, list_IDs_temp):
         'Generates data containing batch_size samples' # X : (n_samples, *dim, n_channels)
 
-        # Initialization
+        # number of label channels
+        label_channels = 2 if self.ignore_mask else 1
+
+        # allocate memory
         X = np.empty((self.batch_size, *self.dim, self.n_channels), dtype=np.float32)
-        if self.classification:
-            y = np.empty((self.batch_size, 1), dtype=np.int32)
-        else:
-            y = np.empty((self.batch_size, *self.dim, 1), dtype=np.int32)
+        y = np.empty((self.batch_size, *self.dim, label_channels), dtype=np.int32)
 
         # get augmentation parameter
         flip_x, flip_y, flip_z, swapaxes, rotate, rotate3d = self.augment
@@ -306,119 +282,91 @@ class DataGenerator(tf.keras.utils.Sequence):
             m = rest % self.dim_img[2]
 
             # get patch
-            if self.classification:
-                tmp_X = self.img[k:k+self.dim[0],l:l+self.dim[1],m:m+self.dim[2]]
-                tmp_y = self.label[k,l,m]
+            tmp_X = self.img[k:k+self.dim[0],l:l+self.dim[1],m:m+self.dim[2]]
+            tmp_y = self.label[k:k+self.dim[0],l:l+self.dim[1],m:m+self.dim[2]]
 
-                # augmentation
-                if self.train:
+            # center label gets value 1
+            if self.separation:
+                centerLabel = tmp_y[self.dim[0]//2,self.dim[1]//2,self.dim[2]//2]
+                tmp_y = tmp_y.copy()
+                tmp_y[tmp_y!=centerLabel]=0
+                tmp_y[tmp_y==centerLabel]=1
 
-                    # rotate in 3D
-                    if rotate:
-                        tmp_X = random_rotation_3d(tmp_X, max_angle=rotate)
+            # augmentation
+            if self.train:
 
-                    # flip patch along axes
-                    v = np.random.randint(n_aug+1)
-                    if np.any([flip_x, flip_y, flip_z]) and v>0:
-                        flip = flips[v-1]
-                        tmp_X = np.flip(tmp_X, flip)
-
-                    # swap axes
-                    if swapaxes:
-                        v = np.random.randint(4)
-                        if v==1:
-                            tmp_X = np.swapaxes(tmp_X,0,1)
-                        elif v==2:
-                            tmp_X = np.swapaxes(tmp_X,0,2)
-                        elif v==3:
-                            tmp_X = np.swapaxes(tmp_X,1,2)
-
-                # assign to batch
-                X[i,:,:,:,0] = tmp_X
-                y[i,0] = tmp_y
-
-            else:
-                # get patch
-                tmp_X = self.img[k:k+self.dim[0],l:l+self.dim[1],m:m+self.dim[2]]
-                tmp_y = self.label[k:k+self.dim[0],l:l+self.dim[1],m:m+self.dim[2]]
-
-                # center label gets value 1
-                if self.separation:
-                    centerLabel = tmp_y[self.dim[0]//2,self.dim[1]//2,self.dim[2]//2]
-                    tmp_y = tmp_y.copy()
-                    tmp_y[tmp_y!=centerLabel]=0
-                    tmp_y[tmp_y==centerLabel]=1
-
-                # augmentation
-                if self.train:
-
-                    # rotate in xy plane
-                    if rotate:
-                        tmp_X = np.empty((*self.dim, self.n_channels), dtype=np.float32)
-                        tmp_y = np.empty(self.dim, dtype=np.int32)
-                        cos_a = cos_angle[i]
-                        sin_a = sin_angle[i]
-                        for c in range(self.n_channels):
-                            tmp_X[:,:,:,c] = rotate_img_patch(self.img[:,:,:,c],tmp_X[:,:,:,c],k,l,m,cos_a,sin_a,
-                                self.dim[0],self.dim[1],self.dim[2],
-                                self.dim_img[1],self.dim_img[2])
-                        tmp_y = rotate_label_patch(self.label,tmp_y,k,l,m,cos_a,sin_a,
+                # rotate in xy plane
+                if rotate:
+                    tmp_X = np.empty((*self.dim, self.n_channels), dtype=np.float32)
+                    tmp_y = np.empty((*self.dim, label_channels), dtype=np.int32)
+                    cos_a = cos_angle[i]
+                    sin_a = sin_angle[i]
+                    for c in range(self.n_channels):
+                        tmp_X[...,c] = rotate_img_patch(self.img[...,c],tmp_X[...,c],k,l,m,cos_a,sin_a,
                             self.dim[0],self.dim[1],self.dim[2],
                             self.dim_img[1],self.dim_img[2])
-                    
-                    # rotate through a random 3d angle, uniformly distributed on a sphere.
-                    if rotate3d:
-                        tmp_X = np.empty((*self.dim, self.n_channels), dtype=np.float32)
-                        tmp_y = np.empty(self.dim, dtype=np.int32)
-                        rm_xx = rot_mtx[i, 0, 0]
-                        rm_xy = rot_mtx[i, 0, 1]
-                        rm_xz = rot_mtx[i, 0, 2]
-                        rm_yx = rot_mtx[i, 1, 0]
-                        rm_yy = rot_mtx[i, 1, 1]
-                        rm_yz = rot_mtx[i, 1, 2]
-                        rm_zx = rot_mtx[i, 2, 0]
-                        rm_zy = rot_mtx[i, 2, 1]
-                        rm_zz = rot_mtx[i, 2, 2]
-                        for c in range(self.n_channels):
-                            tmp_X[:,:,:,c] = rotate_img_patch_3d(self.img[:,:,:,c],tmp_X[:,:,:,c],k,l,m,
-                                rm_xx,rm_xy,rm_xz,rm_yx,rm_yy,rm_yz,rm_zx,rm_zy,rm_zz,
-                                self.dim[0],self.dim[1],self.dim[2],
-                                256, self.dim_img[0],self.dim_img[1],self.dim_img[2])
-                        tmp_y = rotate_label_patch_3d(self.label,tmp_y,k,l,m,
+                    for c in range(label_channels):
+                        tmp_y[...,c] = rotate_label_patch(self.label[...,c],tmp_y[...,c],k,l,m,cos_a,sin_a,
+                            self.dim[0],self.dim[1],self.dim[2],
+                            self.dim_img[1],self.dim_img[2])
+
+                # rotate through a random 3d angle, uniformly distributed on a sphere.
+                if rotate3d:
+                    tmp_X = np.empty((*self.dim, self.n_channels), dtype=np.float32)
+                    tmp_y = np.empty((*self.dim, label_channels), dtype=np.int32)
+                    rm_xx = rot_mtx[i, 0, 0]
+                    rm_xy = rot_mtx[i, 0, 1]
+                    rm_xz = rot_mtx[i, 0, 2]
+                    rm_yx = rot_mtx[i, 1, 0]
+                    rm_yy = rot_mtx[i, 1, 1]
+                    rm_yz = rot_mtx[i, 1, 2]
+                    rm_zx = rot_mtx[i, 2, 0]
+                    rm_zy = rot_mtx[i, 2, 1]
+                    rm_zz = rot_mtx[i, 2, 2]
+                    for c in range(self.n_channels):
+                        tmp_X[...,c] = rotate_img_patch_3d(self.img[...,c],tmp_X[...,c],k,l,m,
+                            rm_xx,rm_xy,rm_xz,rm_yx,rm_yy,rm_yz,rm_zx,rm_zy,rm_zz,
+                            self.dim[0],self.dim[1],self.dim[2],
+                            256, self.dim_img[0],self.dim_img[1],self.dim_img[2])
+                    for c in range(label_channels):
+                        tmp_y[...,c] = rotate_label_patch_3d(self.label[...,c],tmp_y[...,c],k,l,m,
                             rm_xx,rm_xy,rm_xz,rm_yx,rm_yy,rm_yz,rm_zx,rm_zy,rm_zz,
                             self.dim[0],self.dim[1],self.dim[2],
                             256, self.dim_img[0],self.dim_img[1],self.dim_img[2])
 
-                    # flip patch along axes
-                    v = np.random.randint(n_aug+1)
-                    if np.any([flip_x, flip_y, flip_z]) and v>0:
-                        flip = flips[v-1]
-                        tmp_X = np.flip(tmp_X, flip)
-                        tmp_y = np.flip(tmp_y, flip)
+                # flip patch along axes
+                v = np.random.randint(n_aug+1)
+                if np.any([flip_x, flip_y, flip_z]) and v>0:
+                    flip = flips[v-1]
+                    tmp_X = np.flip(tmp_X, flip)
+                    tmp_y = np.flip(tmp_y, flip)
 
-                    # swap axes
-                    if swapaxes:
-                        v = np.random.randint(4)
-                        if v==1:
-                            tmp_X = np.swapaxes(tmp_X,0,1)
-                            tmp_y = np.swapaxes(tmp_y,0,1)
-                        elif v==2:
-                            tmp_X = np.swapaxes(tmp_X,0,2)
-                            tmp_y = np.swapaxes(tmp_y,0,2)
-                        elif v==3:
-                            tmp_X = np.swapaxes(tmp_X,1,2)
-                            tmp_y = np.swapaxes(tmp_y,1,2)
+                # swap axes
+                if swapaxes:
+                    v = np.random.randint(4)
+                    if v==1:
+                        tmp_X = np.swapaxes(tmp_X,0,1)
+                        tmp_y = np.swapaxes(tmp_y,0,1)
+                    elif v==2:
+                        tmp_X = np.swapaxes(tmp_X,0,2)
+                        tmp_y = np.swapaxes(tmp_y,0,2)
+                    elif v==3:
+                        tmp_X = np.swapaxes(tmp_X,1,2)
+                        tmp_y = np.swapaxes(tmp_y,1,2)
 
-                # patch normalization
-                if self.patch_normalization:
-                    tmp_X = tmp_X.copy().astype(np.float32)
-                    for c in range(self.n_channels):
-                        tmp_X[:,:,:,c] -= np.mean(tmp_X[:,:,:,c])
-                        tmp_X[:,:,:,c] /= max(np.std(tmp_X[:,:,:,c]), 1e-6)
+            # patch normalization
+            if self.patch_normalization:
+                tmp_X = tmp_X.copy().astype(np.float32)
+                for c in range(self.n_channels):
+                    tmp_X[...,c] -= np.mean(tmp_X[...,c])
+                    tmp_X[...,c] /= max(np.std(tmp_X[...,c]), 1e-6)
 
-                # assign to batch
-                X[i] = tmp_X
-                y[i,:,:,:,0] = tmp_y
+            # assign to batch
+            X[i] = tmp_X
+            y[i] = tmp_y
 
-        return X, tf.keras.utils.to_categorical(y, num_classes=self.n_classes)
+        if self.ignore_mask:
+            return X, y
+        else:
+            return X, tf.keras.utils.to_categorical(y, num_classes=self.n_classes)
 

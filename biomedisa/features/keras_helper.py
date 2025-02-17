@@ -415,6 +415,13 @@ def load_training_data(bm, img_list, label_list, channels, img_in=None, label_in
                 print(f'{os.path.basename(label_names[0])}:', 'Labels:', label_values[1:], 'Sizes:', counts[1:])
                 label = img_resize(label, bm.z_scale, bm.y_scale, bm.x_scale, labels=True)
 
+            # label channel must be 1 or 2 if using ignore mask
+            if len(label.shape)>3 and label.shape[3]>1 and not bm.ignore_mask:
+                InputError.message = 'Training labels must have one channel (gray values).'
+                raise InputError()
+            if len(label.shape)==3:
+                label = label.reshape(label.shape[0], label.shape[1], label.shape[2], 1)
+
             # if header is not single data stream Amira Mesh falling back to Multi-TIFF
             if extension != '.am':
                 extension, header = '.tif', None
@@ -440,10 +447,9 @@ def load_training_data(bm, img_list, label_list, channels, img_in=None, label_in
                 InputError.message = f'Dimensions of "{os.path.basename(img_names[0])}" and "{os.path.basename(label_names[0])}" do not match'
                 raise InputError()
 
-            # ensure images have channels >=1
+            # image channels must be >=1
             if len(img.shape)==3:
-                z_shape, y_shape, x_shape = img.shape
-                img = img.reshape(z_shape, y_shape, x_shape, 1)
+                img = img.reshape(img.shape[0], img.shape[1], img.shape[2], 1)
             if channels is None:
                 channels = img.shape[3]
             if channels != img.shape[3]:
@@ -517,7 +523,15 @@ def load_training_data(bm, img_list, label_list, channels, img_in=None, label_in
                         print(f'{os.path.basename(label_names[k])}:', 'Labels:', label_values[1:], 'Sizes:', counts[1:])
                         a = img_resize(a, bm.z_scale, bm.y_scale, bm.x_scale, labels=True)
                         label = np.append(label, a, axis=0)
-                    else:
+
+                    # label channel must be 1 or 2 if using ignore mask
+                    if len(a.shape)>3 and a.shape[3]>1 and not bm.ignore_mask:
+                        InputError.message = 'Training labels must have one channel (gray values).'
+                        raise InputError()
+                    if len(a.shape)==3:
+                        a = a.reshape(a.shape[0], a.shape[1], a.shape[2], 1)
+
+                    if not bm.scaling:
                         label_data_list.append(a)
 
                     # append image
@@ -532,8 +546,7 @@ def load_training_data(bm, img_list, label_list, channels, img_in=None, label_in
                         InputError.message = f'Dimensions of "{os.path.basename(img_names[k])}" and "{os.path.basename(label_names[k])}" do not match'
                         raise InputError()
                     if len(a.shape)==3:
-                        z_shape, y_shape, x_shape = a.shape
-                        a = a.reshape(z_shape, y_shape, x_shape, 1)
+                        a = a.reshape(a.shape[0], a.shape[1], a.shape[2], 1)
                     if a.shape[3] != channels:
                         InputError.message = f'Number of channels must be {channels} for "{os.path.basename(img_names[k])}"'
                         raise InputError()
@@ -565,14 +578,13 @@ def load_training_data(bm, img_list, label_list, channels, img_in=None, label_in
             target_y = max(target_y, img.shape[1])
             target_x = max(target_x, img.shape[2])
         img = np.empty((0, target_y, target_x, channels), dtype=np.float32)
-        label = np.empty((0, target_y, target_x, 2), dtype=label_dtype)
+        label = np.empty((0, target_y, target_x, 2 if bm.ignore_mask else 1), dtype=label_dtype)
         for k in range(len(img_data_list)):
             pad_y = target_y - img_data_list[k].shape[1]
             pad_x = target_x - img_data_list[k].shape[2]
             pad_width = [(0, 0), (0, pad_y), (0, pad_x), (0, 0)]
             tmp = np.pad(img_data_list[k], pad_width, mode='constant', constant_values=0)
             img = np.append(img, tmp, axis=0)
-            pad_width = [(0, 0), (0, pad_y), (0, pad_x), (0, 0)]
             tmp = np.pad(label_data_list[k].astype(label_dtype), pad_width, mode='constant', constant_values=-1)
             label = np.append(label, tmp, axis=0)
 
@@ -1024,19 +1036,19 @@ def train_segmentation(bm):
               'n_channels': bm.channels,
               'augment': (bm.flip_x, bm.flip_y, bm.flip_z, bm.swapaxes, bm.rotate, bm.rotate3d),
               'patch_normalization': bm.patch_normalization,
-              'separation': bm.separation}
+              'separation': bm.separation,
+              'ignore_mask': bm.ignore_mask}
 
     # data generator
     validation_generator = None
-    from biomedisa.features.DataGeneratorCustom import DataGenerator
-    training_generator = DataGenerator(bm.img_data, bm.label_data, list_IDs_fg, list_IDs_bg, True, True, False, **params)
+    training_generator = DataGenerator(bm.img_data, bm.label_data, list_IDs_fg, list_IDs_bg, True, True, **params)
     if bm.val_img_data is not None:
         if bm.val_dice:
             val_metrics = Metrics(bm, bm.val_img_data, bm.val_label_data, list_IDs_val_fg, (zsh_val, ysh_val, xsh_val), nb_labels, False)
         else:
             params['dim_img'] = (zsh_val, ysh_val, xsh_val)
             params['augment'] = (False, False, False, False, 0, False)
-            validation_generator = DataGenerator(bm.val_img_data, bm.val_label_data, list_IDs_val_fg, list_IDs_val_bg, True, False, False, **params)
+            validation_generator = DataGenerator(bm.val_img_data, bm.val_label_data, list_IDs_val_fg, list_IDs_val_bg, True, False, **params)
 
     # monitor dice score on training data
     if bm.train_dice:
@@ -1076,13 +1088,17 @@ def train_segmentation(bm):
         sgd = SGD(learning_rate=bm.learning_rate, decay=1e-6, momentum=0.9, nesterov=True)
 
         # Rename the function to appear as "accuracy" in logs
-        #metrics=['accuracy']
-        custom_accuracy.__name__ = "accuracy"
-        metrics=[custom_accuracy]
+        if bm.ignore_mask:
+            custom_accuracy.__name__ = "accuracy"
+            metrics=[custom_accuracy]
+        else:
+            metrics=['accuracy']
 
         # loss function
-        #loss=dice_coef_loss(nb_labels) if bm.dice_loss else 'categorical_crossentropy'
-        loss=custom_loss
+        if bm.ignore_mask:
+            loss=custom_loss
+        else:
+            loss=dice_coef_loss(nb_labels) if bm.dice_loss else 'categorical_crossentropy'
 
         # comile model
         model.compile(loss=loss,
@@ -1254,7 +1270,7 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
     nb_labels = len(bm.allLabels)
     results['allLabels'] = bm.allLabels
 
-    # load model
+    # custom objects
     if bm.dice_loss:
         def loss_fn(y_true, y_pred):
             dice = 0
@@ -1265,9 +1281,13 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
             loss = 1 - dice
             return loss
         custom_objects = {'dice_coef_loss': dice_coef_loss,'loss_fn': loss_fn}
-        model = load_model(bm.path_to_model, custom_objects=custom_objects)
+    elif bm.ignore_mask:
+        custom_objects={'custom_loss': custom_loss}
     else:
-        model = load_model(bm.path_to_model)
+        custom_objects=None
+
+    # load model
+    model = load_model(bm.path_to_model, custom_objects=custom_objects)
 
     # check if data can be loaded blockwise to save host memory
     load_blockwise = False
