@@ -468,25 +468,25 @@ def load_training_data(bm, img_list, label_list, channels, img_in=None, label_in
             # scale data to the range from 0 to 1
             if not bm.patch_normalization:
                 img = img.astype(np.float32)
-                for c in range(channels):
-                    img[:,:,:,c] -= np.amin(img[:,:,:,c])
-                    img[:,:,:,c] /= np.amax(img[:,:,:,c])
+                for ch in range(channels):
+                    img[...,ch] -= np.amin(img[...,ch])
+                    img[...,ch] /= np.amax(img[...,ch])
 
             # normalize first validation image
             if bm.normalize and np.any(normalization_parameters):
                 img = img.astype(np.float32)
-                for c in range(channels):
-                    mean, std = np.mean(img[:,:,:,c]), np.std(img[:,:,:,c])
-                    img[:,:,:,c] = (img[:,:,:,c] - mean) / std
-                    img[:,:,:,c] = img[:,:,:,c] * normalization_parameters[1,c] + normalization_parameters[0,c]
+                for ch in range(channels):
+                    mean, std = np.mean(img[...,ch]), np.std(img[...,ch])
+                    img[...,ch] = (img[...,ch] - mean) / std
+                    img[...,ch] = img[...,ch] * normalization_parameters[1,ch] + normalization_parameters[0,ch]
 
             # get normalization parameters from first image
             if normalization_parameters is None:
                 normalization_parameters = np.zeros((2,channels))
                 if bm.normalize:
-                    for c in range(channels):
-                        normalization_parameters[0,c] = np.mean(img[:,:,:,c])
-                        normalization_parameters[1,c] = np.std(img[:,:,:,c])
+                    for ch in range(channels):
+                        normalization_parameters[0,ch] = np.mean(img[...,ch])
+                        normalization_parameters[1,ch] = np.std(img[...,ch])
 
             # pad data
             if not bm.scaling:
@@ -557,15 +557,15 @@ def load_training_data(bm, img_list, label_list, channels, img_in=None, label_in
                         a = img_resize(a, bm.z_scale, bm.y_scale, bm.x_scale)
                     if not bm.patch_normalization:
                         a = a.astype(np.float32)
-                        for c in range(channels):
-                            a[:,:,:,c] -= np.amin(a[:,:,:,c])
-                            a[:,:,:,c] /= np.amax(a[:,:,:,c])
+                        for ch in range(channels):
+                            a[...,ch] -= np.amin(a[...,ch])
+                            a[...,ch] /= np.amax(a[...,ch])
                     if bm.normalize:
                         a = a.astype(np.float32)
-                        for c in range(channels):
-                            mean, std = np.mean(a[:,:,:,c]), np.std(a[:,:,:,c])
-                            a[:,:,:,c] = (a[:,:,:,c] - mean) / std
-                            a[:,:,:,c] = a[:,:,:,c] * normalization_parameters[1,c] + normalization_parameters[0,c]
+                        for ch in range(channels):
+                            mean, std = np.mean(a[...,ch]), np.std(a[...,ch])
+                            a[...,ch] = (a[...,ch] - mean) / std
+                            a[...,ch] = a[...,ch] * normalization_parameters[1,ch] + normalization_parameters[0,ch]
                     if bm.scaling:
                         img = np.append(img, a, axis=0)
                     else:
@@ -736,10 +736,10 @@ class Metrics(Callback):
                     m = rest % self.dim_img[2]
                     tmp_X = self.img[k:k+self.dim_patch[0],l:l+self.dim_patch[1],m:m+self.dim_patch[2]]
                     if self.patch_normalization:
-                        tmp_X = np.copy(tmp_X, order='C')
-                        for c in range(self.n_channels):
-                            tmp_X[:,:,:,c] -= np.mean(tmp_X[:,:,:,c])
-                            tmp_X[:,:,:,c] /= max(np.std(tmp_X[:,:,:,c]), 1e-6)
+                        tmp_X = tmp_X.copy().astype(np.float32)
+                        for ch in range(self.n_channels):
+                            tmp_X[...,ch] -= np.mean(tmp_X[...,ch])
+                            tmp_X[...,ch] /= max(np.std(tmp_X[...,ch]), 1e-6)
                     X_val[i] = tmp_X
 
                 # Prediction segmentation
@@ -1142,7 +1142,7 @@ def train_segmentation(bm):
         callbacks=callbacks,
         workers=bm.workers)
 
-def load_prediction_data(bm, channels, normalize, normalization_parameters,
+def load_prediction_data(bm, channels, normalization_parameters,
     region_of_interest, img, img_header, load_blockwise=False, z=None):
 
     # read image data
@@ -1170,10 +1170,9 @@ def load_prediction_data(bm, channels, normalize, normalization_parameters,
     if bm.acwe:
         img_data = img.copy()
 
-    # handle all images using number of channels >=1
+    # image data must have number of channels >=1
     if len(img.shape)==3:
-        z_shape, y_shape, x_shape = img.shape
-        img = img.reshape(z_shape, y_shape, x_shape, 1)
+        img = img.reshape(img.shape[0], img.shape[1], img.shape[2], 1)
     if img.shape[3] != channels:
         InputError.message = f'Number of channels must be {channels}.'
         raise InputError()
@@ -1188,22 +1187,27 @@ def load_prediction_data(bm, channels, normalize, normalization_parameters,
         region_of_interest = np.array([min_z,max_z,min_y,max_y,min_x,max_x,z_shape,y_shape,x_shape])
         z_shape, y_shape, x_shape = max_z-min_z, max_y-min_y, max_x-min_x
 
-    # scale/resize image data
-    img = img.astype(np.float32)
+    # resize image data
     if bm.scaling:
+        img = img.astype(np.float32)
         img = img_resize(img, bm.z_scale, bm.y_scale, bm.x_scale)
 
-    # normalize image data
-    for c in range(channels):
-        img[:,:,:,c] -= np.amin(img[:,:,:,c])
-        img[:,:,:,c] /= np.amax(img[:,:,:,c])
-        if normalize:
-            mean, std = np.mean(img[:,:,:,c]), np.std(img[:,:,:,c])
-            img[:,:,:,c] = (img[:,:,:,c] - mean) / std
-            img[:,:,:,c] = img[:,:,:,c] * normalization_parameters[1,c] + normalization_parameters[0,c]
+    # scale image data
+    if not bm.patch_normalization:
+        img = img.astype(np.float32)
+        for ch in range(channels):
+            img[...,ch] -= np.amin(img[...,ch])
+            img[...,ch] /= np.amax(img[...,ch])
 
-    # limit intensity range
-    if normalize:
+    # normalize image data
+    if bm.normalize:
+        img = img.astype(np.float32)
+        for ch in range(channels):
+            mean, std = np.mean(img[...,ch]), np.std(img[...,ch])
+            img[...,ch] = (img[...,ch] - mean) / std
+            img[...,ch] = img[...,ch] * normalization_parameters[1,ch] + normalization_parameters[0,ch]
+
+        # limit intensity range
         img[img<0] = 0
         img[img>1] = 1
 
@@ -1333,8 +1337,7 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
                         if centerLabel>0 and np.any(patch!=centerLabel):
                             list_IDs.append(k*ysh*xsh+l*xsh+m)
                     elif bm.refinement:
-                        patch = mask[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]
-                        if np.any(patch==0) and np.any(patch!=0):
+                        if np.any(mask[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]):
                             list_IDs.append(k*ysh*xsh+l*xsh+m)
                     else:
                         list_IDs.append(k*ysh*xsh+l*xsh+m)
@@ -1353,7 +1356,7 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
 
         # load prediction data
         img, bm.img_header, z_shape, y_shape, x_shape, region_of_interest, bm.img_data = load_prediction_data(
-            bm, channels, bm.normalize, normalization_parameters, region_of_interest, bm.img_data, bm.img_header)
+            bm, channels, normalization_parameters, region_of_interest, bm.img_data, bm.img_header)
 
         # append ghost areas
         img, z_rest, y_rest, x_rest = append_ghost_areas(bm, img)
@@ -1429,7 +1432,7 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
             # load blockwise from TIFF
             if load_blockwise:
                 img, _, _, _, _, _, _ = load_prediction_data(bm,
-                    channels, bm.normalize, normalization_parameters,
+                    channels, normalization_parameters,
                     region_of_interest, bm.img_data, bm.img_header, load_blockwise, z)
                 img, _, _, _ = append_ghost_areas(bm, img)
 
@@ -1445,8 +1448,7 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
                         if centerLabel>0 and np.any(patch!=centerLabel):
                             list_IDs_block.append(z*ysh*xsh+l*xsh+m)
                     elif bm.refinement:
-                        patch = mask[z:z+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]
-                        if np.any(patch==0) and np.any(patch!=0):
+                        if np.any(mask[z:z+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]):
                             list_IDs_block.append(z*ysh*xsh+l*xsh+m)
                     else:
                         list_IDs_block.append(z*ysh*xsh+l*xsh+m)
@@ -1478,10 +1480,10 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
                     # get patch
                     tmp_X = img[k:k+bm.z_patch,l:l+bm.y_patch,m:m+bm.x_patch]
                     if bm.patch_normalization:
-                        tmp_X = np.copy(tmp_X, order='C')
-                        for c in range(channels):
-                            tmp_X[:,:,:,c] -= np.mean(tmp_X[:,:,:,c])
-                            tmp_X[:,:,:,c] /= max(np.std(tmp_X[:,:,:,c]), 1e-6)
+                        tmp_X = tmp_X.copy().astype(np.float32)
+                        for ch in range(channels):
+                            tmp_X[...,ch] -= np.mean(tmp_X[...,ch])
+                            tmp_X[...,ch] /= max(np.std(tmp_X[...,ch]), 1e-6)
                     X[i] = tmp_X
 
                 # predict batch
@@ -1545,7 +1547,7 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
     if rank==0:
 
         # refine mask data with result
-        if bm.refinement:
+        '''if bm.refinement:
             # loop over boundary patches
             for i, ID in enumerate(list_IDs):
                 if i < max_i:
@@ -1554,7 +1556,7 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
                     l = rest // xsh
                     m = rest % xsh
                     mask[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch] = label[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]
-            label = mask
+            label = mask'''
 
         # remove appendix
         if bm.return_probs:
