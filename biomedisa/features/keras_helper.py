@@ -431,7 +431,7 @@ def load_training_data(bm, img_list, label_list, channels, img_in=None, label_in
             else:
                 header = header[0]
 
-            # load first img
+            # load first image
             if any(img_list):
                 img, _ = load_data(img_names[0], 'first_queue')
                 if img is None:
@@ -443,6 +443,8 @@ def load_training_data(bm, img_list, label_list, channels, img_in=None, label_in
             else:
                 img = img_in
                 img_names = ['img_1']
+
+            # label and image dimensions must match
             if label_dim[:3] != img.shape[:3]:
                 InputError.message = f'Dimensions of "{os.path.basename(img_names[0])}" and "{os.path.basename(label_names[0])}" do not match'
                 raise InputError()
@@ -492,6 +494,7 @@ def load_training_data(bm, img_list, label_list, channels, img_in=None, label_in
             if not bm.scaling:
                 img_data_list = [img]
                 label_data_list = [label]
+                img_dtype = img.dtype
                 # no-scaling for list of images needs negative values as it encodes padded areas as -1
                 label_dtype = label.dtype
                 if label_dtype==np.uint8:
@@ -505,7 +508,7 @@ def load_training_data(bm, img_list, label_list, channels, img_in=None, label_in
 
                 for k in range(1, number_of_images):
 
-                    # append label
+                    # load label data and pre-process
                     if any(label_list):
                         a, _ = load_data(label_names[k], 'first_queue')
                         if a is None:
@@ -522,7 +525,6 @@ def load_training_data(bm, img_list, label_list, channels, img_in=None, label_in
                         label_values, counts = unique(a, return_counts=True)
                         print(f'{os.path.basename(label_names[k])}:', 'Labels:', label_values[1:], 'Sizes:', counts[1:])
                         a = img_resize(a, bm.z_scale, bm.y_scale, bm.x_scale, labels=True)
-                        label = np.append(label, a, axis=0)
 
                     # label channel must be 1 or 2 if using ignore mask
                     if len(a.shape)>3 and a.shape[3]>1 and not bm.ignore_mask:
@@ -531,10 +533,13 @@ def load_training_data(bm, img_list, label_list, channels, img_in=None, label_in
                     if len(a.shape)==3:
                         a = a.reshape(a.shape[0], a.shape[1], a.shape[2], 1)
 
-                    if not bm.scaling:
+                    # append label data
+                    if bm.scaling:
+                        label = np.append(label, a, axis=0)
+                    else:
                         label_data_list.append(a)
 
-                    # append image
+                    # load image data and pre-process
                     if any(img_list):
                         a, _ = load_data(img_names[k], 'first_queue')
                         if a is None:
@@ -566,6 +571,8 @@ def load_training_data(bm, img_list, label_list, channels, img_in=None, label_in
                             mean, std = np.mean(a[...,ch]), np.std(a[...,ch])
                             a[...,ch] = (a[...,ch] - mean) / std
                             a[...,ch] = a[...,ch] * normalization_parameters[1,ch] + normalization_parameters[0,ch]
+
+                    # append image data
                     if bm.scaling:
                         img = np.append(img, a, axis=0)
                     else:
@@ -577,7 +584,7 @@ def load_training_data(bm, img_list, label_list, channels, img_in=None, label_in
         for img in img_data_list:
             target_y = max(target_y, img.shape[1])
             target_x = max(target_x, img.shape[2])
-        img = np.empty((0, target_y, target_x, channels), dtype=np.float32)
+        img = np.empty((0, target_y, target_x, channels), dtype=img_dtype)
         label = np.empty((0, target_y, target_x, 2 if bm.ignore_mask else 1), dtype=label_dtype)
         for k in range(len(img_data_list)):
             pad_y = target_y - img_data_list[k].shape[1]
@@ -764,6 +771,7 @@ class Metrics(Callback):
             # get result
             result = np.argmax(result, axis=-1)
             result = result.astype(np.uint8)
+            result = result.reshape(*result.shape, 1)
 
             # calculate standard accuracy
             if not self.train:
@@ -861,13 +869,13 @@ def categorical_crossentropy(true_labels, predicted_probs):
     # Clip predicted probabilities to avoid log(0) issues
     predicted_probs = np.clip(predicted_probs, 1e-7, 1 - 1e-7)
     predicted_probs = -np.log(predicted_probs)
-    zsh,ysh,xsh = true_labels.shape
+    zsh, ysh, xsh, _ = true_labels.shape
     # Calculate categorical crossentropy
     loss = 0
     for z in range(zsh):
         for y in range(ysh):
             for x in range(xsh):
-                l = true_labels[z,y,x]
+                l = true_labels[z,y,x,0]
                 loss += predicted_probs[z,y,x,l]
     loss = loss / float(zsh*ysh*xsh)
     return loss
@@ -928,6 +936,7 @@ def custom_accuracy(y_true, y_pred):
     return tf.reduce_sum(masked_correct_predictions) / tf.reduce_sum(ignore_mask)
 
 def train_segmentation(bm):
+    #tf.keras.mixed_precision.set_global_policy("mixed_float16")
 
     # training data
     bm.img_data, bm.label_data, allLabels, normalization_parameters, bm.header, bm.extension, bm.channels = load_training_data(bm,
