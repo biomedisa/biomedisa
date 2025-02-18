@@ -45,7 +45,7 @@ from biomedisa.features.biomedisa_helper import (unique,
     img_resize, load_data, save_data, set_labels_to_zero, id_generator, unique_file_path)
 from biomedisa.features.remove_outlier import clean, fill
 from biomedisa.features.active_contour import activeContour
-from tifffile import TiffFile, imread
+from tifffile import TiffFile, imread, imwrite
 import matplotlib.pyplot as plt
 import SimpleITK as sitk
 import tensorflow as tf
@@ -1250,6 +1250,20 @@ def gradient(volData):
     grad[grad>0]=1
     return grad
 
+@numba.jit(nopython=True)
+def scale_probabilities(final):
+    zsh, ysh, xsh, nb_labels = final.shape
+    for k in range(zsh):
+        for l in range(ysh):
+            for m in range(xsh):
+                scale_factor = 0
+                for n in range(nb_labels):
+                    scale_factor += final[k,l,m,n]
+                scale_factor = max(1, scale_factor)
+                for n in range(nb_labels):
+                    final[k,l,m,n] /= scale_factor
+    return final
+
 def predict_segmentation(bm, region_of_interest, channels, normalization_parameters):
 
     from mpi4py import MPI
@@ -1566,15 +1580,7 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
 
         # return probabilities
         if bm.return_probs:
-            counter = np.zeros((zsh, ysh, xsh, nb_labels), dtype=np.float32)
-            nb = 0
-            for k in range(0, zsh-bm.z_patch+1, bm.stride_size):
-                for l in range(0, ysh-bm.y_patch+1, bm.stride_size):
-                    for m in range(0, xsh-bm.x_patch+1, bm.stride_size):
-                        counter[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch] += 1
-                        nb += 1
-            counter[counter==0] = 1
-            probabilities = final / counter
+            probabilities = scale_probabilities(final)
             if bm.scaling:
                 probabilities = img_resize(probabilities, z_shape, y_shape, x_shape)
             if np.any(region_of_interest):
@@ -1648,6 +1654,9 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
             path_to_cleaned_filled = filename + '.cleaned.filled' + bm.extension
             path_to_refined = filename + '.refined' + bm.extension
             path_to_acwe = filename + '.acwe' + bm.extension
+            if bm.return_probs:
+                path_to_probs = filename + '.probs.tif'
+                imwrite(path_to_probs, probabilities)
 
         # remove outliers
         if bm.clean:
