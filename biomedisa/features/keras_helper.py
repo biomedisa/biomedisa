@@ -800,17 +800,17 @@ class Metrics(Callback):
                 logs['dice'] = dice
             else:
                 # save best model only
-                if epoch == 0 or round(dice,4) > max(self.history['val_dice']):
+                if epoch == 0 or dice > max(self.history['val_dice']):
                     self.model.save(str(self.path_to_model))
 
                 # add accuracy to history
-                self.history['loss'].append(round(logs['loss'],4))
-                self.history['accuracy'].append(round(logs['accuracy'],4))
+                self.history['loss'].append(logs['loss'])
+                self.history['accuracy'].append(logs['accuracy'])
                 if self.train_dice:
-                    self.history['dice'].append(round(logs['dice'],4))
-                self.history['val_accuracy'].append(round(accuracy,4))
-                self.history['val_dice'].append(round(dice,4))
-                self.history['val_loss'].append(round(val_loss,4))
+                    self.history['dice'].append(logs['dice'])
+                self.history['val_accuracy'].append(accuracy)
+                self.history['val_dice'].append(dice)
+                self.history['val_loss'].append(val_loss)
 
                 # tensorflow monitoring variables
                 logs['val_loss'] = val_loss
@@ -827,11 +827,11 @@ class Metrics(Callback):
 
                 # print accuracies
                 print('\nValidation history:')
-                print('train_acc:', self.history['accuracy'])
+                print('train_acc:', np.round(self.history['accuracy'],4))
                 if self.train_dice:
-                    print('train_dice:', self.history['dice'])
-                print('val_acc:', self.history['val_accuracy'])
-                print('val_dice:', self.history['val_dice'])
+                    print('train_dice:', np.round(self.history['dice'],4))
+                print('val_acc:', np.round(self.history['val_accuracy'],4))
+                print('val_dice:', np.round(self.history['val_dice'],4))
                 print('')
 
                 # early stopping
