@@ -827,11 +827,11 @@ class Metrics(Callback):
 
                 # print accuracies
                 print('\nValidation history:')
-                print('train_acc:', np.round(self.history['accuracy'],4))
+                print("train_acc: [" + " ".join(f"{x:.4f}" for x in self.history['accuracy']) + "]")
                 if self.train_dice:
-                    print('train_dice:', np.round(self.history['dice'],4))
-                print('val_acc:', np.round(self.history['val_accuracy'],4))
-                print('val_dice:', np.round(self.history['val_dice'],4))
+                    print("train_dice: [" + " ".join(f"{x:.4f}" for x in self.history['dice']) + "]")
+                print("val_acc: [" + " ".join(f"{x:.4f}" for x in self.history['val_accuracy']) + "]")
+                print("val_dice: [" + " ".join(f"{x:.4f}" for x in self.history['val_dice']) + "]")
                 print('')
 
                 # early stopping
