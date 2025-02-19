@@ -220,11 +220,11 @@ def compute_position(position, zsh, ysh, xsh):
                 position[k,l,m] = x+y+z
     return position
 
-def make_conv_block(nb_filters, input_tensor, block):
+def make_conv_block(nb_filters, input_tensor, block, dtype):
     def make_stage(input_tensor, stage):
         name = 'conv_{}_{}'.format(block, stage)
         x = Conv3D(nb_filters, (3, 3, 3), activation='relu',
-                   padding='same', name=name, data_format="channels_last")(input_tensor)
+                   padding='same', name=name, data_format="channels_last", dtype=dtype)(input_tensor)
         name = 'batch_norm_{}_{}'.format(block, stage)
         try:
             x = BatchNormalization(name=name, synchronized=True)(x)
@@ -266,56 +266,65 @@ def make_conv_block_resnet(nb_filters, input_tensor, block):
 
     return out
 
-def make_unet(input_shape, nb_labels, filters='32-64-128-256-512', resnet=False):
+def make_unet(bm, input_shape, nb_labels):
+    # enable mixed_precision
+    if bm.mixed_precision:
+        dtype = "float16"
+    else:
+        dtype = "float32"
 
+    # input
     nb_plans, nb_rows, nb_cols, _ = input_shape
+    inputs = Input(input_shape, dtype=dtype)
 
-    inputs = Input(input_shape)
-
-    filters = filters.split('-')
+    # configure number of layers and filters
+    filters = bm.network_filters.split('-')
     filters = np.array(filters, dtype=int)
     latent_space_size = filters[-1]
     filters = filters[:-1]
+
+    # initialize blocks
     convs = []
 
+    # encoder
     i = 1
     for f in filters:
         if i==1:
-            if resnet:
+            if bm.resnet:
                 conv = make_conv_block_resnet(f, inputs, i)
             else:
-                conv = make_conv_block(f, inputs, i)
+                conv = make_conv_block(f, inputs, i, dtype)
         else:
-            if resnet:
+            if bm.resnet:
                 conv = make_conv_block_resnet(f, pool, i)
             else:
-                conv = make_conv_block(f, pool, i)
+                conv = make_conv_block(f, pool, i, dtype)
         pool = MaxPooling3D(pool_size=(2, 2, 2))(conv)
         convs.append(conv)
         i += 1
 
-    if resnet:
+    # latent space
+    if bm.resnet:
         conv = make_conv_block_resnet(latent_space_size, pool, i)
     else:
-        conv = make_conv_block(latent_space_size, pool, i)
+        conv = make_conv_block(latent_space_size, pool, i, dtype)
     i += 1
 
+    # decoder
     for k, f in enumerate(filters[::-1]):
         up = Concatenate()([UpSampling3D(size=(2, 2, 2))(conv), convs[-(k+1)]])
-        if resnet:
+        if bm.resnet:
             conv = make_conv_block_resnet(f, up, i)
         else:
-            conv = make_conv_block(f, up, i)
+            conv = make_conv_block(f, up, i, dtype)
         i += 1
 
+    # final layer and output
     conv = Conv3D(nb_labels, (1, 1, 1), name=f'conv_{i}_1')(conv)
-
     x = Reshape((nb_plans * nb_rows * nb_cols, nb_labels))(conv)
     x = Activation('softmax')(x)
     outputs = Reshape((nb_plans, nb_rows, nb_cols, nb_labels))(x)
-
     model = Model(inputs=inputs, outputs=outputs)
-
     return model
 
 def get_labels(arr, allLabels):
@@ -936,7 +945,6 @@ def custom_accuracy(y_true, y_pred):
     return tf.reduce_sum(masked_correct_predictions) / tf.reduce_sum(ignore_mask)
 
 def train_segmentation(bm):
-    #tf.keras.mixed_precision.set_global_policy("mixed_float16")
 
     # training data
     bm.img_data, bm.label_data, allLabels, normalization_parameters, bm.header, bm.extension, bm.channels = load_training_data(bm,
@@ -1075,7 +1083,7 @@ def train_segmentation(bm):
     with strategy.scope():
 
         # build model
-        model = make_unet(input_shape, nb_labels, bm.network_filters, bm.resnet)
+        model = make_unet(bm, input_shape, nb_labels)
         model.summary()
 
         # pretrained model
@@ -1094,7 +1102,10 @@ def train_segmentation(bm):
                 layer.trainable = False
 
         # optimizer
-        sgd = SGD(learning_rate=bm.learning_rate, decay=1e-6, momentum=0.9, nesterov=True)
+        optimizer = SGD(learning_rate=bm.learning_rate, decay=1e-6, momentum=0.9, nesterov=True)
+        #optimizer = tf.keras.optimizers.Adam(learning_rate=bm.learning_rate, epsilon=1e-4) lr=0.0001
+        if bm.mixed_precision:
+            optimizer = tf.keras.mixed_precision.LossScaleOptimizer(optimizer, dynamic=False, initial_scale=128)
 
         # Rename the function to appear as "accuracy" in logs
         if bm.ignore_mask:
@@ -1111,7 +1122,7 @@ def train_segmentation(bm):
 
         # comile model
         model.compile(loss=loss,
-                      optimizer=sgd,
+                      optimizer=optimizer,
                       metrics=metrics)
 
     # save meta data
