@@ -77,7 +77,7 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
     z_patch=64, y_patch=64, x_patch=64, path_to_logfile=None, img_id=None, label_id=None,
     remote=False, queue=0, username=None, shortfilename=None, dice_loss=False,
     acwe=False, acwe_alpha=1.0, acwe_smooth=1, acwe_steps=3, clean=None, fill=None,
-    separation=False, mask=None, refinement=False, ignore_mask=False):
+    separation=False, mask=None, refinement=False, ignore_mask=False, mixed_precision=False):
 
     # create biomedisa
     bm = Biomedisa()
@@ -508,6 +508,8 @@ if __name__ == '__main__':
                         help='Specify the model location for training')
     parser.add_argument('-im','--ignore_mask', action='store_true', default=False,
                         help='Use a binary mask in the second channel of the label file to define ignored (0) and considered (1) areas during training')
+    parser.add_argument('-mp','--mixed_precision', action='store_true', default=False,
+                        help='Use mixed precision in model')
     bm = parser.parse_args()
     bm.success = True
 
