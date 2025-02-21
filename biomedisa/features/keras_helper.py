@@ -1331,17 +1331,18 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
     load_blockwise = False
     if not bm.scaling and not bm.normalize and bm.path_to_image and not np.any(region_of_interest) and \
       os.path.splitext(bm.path_to_image)[1] in ['.tif', '.tiff'] and not bm.acwe:
+
         # get image shape
         tif = TiffFile(bm.path_to_image)
         zsh = len(tif.pages)
         ysh, xsh = tif.pages[0].shape
 
         # load mask
-        if bm.separation or bm.refinement:
+        '''if bm.separation or bm.refinement:
             mask, _ = load_data(bm.mask)
             mask = mask.reshape(zsh, ysh, xsh, 1)
             mask, _, _, _ = append_ghost_areas(bm, mask)
-            mask = mask.reshape(mask.shape[:-1])
+            mask = mask.reshape(mask.shape[:-1])'''
 
         # determine new image size after appending ghost areas to make image dimensions divisible by patch size
         z_rest = bm.z_patch - (zsh % bm.z_patch)
@@ -1361,7 +1362,7 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
             xsh +=  x_rest
 
         # get Ids of patches
-        list_IDs = []
+        '''list_IDs = []
         for k in range(0, zsh-bm.z_patch+1, bm.stride_size):
             for l in range(0, ysh-bm.y_patch+1, bm.stride_size):
                 for m in range(0, xsh-bm.x_patch+1, bm.stride_size):
@@ -1374,16 +1375,16 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
                         if np.any(mask[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]):
                             list_IDs.append(k*ysh*xsh+l*xsh+m)
                     else:
-                        list_IDs.append(k*ysh*xsh+l*xsh+m)
+                        list_IDs.append(k*ysh*xsh+l*xsh+m)'''
 
         # make length of list divisible by batch size
-        max_i = len(list_IDs)
+        '''max_i = len(list_IDs)
         rest = bm.batch_size - (len(list_IDs) % bm.batch_size)
-        list_IDs = list_IDs + list_IDs[:rest]
+        list_IDs = list_IDs + list_IDs[:rest]'''
 
         # prediction
-        if len(list_IDs) > 400:
-            load_blockwise = True
+        #if len(list_IDs) > 400:
+        load_blockwise = True
 
     # load image data and calculate patch IDs
     if not load_blockwise:
@@ -1463,6 +1464,7 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
           else:
             nprocs = ngpus
           if j % ngpus == rank:
+
             # load blockwise from TIFF
             if load_blockwise:
                 img, _, _, _, _, _, _ = load_prediction_data(bm,
@@ -1470,19 +1472,30 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
                     region_of_interest, bm.img_data, bm.img_header, load_blockwise, z)
                 img, _, _, _ = append_ghost_areas(bm, img)
 
+                # load mask block
+                if bm.separation or bm.refinement:
+                    mask = imread(bm.mask, key=range(z,min(len(tif.pages),z+bm.z_patch)))
+                    # pad zeros to make dimensions divisible by patch dimensions
+                    pad_z = bm.z_patch - mask.shape[0]
+                    pad_y = (bm.y_patch - (mask.shape[1] % bm.y_patch)) % bm.y_patch
+                    pad_x = (bm.x_patch - (mask.shape[2] % bm.x_patch)) % bm.x_patch
+                    pad_width = [(0, pad_z), (0, pad_y), (0, pad_x)]
+                    mask = np.pad(mask, pad_width, mode='constant', constant_values=0)
+
             # list of IDs
             list_IDs_block = []
 
             # get Ids of patches
+            k = 0 if load_blockwise else z
             for l in range(0, ysh-bm.y_patch+1, bm.stride_size):
                 for m in range(0, xsh-bm.x_patch+1, bm.stride_size):
                     if bm.separation:
-                        centerLabel = mask[z+bm.z_patch//2,l+bm.y_patch//2,m+bm.x_patch//2]
-                        patch = mask[z:z+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]
+                        centerLabel = mask[k+bm.z_patch//2,l+bm.y_patch//2,m+bm.x_patch//2]
+                        patch = mask[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]
                         if centerLabel>0 and np.any(patch!=centerLabel):
                             list_IDs_block.append(z*ysh*xsh+l*xsh+m)
                     elif bm.refinement:
-                        if np.any(mask[z:z+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]):
+                        if np.any(mask[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]):
                             list_IDs_block.append(z*ysh*xsh+l*xsh+m)
                     else:
                         list_IDs_block.append(z*ysh*xsh+l*xsh+m)
@@ -1592,7 +1605,7 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
                     mask[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch] = label[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]
             label = mask'''
 
-        # remove appendix
+        # remove ghost areas
         if bm.return_probs:
             final = final[:-z_rest,:-y_rest,:-x_rest]
         label = label[:-z_rest,:-y_rest,:-x_rest]
