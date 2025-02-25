@@ -33,10 +33,9 @@ sudo apt-get autoremove
 ```
 
 #### Install Biomedisa
-Follow the Biomedisa installation instructions for [Ubuntu](https://github.com/biomedisa/biomedisa/#installation-command-line-based).
+Follow the Biomedisa installation (command-line based) instructions for [Ubuntu](https://github.com/biomedisa/biomedisa/#installation-command-line-based).
 
 # Run Biomedisa on WSL
-For simplicity, we use relative paths and assume your Biomedisa environment is located in your Windows user directory (`C:\Users\WINDOWS_USERNAME`), which corresponds to `/mnt/c/Users/WINDOWS_USERNAME` in WSL:
 1. **Start WSL**
 ```
 wsl
