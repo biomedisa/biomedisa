@@ -724,7 +724,7 @@ class Metrics(Callback):
                     m = rest % self.dim_img[2]
                     tmp_X = self.img[k:k+self.dim_patch[0],l:l+self.dim_patch[1],m:m+self.dim_patch[2]]
                     if self.patch_normalization:
-                        tmp_X = np.copy(tmp_X, order='C')
+                        tmp_X = tmp_X.copy().astype(np.float32)
                         for c in range(self.n_channels):
                             tmp_X[:,:,:,c] -= np.mean(tmp_X[:,:,:,c])
                             tmp_X[:,:,:,c] /= max(np.std(tmp_X[:,:,:,c]), 1e-6)
