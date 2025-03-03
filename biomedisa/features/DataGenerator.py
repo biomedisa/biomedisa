@@ -26,11 +26,11 @@
 ##                                                                      ##
 ##########################################################################
 
+from biomedisa.features.biomedisa_helper import welford_mean_std
 import numpy as np
 import tensorflow as tf
 import numba
 import random
-import scipy
 
 def get_random_rotation_matrix(batch_size):
     angle_xy = np.random.uniform(0, 2. * np.pi, batch_size)
@@ -358,8 +358,9 @@ class DataGenerator(tf.keras.utils.Sequence):
             if self.patch_normalization:
                 tmp_X = tmp_X.copy().astype(np.float32)
                 for ch in range(self.n_channels):
-                    tmp_X[...,ch] -= np.mean(tmp_X[...,ch])
-                    tmp_X[...,ch] /= max(np.std(tmp_X[...,ch]), 1e-6)
+                    mean, std = welford_mean_std(tmp_X[...,ch])
+                    tmp_X[...,ch] -= mean
+                    tmp_X[...,ch] /= max(std, 1e-6)
 
             # assign to batch
             X[i] = tmp_X

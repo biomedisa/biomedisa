@@ -1,6 +1,6 @@
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2019-2024 Philipp Lösel. All rights reserved.         ##
+##  Copyright (c) 2019-2025 Philipp Lösel. All rights reserved.         ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -28,7 +28,8 @@
 
 import os
 from biomedisa.features.keras_helper import read_img_list
-from biomedisa.features.biomedisa_helper import img_resize, load_data, save_data, set_labels_to_zero
+from biomedisa.features.biomedisa_helper import (img_resize,
+    load_data, save_data, set_labels_to_zero, welford_mean_std)
 from tensorflow.python.framework.errors_impl import ResourceExhaustedError
 from tensorflow.keras.applications import DenseNet121, densenet
 from tensorflow.keras.optimizers import Adam
@@ -161,7 +162,7 @@ def load_cropping_training_data(normalize, img_list, label_list, x_scale, y_scal
             # normalize first validation image
             if normalize and np.any(normalization_parameters):
                 for c in range(channels):
-                    mean, std = np.mean(img[:,:,:,c]), np.std(img[:,:,:,c])
+                    mean, std = welford_mean_std(img[:,:,:,c])
                     img[:,:,:,c] = (img[:,:,:,c] - mean) / std
                     img[:,:,:,c] = img[:,:,:,c] * normalization_parameters[1,c] + normalization_parameters[0,c]
 
@@ -170,8 +171,7 @@ def load_cropping_training_data(normalize, img_list, label_list, x_scale, y_scal
                 normalization_parameters = np.zeros((2,channels))
                 if normalize:
                     for c in range(channels):
-                        normalization_parameters[0,c] = np.mean(img[:,:,:,c])
-                        normalization_parameters[1,c] = np.std(img[:,:,:,c])
+                        normalization_parameters[:,c] = welford_mean_std(img[:,:,:,c])
 
             # loop over list of images
             if any(img_list) or type(img_in) is list:
@@ -223,7 +223,7 @@ def load_cropping_training_data(normalize, img_list, label_list, x_scale, y_scal
                         next_img[:,:,:,c] -= np.amin(next_img[:,:,:,c])
                         next_img[:,:,:,c] /= np.amax(next_img[:,:,:,c])
                         if normalize:
-                            mean, std = np.mean(next_img[:,:,:,c]), np.std(next_img[:,:,:,c])
+                            mean, std = welford_mean_std(next_img[:,:,:,c])
                             next_img[:,:,:,c] = (next_img[:,:,:,c] - mean) / std
                             next_img[:,:,:,c] = next_img[:,:,:,c] * normalization_parameters[1,c] + normalization_parameters[0,c]
                     img = np.append(img, next_img, axis=0)
@@ -391,7 +391,7 @@ def load_data_to_crop(path_to_img, channels, x_scale, y_scale, z_scale,
         img[:,:,:,c] -= np.amin(img[:,:,:,c])
         img[:,:,:,c] /= np.amax(img[:,:,:,c])
         if normalize:
-            mean, std = np.mean(img[:,:,:,c]), np.std(img[:,:,:,c])
+            mean, std = welford_mean_std(img[:,:,:,c])
             img[:,:,:,c] = (img[:,:,:,c] - mean) / std
             img[:,:,:,c] = img[:,:,:,c] * normalization_parameters[1,c] + normalization_parameters[0,c]
     img[img<0] = 0

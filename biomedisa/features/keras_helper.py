@@ -39,9 +39,9 @@ from tensorflow.keras.layers import (
 from tensorflow.keras import backend as K
 from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.callbacks import Callback, ModelCheckpoint, EarlyStopping
-from biomedisa.features.DataGenerator import DataGenerator
+from biomedisa.features.DataGenerator import DataGenerator, welford_mean_std
 from biomedisa.features.PredictDataGenerator import PredictDataGenerator
-from biomedisa.features.biomedisa_helper import (unique,
+from biomedisa.features.biomedisa_helper import (unique, welford_mean_std,
     img_resize, load_data, save_data, set_labels_to_zero, id_generator, unique_file_path)
 from biomedisa.features.remove_outlier import clean, fill
 from biomedisa.features.active_contour import activeContour
@@ -487,7 +487,7 @@ def load_training_data(bm, img_list, label_list, channels, img_in=None, label_in
             if bm.normalize and np.any(normalization_parameters):
                 img = img.astype(np.float32)
                 for ch in range(channels):
-                    mean, std = np.mean(img[...,ch]), np.std(img[...,ch])
+                    mean, std = welford_mean_std(img[...,ch])
                     img[...,ch] = (img[...,ch] - mean) / std
                     img[...,ch] = img[...,ch] * normalization_parameters[1,ch] + normalization_parameters[0,ch]
 
@@ -496,8 +496,7 @@ def load_training_data(bm, img_list, label_list, channels, img_in=None, label_in
                 normalization_parameters = np.zeros((2,channels))
                 if bm.normalize:
                     for ch in range(channels):
-                        normalization_parameters[0,ch] = np.mean(img[...,ch])
-                        normalization_parameters[1,ch] = np.std(img[...,ch])
+                        normalization_parameters[:,ch] = welford_mean_std(img[...,ch])
 
             # pad data
             if not bm.scaling:
@@ -577,7 +576,7 @@ def load_training_data(bm, img_list, label_list, channels, img_in=None, label_in
                     if bm.normalize:
                         a = a.astype(np.float32)
                         for ch in range(channels):
-                            mean, std = np.mean(a[...,ch]), np.std(a[...,ch])
+                            mean, std = welford_mean_std(a[...,ch])
                             a[...,ch] = (a[...,ch] - mean) / std
                             a[...,ch] = a[...,ch] * normalization_parameters[1,ch] + normalization_parameters[0,ch]
 
@@ -754,8 +753,9 @@ class Metrics(Callback):
                     if self.patch_normalization:
                         tmp_X = tmp_X.copy().astype(np.float32)
                         for ch in range(self.n_channels):
-                            tmp_X[...,ch] -= np.mean(tmp_X[...,ch])
-                            tmp_X[...,ch] /= max(np.std(tmp_X[...,ch]), 1e-6)
+                            mean, std = welford_mean_std(tmp_X[...,ch])
+                            tmp_X[...,ch] -= mean
+                            tmp_X[...,ch] /= max(std, 1e-6)
                     X_val[i] = tmp_X
 
                 # Prediction segmentation
@@ -1223,7 +1223,7 @@ def load_prediction_data(bm, channels, normalization_parameters,
     if bm.normalize:
         img = img.astype(np.float32)
         for ch in range(channels):
-            mean, std = np.mean(img[...,ch]), np.std(img[...,ch])
+            mean, std = welford_mean_std(img[...,ch])
             img[...,ch] = (img[...,ch] - mean) / std
             img[...,ch] = img[...,ch] * normalization_parameters[1,ch] + normalization_parameters[0,ch]
 
@@ -1291,13 +1291,26 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
     rank = comm.Get_rank()
     ngpus = comm.Get_size()
 
+    # optional result paths
+    if bm.path_to_image:
+        filename, bm.extension = os.path.splitext(bm.path_to_final)
+        if bm.extension == '.gz':
+            bm.extension = '.nii.gz'
+            filename = filename[:-4]
+        path_to_cleaned = filename + '.cleaned' + bm.extension
+        path_to_filled = filename + '.filled' + bm.extension
+        path_to_cleaned_filled = filename + '.cleaned.filled' + bm.extension
+        path_to_refined = filename + '.refined' + bm.extension
+        path_to_acwe = filename + '.acwe' + bm.extension
+        path_to_probs = filename + '.probs.tif'
+
     # Set the visible GPU by ID
     gpus = tf.config.experimental.list_physical_devices('GPU')
     if gpus:
         try:
             # Restrict TensorFlow to only use the specified GPU
-            tf.config.experimental.set_visible_devices(gpus[rank], 'GPU')
-            tf.config.experimental.set_memory_growth(gpus[rank], True)
+            tf.config.experimental.set_visible_devices(gpus[rank % len(gpus)], 'GPU')
+            tf.config.experimental.set_memory_growth(gpus[rank % len(gpus)], True)
         except RuntimeError as e:
             print(e)
 
@@ -1383,8 +1396,8 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
         list_IDs = list_IDs + list_IDs[:rest]'''
 
         # prediction
-        #if len(list_IDs) > 400:
-        load_blockwise = True
+        if zsh*ysh*xsh > 256**3:
+            load_blockwise = True
 
     # load image data and calculate patch IDs
     if not load_blockwise:
@@ -1449,7 +1462,11 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
 
         # allocate final probabilities array
         if rank==0 and bm.return_probs:
-            final = np.zeros((zsh, ysh, xsh, nb_labels), dtype=np.float32)
+            if load_blockwise:
+                if not os.path.exists(path_to_probs[:-4]):
+                    os.mkdir(path_to_probs[:-4])
+            else:
+                final = np.zeros((zsh, ysh, xsh, nb_labels), dtype=np.float32)
 
         # allocate final result array
         if rank==0:
@@ -1529,8 +1546,9 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
                     if bm.patch_normalization:
                         tmp_X = tmp_X.copy().astype(np.float32)
                         for ch in range(channels):
-                            tmp_X[...,ch] -= np.mean(tmp_X[...,ch])
-                            tmp_X[...,ch] /= max(np.std(tmp_X[...,ch]), 1e-6)
+                            mean, std = welford_mean_std(tmp_X[...,ch])
+                            tmp_X[...,ch] -= mean
+                            tmp_X[...,ch] /= max(std, 1e-6)
                     X[i] = tmp_X
 
                 # predict batch
@@ -1574,19 +1592,28 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
                         # overlap in z direction
                         if bm.stride_size < bm.z_patch:
                             if j+source>0:
-                                probs[:bm.stride_size] += overlap
+                                probs[:-bm.stride_size] += overlap
                             overlap = probs[bm.stride_size:].copy()
 
-                        # calculate result
+                        # block z dimension
                         block_z = z_indices[j+source]
-                        if j+source==len(z_indices)-1:
-                            label[block_z:block_z+bm.z_patch] = np.argmax(probs, axis=-1).astype(np.uint8)
-                            if bm.return_probs:
-                                final[block_z:block_z+bm.z_patch] = probs
+                        if j+source==len(z_indices)-1: # last block
+                            block_zsh = bm.z_patch
+                            block_z_rest = z_rest if z_rest>0 else -block_zsh
                         else:
                             block_zsh = min(bm.stride_size, bm.z_patch)
-                            label[block_z:block_z+block_zsh] = np.argmax(probs[:block_zsh], axis=-1).astype(np.uint8)
-                            if bm.return_probs:
+                            block_z_rest = -block_zsh
+
+                        # calculate result
+                        label[block_z:block_z+block_zsh] = np.argmax(probs[:block_zsh], axis=-1).astype(np.uint8)
+
+                        # return probabilities
+                        if bm.return_probs:
+                            if load_blockwise:
+                                block_output = scale_probabilities(probs[:block_zsh])
+                                block_output = block_output[:-block_z_rest,:-y_rest,:-x_rest]
+                                imwrite(path_to_probs[:-4] + f"/block-{j+source}.tif", block_output)
+                            else:
                                 final[block_z:block_z+block_zsh] = probs[:block_zsh]
                 else:
                     for i in range(bm.z_patch):
@@ -1606,13 +1633,13 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
             label = mask'''
 
         # remove ghost areas
-        if bm.return_probs:
+        if bm.return_probs and not load_blockwise:
             final = final[:-z_rest,:-y_rest,:-x_rest]
         label = label[:-z_rest,:-y_rest,:-x_rest]
         zsh, ysh, xsh = label.shape
 
         # return probabilities
-        if bm.return_probs:
+        if bm.return_probs and not load_blockwise:
             probabilities = scale_probabilities(final)
             if bm.scaling:
                 probabilities = img_resize(probabilities, z_shape, y_shape, x_shape)
@@ -1676,19 +1703,7 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
         # save result
         if bm.path_to_image:
             save_data(bm.path_to_final, label, header=bm.header, compress=bm.compression)
-
-            # paths to optional results
-            filename, bm.extension = os.path.splitext(bm.path_to_final)
-            if bm.extension == '.gz':
-                bm.extension = '.nii.gz'
-                filename = filename[:-4]
-            path_to_cleaned = filename + '.cleaned' + bm.extension
-            path_to_filled = filename + '.filled' + bm.extension
-            path_to_cleaned_filled = filename + '.cleaned.filled' + bm.extension
-            path_to_refined = filename + '.refined' + bm.extension
-            path_to_acwe = filename + '.acwe' + bm.extension
-            if bm.return_probs:
-                path_to_probs = filename + '.probs.tif'
+            if bm.return_probs and not load_blockwise:
                 imwrite(path_to_probs, probabilities)
 
         # remove outliers

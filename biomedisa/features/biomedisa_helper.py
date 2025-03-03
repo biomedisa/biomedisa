@@ -52,6 +52,19 @@ def silent_remove(filename):
     except OSError:
         pass
 
+# calculate mean and standard deviation using Welford's algorithm
+@numba.jit(nopython=True)
+def welford_mean_std(arr):
+    mean, m2, count = 0.0, 0.0, 0
+    for x in arr.ravel():
+        count += 1
+        delta = x - mean
+        mean += delta / count
+        delta2 = x - mean
+        m2 += delta * delta2  # Running sum of squared differences
+    std_dev = np.sqrt(m2 / count) if count > 1 else 0.0  # Population std deviation
+    return mean, std_dev
+
 # determine all values and their count from an array
 def unique(arr, return_counts=False):
     try:
