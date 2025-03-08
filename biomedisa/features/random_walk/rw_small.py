@@ -1,6 +1,6 @@
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2019-2024 Philipp Lösel. All rights reserved.         ##
+##  Copyright (c) 2019-2025 Philipp Lösel. All rights reserved.         ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -29,7 +29,7 @@
 from biomedisa.features.remove_outlier import clean, fill
 from biomedisa.features.active_contour import activeContour
 from biomedisa.features.biomedisa_helper import (_get_device, save_data, unique_file_path,
-    sendToChild, _split_indices, get_labels, Dice_score)
+    sendToChild, _split_indices, get_labels, Dice_score, _error_)
 from mpi4py import MPI
 import numpy as np
 import time
@@ -179,7 +179,11 @@ def _diffusion_child(comm, bm=None):
         mask = bm.labelData>0
         dice = Dice_score(bm.labelData, final_zero*mask)
         if dice < 0.3:
-            print('Warning: Bad result! Use "--allaxis" if you labeled axes other than the xy-plane.')
+            if bm.slicer:
+                message = 'Bad result! If you label outside the red (axial) window, enable "All axes" and ensure that at least one slice is empty between pre-segmented slices in each view.'
+                _error_(bm, message, level=0)
+            else:
+                print('Warning: Bad result! Use "--allaxis" if you labeled axes other than the xy-plane.')
 
         # regular result
         final_result = np.zeros((bm.zsh, bm.ysh, bm.xsh), dtype=np.uint8)

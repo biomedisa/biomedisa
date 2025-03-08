@@ -78,6 +78,7 @@ class BiomedisaPredictionLogic():
             # temporary file paths
             image_path = temp_dir + '/biomedisa-image.tif'
             results_path = temp_dir + '/final.biomedisa-image.tif'
+            error_path = temp_dir + '/biomedisa-error.txt'
 
             # save temporary data
             imwrite(image_path, numpyImage)
@@ -91,7 +92,8 @@ class BiomedisaPredictionLogic():
                 model_path = model_path.replace('\\','/').replace('C:','/mnt/c')
 
             # base command
-            cmd = ["-m", "biomedisa.deeplearning", image_path, model_path, '-ext', '.tif']
+            cmd = ["-m", "biomedisa.deeplearning", image_path, model_path,
+                "-ext", ".tif", "--slicer"]
 
             # append parameters on demand
             if parameter.stride_size != 32:
@@ -105,9 +107,22 @@ class BiomedisaPredictionLogic():
             # run prediction
             subprocess.Popen(cmd, env=env).wait()
 
+            # prompt error message
+            if os.path.exists(error_path):
+                with open(error_path, 'r') as file:
+                    import qt
+                    msgBox = qt.QMessageBox()
+                    msgBox.setIcon(qt.QMessageBox.Critical)
+                    msgBox.setText(file.read())
+                    #msgBox.setInformativeText(error_message)
+                    msgBox.setWindowTitle("Error")
+                    msgBox.exec_()
+
             # load result
-            results = {}
-            results['regular'] = imread(results_path)
+            results = None
+            if os.path.exists(results_path):
+                results = {}
+                results['regular'] = imread(results_path)
 
         if results is None:
             print("No result")

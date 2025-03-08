@@ -43,7 +43,7 @@ class Biomedisa(object):
 def smart_interpolation(data, labelData, nbrw=10, sorw=4000, acwe=False, acwe_alpha=1.0, acwe_smooth=1, acwe_steps=3,
     path_to_data=None, path_to_labels=None, denoise=False, uncertainty=False, platform=None,
     allaxis=False, ignore='none', only='all', smooth=0, compression=True, return_hits=False,
-    img_id=None, label_id=None, remote=False, queue=0, clean=None, fill=None):
+    img_id=None, label_id=None, remote=False, queue=0, clean=None, fill=None, slicer=False):
 
     freeze_support()
 
@@ -351,6 +351,8 @@ if __name__ == '__main__':
                         help='The interpolation is carried out on a remote server. Must be set up in config.py')
     parser.add_argument('-q','--queue', type=int, default=0,
                         help='Processing queue when using a remote server')
+    parser.add_argument('--slicer', action='store_true', default=False,
+                        help='Required for starting Biomedisa from 3D Slicer')
     kwargs = vars(parser.parse_args())
 
     # run interpolation

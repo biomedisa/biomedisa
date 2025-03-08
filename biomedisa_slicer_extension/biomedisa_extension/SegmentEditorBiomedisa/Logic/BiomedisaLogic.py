@@ -115,6 +115,7 @@ class BiomedisaLogic():
             image_path = temp_dir + '/biomedisa-image.tif'
             labels_path = temp_dir + '/biomedisa-labels.tif'
             results_path = temp_dir + '/final.biomedisa-image.tif'
+            error_path = temp_dir + '/biomedisa-error.txt'
 
             # save temporary data
             imwrite(image_path, numpyImage)
@@ -126,7 +127,7 @@ class BiomedisaLogic():
                 labels_path = labels_path.replace('\\','/').replace('C:','/mnt/c')
 
             # base command
-            cmd = ["-m", "biomedisa.interpolation", image_path, labels_path]
+            cmd = ["-m", "biomedisa.interpolation", image_path, labels_path, "--slicer"]
 
             # append parameters on demand
             if parameter.ignore != 'none':
@@ -150,9 +151,22 @@ class BiomedisaLogic():
             # run interpolation
             subprocess.Popen(cmd, env=env).wait()
 
+            # prompt error message
+            if os.path.exists(error_path):
+                with open(error_path, 'r') as file:
+                    import qt
+                    msgBox = qt.QMessageBox()
+                    msgBox.setIcon(qt.QMessageBox.Critical)
+                    msgBox.setText(file.read())
+                    #msgBox.setInformativeText(error_message)
+                    msgBox.setWindowTitle("Error")
+                    msgBox.exec_()
+
             # load result
-            results = {}
-            results['regular'] = imread(results_path)
+            results = None
+            if os.path.exists(results_path):
+                results = {}
+                results['regular'] = imread(results_path)
 
         if results is None:
             return None

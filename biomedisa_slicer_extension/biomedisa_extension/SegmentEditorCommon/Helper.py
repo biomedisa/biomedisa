@@ -114,6 +114,10 @@ class Helper():
         # Create a clean environment
         new_env = os.environ.copy()
 
+        # biomedisa main path
+        from pathlib import Path
+        biomedisa_path = Path(__file__).resolve().parents[3]
+
         # Windows using WSL
         if os.name == "nt" and wsl_path!=False:
             if wsl_path==None:
@@ -126,7 +130,8 @@ class Helper():
                 else:
                     python_path = "/usr/bin/python3"
             if lib_path==None:
-                lib_path = "export CUDA_HOME=/usr/local/cuda && export LD_LIBRARY_PATH=${CUDA_HOME}/lib64 && export PATH=${CUDA_HOME}/bin:${PATH}"
+                lib_path = "export PYTHONPATH="+biomedisa_path.replace('\\','/').replace('C:','/mnt/c')+":${PYTHONPATH}"
+                lib_path = lib_path + " && export CUDA_HOME=/usr/local/cuda && export LD_LIBRARY_PATH=${CUDA_HOME}/lib64 && export PATH=${CUDA_HOME}/bin:${PATH}"
                 if python_path == "/usr/bin/python3":
                     lib_path = lib_path + " && export PATH=${HOME}/.local/bin:${PATH}"
             cmd = wsl_path + [lib_path + " && " + python_path + " " + (" ").join(cmd)]
@@ -139,11 +144,11 @@ class Helper():
                 if os.path.exists(os.path.expanduser("~")+"/biomedisa_env/bin/python"):
                     python_path = os.path.expanduser("~")+"/biomedisa_env/bin/python"
                     python_version = Helper.get_python_version(python_path)
-                    lib_path = os.path.expanduser("~")+f"/biomedisa_env/lib/python{python_version}/site-package"
+                    lib_path = f"{biomedisa_path}:"+os.path.expanduser("~")+f"/biomedisa_env/lib/python{python_version}/site-package"
                 else:
                     python_path = "/usr/bin/python3"
                     python_version = Helper.get_python_version(python_path)
-                    lib_path = os.path.expanduser("~")+f"/.local/lib/python{python_version}/site-packages"
+                    lib_path = f"{biomedisa_path}:"+os.path.expanduser("~")+f"/.local/lib/python{python_version}/site-packages"
 
             # Remove environment variables that may interfere
             for var in ["PYTHONHOME", "PYTHONPATH", "LD_LIBRARY_PATH"]:

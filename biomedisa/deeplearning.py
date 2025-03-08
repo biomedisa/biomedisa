@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2019-2024 Philipp Lösel. All rights reserved.         ##
+##  Copyright (c) 2019-2025 Philipp Lösel. All rights reserved.         ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -77,7 +77,7 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
     z_patch=64, y_patch=64, x_patch=64, path_to_logfile=None, img_id=None, label_id=None,
     remote=False, queue=0, username=None, shortfilename=None, dice_loss=False,
     acwe=False, acwe_alpha=1.0, acwe_smooth=1, acwe_steps=3, clean=None, fill=None,
-    separation=False, mask=None, refinement=False):
+    separation=False, mask=None, refinement=False, slicer=False):
 
     # create biomedisa
     bm = Biomedisa()
@@ -506,6 +506,8 @@ if __name__ == '__main__':
                         help='Save data in formats like NRRD or TIFF using --extension=".nrrd"')
     parser.add_argument('-ptm','--path_to_model', type=str, metavar='PATH', default=None,
                         help='Specify the model location for training')
+    parser.add_argument('--slicer', action='store_true', default=False,
+                        help='Required for starting Biomedisa from 3D Slicer')
     bm = parser.parse_args()
     bm.success = True
 
