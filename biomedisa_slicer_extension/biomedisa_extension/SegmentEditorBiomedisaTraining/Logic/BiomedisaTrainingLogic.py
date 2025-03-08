@@ -60,6 +60,7 @@ class BiomedisaTrainingLogic():
             # temporary file paths
             image_path = temp_dir + '/biomedisa-image.tif'
             labels_path = temp_dir + '/biomedisa-labels.tif'
+            error_path = temp_dir + '/biomedisa-error.txt'
 
             # save temporary data
             imwrite(image_path, numpyImage)
@@ -75,7 +76,8 @@ class BiomedisaTrainingLogic():
                 model_path = model_path.replace('\\','/').replace('C:','/mnt/c')
 
             # base command
-            cmd = ["-m", "biomedisa.deeplearning", image_path, labels_path, '-t', '-ptm', model_path]
+            cmd = ["-m", "biomedisa.deeplearning", image_path, labels_path,
+                "-t", "-ptm", model_path, "--slicer"]
 
             # append parameters on demand
             if parameter.stride_size != 32:
@@ -104,4 +106,15 @@ class BiomedisaTrainingLogic():
 
             # run training
             subprocess.Popen(cmd, env=env).wait()
+
+            # prompt error message
+            if os.path.exists(error_path):
+                with open(error_path, 'r') as file:
+                    import qt
+                    msgBox = qt.QMessageBox()
+                    msgBox.setIcon(qt.QMessageBox.Critical)
+                    msgBox.setText(file.read())
+                    #msgBox.setInformativeText(error_message)
+                    msgBox.setWindowTitle("Error")
+                    msgBox.exec_()
 

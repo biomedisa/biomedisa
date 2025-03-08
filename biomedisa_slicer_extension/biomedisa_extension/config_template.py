@@ -1,5 +1,8 @@
 import getpass
 username = getpass.getuser()
+from pathlib import Path
+biomedisa_path = Path(__file__).resolve().parents[2]
+
 #-------------------------------
 # default (automatic detection)
 #-------------------------------
@@ -37,13 +40,17 @@ wsl_path = None
 #-------------------------------
 # Linux
 #-------------------------------
+# biomedisa_path:
+#   - Biomedisa Git repository
+#   - Remove from lib_path if you want to use the biomedisa pip package
+
 '''Virtual Python Environment'''
 #python_path = f"/home/{username}/biomedisa_env/bin/python"
-#lib_path = f"/home/{username}/biomedisa_env/lib/python3.10/site-packages"
+#lib_path = f"{biomedisa_path}:/home/{username}/biomedisa_env/lib/python3.10/site-packages"
 #wsl_path = None
 
 '''System Python'''
 #python_path = "/usr/bin/python3"
-#lib_path = f"/home/{username}/.local/lib/python3.10/site-packages"
+#lib_path = f"{biomedisa_path}:/home/{username}/.local/lib/python3.10/site-packages"
 #wsl_path = None
 
