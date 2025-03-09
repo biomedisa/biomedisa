@@ -554,7 +554,7 @@ if __name__ == '__main__':
     bm.path_to_data = bm.path_to_images
 
     # verify model
-    if os.path.splitext(bm.path)[1] != '.h5':
+    if bm.predict and os.path.splitext(bm.path)[1] != '.h5':
         bm = _error_(bm, "Invalid model.")
         raise RuntimeError("Invalid model.")
 
