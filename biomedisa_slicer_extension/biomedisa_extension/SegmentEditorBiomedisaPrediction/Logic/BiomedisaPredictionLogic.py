@@ -93,7 +93,7 @@ class BiomedisaPredictionLogic():
 
             # base command
             cmd = ["-m", "biomedisa.deeplearning", image_path, model_path,
-                "-ext", ".tif", "--slicer"]
+                "-p", "-ext", ".tif", "--slicer"]
 
             # append parameters on demand
             if parameter.stride_size != 32:
