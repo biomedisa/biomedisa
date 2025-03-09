@@ -130,8 +130,8 @@ class Helper():
                 else:
                     python_path = "/usr/bin/python3"
             if lib_path==None:
-                lib_path = "export PYTHONPATH="+biomedisa_path.replace('\\','/').replace('C:','/mnt/c')+":${PYTHONPATH}"
-                lib_path = lib_path + " && export CUDA_HOME=/usr/local/cuda && export LD_LIBRARY_PATH=${CUDA_HOME}/lib64 && export PATH=${CUDA_HOME}/bin:${PATH}"
+                lib_path = "export PYTHONPATH="+str(biomedisa_path).replace('\\','/').replace('C:','/mnt/c')+":${PYTHONPATH} && "
+                lib_path = lib_path + "export CUDA_HOME=/usr/local/cuda && export LD_LIBRARY_PATH=${CUDA_HOME}/lib64 && export PATH=${CUDA_HOME}/bin:${PATH}"
                 if python_path == "/usr/bin/python3":
                     lib_path = lib_path + " && export PATH=${HOME}/.local/bin:${PATH}"
             cmd = wsl_path + [lib_path + " && " + python_path + " " + (" ").join(cmd)]

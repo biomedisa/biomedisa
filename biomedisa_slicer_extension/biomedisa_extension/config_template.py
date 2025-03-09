@@ -13,6 +13,10 @@ wsl_path = None
 #-------------------------------
 # Windows using WSL
 #-------------------------------
+# biomedisa_path:
+#   - Auto detection uses the Biomedisa Git repository
+#   - If you want to use the Git repository, add its path to lib_path, e.g. "export PYTHONPATH=/mnt/c/Users/<USERNAME>/git/biomedisa:${PYTHONPATH} && "
+
 '''Virtual Python Environment'''
 #python_path = "/home/$USER/biomedisa_env/bin/python" # if the environment is in the WSL home directory
 #python_path = f"/mnt/c/Users/{username}/biomedisa_env/bin/python" # if the environment is in the Windows User directory

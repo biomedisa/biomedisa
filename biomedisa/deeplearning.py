@@ -77,7 +77,7 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
     z_patch=64, y_patch=64, x_patch=64, path_to_logfile=None, img_id=None, label_id=None,
     remote=False, queue=0, username=None, shortfilename=None, dice_loss=False,
     acwe=False, acwe_alpha=1.0, acwe_smooth=1, acwe_steps=3, clean=None, fill=None,
-    separation=False, mask=None, refinement=False, slicer=False):
+    separation=False, mask=None, refinement=False, slicer=False, path_to_data=None):
 
     # create biomedisa
     bm = Biomedisa()
@@ -91,6 +91,7 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
     key_copy = tuple(locals().keys())
     for arg in key_copy:
         bm.__dict__[arg] = locals()[arg]
+    bm.path_to_data = bm.path_to_images
 
     # normalization
     bm.normalize = 1 if bm.normalization else 0
@@ -214,10 +215,16 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
 
     if bm.predict:
 
-        # get meta data
-        hf = h5py.File(bm.path_to_model, 'r')
-        meta = hf.get('meta')
-        configuration = meta.get('configuration')
+        # load model
+        try:
+            hf = h5py.File(bm.path_to_model, 'r')
+            meta = hf.get('meta')
+            configuration = meta.get('configuration')
+            bm.allLabels = np.array(meta.get('labels'))
+        except:
+            raise RuntimeError("Invalid model.")
+
+        # get configuration
         channels, bm.x_scale, bm.y_scale, bm.z_scale, bm.normalize, mu, sig = np.array(configuration)[:]
         channels, bm.x_scale, bm.y_scale, bm.z_scale, bm.normalize, mu, sig = int(channels), int(bm.x_scale), \
                                 int(bm.y_scale), int(bm.z_scale), int(bm.normalize), float(mu), float(sig)
@@ -225,7 +232,6 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
             normalization_parameters = np.array(meta['normalization'], dtype=float)
         else:
             normalization_parameters = np.array([[mu],[sig]])
-        bm.allLabels = np.array(meta.get('labels'))
         if 'patch_normalization' in meta:
             bm.patch_normalization = bool(meta['patch_normalization'][()])
         if 'scaling' in meta:
@@ -545,6 +551,12 @@ if __name__ == '__main__':
         bm.django_env = False
 
     kwargs = vars(bm)
+    bm.path_to_data = bm.path_to_images
+
+    # verify model
+    if os.path.splitext(bm.path)[1] != '.h5':
+        bm = _error_(bm, "Invalid model.")
+        raise RuntimeError("Invalid model.")
 
     # train or predict segmentation
     try:
@@ -563,5 +575,5 @@ if __name__ == '__main__':
         bm = _error_(bm, 'GPU out of memory. Reduce your batch size')
     except Exception as e:
         print(traceback.format_exc())
-        bm = _error_(bm, e)
+        bm = _error_(bm, str(e))
 
