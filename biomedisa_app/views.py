@@ -1028,48 +1028,47 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
 
                 elif success == 0:
 
-                    if success == 0:
-                        with open(BASE_DIR + config_path, 'r') as configfile:
-                            final_on_host, _, _, _, _, time_str, server_name, model_on_host, cropped_on_host, _ = configfile.read().split()
-                        if cropped_on_host=='None':
-                            cropped_on_host=None
-                        time_str = time_str.replace('-',' ')
+                    with open(BASE_DIR + config_path, 'r') as configfile:
+                        final_on_host, _, _, _, _, time_str, server_name, model_on_host, cropped_on_host, _ = configfile.read().split()
+                    if cropped_on_host=='None':
+                        cropped_on_host=None
+                    time_str = time_str.replace('-',' ')
 
-                        # local file names
-                        path_to_model, path_to_final, path_to_cropped_image = None, None, None
-                        if predict:
-                            path_to_final = unique_file_path(final_on_host.replace(host_base,BASE_DIR))
-                            if cropped_on_host:
-                                path_to_cropped_image = unique_file_path(cropped_on_host.replace(host_base,BASE_DIR))
-                        else:
-                            path_to_model = unique_file_path(model_on_host.replace(host_base,BASE_DIR))
+                    # local file names
+                    path_to_model, path_to_final, path_to_cropped_image = None, None, None
+                    if predict:
+                        path_to_final = unique_file_path(final_on_host.replace(host_base,BASE_DIR))
+                        if cropped_on_host:
+                            path_to_cropped_image = unique_file_path(cropped_on_host.replace(host_base,BASE_DIR))
+                    else:
+                        path_to_model = unique_file_path(model_on_host.replace(host_base,BASE_DIR))
 
-                        # get results
-                        if predict:
-                            subprocess.Popen(['scp', host+':'+final_on_host, path_to_final]).wait()
-                            os.chmod(path_to_final, 0o664)
-                            if cropped_on_host:
-                                subprocess.Popen(['scp', host+':'+cropped_on_host, path_to_cropped_image]).wait()
-                                os.chmod(path_to_cropped_image, 0o664)
-                        else:
-                            subprocess.Popen(['scp', host+':'+model_on_host, path_to_model]).wait()
-                            os.chmod(path_to_model, 0o664)
-                            for suffix in ['_acc.png', '_loss.png', '.csv']:
-                                subprocess.Popen(['scp', host+':'+model_on_host.replace('.h5', suffix), path_to_model.replace('.h5', suffix)]).wait()
-                                os.chmod(path_to_model.replace('.h5', suffix), 0o664)
+                    # get results
+                    if predict:
+                        subprocess.Popen(['scp', host+':'+final_on_host, path_to_final]).wait()
+                        os.chmod(path_to_final, 0o664)
+                        if cropped_on_host:
+                            subprocess.Popen(['scp', host+':'+cropped_on_host, path_to_cropped_image]).wait()
+                            os.chmod(path_to_cropped_image, 0o664)
+                    else:
+                        subprocess.Popen(['scp', host+':'+model_on_host, path_to_model]).wait()
+                        os.chmod(path_to_model, 0o664)
+                        for suffix in ['_acc.png', '_loss.png', '.csv']:
+                            subprocess.Popen(['scp', host+':'+model_on_host.replace('.h5', suffix), path_to_model.replace('.h5', suffix)]).wait()
+                            os.chmod(path_to_model.replace('.h5', suffix), 0o664)
 
-                        # post processing
-                        post_processing(path_to_final, time_str, server_name, False, None,
-                            path_to_cropped_image=path_to_cropped_image, path_to_model=path_to_model,
-                            predict=predict, train=train,
-                            img_id=image.id, label_id=label.id)
+                    # post processing
+                    post_processing(path_to_final, time_str, server_name, False, None,
+                        path_to_cropped_image=path_to_cropped_image, path_to_model=path_to_model,
+                        predict=predict, train=train,
+                        img_id=image.id, label_id=label.id)
 
-                        # remove config file
-                        subprocess.Popen(['ssh', host, 'rm', host_base + config_path]).wait()
+                    # remove config file
+                    subprocess.Popen(['ssh', host, 'rm', host_base + config_path]).wait()
 
-                    #else:
-                        # something went wrong
-                        #return_error(image, 'Something went wrong. Please restart.')
+                else:
+                    # something went wrong
+                    return_error(image, 'Something went wrong. Please restart.')
 
                 # remove pid file
                 if started == 0:
@@ -2190,40 +2189,39 @@ def init_random_walk(image, label):
 
                 elif success == 0:
 
-                    if success == 0:
-                        with open(BASE_DIR + config_path, 'r') as configfile:
-                            final_on_host, uncertainty_on_host, smooth_on_host, uncertainty, smooth, time_str, server_name, _, _, dice = configfile.read().split()
-                        uncertainty=True if uncertainty=='True' else False
-                        smooth=False if smooth=='0' else True
-                        time_str = time_str.replace('-',' ')
+                    with open(BASE_DIR + config_path, 'r') as configfile:
+                        final_on_host, uncertainty_on_host, smooth_on_host, uncertainty, smooth, time_str, server_name, _, _, dice = configfile.read().split()
+                    uncertainty=True if uncertainty=='True' else False
+                    smooth=False if smooth=='0' else True
+                    time_str = time_str.replace('-',' ')
 
-                        # local file names
-                        path_to_final = unique_file_path(final_on_host.replace(host_base,BASE_DIR))
-                        path_to_smooth = unique_file_path(smooth_on_host.replace(host_base,BASE_DIR))
-                        path_to_uq = unique_file_path(uncertainty_on_host.replace(host_base,BASE_DIR))
+                    # local file names
+                    path_to_final = unique_file_path(final_on_host.replace(host_base,BASE_DIR))
+                    path_to_smooth = unique_file_path(smooth_on_host.replace(host_base,BASE_DIR))
+                    path_to_uq = unique_file_path(uncertainty_on_host.replace(host_base,BASE_DIR))
 
-                        # get results
-                        subprocess.Popen(['scp', host+':'+final_on_host, path_to_final]).wait()
-                        os.chmod(path_to_final, 0o664)
-                        if smooth:
-                            subprocess.Popen(['scp', host+':'+smooth_on_host, path_to_smooth]).wait()
-                            os.chmod(path_to_smooth, 0o664)
-                        if uncertainty:
-                            subprocess.Popen(['scp', host+':'+uncertainty_on_host, path_to_uq]).wait()
-                            os.chmod(path_to_uq, 0o664)
+                    # get results
+                    subprocess.Popen(['scp', host+':'+final_on_host, path_to_final]).wait()
+                    os.chmod(path_to_final, 0o664)
+                    if smooth:
+                        subprocess.Popen(['scp', host+':'+smooth_on_host, path_to_smooth]).wait()
+                        os.chmod(path_to_smooth, 0o664)
+                    if uncertainty:
+                        subprocess.Popen(['scp', host+':'+uncertainty_on_host, path_to_uq]).wait()
+                        os.chmod(path_to_uq, 0o664)
 
-                        # post processing
-                        post_processing(path_to_final, time_str, server_name, False, None,
-                            dice=float(dice), path_to_uq=path_to_uq, path_to_smooth=path_to_smooth,
-                            uncertainty=uncertainty, smooth=smooth,
-                            img_id=image.id, label_id=label.id)
+                    # post processing
+                    post_processing(path_to_final, time_str, server_name, False, None,
+                        dice=float(dice), path_to_uq=path_to_uq, path_to_smooth=path_to_smooth,
+                        uncertainty=uncertainty, smooth=smooth,
+                        img_id=image.id, label_id=label.id)
 
-                        # remove config file
-                        subprocess.Popen(['ssh', host, 'rm', host_base + config_path]).wait()
+                    # remove config file
+                    subprocess.Popen(['ssh', host, 'rm', host_base + config_path]).wait()
 
-                    #else:
-                        # something went wrong
-                        #return_error(image, 'Something went wrong. Please restart.')
+                else:
+                    # something went wrong
+                    return_error(image, 'Something went wrong. Please restart.')
 
                 # remove pid file
                 if started == 0:
