@@ -1,6 +1,6 @@
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2019-2024 Philipp Lösel. All rights reserved.         ##
+##  Copyright (c) 2019-2025 Philipp Lösel. All rights reserved.         ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -1047,12 +1047,16 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
                         # get results
                         if predict:
                             subprocess.Popen(['scp', host+':'+final_on_host, path_to_final]).wait()
+                            os.chmod(path_to_final, 0o664)
                             if cropped_on_host:
                                 subprocess.Popen(['scp', host+':'+cropped_on_host, path_to_cropped_image]).wait()
+                                os.chmod(path_to_cropped_image, 0o664)
                         else:
                             subprocess.Popen(['scp', host+':'+model_on_host, path_to_model]).wait()
+                            os.chmod(path_to_model, 0o664)
                             for suffix in ['_acc.png', '_loss.png', '.csv']:
                                 subprocess.Popen(['scp', host+':'+model_on_host.replace('.h5', suffix), path_to_model.replace('.h5', suffix)]).wait()
+                                os.chmod(path_to_model.replace('.h5', suffix), 0o664)
 
                         # post processing
                         post_processing(path_to_final, time_str, server_name, False, None,
@@ -2200,10 +2204,13 @@ def init_random_walk(image, label):
 
                         # get results
                         subprocess.Popen(['scp', host+':'+final_on_host, path_to_final]).wait()
+                        os.chmod(path_to_final, 0o664)
                         if smooth:
                             subprocess.Popen(['scp', host+':'+smooth_on_host, path_to_smooth]).wait()
+                            os.chmod(path_to_smooth, 0o664)
                         if uncertainty:
                             subprocess.Popen(['scp', host+':'+uncertainty_on_host, path_to_uq]).wait()
+                            os.chmod(path_to_uq, 0o664)
 
                         # post processing
                         post_processing(path_to_final, time_str, server_name, False, None,
