@@ -1200,16 +1200,15 @@ def features(request, action):
         # get list of images and labels
         img_list, label_list = '', ''
         val_img_list, val_label_list = '', ''
-        for project in range(1, 10):
-            raw, label = None, None
-            for img in images:
-                if img.imageType == 1 and img.project == project:
-                    raw = img
-                elif img.imageType == 2 and img.project == project:
-                    label = img
-                elif img.imageType == 3 and img.project == project:
-                    label = img
-            if raw is not None and label is not None:
+        too_many_selected_files = False
+        for project in range(1,10):
+            filtered_images = images.filter(project=project, imageType=1)
+            filtered_labels = images.filter(project=project, imageType__in=[2,3])
+            if filtered_images.count()>1 or filtered_labels.count()>1:
+                too_many_selected_files = True
+            elif filtered_images.count()==1 and filtered_labels.count()==1:
+                raw = filtered_images.get()
+                label = filtered_labels.get()
                 if label.validation_data:
                     val_img_list += raw.pic.path + ','
                     val_label_list += label.pic.path + ','
@@ -1220,7 +1219,9 @@ def features(request, action):
                     label_list += label.pic.path + ','
 
         # train neural network
-        if not img_list:
+        if too_many_selected_files:
+            request.session['state'] = 'Please select only one image and one label from each project.'
+        elif not img_list:
             request.session['state'] = 'No usable image and label combination selected.'
         elif raw_out.status > 0:
             request.session['state'] = 'Image is already being processed.'
