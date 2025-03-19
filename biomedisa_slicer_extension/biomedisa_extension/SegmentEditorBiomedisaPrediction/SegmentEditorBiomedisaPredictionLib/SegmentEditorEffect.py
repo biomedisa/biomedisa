@@ -193,7 +193,9 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
       segmentID = availableLabelValues.get(label)
       if not segmentID:
         segmentID = segmentation.AddEmptySegment()
-        segmentation.GetSegment(segmentID).SetLabelValue(label)
+        segment = segmentation.GetSegment(segmentID)
+        segment.SetLabelValue(label)
+        segment.SetName(f"Segment_{label}")
 
       segment = segmentation.GetSegment(segmentID)
       segment.SetLabelValue(label)

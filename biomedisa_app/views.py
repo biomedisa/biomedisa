@@ -1,6 +1,6 @@
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2019-2024 Philipp Lösel. All rights reserved.         ##
+##  Copyright (c) 2019-2025 Philipp Lösel. All rights reserved.         ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -461,7 +461,7 @@ def settings(request, id):
                     image.x_scale = min(512, int(cd['x_scale']))
                     image.y_scale = min(512, int(cd['y_scale']))
                     image.z_scale = min(512, int(cd['z_scale']))
-                    if any([scale > 256 for scale in [image.x_scale, image.y_scale, image.z_scale]]):
+                    if not image.scaling or any([scale > 256 for scale in [image.x_scale, image.y_scale, image.z_scale]]):
                         image.stride_size = 64
                     if cd['early_stopping'] and image.validation_split == 0.0:
                         image.validation_split = 0.8
@@ -489,6 +489,7 @@ def settings_prediction(request, id):
                 if cd != initial:
                     for key in cd.keys():
                         image.__dict__[key] = cd[key]
+                    image.stride_size = max(32, int(cd['stride_size']))
                     image.save()
                     messages.success(request, 'Your settings were changed.')
                 return redirect(settings_prediction, id)
@@ -878,7 +879,7 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
             cmd += [img_list.replace(BASE_DIR,host_base),
                     label_list.replace(BASE_DIR,host_base),'-t']
             if val_img_list and val_label_list:
-                cmd += ['-vi',val_img_list.replace(BASE_DIR,host_base),'-vl',val_label_list.replace(BASE_DIR,host_base)]
+                cmd += ['-vi',val_img_list.replace(BASE_DIR,host_base),'-vl',val_label_list.replace(BASE_DIR,host_base),'-vss=64']
         cmd += [f'-iid={image.id}', f'-lid={label.id}']
 
         # command (append only on demand)
@@ -1028,44 +1029,47 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
 
                 elif success == 0:
 
-                    if success == 0:
-                        with open(BASE_DIR + config_path, 'r') as configfile:
-                            final_on_host, _, _, _, _, time_str, server_name, model_on_host, cropped_on_host, _ = configfile.read().split()
-                        if cropped_on_host=='None':
-                            cropped_on_host=None
-                        time_str = time_str.replace('-',' ')
+                    with open(BASE_DIR + config_path, 'r') as configfile:
+                        final_on_host, _, _, _, _, time_str, server_name, model_on_host, cropped_on_host, _ = configfile.read().split()
+                    if cropped_on_host=='None':
+                        cropped_on_host=None
+                    time_str = time_str.replace('-',' ')
 
-                        # local file names
-                        path_to_model, path_to_final, path_to_cropped_image = None, None, None
-                        if predict:
-                            path_to_final = unique_file_path(final_on_host.replace(host_base,BASE_DIR))
-                            if cropped_on_host:
-                                path_to_cropped_image = unique_file_path(cropped_on_host.replace(host_base,BASE_DIR))
-                        else:
-                            path_to_model = unique_file_path(model_on_host.replace(host_base,BASE_DIR))
+                    # local file names
+                    path_to_model, path_to_final, path_to_cropped_image = None, None, None
+                    if predict:
+                        path_to_final = unique_file_path(final_on_host.replace(host_base,BASE_DIR))
+                        if cropped_on_host:
+                            path_to_cropped_image = unique_file_path(cropped_on_host.replace(host_base,BASE_DIR))
+                    else:
+                        path_to_model = unique_file_path(model_on_host.replace(host_base,BASE_DIR))
 
-                        # get results
-                        if predict:
-                            subprocess.Popen(['scp', host+':'+final_on_host, path_to_final]).wait()
-                            if cropped_on_host:
-                                subprocess.Popen(['scp', host+':'+cropped_on_host, path_to_cropped_image]).wait()
-                        else:
-                            subprocess.Popen(['scp', host+':'+model_on_host, path_to_model]).wait()
-                            for suffix in ['_acc.png', '_loss.png', '.csv']:
-                                subprocess.Popen(['scp', host+':'+model_on_host.replace('.h5', suffix), path_to_model.replace('.h5', suffix)]).wait()
+                    # get results
+                    if predict:
+                        subprocess.Popen(['scp', host+':'+final_on_host, path_to_final]).wait()
+                        os.chmod(path_to_final, 0o664)
+                        if cropped_on_host:
+                            subprocess.Popen(['scp', host+':'+cropped_on_host, path_to_cropped_image]).wait()
+                            os.chmod(path_to_cropped_image, 0o664)
+                    else:
+                        subprocess.Popen(['scp', host+':'+model_on_host, path_to_model]).wait()
+                        os.chmod(path_to_model, 0o664)
+                        for suffix in ['_acc.png', '_loss.png', '.csv']:
+                            subprocess.Popen(['scp', host+':'+model_on_host.replace('.h5', suffix), path_to_model.replace('.h5', suffix)]).wait()
+                            os.chmod(path_to_model.replace('.h5', suffix), 0o664)
 
-                        # post processing
-                        post_processing(path_to_final, time_str, server_name, False, None,
-                            path_to_cropped_image=path_to_cropped_image, path_to_model=path_to_model,
-                            predict=predict, train=train,
-                            img_id=image.id, label_id=label.id)
+                    # post processing
+                    post_processing(path_to_final, time_str, server_name, False, None,
+                        path_to_cropped_image=path_to_cropped_image, path_to_model=path_to_model,
+                        predict=predict, train=train,
+                        img_id=image.id, label_id=label.id)
 
-                        # remove config file
-                        subprocess.Popen(['ssh', host, 'rm', host_base + config_path]).wait()
+                    # remove config file
+                    subprocess.Popen(['ssh', host, 'rm', host_base + config_path]).wait()
 
-                    #else:
-                        # something went wrong
-                        #return_error(image, 'Something went wrong. Please restart.')
+                else:
+                    # something went wrong
+                    return_error(image, 'Something went wrong. Please restart.')
 
                 # remove pid file
                 if started == 0:
@@ -1197,16 +1201,15 @@ def features(request, action):
         # get list of images and labels
         img_list, label_list = '', ''
         val_img_list, val_label_list = '', ''
-        for project in range(1, 10):
-            raw, label = None, None
-            for img in images:
-                if img.imageType == 1 and img.project == project:
-                    raw = img
-                elif img.imageType == 2 and img.project == project:
-                    label = img
-                elif img.imageType == 3 and img.project == project:
-                    label = img
-            if raw is not None and label is not None:
+        too_many_selected_files = False
+        for project in range(1,10):
+            filtered_images = images.filter(project=project, imageType=1)
+            filtered_labels = images.filter(project=project, imageType__in=[2,3])
+            if filtered_images.count()>1 or filtered_labels.count()>1:
+                too_many_selected_files = True
+            elif filtered_images.count()==1 and filtered_labels.count()==1:
+                raw = filtered_images.get()
+                label = filtered_labels.get()
                 if label.validation_data:
                     val_img_list += raw.pic.path + ','
                     val_label_list += label.pic.path + ','
@@ -1217,12 +1220,14 @@ def features(request, action):
                     label_list += label.pic.path + ','
 
         # train neural network
-        if not img_list:
+        if too_many_selected_files:
+            request.session['state'] = 'Please select only one image and one label from each project.'
+        elif not img_list:
             request.session['state'] = 'No usable image and label combination selected.'
         elif raw_out.status > 0:
             request.session['state'] = 'Image is already being processed.'
-        elif not label_out.scaling and (len(img_list.split(',')[:-1])>1 or len(val_img_list.split(',')[:-1])>1 or '.tar' in img_list or '.tar' in val_img_list):
-            request.session['state'] = 'Using full volume (no scaling) is only supported for one training volume and no TAR file.'
+        #elif not label_out.scaling and (len(img_list.split(',')[:-1])>1 or len(val_img_list.split(',')[:-1])>1 or '.tar' in img_list or '.tar' in val_img_list):
+        #    request.session['state'] = 'Using full volume (no scaling) is only supported for one training volume and no TAR file.'
         else:
             if config['THIRD_QUEUE']:
                 queue_name, queue_short = 'third_queue', 'C'
@@ -2186,37 +2191,39 @@ def init_random_walk(image, label):
 
                 elif success == 0:
 
-                    if success == 0:
-                        with open(BASE_DIR + config_path, 'r') as configfile:
-                            final_on_host, uncertainty_on_host, smooth_on_host, uncertainty, smooth, time_str, server_name, _, _, dice = configfile.read().split()
-                        uncertainty=True if uncertainty=='True' else False
-                        smooth=False if smooth=='0' else True
-                        time_str = time_str.replace('-',' ')
+                    with open(BASE_DIR + config_path, 'r') as configfile:
+                        final_on_host, uncertainty_on_host, smooth_on_host, uncertainty, smooth, time_str, server_name, _, _, dice = configfile.read().split()
+                    uncertainty=True if uncertainty=='True' else False
+                    smooth=False if smooth=='0' else True
+                    time_str = time_str.replace('-',' ')
 
-                        # local file names
-                        path_to_final = unique_file_path(final_on_host.replace(host_base,BASE_DIR))
-                        path_to_smooth = unique_file_path(smooth_on_host.replace(host_base,BASE_DIR))
-                        path_to_uq = unique_file_path(uncertainty_on_host.replace(host_base,BASE_DIR))
+                    # local file names
+                    path_to_final = unique_file_path(final_on_host.replace(host_base,BASE_DIR))
+                    path_to_smooth = unique_file_path(smooth_on_host.replace(host_base,BASE_DIR))
+                    path_to_uq = unique_file_path(uncertainty_on_host.replace(host_base,BASE_DIR))
 
-                        # get results
-                        subprocess.Popen(['scp', host+':'+final_on_host, path_to_final]).wait()
-                        if smooth:
-                            subprocess.Popen(['scp', host+':'+smooth_on_host, path_to_smooth]).wait()
-                        if uncertainty:
-                            subprocess.Popen(['scp', host+':'+uncertainty_on_host, path_to_uq]).wait()
+                    # get results
+                    subprocess.Popen(['scp', host+':'+final_on_host, path_to_final]).wait()
+                    os.chmod(path_to_final, 0o664)
+                    if smooth:
+                        subprocess.Popen(['scp', host+':'+smooth_on_host, path_to_smooth]).wait()
+                        os.chmod(path_to_smooth, 0o664)
+                    if uncertainty:
+                        subprocess.Popen(['scp', host+':'+uncertainty_on_host, path_to_uq]).wait()
+                        os.chmod(path_to_uq, 0o664)
 
-                        # post processing
-                        post_processing(path_to_final, time_str, server_name, False, None,
-                            dice=float(dice), path_to_uq=path_to_uq, path_to_smooth=path_to_smooth,
-                            uncertainty=uncertainty, smooth=smooth,
-                            img_id=image.id, label_id=label.id)
+                    # post processing
+                    post_processing(path_to_final, time_str, server_name, False, None,
+                        dice=float(dice), path_to_uq=path_to_uq, path_to_smooth=path_to_smooth,
+                        uncertainty=uncertainty, smooth=smooth,
+                        img_id=image.id, label_id=label.id)
 
-                        # remove config file
-                        subprocess.Popen(['ssh', host, 'rm', host_base + config_path]).wait()
+                    # remove config file
+                    subprocess.Popen(['ssh', host, 'rm', host_base + config_path]).wait()
 
-                    #else:
-                        # something went wrong
-                        #return_error(image, 'Something went wrong. Please restart.')
+                else:
+                    # something went wrong
+                    return_error(image, 'Something went wrong. Please restart.')
 
                 # remove pid file
                 if started == 0:

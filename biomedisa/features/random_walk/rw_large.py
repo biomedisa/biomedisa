@@ -1,6 +1,6 @@
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2019-2024 Philipp Lösel. All rights reserved.         ##
+##  Copyright (c) 2019-2025 Philipp Lösel. All rights reserved.         ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -176,7 +176,11 @@ def _diffusion_child(comm, bm=None):
             mask = bm.labelData>0
             dice = Dice_score(bm.labelData, final*mask)
             if dice < 0.3:
-                print('Warning: Bad result! Use "--allaxis" if you labeled axes other than the xy-plane.')
+                if bm.slicer:
+                    message = 'Bad result! If you label outside the red (axial) window, enable "All axes" and ensure that at least one slice is empty between pre-segmented slices in each view.'
+                    _error_(bm, message, level=0)
+                else:
+                    print('Warning: Bad result! Use "--allaxis" if you labeled axes other than the xy-plane.')
 
             # regular result
             final_result = np.zeros((bm.zsh, bm.ysh, bm.xsh), dtype=np.uint8)
