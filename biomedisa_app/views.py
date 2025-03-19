@@ -461,7 +461,7 @@ def settings(request, id):
                     image.x_scale = min(512, int(cd['x_scale']))
                     image.y_scale = min(512, int(cd['y_scale']))
                     image.z_scale = min(512, int(cd['z_scale']))
-                    if any([scale > 256 for scale in [image.x_scale, image.y_scale, image.z_scale]]):
+                    if not image.scaling or any([scale > 256 for scale in [image.x_scale, image.y_scale, image.z_scale]]):
                         image.stride_size = 64
                     if cd['early_stopping'] and image.validation_split == 0.0:
                         image.validation_split = 0.8
@@ -489,6 +489,7 @@ def settings_prediction(request, id):
                 if cd != initial:
                     for key in cd.keys():
                         image.__dict__[key] = cd[key]
+                    image.stride_size = max(32, int(cd['stride_size']))
                     image.save()
                     messages.success(request, 'Your settings were changed.')
                 return redirect(settings_prediction, id)
@@ -878,7 +879,7 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
             cmd += [img_list.replace(BASE_DIR,host_base),
                     label_list.replace(BASE_DIR,host_base),'-t']
             if val_img_list and val_label_list:
-                cmd += ['-vi',val_img_list.replace(BASE_DIR,host_base),'-vl',val_label_list.replace(BASE_DIR,host_base)]
+                cmd += ['-vi',val_img_list.replace(BASE_DIR,host_base),'-vl',val_label_list.replace(BASE_DIR,host_base),'-vss=64']
         cmd += [f'-iid={image.id}', f'-lid={label.id}']
 
         # command (append only on demand)
@@ -1225,8 +1226,8 @@ def features(request, action):
             request.session['state'] = 'No usable image and label combination selected.'
         elif raw_out.status > 0:
             request.session['state'] = 'Image is already being processed.'
-        elif not label_out.scaling and (len(img_list.split(',')[:-1])>1 or len(val_img_list.split(',')[:-1])>1 or '.tar' in img_list or '.tar' in val_img_list):
-            request.session['state'] = 'Using full volume (no scaling) is only supported for one training volume and no TAR file.'
+        #elif not label_out.scaling and (len(img_list.split(',')[:-1])>1 or len(val_img_list.split(',')[:-1])>1 or '.tar' in img_list or '.tar' in val_img_list):
+        #    request.session['state'] = 'Using full volume (no scaling) is only supported for one training volume and no TAR file.'
         else:
             if config['THIRD_QUEUE']:
                 queue_name, queue_short = 'third_queue', 'C'
