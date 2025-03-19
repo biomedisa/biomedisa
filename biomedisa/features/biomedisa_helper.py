@@ -421,14 +421,21 @@ def load_data(path_to_data, process='None', return_extension=False):
     else:
         return data, header
 
-def _error_(bm, message):
+def _error_(bm, message, level=1):
     if bm.django_env:
         from biomedisa.features.django_env import create_error_object
         create_error_object(message, bm.remote, bm.queue, bm.img_id)
         with open(bm.path_to_logfile, 'a') as logfile:
             print('%s %s %s %s' %(time.ctime(), bm.username, bm.shortfilename, message), file=logfile)
-    print('Error:', message)
-    bm.success = False
+    elif bm.slicer and bm.path_to_data:
+        error_path = os.path.dirname(bm.path_to_data) + '/biomedisa-error.txt'
+        with open(error_path, 'w') as file:
+            file.write(message)
+    if level==0:
+        print('Warning:', message)
+    elif level==1:
+        print('Error:', message)
+        bm.success = False
     return bm
 
 def pre_processing(bm):
@@ -626,7 +633,10 @@ def _get_platform(bm):
     if cl and bm.platform is None:
         for vendor in ['NVIDIA', 'Intel', 'AMD', 'Apple']:
             for dev, device_type in [('GPU',cl.device_type.GPU),('CPU',cl.device_type.CPU)]:
-                all_platforms = cl.get_platforms()
+                try:
+                    all_platforms = cl.get_platforms()
+                except:
+                    all_platforms = []
                 my_devices = []
                 for p in all_platforms:
                     if p.get_devices(device_type=device_type) and vendor in p.name:
@@ -647,7 +657,10 @@ def _get_platform(bm):
     elif cl and len(bm.platform.split('_')) == 3:
         plat, vendor, dev = bm.platform.split('_')
         device_type=cl.device_type.GPU if dev=='GPU' else cl.device_type.CPU
-        all_platforms = cl.get_platforms()
+        try:
+            all_platforms = cl.get_platforms()
+        except:
+            all_platforms = []
         my_devices = []
         for p in all_platforms:
             if p.get_devices(device_type=device_type) and vendor in p.name:

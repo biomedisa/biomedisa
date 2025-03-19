@@ -1430,6 +1430,7 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
 
     # load all patches on GPU memory
     if not load_blockwise and nb_patches < 400:
+      if rank==0:
 
         # parameters
         params = {'dim': (bm.z_patch, bm.y_patch, bm.x_patch),
