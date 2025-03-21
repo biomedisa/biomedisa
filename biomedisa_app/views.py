@@ -1016,6 +1016,7 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
                     error = subprocess.Popen(['scp', host + ':' + host_base + error_path, BASE_DIR + error_path]).wait()
                     success = subprocess.Popen(['scp', host + ':' + host_base + config_path, BASE_DIR + config_path]).wait()
                     started = subprocess.Popen(['scp', host + ':' + host_base + pid_path, BASE_DIR + pid_path]).wait()
+                    processing = False
 
                 if error == 0:
 
@@ -1067,8 +1068,8 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
                     # remove config file
                     subprocess.Popen(['ssh', host, 'rm', host_base + config_path]).wait()
 
-                else:
-                    # something went wrong
+                # something went wrong
+                elif processing:
                     return_error(image, 'Something went wrong. Please restart.')
 
                 # remove pid file
@@ -2178,6 +2179,7 @@ def init_random_walk(image, label):
                     error = subprocess.Popen(['scp', host + ':' + host_base + error_path, BASE_DIR + error_path]).wait()
                     success = subprocess.Popen(['scp', host + ':' + host_base + config_path, BASE_DIR + config_path]).wait()
                     started = subprocess.Popen(['scp', host + ':' + host_base + pid_path, BASE_DIR + pid_path]).wait()
+                    processing = False
 
                 if error == 0:
 
@@ -2221,8 +2223,8 @@ def init_random_walk(image, label):
                     # remove config file
                     subprocess.Popen(['ssh', host, 'rm', host_base + config_path]).wait()
 
-                else:
-                    # something went wrong
+                # something went wrong
+                elif processing:
                     return_error(image, 'Something went wrong. Please restart.')
 
                 # remove pid file
