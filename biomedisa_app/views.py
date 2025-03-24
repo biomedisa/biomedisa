@@ -992,7 +992,7 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
                     image.save()
 
                     # wait for the server to finish
-                    error, success, started, processing = 1, 1, 1, True
+                    '''error, success, started, processing = 1, 1, 1, True
                     while error!=0 and success!=0 and processing:
                         time.sleep(30)
                         error = subprocess.Popen(['scp', host + ':' + host_base + error_path, BASE_DIR + error_path]).wait()
@@ -1004,7 +1004,59 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
                                 image.message = 'Processing'
                                 image.save()
                         else:
-                            processing = False
+                            processing = False'''
+
+                    # local filename
+                    if train:
+                        shortfilename= os.path.splitext(image.shortfilename)[0]
+                        model_on_host = f'{host_base}/private_storage/images/{image.user.username}/{shortfilename}.h5'
+                        path_to_model = unique_file_path(model_on_host.replace(host_base,BASE_DIR))
+
+                    # wait for the server to finish
+                    stopped = False
+                    while True:
+                        time.sleep(30)
+                        if sbatch:
+                            monitor = subprocess.Popen(cmd_host + ["squeue", "-j", job_id], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                        else:
+                            monitor = subprocess.Popen(cmd_host + ["qstat", job_id], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                        error = subprocess.Popen(['scp', host + ':' + host_base + error_path, BASE_DIR + error_path]).wait()
+                        success = subprocess.Popen(['scp', host + ':' + host_base + config_path, BASE_DIR + config_path]).wait()
+
+                        # check if job was started or aborted
+                        image = Upload.objects.filter(pk=image.id).first()
+                        if image and image.status==2 and image.queue==queue_id:
+                            if image.message!='Processing' and subprocess.Popen(['scp',host+':'+host_base+pid_path,BASE_DIR+pid_path]).wait()==0:
+                                image.message = 'Processing'
+                                image.save()
+                        else:
+                            stopped = True
+
+                        if train:
+                            # get model
+                            result = subprocess.Popen(['scp', host+':'+model_on_host, path_to_model]).wait()
+                            if result==0:
+                                os.chmod(path_to_model, 0o664)
+                                shortfilename = os.path.basename(path_to_model)
+                                filename = 'images/' + image.user.username + '/' + shortfilename
+                                if not Upload.objects.filter(pic=filename).exists():
+                                    Upload.objects.create(pic=filename, user=image.user, project=image.project, imageType=4, shortfilename=shortfilename)
+
+                            # create monitoring objects
+                            for suffix in ['_acc.png', '_loss.png', '.csv']:
+                                result = subprocess.Popen(['scp', host+':'+model_on_host.replace('.h5', suffix), path_to_model.replace('.h5', suffix)]).wait()
+                                if result==0:
+                                    os.chmod(path_to_model.replace('.h5', suffix), 0o664)
+                                    shortfilename = os.path.basename(path_to_model.replace('.h5', suffix))
+                                    filename = 'images/' + image.user.username + '/' + shortfilename
+                                    if not Upload.objects.filter(pic=filename).exists():
+                                        Upload.objects.create(pic=filename, user=image.user, project=image.project, imageType=6, shortfilename=shortfilename)
+
+                        # terminate loop
+                        if (monitor.returncode==0 and job_id not in monitor.stdout) or success==0 or error==0 or stopped:
+                            print(f"Job {job_id} is no longer running.")
+                            break
+                        print(f"Job {job_id} is still running...")
 
                 # interactive shell
                 else:
@@ -1042,8 +1094,8 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
                         path_to_final = unique_file_path(final_on_host.replace(host_base,BASE_DIR))
                         if cropped_on_host:
                             path_to_cropped_image = unique_file_path(cropped_on_host.replace(host_base,BASE_DIR))
-                    else:
-                        path_to_model = unique_file_path(model_on_host.replace(host_base,BASE_DIR))
+                    #else:
+                    #    path_to_model = unique_file_path(model_on_host.replace(host_base,BASE_DIR))
 
                     # get results
                     if predict:
@@ -1052,12 +1104,12 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
                         if cropped_on_host:
                             subprocess.Popen(['scp', host+':'+cropped_on_host, path_to_cropped_image]).wait()
                             os.chmod(path_to_cropped_image, 0o664)
-                    else:
-                        subprocess.Popen(['scp', host+':'+model_on_host, path_to_model]).wait()
-                        os.chmod(path_to_model, 0o664)
-                        for suffix in ['_acc.png', '_loss.png', '.csv']:
-                            subprocess.Popen(['scp', host+':'+model_on_host.replace('.h5', suffix), path_to_model.replace('.h5', suffix)]).wait()
-                            os.chmod(path_to_model.replace('.h5', suffix), 0o664)
+                    #else:
+                    #    subprocess.Popen(['scp', host+':'+model_on_host, path_to_model]).wait()
+                    #    os.chmod(path_to_model, 0o664)
+                    #    for suffix in ['_acc.png', '_loss.png', '.csv']:
+                    #        subprocess.Popen(['scp', host+':'+model_on_host.replace('.h5', suffix), path_to_model.replace('.h5', suffix)]).wait()
+                    #        os.chmod(path_to_model.replace('.h5', suffix), 0o664)
 
                     # post processing
                     post_processing(path_to_final, time_str, server_name, False, None,
@@ -1069,12 +1121,11 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
                     subprocess.Popen(['ssh', host, 'rm', host_base + config_path]).wait()
 
                 # something went wrong
-                elif processing:
-                    return_error(image, 'Something went wrong. Please restart.')
+                elif stopped==False:
+                    return_error(image, 'The process has reached the time limit of 48 hours.')
 
                 # remove pid file
-                if started == 0:
-                    subprocess.Popen(['ssh', host, 'rm', host_base + pid_path]).wait()
+                subprocess.Popen(['ssh', host, 'rm', host_base + pid_path]).wait()
 
         # local server
         else:
