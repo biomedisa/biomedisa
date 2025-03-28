@@ -451,6 +451,11 @@ def settings(request, id):
             if img.is_valid():
                 cd = img.cleaned_data
                 if cd != initial:
+                    scaling_reset = False
+                    if any([scale > 256 for scale in [image.x_scale, image.y_scale, image.z_scale]]) and not any([scale > 256 for scale in [cd['x_scale'], cd['y_scale'], cd['z_scale']]]) and cd['scaling']:
+                        scaling_reset = True
+                    if not image.scaling and cd['scaling'] and not any([scale > 256 for scale in [cd['x_scale'], cd['y_scale'], cd['z_scale']]]):
+                        scaling_reset = True
                     for key in cd.keys():
                         image.__dict__[key] = cd[key]
                     image.validation_freq = max(1, int(cd['validation_freq']))
@@ -463,6 +468,8 @@ def settings(request, id):
                     image.z_scale = min(512, int(cd['z_scale']))
                     if not image.scaling or any([scale > 256 for scale in [image.x_scale, image.y_scale, image.z_scale]]):
                         image.stride_size = 64
+                    if scaling_reset:
+                        image.stride_size = 32
                     if cd['early_stopping'] and image.validation_split == 0.0:
                         image.validation_split = 0.8
                     image.save()
@@ -1044,10 +1051,11 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
 
                             # create monitoring objects
                             for suffix in ['_acc.png', '_loss.png', '.csv']:
-                                result = subprocess.Popen(['scp', host+':'+model_on_host.replace('.h5', suffix), path_to_model.replace('.h5', suffix)]).wait()
+                                path_to_result = unique_file_path(path_to_model.replace('.h5', suffix))
+                                result = subprocess.Popen(['scp', host+':'+model_on_host.replace('.h5', suffix), path_to_result]).wait()
                                 if result==0:
-                                    os.chmod(path_to_model.replace('.h5', suffix), 0o664)
-                                    shortfilename = os.path.basename(path_to_model.replace('.h5', suffix))
+                                    os.chmod(path_to_result, 0o664)
+                                    shortfilename = os.path.basename(path_to_result)
                                     filename = 'images/' + image.user.username + '/' + shortfilename
                                     if not Upload.objects.filter(pic=filename).exists():
                                         Upload.objects.create(pic=filename, user=image.user, project=image.project, imageType=6, shortfilename=shortfilename)
