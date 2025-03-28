@@ -103,7 +103,7 @@ def post_processing(path_to_final, time_str, server_name, remote, queue, dice=1.
                 filename = 'images/' + image.user.username + '/' + shortfilename
                 Upload.objects.create(pic=filename, user=image.user, project=image.project, imageType=6, shortfilename=shortfilename)'''
 
-        if predict:
+        if not train:
             # create final objects
             shortfilename = os.path.basename(path_to_final)
             filename = 'images/' + image.user.username + '/' + shortfilename
