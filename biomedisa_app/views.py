@@ -886,7 +886,7 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
             cmd += [img_list.replace(BASE_DIR,host_base),
                     label_list.replace(BASE_DIR,host_base),'-t']
             if val_img_list and val_label_list:
-                cmd += ['-vi',val_img_list.replace(BASE_DIR,host_base),'-vl',val_label_list.replace(BASE_DIR,host_base),'-vss=64']
+                cmd += ['-vi',val_img_list.replace(BASE_DIR,host_base),'-vl',val_label_list.replace(BASE_DIR,host_base)]
         cmd += [f'-iid={image.id}', f'-lid={label.id}']
 
         # command (append only on demand)
@@ -896,6 +896,7 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
             cmd += ['-nc']
         if not label.scaling:
             cmd += ['-ns']
+            cmd += ['-vss=64']
         if label.ignore != 'none':
             cmd += [f'-i={label.ignore}']
         if label.only != 'all':
@@ -976,9 +977,11 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
                     args = " ".join(cmd)
                     cmd = [f"qsub -v ARGS='{args}' queue_{queue_id}.sh"]
                 if subhost:
-                    cmd = ['ssh', host, 'ssh', subhost] + cmd
+                    cmd_host = ['ssh', host, 'ssh', subhost]
+                    cmd = cmd_host + cmd
                 else:
-                    cmd = ['ssh', host] + cmd
+                    cmd_host = ['ssh', host]
+                    cmd = cmd_host + cmd
 
                 # config files
                 error_path = f'/log/error_{queue_id}'
@@ -1018,6 +1021,12 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
                         shortfilename= os.path.splitext(image.shortfilename)[0]
                         model_on_host = f'{host_base}/private_storage/images/{image.user.username}/{shortfilename}.h5'
                         path_to_model = unique_file_path(model_on_host.replace(host_base,BASE_DIR))
+                        result_paths = [path_to_model]
+                        for suffix in ['_acc.png', '_loss.png', '.csv']:
+                            result_paths.append(unique_file_path(path_to_model.replace('.h5', suffix)))
+                        # remove data from host
+                        for suffix in ['.h5', '_acc.png', '_loss.png', '.csv']:
+                            subprocess.Popen(['ssh', host, 'rm', model_on_host.replace('.h5', suffix)]).wait()
 
                     # wait for the server to finish
                     stopped = False
@@ -1040,25 +1049,15 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
                             stopped = True
 
                         if train:
-                            # get model
-                            result = subprocess.Popen(['scp', host+':'+model_on_host, path_to_model]).wait()
-                            if result==0:
-                                os.chmod(path_to_model, 0o664)
-                                shortfilename = os.path.basename(path_to_model)
-                                filename = 'images/' + image.user.username + '/' + shortfilename
-                                if not Upload.objects.filter(pic=filename).exists():
-                                    Upload.objects.create(pic=filename, user=image.user, project=image.project, imageType=4, shortfilename=shortfilename)
-
-                            # create monitoring objects
-                            for suffix in ['_acc.png', '_loss.png', '.csv']:
-                                path_to_result = unique_file_path(path_to_model.replace('.h5', suffix))
-                                result = subprocess.Popen(['scp', host+':'+model_on_host.replace('.h5', suffix), path_to_result]).wait()
+                            # create objects
+                            for path_to_result, suffix in zip(result_paths, ['.h5', '_acc.png', '_loss.png', '.csv']):
+                                result = subprocess.Popen(['rsync','-avP', host+':'+model_on_host.replace('.h5', suffix), path_to_result]).wait()
                                 if result==0:
                                     os.chmod(path_to_result, 0o664)
                                     shortfilename = os.path.basename(path_to_result)
                                     filename = 'images/' + image.user.username + '/' + shortfilename
                                     if not Upload.objects.filter(pic=filename).exists():
-                                        Upload.objects.create(pic=filename, user=image.user, project=image.project, imageType=6, shortfilename=shortfilename)
+                                        Upload.objects.create(pic=filename, user=image.user, project=image.project, imageType=(4 if suffix=='.h5' else 6), shortfilename=shortfilename)
 
                         # terminate loop
                         if (monitor.returncode==0 and job_id not in monitor.stdout) or success==0 or error==0 or stopped:
@@ -2484,8 +2483,8 @@ def remove_from_queue(request):
 
                 # remove trained network
                 if image_to_stop.path_to_model:
-                    if os.path.isfile(image_to_stop.path_to_model):
-                        os.remove(image_to_stop.path_to_model)
+                    #if os.path.isfile(image_to_stop.path_to_model):
+                    #    os.remove(image_to_stop.path_to_model)
                     image_to_stop.path_to_model = ''
 
                 # reset image
