@@ -113,7 +113,8 @@ def unique_file_path(path, dir_path=biomedisa.BASE_DIR+'/private_storage/'):
     # get finaltype
     addon = ''
     for feature in ['.filled','.smooth','.acwe','.cleaned','.8bit','.refined', '.cropped',
-                    '.uncertainty','.smooth.cleaned','.cleaned.filled','.denoised']:
+                    '.uncertainty','.smooth.cleaned','.cleaned.filled','.denoised',
+                    '_acc','_loss']:
         if filename[-len(feature):] == feature:
             addon = feature
 
