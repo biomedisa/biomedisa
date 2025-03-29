@@ -388,14 +388,16 @@ $(document).ready(addClickHandlers);
               {% elif img.imageType == 4 %}
                 <div id="img{{ img.id }}" >
                   <p>
-                  {% if img.log == 2 %}
+                  {% if img.log == 2 or img.log == 3 %}
                   <a><img src="/static/file_ai_tmp.svg" title="network" style="width:50px;height:50px;border:0;"></a>
+                  {% else %}
+                  <a><img src="/static/file_ai.svg" title="network" style="width:50px;height:50px;border:0;"></a>
+                  {% endif %}
                   <span class="delete_link" id="{{img.id}},{{img.status}},Delete File?"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+                  {% if img.log == 2 %}
                   <span class="reactivate_link" id="{{img.id}}"><img src="/static/accept.jpeg" title="reactivate" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
                   {{ img.shortfilename }}
                   {% else %}
-                  <a href='#'><img src="/static/file_ai.svg" title="network" style="width:50px;height:50px;border:0;"></a>
-                  <span class="delete_link" id="{{img.id}},{{img.status}},Delete File?"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
                   <a href="/download/{{img.id}}"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
                   <span class="move_link" id="{{img.id}},{{img.status}}"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
                   <span class="share_link" id="{{img.id}}"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
@@ -427,14 +429,16 @@ $(document).ready(addClickHandlers);
               {% elif img.imageType == 6 %}
                 <div id="img{{ img.id }}" >
                   <p>
-                  {% if img.log == 2 %}
+                  {% if img.log == 2 or img.log == 3 %}
                   <a><img src="/static/file_log_tmp.svg" title="log" style="width:50px;height:50px;border:0;"></a>
+                  {% else %}
+                  <a href=# onclick="viewFunction({{img.id}})"><img src="/static/file_log.svg" title="accuracy" style="width:50px;height:50px;border:0;"></a>
+                  {% endif %}
                   <span class="delete_link" id="{{img.id}},{{img.status}},Delete File?"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
+                  {% if img.log == 2 %}
                   <span class="reactivate_link" id="{{img.id}}"><img src="/static/accept.jpeg" title="reactivate" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
                   {{ img.shortfilename }}
                   {% else %}
-                  <a href=# onclick="viewFunction({{img.id}})"><img src="/static/file_log.svg" title="accuracy" style="width:50px;height:50px;border:0;"></a>
-                  <span class="delete_link" id="{{img.id}},{{img.status}},Delete File?"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
                   <a href="/download/{{img.id}}"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
                   <span class="move_link" id="{{img.id}},{{img.status}}"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
                   <span class="share_link" id="{{img.id}}"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
