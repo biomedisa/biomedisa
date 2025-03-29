@@ -468,6 +468,7 @@ def settings(request, id):
                     image.z_scale = min(512, int(cd['z_scale']))
                     if not image.scaling or any([scale > 256 for scale in [image.x_scale, image.y_scale, image.z_scale]]):
                         image.stride_size = 64
+                        messages.warning(request, 'Stride size 64 is used for no scaling or scaling above 256. Use a local Biomedisa installation for smaller stride sizes in these cases.')
                     if scaling_reset:
                         image.stride_size = 32
                     if cd['early_stopping'] and image.validation_split == 0.0:
@@ -896,7 +897,6 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
             cmd += ['-nc']
         if not label.scaling:
             cmd += ['-ns']
-            cmd += ['-vss=64']
         if label.ignore != 'none':
             cmd += [f'-i={label.ignore}']
         if label.only != 'all':
@@ -932,7 +932,7 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
         if label.validation_split > 0:
             cmd += [f'-vs={label.validation_split}']
         if label.stride_size != 32:
-            cmd += [f'-ss={label.stride_size}']
+            cmd += [f'-ss={label.stride_size}',f'-vss={label.stride_size}']
         if label.rotate > 0:
             cmd += [f'-r={label.rotate}']
         if label.header_file:
@@ -1057,11 +1057,23 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
                                     shortfilename = os.path.basename(path_to_result)
                                     filename = 'images/' + image.user.username + '/' + shortfilename
                                     if not Upload.objects.filter(pic=filename).exists():
-                                        Upload.objects.create(pic=filename, user=image.user, project=image.project, imageType=(4 if suffix=='.h5' else 6), shortfilename=shortfilename)
+                                        Upload.objects.create(pic=filename, user=image.user, project=image.project,
+                                            imageType=(4 if suffix=='.h5' else 6), shortfilename=shortfilename, log=3)
+                            # update processing message
+                            if os.path.exists(result_paths[-1]) and not stopped:
+                                with open(result_paths[-1], "r", encoding="utf-8") as f:
+                                    epochs_trained = 0
+                                    for line in f:
+                                        epochs_trained += 1
+                                image.message = f'Training epoch {epochs_trained} / {label.epochs}'
+                                image.save()
 
                         # terminate loop
                         if (monitor.returncode==0 and job_id not in monitor.stdout) or success==0 or error==0 or stopped:
                             print(f"Job {job_id} is no longer running.")
+                            # make training results fully visible
+                            if train:
+                                Upload.objects.filter(user=image.user, project=image.project, log=3).update(log=0)
                             break
                         print(f"Job {job_id} is still running...")
 
@@ -1549,12 +1561,18 @@ def app(request):
             process_running = 1
             process_list += ";" + str(image.id) + ":" + str(image.status) + ":" + str(image.message)
 
-        # one and only one final object is allowed to be active
+        # one and only one final object must be active
         if image.final:
-            tmp = [x for x in images if image.friend==x.friend]
-            if not any(x.active for x in tmp):
-                tmp[0].active = 1
-                tmp[0].save()
+            # Count how many objects have active=1
+            active_images = images.filter(friend=image.friend, active=1)
+            if active_images.count() == 0:
+                # If none are active, set the first one as active
+                image.active = 1
+                image.save()
+            elif active_images.count() > 1:
+                # If more than one is active, reset all and set only the first one as active
+                active_images.update(active=0)
+                active_images.first().update(active=1)
 
         # update queue position
         if image.status == 1:
@@ -2483,8 +2501,8 @@ def remove_from_queue(request):
 
                 # remove trained network
                 if image_to_stop.path_to_model:
-                    #if os.path.isfile(image_to_stop.path_to_model):
-                    #    os.remove(image_to_stop.path_to_model)
+                    if os.path.isfile(image_to_stop.path_to_model):
+                        os.remove(image_to_stop.path_to_model)
                     image_to_stop.path_to_model = ''
 
                 # reset image
