@@ -1031,24 +1031,23 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
                     # wait for the server to finish
                     stopped = False
                     while True:
+                        # wait
                         time.sleep(30)
-                        if sbatch:
-                            monitor = subprocess.Popen(cmd_host + ["squeue", "-j", job_id], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-                        else:
-                            monitor = subprocess.Popen(cmd_host + ["qstat", job_id], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-                        error = subprocess.Popen(['scp', host + ':' + host_base + error_path, BASE_DIR + error_path]).wait()
-                        success = subprocess.Popen(['scp', host + ':' + host_base + config_path, BASE_DIR + config_path]).wait()
 
                         # check if job was started or aborted
                         image = Upload.objects.filter(pk=image.id).first()
                         if image and image.status==2 and image.queue==queue_id:
-                            if image.message!='Processing' and subprocess.Popen(['scp',host+':'+host_base+pid_path,BASE_DIR+pid_path]).wait()==0:
+                            if (image.message!='Processing' or not 'Training epoch' in image.message) and subprocess.Popen(['scp',host+':'+host_base+pid_path,BASE_DIR+pid_path]).wait()==0:
                                 image.message = 'Processing'
                                 image.save()
                         else:
                             stopped = True
 
-                        if train:
+                        # check if successfully completed
+                        if not stopped:
+                            success = subprocess.Popen(['scp', host + ':' + host_base + config_path, BASE_DIR + config_path]).wait()
+
+                        if train and not stopped:
                             # create objects
                             for path_to_result, suffix in zip(result_paths, ['.h5', '_acc.png', '_loss.png', '.csv']):
                                 result = subprocess.Popen(['rsync','-avP', host+':'+model_on_host.replace('.h5', suffix), path_to_result]).wait()
@@ -1060,7 +1059,7 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
                                         Upload.objects.create(pic=filename, user=image.user, project=image.project,
                                             imageType=(4 if suffix=='.h5' else 6), shortfilename=shortfilename, log=3)
                             # update processing message
-                            if os.path.exists(result_paths[-1]) and not stopped:
+                            if os.path.exists(result_paths[-1]) and success!=0:
                                 with open(result_paths[-1], "r", encoding="utf-8") as f:
                                     epochs_trained = 0
                                     for line in f:
@@ -1068,8 +1067,20 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
                                 image.message = f'Training epoch {epochs_trained} / {label.epochs}'
                                 image.save()
 
+                        # check for termination
+                        if not stopped and success!=0:
+                            if sbatch:
+                                monitor = subprocess.Popen(cmd_host + ["squeue", "-j", job_id], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                            else:
+                                monitor = subprocess.Popen(cmd_host + ["qstat", job_id], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                            if sbatch or qsub:
+                                stdout, stderr = monitor.communicate()
+                                if monitor.returncode!=0:
+                                    stdout = str(job_id)
+                            error = subprocess.Popen(['scp', host + ':' + host_base + error_path, BASE_DIR + error_path]).wait()
+
                         # terminate loop
-                        if (monitor.returncode==0 and job_id not in monitor.stdout) or success==0 or error==0 or stopped:
+                        if stopped or (job_id not in stdout) or success==0 or error==0:
                             print(f"Job {job_id} is no longer running.")
                             # make training results fully visible
                             if train:
