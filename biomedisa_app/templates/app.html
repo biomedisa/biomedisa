@@ -430,9 +430,9 @@ $(document).ready(addClickHandlers);
                 <div id="img{{ img.id }}" >
                   <p>
                   {% if img.log == 2 or img.log == 3 %}
-                  <a><img src="/static/file_log_tmp.svg" title="log" style="width:50px;height:50px;border:0;"></a>
+                  <a href=# onclick="viewFunction({{img.id}})"><img src="/static/file_log_tmp.svg" title="log" style="width:50px;height:50px;border:0;"></a>
                   {% else %}
-                  <a href=# onclick="viewFunction({{img.id}})"><img src="/static/file_log.svg" title="accuracy" style="width:50px;height:50px;border:0;"></a>
+                  <a href=# onclick="viewFunction({{img.id}})"><img src="/static/file_log.svg" title="log" style="width:50px;height:50px;border:0;"></a>
                   {% endif %}
                   <span class="delete_link" id="{{img.id}},{{img.status}},Delete File?"><img src="/static/icon-deletelink.svg" title="remove" style="width:20px;height:20px;border:0;cursor:pointer;"></span>
                   {% if img.log == 2 %}
