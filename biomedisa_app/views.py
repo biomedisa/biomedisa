@@ -1058,15 +1058,16 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
                             error = subprocess.Popen(['scp', host + ':' + host_base + error_path, BASE_DIR + error_path]).wait()
 
                             if train:
-                                # create objects
+                                # copy files
                                 for path_to_result, suffix in zip(result_paths, ['.h5', '_acc.png', '_loss.png', '.csv']):
                                     # ensure files are transfered completely
-                                    if 'Training epoch' in image.message:
+                                    if os.path.exists(path_to_result):
                                         result = 1
                                         while result!=0:
                                             result = subprocess.Popen(['rsync','-avP', host+':'+model_on_host.replace('.h5', suffix), path_to_result]).wait()
                                     else:
                                         result = subprocess.Popen(['rsync','-avP', host+':'+model_on_host.replace('.h5', suffix), path_to_result]).wait()
+                                    # create objects
                                     if result==0:
                                         os.chmod(path_to_result, 0o664)
                                         shortfilename = os.path.basename(path_to_result)
