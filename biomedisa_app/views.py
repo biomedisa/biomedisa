@@ -42,7 +42,7 @@ from django.contrib.auth.forms import PasswordChangeForm
 from django.template import Template, Context
 from django.core.mail import send_mail
 from django.utils import timezone
-from django.db.models import Q
+from django.db.models import Q, Max
 
 from biomedisa_app.models import (UploadForm, Upload, StorageForm, Profile,
     UserForm, SettingsForm, SettingsPredictionForm, CustomUserCreationForm,
@@ -1510,10 +1510,10 @@ def app(request):
         state = None
 
     if request.method == "POST":
-        img = UploadForm(request.POST, request.FILES)
-        if img.is_valid():
+        img_form = UploadForm(request.POST, request.FILES)
+        if img_form.is_valid():
             newimg = Upload(pic=request.FILES['pic'])
-            cd = img.cleaned_data
+            cd = img_form.cleaned_data
             newimg.project = cd['project']
             newimg.imageType = cd['imageType']
             newimg.user = request.user
@@ -1552,13 +1552,13 @@ def app(request):
             return redirect(reverse('app') + "?project=%s" %(newimg.project) + "&type=%s" %(nextType))
 
     else:
-        img = UploadForm()
+        img_form = UploadForm()
 
     # set initial upload image type
     current_imageType = request.GET.get('type', '')
-    img.fields['imageType'].initial = [current_imageType]
+    img_form.fields['imageType'].initial = [current_imageType]
     current_project = request.GET.get('project', '')
-    img.fields['project'].initial = [current_project]
+    img_form.fields['project'].initial = [current_project]
 
     # get all images
     images = Upload.objects.filter(user=request.user, project__gt=0)
@@ -1619,23 +1619,18 @@ def app(request):
     StartProject = np.zeros(9)
     ImageIdRaw = np.zeros(9)
     ImageIdLabel = np.zeros(9)
-    max_project = 0
-
     for k in range(1,10):
-        img_obj = Upload.objects.filter(user=request.user, project=k, imageType=1, status=0)
-        img_any = Upload.objects.filter(user=request.user, project=k, imageType=1)
-        label = Upload.objects.filter(user=request.user, project=k, imageType=2)
-        final = Upload.objects.filter(user=request.user, project=k, imageType=3)
-        ai = Upload.objects.filter(user=request.user, project=k, imageType=4)
-        log = Upload.objects.filter(user=request.user, project=k, log=1)
+        project_images = images.filter(project=k)
+        if project_images.count()==2:
+            for img in project_images:
+                if img.imageType == 1 and img.status == 0:
+                    ImageIdRaw[k-1] = img.id
+                elif img.imageType == 2:
+                    ImageIdLabel[k-1] = img.id
+            if ImageIdRaw[k-1] and ImageIdLabel[k-1]:
+                StartProject[k-1] = 1
 
-        if len(img_obj)==1 and len(label)==1 and not final and not ai and not log:
-            StartProject[k-1] = 1
-            ImageIdRaw[k-1] = img_obj[0].id
-            ImageIdLabel[k-1] = label[0].id
-        if any([img_any,label,final,ai,log]):
-            max_project = k
-
+    max_project = images.aggregate(Max('project'))['project__max']
     looptimes = zip(StartProject, range(1,max_project+1), ImageIdRaw, ImageIdLabel)
 
     # get storage size of user
@@ -1661,7 +1656,7 @@ def app(request):
         for line in lines:
             messages.success(request, line)
 
-    return render(request, 'app.html', {'state':state, 'loop_times':looptimes, 'form':img, 'images':images,
+    return render(request, 'app.html', {'state':state, 'loop_times':looptimes, 'form':img_form, 'images':images,
             'datasize':datasize, 'storage_full':storage_full, 'storage_size':storage_size,
             'process_running':process_running, 'process_list':process_list})
 
