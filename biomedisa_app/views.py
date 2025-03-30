@@ -1037,7 +1037,7 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
                         # check if job was started or aborted
                         image = Upload.objects.filter(pk=image.id).first()
                         if image and image.status==2 and image.queue==queue_id:
-                            if (image.message!='Processing' or not 'Training epoch' in image.message) and subprocess.Popen(['scp',host+':'+host_base+pid_path,BASE_DIR+pid_path]).wait()==0:
+                            if image.message!='Processing' and 'Training epoch' not in image.message and subprocess.Popen(['scp',host+':'+host_base+pid_path,BASE_DIR+pid_path]).wait()==0:
                                 image.message = 'Processing'
                                 image.save()
                         else:
