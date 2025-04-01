@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2019-2024 Philipp Lösel. All rights reserved.         ##
+##  Copyright (c) 2019-2025 Philipp Lösel. All rights reserved.         ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -30,13 +30,14 @@
 import os
 import biomedisa
 from biomedisa.features.biomedisa_helper import (load_data, save_data, unique_file_path,
-    img_to_uint8, smooth_img_3x3)
+    img_to_uint8, smooth_img_3x3, _error_)
 from biomedisa.features.create_slices import create_slices
 from shutil import copytree
 import numpy as np
 import argparse
 import traceback
 import subprocess
+import time
 
 def init_process_image(id, process=None):
 
@@ -44,7 +45,8 @@ def init_process_image(id, process=None):
     django.setup()
     from biomedisa_app.models import Upload
     from biomedisa_app.config import config
-    from biomedisa_app.views import send_data_to_host, qsub_start, qsub_stop
+    from biomedisa_app.views import send_data_to_host
+    from biomedisa.features.django_env import create_error_object
     from redis import Redis
     from rq import Queue
 
@@ -63,6 +65,8 @@ def init_process_image(id, process=None):
     subhost, qsub_pid = None, None
     if 'REMOTE_QUEUE_HOST' in config:
         host = config['REMOTE_QUEUE_HOST']
+    if host and 'REMOTE_QUEUE_SUBHOST' in config:
+        subhost = config['REMOTE_QUEUE_SUBHOST']
     if host and 'REMOTE_QUEUE_BASE_DIR' in config:
         host_base = config['REMOTE_QUEUE_BASE_DIR']
 
@@ -96,9 +100,20 @@ def init_process_image(id, process=None):
             # remote server
             if host:
 
-                # command
-                cmd = ['python3', host_base+'/biomedisa/features/process_image.py', img.pic.path.replace(biomedisa.BASE_DIR,host_base)]
-                cmd += [f'-iid={img.id}', '-r']
+                # base command
+                qsub, sbatch = False, False
+                cmd = ['python3', '-m', 'biomedisa.features.process_image']
+                if 'REMOTE_QUEUE_SBATCH' in config and config['REMOTE_QUEUE_SBATCH']:
+                    cmd = ['sbatch', 'queue_5.sh']
+                    sbatch = True
+                elif 'REMOTE_QUEUE_QSUB' in config and config['REMOTE_QUEUE_QSUB']:
+                    cmd = []
+                    qsub = True
+
+                cmd += [img.pic.path.replace(biomedisa.BASE_DIR,host_base)]
+                cmd += [f'-iid={img.id}', '-r', '-q=5']
+
+                # command (append only on demand)
                 if process == 'convert':
                     cmd += ['-c']
                 elif process == 'smooth':
@@ -110,47 +125,86 @@ def init_process_image(id, process=None):
                 # send data to host
                 success = send_data_to_host(img.pic.path, host+':'+img.pic.path.replace(biomedisa.BASE_DIR,host_base))
 
-                # qsub start
-                if 'REMOTE_QUEUE_QSUB' in config and config['REMOTE_QUEUE_QSUB']:
-                    subhost, qsub_pid = qsub_start(host, host_base, 5)
-
                 # check if aborted
                 img = Upload.objects.get(pk=img.id)
                 if img.status==2 and img.queue==5 and success==0:
 
-                    # set pid and processing status
-                    img.message = 'Processing'
-                    img.pid = -1
-                    img.save()
-
-                    # process image
+                    # adjust command
+                    if qsub:
+                        args = " ".join(cmd)
+                        cmd = [f"qsub -v ARGS='{args}' queue_5.sh"]
                     if subhost:
-                        cmd = ['ssh', '-t', host, 'ssh', subhost] + cmd
+                        cmd_host = ['ssh', host, 'ssh', subhost]
+                        cmd = cmd_host + cmd
                     else:
-                        cmd = ['ssh', host] + cmd
-                    subprocess.Popen(cmd).wait()
+                        cmd_host = ['ssh', host]
+                        cmd = cmd_host + cmd
 
-                    # check if aborted
-                    success = subprocess.Popen(['scp', host+':'+host_base+f'/log/pid_5', biomedisa.BASE_DIR+f'/log/pid_5']).wait()
+                    # config files
+                    error_path = '/log/error_5'
+                    pid_path = '/log/pid_5'
 
-                    # get result
-                    if success==0:
-                        # remove pid file
-                        subprocess.Popen(['ssh', host, 'rm', host_base+f'/log/pid_5']).wait()
+                    # result path on host
+                    result_on_host = img.pic.path.replace(biomedisa.BASE_DIR,host_base)
+                    result_on_host = result_on_host.replace(os.path.splitext(result_on_host)[1], suffix)
 
-                        result_on_host = img.pic.path.replace(biomedisa.BASE_DIR,host_base)
-                        result_on_host = result_on_host.replace(os.path.splitext(result_on_host)[1], suffix)
+                    # submit job
+                    if qsub or sbatch:
+                        process = subprocess.Popen(cmd, stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE, text=True)
+                        stdout, stderr = process.communicate()
+                        if sbatch:
+                            job_id = stdout.strip().split()[-1]
+                        else:
+                            job_id = stdout.strip().split('.')[0]
+                        print(f"submit output: {stdout.strip()}")
+                        img.pid = job_id
+                        img.save()
+
+                        # wait for the server to finish TODO check job_id
+                        error, success, started, processing = 1, 1, 1, True
+                        while error!=0 and success!=0 and processing:
+                            time.sleep(30)
+                            error = subprocess.Popen(['scp', host+':'+host_base+error_path, biomedisa.BASE_DIR + error_path]).wait()
+                            started = subprocess.Popen(['scp', host +':'+host_base+pid_path, biomedisa.BASE_DIR + pid_path]).wait()
+                            success = subprocess.Popen(['scp', host+':'+result_on_host, path_to_result]).wait()
+                            img = Upload.objects.filter(pk=img.id).first()
+                            if img and img.status==2 and img.queue==5:
+                                if started==0 and img.message != 'Processing':
+                                    img.message = 'Processing'
+                                    img.save()
+                            else:
+                                processing = False
+
+                    # interactive shell
+                    else:
+                        process = subprocess.Popen(cmd)
+                        img.message = 'Processing'
+                        img.pid = process.pid
+                        img.save()
+                        process.wait()
+                        error = subprocess.Popen(['scp', host+':'+host_base+error_path, biomedisa.BASE_DIR + error_path]).wait()
+                        started = subprocess.Popen(['scp', host+':'+host_base+pid_path, biomedisa.BASE_DIR + pid_path]).wait()
                         success = subprocess.Popen(['scp', host+':'+result_on_host, path_to_result]).wait()
 
-                        if success==0:
-                            # create object
-                            active = 1 if img.imageType == 3 else 0
-                            Upload.objects.create(pic=pic_path, user=img.user, project=img.project,
-                                imageType=img.imageType, shortfilename=new_short_name, active=active)
-                        else:
-                            # return error
-                            Upload.objects.create(user=img.user, project=img.project,
-                                log=1, imageType=None, shortfilename='Invalid data.')
+                    if error == 0:
+                        # create error object
+                        with open(biomedisa.BASE_DIR + error_path, 'r') as errorfile:
+                            message = errorfile.read()
+                        create_error_object(message, img_id=img.id)
+
+                        # remove error file
+                        subprocess.Popen(['ssh', host, 'rm', host_base + error_path]).wait()
+
+                    # create result object
+                    elif success == 0:
+                        active = 1 if img.imageType == 3 else 0
+                        Upload.objects.create(pic=pic_path, user=img.user, project=img.project,
+                            imageType=img.imageType, shortfilename=new_short_name, active=active)
+
+                    # remove pid file
+                    if started == 0:
+                        subprocess.Popen(['ssh', host, 'rm', host_base + pid_path]).wait()
 
             # local server
             else:
@@ -197,10 +251,6 @@ def init_process_image(id, process=None):
         img.pid = 0
         img.save()
 
-    # qsub stop
-    if 'REMOTE_QUEUE_QSUB' in config and config['REMOTE_QUEUE_QSUB']:
-        qsub_stop(host, host_base, 5, 'process_image', subhost, qsub_pid)
-
 if __name__ == "__main__":
 
     # initialize arguments
@@ -220,6 +270,8 @@ if __name__ == "__main__":
                         help='Image ID within django environment/browser version')
     parser.add_argument('-r','--remote', action='store_true', default=False,
                         help='Process is carried out on a remote server. Must be set up in config.py')
+    parser.add_argument('-q','--queue', type=int, default=0,
+                        help='Processing queue when using a remote server')
     bm = parser.parse_args()
 
     # set pid
@@ -227,11 +279,20 @@ if __name__ == "__main__":
         from biomedisa.features.django_env import create_pid_object
         create_pid_object(os.getpid(), True, 5, bm.img_id)
 
+    # django environment
+    if bm.img_id is not None:
+        bm.django_env = True
+        bm.username = os.path.basename(os.path.dirname(bm.path_to_data))
+        bm.shortfilename = os.path.basename(bm.path_to_data)
+        bm.path_to_logfile = biomedisa.BASE_DIR + '/log/logfile.txt'
+    else:
+        bm.django_env = False
+
     # load data
     if bm.convert or bm.smooth:
         bm.image, _ = load_data(bm.path_to_data)
         if bm.image is None:
-            print('Error: Invalid data.')
+            bm = _error_(bm, 'Invalid data.')
         else:
             try:
                 # suffix
@@ -248,4 +309,5 @@ if __name__ == "__main__":
 
             except Exception as e:
                 print(traceback.format_exc())
+                bm = _error_(bm, str(e))
 
