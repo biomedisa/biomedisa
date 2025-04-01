@@ -36,6 +36,7 @@ from scipy import ndimage
 import argparse
 import traceback
 import subprocess
+import time
 
 def reduce_blocksize(data):
     zsh, ysh, xsh = data.shape
@@ -161,7 +162,7 @@ def main_helper(path_to_labels, img_id=None, friend_id=None, fill_holes=True,
     path_to_cleaned_filled = filename + '.cleaned.filled' + extension
 
     # load data
-    final, header = load_data(path_to_labels, 'cleanup')
+    final, header = load_data(path_to_labels)
 
     # process data
     final_cleaned = clean(final, clean_threshold)
@@ -318,7 +319,7 @@ def init_remove_outlier(image_id, final_id, label_id, fill_holes=True):
                 # adjust command
                 if qsub:
                     args = " ".join(cmd)
-                    cmd = [f"qsub -v ARGS='{args}' queue_4.sh"]
+                    cmd = [f"qsub -v ARGS='{args}' queue_6.sh"]
                 if subhost:
                     cmd_host = ['ssh', host, 'ssh', subhost]
                     cmd = cmd_host + cmd
@@ -337,15 +338,25 @@ def init_remove_outlier(image_id, final_id, label_id, fill_holes=True):
                         job_id = stdout.strip().split('.')[0]
                     print(f"submit output: {stdout.strip()}")
 
-                    # wait for the server to finish
+                    # wait for the server to finish TODO break if file was removed
+                    TIC = time.time()
                     while True:
                         time.sleep(30)
                         if sbatch:
                             result = subprocess.Popen(cmd_host + ["squeue", "-j", job_id], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                            stdout, stderr = result.communicate()
+                            if result.returncode!=0:
+                                stdout = str(job_id)
+                        elif time.time()-TIC > 900: # only check every 15 minutes
+                            TIC = time.time()
+                            result = subprocess.Popen(cmd_host + ["qstat"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                            stdout, stderr = result.communicate()
+                            if result.returncode!=0:
+                                stdout = str(job_id)
                         else:
-                            result = subprocess.Popen(cmd_host + ["qstat", job_id], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                            stdout = str(job_id)
                         success = subprocess.Popen(['scp', host+':'+host_base+'/log/config_6', biomedisa.BASE_DIR+'/log/config_6']).wait()
-                        if (result.returncode==0 and job_id not in result.stdout) or success==0:
+                        if (job_id not in stdout) or success==0:
                             print(f"Job {job_id} is no longer running.")
                             break
                         print(f"Job {job_id} is still running...")
