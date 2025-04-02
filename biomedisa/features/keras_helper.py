@@ -1063,7 +1063,9 @@ def train_segmentation(bm):
               'augment': (bm.flip_x, bm.flip_y, bm.flip_z, bm.swapaxes, bm.rotate, bm.rotate3d),
               'patch_normalization': bm.patch_normalization,
               'separation': bm.separation,
-              'ignore_mask': bm.ignore_mask}
+              'ignore_mask': bm.ignore_mask,
+              'downsample': bm.downsample
+              }
 
     # data generator
     validation_generator = None
