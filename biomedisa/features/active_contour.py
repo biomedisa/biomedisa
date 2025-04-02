@@ -31,7 +31,7 @@ import os
 import biomedisa
 from biomedisa.features.curvop_numba import curvop, evolution
 from biomedisa.features.biomedisa_helper import (unique_file_path, load_data, save_data,
-    pre_processing, img_to_uint8, silent_remove)
+    pre_processing, img_to_uint8, silent_remove, _error_)
 import numpy as np
 import numba
 import argparse
@@ -108,7 +108,7 @@ def reduce_blocksize(raw, slices):
 
 def activeContour(data, labelData, alpha=1.0, smooth=1, steps=3,
     path_to_data=None, path_to_labels=None, compression=True,
-    ignore='none', only='all', simple=False,
+    ignore='none', only='all', simple=False, queue=4,
     img_id=None, friend_id=None, remote=False):
 
     # create biomedisa
@@ -237,8 +237,8 @@ def post_processing(path_to_acwe, image_id=None, friend_id=None, simple=False, r
         from rq import Queue
 
         # check if reference data still exists
-        image = Upload.objects.filter(pk=image_id)
-        friend = Upload.objects.filter(pk=friend_id)
+        image = Upload.objects.filter(id=image_id)
+        friend = Upload.objects.filter(id=friend_id)
         if len(friend)>0:
             friend = friend[0]
 
@@ -279,13 +279,13 @@ def init_active_contour(image_id, friend_id, label_id, simple=False):
     django.setup()
     from biomedisa_app.models import Upload
     from biomedisa_app.config import config
-    from biomedisa_app.views import send_data_to_host, qsub_start, qsub_stop
+    from biomedisa_app.views import send_data_to_host
 
     # get objects
     try:
-        image = Upload.objects.get(pk=image_id)
-        label = Upload.objects.get(pk=label_id)
-        friend = Upload.objects.get(pk=friend_id)
+        image = Upload.objects.get(id=image_id)
+        label = Upload.objects.get(id=label_id)
+        friend = Upload.objects.get(id=friend_id)
         success = True
     except Upload.DoesNotExist:
         success = False
@@ -356,47 +356,34 @@ def init_active_contour(image_id, friend_id, label_id, simple=False):
                     cmd_host = ['ssh', host]
                     cmd = cmd_host + cmd
 
+                # config files
+                error_path = '/log/error_4'
+                config_path = '/log/config_4'
+
                 # submit job
                 if qsub or sbatch:
-                    process = subprocess.Popen(cmd, stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE, text=True)
-                    stdout, stderr = process.communicate()
-                    if sbatch:
-                        job_id = stdout.strip().split()[-1]
-                    else:
-                        job_id = stdout.strip().split('.')[0]
-                    print(f"submit output: {stdout.strip()}")
-
-                    # wait for the server to finish TODO break if file was removed
-                    TIC = time.time()
-                    while True:
+                    subprocess.Popen(cmd).wait()
+                    # wait for the server to finish
+                    error, success, processing = 1, 1, True
+                    while error!=0 and success!=0 and processing:
                         time.sleep(30)
-                        if sbatch:
-                            result = subprocess.Popen(cmd_host + ["squeue", "-j", job_id], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-                            stdout, stderr = result.communicate()
-                            if result.returncode!=0:
-                                stdout = str(job_id)
-                        elif time.time()-TIC > 900: # only check every 15 minutes
-                            TIC = time.time()
-                            result = subprocess.Popen(cmd_host + ["qstat"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-                            stdout, stderr = result.communicate()
-                            if result.returncode!=0:
-                                stdout = str(job_id)
-                        else:
-                            stdout = str(job_id)
-                        success = subprocess.Popen(['scp', host+':'+host_base+'/log/config_4', biomedisa.BASE_DIR+'/log/config_4']).wait()
-                        if (job_id not in stdout) or success==0:
-                            print(f"Job {job_id} is no longer running.")
-                            break
-                        print(f"Job {job_id} is still running...")
+                        error = subprocess.Popen(['scp', host+':'+host_base+error_path, biomedisa.BASE_DIR+error_path]).wait()
+                        success = subprocess.Popen(['scp', host+':'+host_base+config_path, biomedisa.BASE_DIR+config_path]).wait()
+                        if not Upload.objects.filter(id=friend_id).exists():
+                            processing = False
 
                 # interactive shell
                 else:
                     subprocess.Popen(cmd).wait()
-                    success = subprocess.Popen(['scp', host+':'+host_base+'/log/config_4', biomedisa.BASE_DIR+'/log/config_4']).wait()
+                    error = subprocess.Popen(['scp', host+':'+host_base+error_path, biomedisa.BASE_DIR+error_path]).wait()
+                    success = subprocess.Popen(['scp', host+':'+host_base+config_path, biomedisa.BASE_DIR+config_path]).wait()
 
-                if success==0:
-                    with open(biomedisa.BASE_DIR + '/log/config_4', 'r') as configfile:
+                if error == 0:
+                    # remove error file
+                    subprocess.Popen(['ssh', host, 'rm', host_base + error_path]).wait()
+
+                if success == 0:
+                    with open(biomedisa.BASE_DIR + config_path, 'r') as configfile:
                         acwe_on_host, _ = configfile.read().split()
 
                     # local file names
@@ -411,7 +398,7 @@ def init_active_contour(image_id, friend_id, label_id, simple=False):
                     post_processing(path_to_acwe, image_id=image_id, friend_id=friend_id, simple=simple)
 
                     # remove config file
-                    subprocess.Popen(['ssh', host, 'rm', host_base + '/log/config_4']).wait()
+                    subprocess.Popen(['ssh', host, 'rm', host_base + config_path]).wait()
 
         # local server
         else:
@@ -457,12 +444,21 @@ if __name__ == '__main__':
                         help='Label ID within django environment/browser version')
     parser.add_argument('-r','--remote', action='store_true', default=False,
                         help='Process is carried out on a remote server. Must be set up in config.py')
-
-    kwargs = vars(parser.parse_args())
+    parser.add_argument('-q','--queue', type=int, default=0,
+                        help='Processing queue when using a remote server')
+    bm = parser.parse_args()
+    kwargs = vars(bm)
 
     # run active contour
     try:
         activeContour(None, None, **kwargs)
     except Exception as e:
         print(traceback.format_exc())
+        # django environment
+        if bm.img_id is not None:
+            bm.django_env = True
+            bm.username = os.path.basename(os.path.dirname(bm.path_to_data))
+            bm.shortfilename = os.path.basename(bm.path_to_data)
+            bm.path_to_logfile = biomedisa.BASE_DIR + '/log/logfile.txt'
+            bm = _error_(bm, str(e))
 
