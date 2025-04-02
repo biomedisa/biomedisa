@@ -304,6 +304,9 @@ def init_create_mesh(id):
                     result_on_host = img.pic.path.replace(biomedisa.BASE_DIR,host_base)
                     result_on_host = result_on_host.replace(os.path.splitext(result_on_host)[1],'.stl')
 
+                    # remove data from host
+                    subprocess.Popen(['ssh', host, 'rm', result_on_host]).wait()
+
                     # submit job
                     if qsub or sbatch:
                         process = subprocess.Popen(cmd, stdout=subprocess.PIPE,
@@ -317,7 +320,7 @@ def init_create_mesh(id):
                         img.pid = job_id
                         img.save()
 
-                        # wait for the server to finish
+                        # wait for host to finish
                         error, success, started, processing = 1, 1, 1, True
                         while error!=0 and success!=0 and processing:
                             time.sleep(30)
@@ -343,24 +346,20 @@ def init_create_mesh(id):
                         started = subprocess.Popen(['scp', host+':'+host_base+pid_path, biomedisa.BASE_DIR + pid_path]).wait()
                         success = subprocess.Popen(['scp', host+':'+result_on_host, path_to_result]).wait()
 
+                    # create error object
                     if error == 0:
-                        # create error object
                         with open(biomedisa.BASE_DIR + error_path, 'r') as errorfile:
                             message = errorfile.read()
                         create_error_object(message, img_id=img.id)
 
-                        # remove error file
-                        subprocess.Popen(['ssh', host, 'rm', host_base + error_path]).wait()
-
-                    # get result
+                    # create result object
                     elif success==0:
-                        # create object
                         Upload.objects.create(pic=pic_path, user=img.user, project=img.project,
                             imageType=5, shortfilename=new_short_name)
 
-                    # remove pid file
-                    if started == 0:
-                        subprocess.Popen(['ssh', host, 'rm', host_base+f'/log/pid_7']).wait()
+                    # remove config files
+                    subprocess.Popen(['ssh', host, 'rm', host_base + error_path]).wait()
+                    subprocess.Popen(['ssh', host, 'rm', host_base + pid_path]).wait()
 
             # local server
             else:
