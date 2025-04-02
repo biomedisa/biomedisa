@@ -78,7 +78,7 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
     remote=False, queue=0, username=None, shortfilename=None, dice_loss=False,
     acwe=False, acwe_alpha=1.0, acwe_smooth=1, acwe_steps=3, clean=None, fill=None,
     separation=False, mask=None, refinement=False, ignore_mask=False, mixed_precision=False,
-    slicer=False, path_to_data=None):
+    slicer=False, path_to_data=None, downsample=False):
 
     # create biomedisa
     bm = Biomedisa()
@@ -391,6 +391,8 @@ if __name__ == '__main__':
                         help='Biomedisa version')
     parser.add_argument('-b','--balance', action='store_true', default=False,
                         help='Balance foreground and background training patches')
+    parser.add_argument('-do','--downsample', action='store_true', default=False,
+                        help='Downsampling to the smaller group when using balance')
     parser.add_argument('-cd','--crop_data', action='store_true', default=False,
                         help='Crop data automatically to region of interest')
     parser.add_argument('--acwe', action='store_true', default=False,
