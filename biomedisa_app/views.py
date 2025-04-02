@@ -2413,7 +2413,7 @@ def stop_running_job(pid, queue_id):
         QUEUE, host = 'SECOND', config['SECOND_QUEUE_HOST']
     elif queue_id == 3:
         QUEUE, host = 'THIRD', config['THIRD_QUEUE_HOST']
-    elif queue_id in [5,7]:
+    elif queue_id in [4,5,6,7]:
         if 'REMOTE_QUEUE_HOST' in config:
             QUEUE, host = 'REMOTE', config['REMOTE_QUEUE_HOST']
         else:
