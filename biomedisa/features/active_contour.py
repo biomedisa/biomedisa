@@ -387,10 +387,6 @@ def init_active_contour(image_id, friend_id, label_id, simple=False):
                     error = subprocess.Popen(['scp', host+':'+host_base+error_path, biomedisa.BASE_DIR+error_path]).wait()
                     success = subprocess.Popen(['scp', host+':'+host_base+config_path, biomedisa.BASE_DIR+config_path]).wait()
 
-                if error == 0:
-                    # remove error file
-                    subprocess.Popen(['ssh', host, 'rm', host_base + error_path]).wait()
-
                 if success == 0:
                     with open(biomedisa.BASE_DIR + config_path, 'r') as configfile:
                         acwe_on_host, _ = configfile.read().split()
@@ -406,8 +402,9 @@ def init_active_contour(image_id, friend_id, label_id, simple=False):
                     # post processing
                     post_processing(path_to_acwe, image_id=image_id, friend_id=friend_id, simple=simple)
 
-                    # remove config file
-                    subprocess.Popen(['ssh', host, 'rm', host_base + config_path]).wait()
+                # remove config files
+                subprocess.Popen(['ssh', host, 'rm', host_base + error_path]).wait()
+                subprocess.Popen(['ssh', host, 'rm', host_base + config_path]).wait()
 
         # local server
         else:

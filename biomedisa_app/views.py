@@ -1112,9 +1112,6 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
                         message = errorfile.read()
                     create_error_object(message, img_id=image.id)
 
-                    # remove error file
-                    subprocess.Popen(['ssh', host, 'rm', host_base + error_path]).wait()
-
                 elif success == 0:
 
                     with open(BASE_DIR + config_path, 'r') as configfile:
@@ -1152,14 +1149,13 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
                         predict=predict, train=train,
                         img_id=image.id, label_id=label.id)
 
-                    # remove config file
-                    subprocess.Popen(['ssh', host, 'rm', host_base + config_path]).wait()
-
                 # something went wrong
                 elif stopped==False:
                     return_error(image, 'The process has reached the time limit of 48 hours.')
 
-                # remove pid file
+                # remove config files
+                subprocess.Popen(['ssh', host, 'rm', host_base + error_path]).wait()
+                subprocess.Popen(['ssh', host, 'rm', host_base + config_path]).wait()
                 subprocess.Popen(['ssh', host, 'rm', host_base + pid_path]).wait()
 
         # local server
@@ -2275,9 +2271,6 @@ def init_random_walk(image, label):
                         message = errorfile.read()
                     create_error_object(message, img_id=image.id)
 
-                    # remove error file
-                    subprocess.Popen(['ssh', host, 'rm', host_base + error_path]).wait()
-
                 elif success == 0:
 
                     with open(BASE_DIR + config_path, 'r') as configfile:
@@ -2307,16 +2300,14 @@ def init_random_walk(image, label):
                         uncertainty=uncertainty, smooth=smooth,
                         img_id=image.id, label_id=label.id)
 
-                    # remove config file
-                    subprocess.Popen(['ssh', host, 'rm', host_base + config_path]).wait()
-
                 # something went wrong
                 elif processing:
                     return_error(image, 'Something went wrong. Please restart.')
 
-                # remove pid file
-                if started == 0:
-                    subprocess.Popen(['ssh', host, 'rm', host_base + pid_path]).wait()
+                # remove config files
+                subprocess.Popen(['ssh', host, 'rm', host_base + error_path]).wait()
+                subprocess.Popen(['ssh', host, 'rm', host_base + pid_path]).wait()
+                subprocess.Popen(['ssh', host, 'rm', host_base + config_path]).wait()
 
         # local server
         else:

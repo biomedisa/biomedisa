@@ -358,10 +358,6 @@ def init_remove_outlier(image_id, final_id, label_id, fill_holes=True):
                     error = subprocess.Popen(['scp', host+':'+host_base+error_path, biomedisa.BASE_DIR+error_path]).wait()
                     success = subprocess.Popen(['scp', host+':'+host_base+config_path, biomedisa.BASE_DIR+config_path]).wait()
 
-                if error == 0:
-                    # remove error file
-                    subprocess.Popen(['ssh', host, 'rm', host_base + error_path]).wait()
-
                 if success == 0:
                     with open(biomedisa.BASE_DIR + config_path, 'r') as configfile:
                         cleaned_on_host, filled_on_host, cleaned_filled_on_host = configfile.read().split()
@@ -386,8 +382,9 @@ def init_remove_outlier(image_id, final_id, label_id, fill_holes=True):
                     # post processing
                     post_processing(path_to_cleaned, path_to_filled, path_to_cleaned_filled, image_id, final.friend, fill_holes)
 
-                    # remove config file
-                    subprocess.Popen(['ssh', host, 'rm', host_base + config_path]).wait()
+                # remove config files
+                subprocess.Popen(['ssh', host, 'rm', host_base + error_path]).wait()
+                subprocess.Popen(['ssh', host, 'rm', host_base + config_path]).wait()
 
         # local server
         else:
