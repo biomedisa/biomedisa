@@ -279,7 +279,7 @@ def init_active_contour(image_id, friend_id, label_id, simple=False):
     django.setup()
     from biomedisa_app.models import Upload
     from biomedisa_app.config import config
-    from biomedisa_app.views import send_data_to_host
+    from biomedisa_app.views import send_data_to_host, stop_running_job
 
     # get objects
     try:
@@ -362,7 +362,15 @@ def init_active_contour(image_id, friend_id, label_id, simple=False):
 
                 # submit job
                 if qsub or sbatch:
-                    subprocess.Popen(cmd).wait()
+                    process = subprocess.Popen(cmd, stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE, text=True)
+                    stdout, stderr = process.communicate()
+                    if sbatch:
+                        job_id = stdout.strip().split()[-1]
+                    else:
+                        job_id = stdout.strip().split('.')[0]
+                    print(f"submit output: {stdout.strip()}")
+
                     # wait for the server to finish
                     error, success, processing = 1, 1, True
                     while error!=0 and success!=0 and processing:
@@ -371,6 +379,7 @@ def init_active_contour(image_id, friend_id, label_id, simple=False):
                         success = subprocess.Popen(['scp', host+':'+host_base+config_path, biomedisa.BASE_DIR+config_path]).wait()
                         if not Upload.objects.filter(id=friend_id).exists():
                             processing = False
+                            stop_running_job(job_id, 4)
 
                 # interactive shell
                 else:
