@@ -91,7 +91,7 @@ def post_processing(path_to_final, time_str, server_name, remote, queue, dice=1.
         # get object
         image = Upload.objects.get(pk=img_id)
 
-        if train:
+        '''if train:
             # create model object
             shortfilename = os.path.basename(path_to_model)
             filename = 'images/' + image.user.username + '/' + shortfilename
@@ -101,9 +101,9 @@ def post_processing(path_to_final, time_str, server_name, remote, queue, dice=1.
             for suffix in ['_acc.png', '_loss.png', '.csv']:
                 shortfilename = os.path.basename(path_to_model.replace('.h5', suffix))
                 filename = 'images/' + image.user.username + '/' + shortfilename
-                Upload.objects.create(pic=filename, user=image.user, project=image.project, imageType=6, shortfilename=shortfilename)
+                Upload.objects.create(pic=filename, user=image.user, project=image.project, imageType=6, shortfilename=shortfilename)'''
 
-        else:
+        if not train:
             # create final objects
             shortfilename = os.path.basename(path_to_final)
             filename = 'images/' + image.user.username + '/' + shortfilename
