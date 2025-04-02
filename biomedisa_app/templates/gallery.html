@@ -1338,6 +1338,51 @@ $(document).ready(addClickHandlers);
     </div>
     </td>
 
+    <td>
+    <div class="col c1">
+      <h2><span>Antscan</span></h2>
+
+      <p>
+      <div>
+      <a href="https://biomedisa.info/media/16-15.png"><img src="/media/16-15.png" title="roots" style="width:243px;height:136px;border:0;"></a>
+      </div>
+      </p>
+
+      <p>
+      <div>
+      <a><img src="/static/file_ai.svg" style="width:50px;height:50px;border:0;"></a>
+      <a href=# onclick="alertFunction('...dancing on rainbows.')"><img src="/static/icon-deletelink.svg" title="delete" style="width:20px;height:20px;border:0;"></a>
+      <a href="/download/demo/?id=antscan_2024-08-15_b_augment.h5"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+      <a href=#><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
+      <a href=# onclick="alertFunction('Move data to long term storage')"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;"></a>
+      {% if user.is_authenticated %}
+      <span class="share_link" id='antscan_2024-08-15_b_augment.h5'><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span></br>
+      {% else %}
+      <a href=# onclick="alertFunction('Share data with other users or create a download link')"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;"></a></br>
+      {% endif %}
+      antscan_2024-08-15_b_augment.h5
+      </div>
+      </p>
+
+      <p>
+      <div>
+      <a href="/visualization_demo/?id=Pheidole_dyctiota_CASENT0744162_5x.tif" target="_blank"><img src="/static/file_image.svg" title="visualization" style="width:50px;height:50px;border:0;"></a>
+      <a href=# onclick="alertFunction('You can not delete the data.')"><img src="/static/icon-deletelink.svg" title="delete" style="width:20px;height:20px;border:0;"></a>
+      <a href="/download/demo/?id=Pheidole_dyctiota_CASENT0744162_5x.tif"><img src="/static/downloads.png" title="download" style="width:20px;height:20px;border:0;"></a>
+      <a href=# onclick="sliceViewer('Pheidole_dyctiota_CASENT0744162_5x.tif')"><img src="/static/2D_plain.png" title="slice viewer" width="30" height="20" onMouseOver="this.src='/static/2D_filled.png'" onMouseOut="this.src='/static/2D_plain.png'"></a>
+      <a href=# onclick="alertFunction('Move data to long term storage')"><img src="/static/move.ico" title="move" style="width:20px;height:20px;border:0;"></a>
+      {% if user.is_authenticated %}
+      <span class="share_link" id='Pheidole_dyctiota_CASENT0744162_5x.tif'><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;cursor:pointer;"></span></br>
+      {% else %}
+      <a href=# onclick="alertFunction('Share data with other users or create a download link')"><img src="/static/share2.png" title="share" style="width:20px;height:20px;border:0;"></a></br>
+      {% endif %}
+      Pheidole_dyctiota_CASENT0744162_5x.tif
+      </div>
+      </p>
+
+    </div>
+    </td>
+
     </tr>
 
     <div class="clr"></div>

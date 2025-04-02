@@ -42,7 +42,7 @@ from django.contrib.auth.forms import PasswordChangeForm
 from django.template import Template, Context
 from django.core.mail import send_mail
 from django.utils import timezone
-from django.db.models import Q
+from django.db.models import Q, Max
 
 from biomedisa_app.models import (UploadForm, Upload, StorageForm, Profile,
     UserForm, SettingsForm, SettingsPredictionForm, CustomUserCreationForm,
@@ -451,6 +451,11 @@ def settings(request, id):
             if img.is_valid():
                 cd = img.cleaned_data
                 if cd != initial:
+                    scaling_reset = False
+                    if any([scale > 256 for scale in [image.x_scale, image.y_scale, image.z_scale]]) and not any([scale > 256 for scale in [cd['x_scale'], cd['y_scale'], cd['z_scale']]]) and cd['scaling']:
+                        scaling_reset = True
+                    if not image.scaling and cd['scaling'] and not any([scale > 256 for scale in [cd['x_scale'], cd['y_scale'], cd['z_scale']]]):
+                        scaling_reset = True
                     for key in cd.keys():
                         image.__dict__[key] = cd[key]
                     image.validation_freq = max(1, int(cd['validation_freq']))
@@ -463,6 +468,9 @@ def settings(request, id):
                     image.z_scale = min(512, int(cd['z_scale']))
                     if not image.scaling or any([scale > 256 for scale in [image.x_scale, image.y_scale, image.z_scale]]):
                         image.stride_size = 64
+                        messages.warning(request, 'Stride size 64 is used for no scaling or scaling above 256. Use a local Biomedisa installation for smaller stride sizes in these cases.')
+                    if scaling_reset:
+                        image.stride_size = 32
                     if cd['early_stopping'] and image.validation_split == 0.0:
                         image.validation_split = 0.8
                     image.save()
@@ -879,7 +887,7 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
             cmd += [img_list.replace(BASE_DIR,host_base),
                     label_list.replace(BASE_DIR,host_base),'-t']
             if val_img_list and val_label_list:
-                cmd += ['-vi',val_img_list.replace(BASE_DIR,host_base),'-vl',val_label_list.replace(BASE_DIR,host_base),'-vss=64']
+                cmd += ['-vi',val_img_list.replace(BASE_DIR,host_base),'-vl',val_label_list.replace(BASE_DIR,host_base)]
         cmd += [f'-iid={image.id}', f'-lid={label.id}']
 
         # command (append only on demand)
@@ -924,7 +932,7 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
         if label.validation_split > 0:
             cmd += [f'-vs={label.validation_split}']
         if label.stride_size != 32:
-            cmd += [f'-ss={label.stride_size}']
+            cmd += [f'-ss={label.stride_size}',f'-vss={label.stride_size}']
         if label.rotate > 0:
             cmd += [f'-r={label.rotate}']
         if label.header_file:
@@ -969,9 +977,11 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
                     args = " ".join(cmd)
                     cmd = [f"qsub -v ARGS='{args}' queue_{queue_id}.sh"]
                 if subhost:
-                    cmd = ['ssh', host, 'ssh', subhost] + cmd
+                    cmd_host = ['ssh', host, 'ssh', subhost]
+                    cmd = cmd_host + cmd
                 else:
-                    cmd = ['ssh', host] + cmd
+                    cmd_host = ['ssh', host]
+                    cmd = cmd_host + cmd
 
                 # config files
                 error_path = f'/log/error_{queue_id}'
@@ -992,7 +1002,7 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
                     image.save()
 
                     # wait for the server to finish
-                    error, success, started, processing = 1, 1, 1, True
+                    '''error, success, started, processing = 1, 1, 1, True
                     while error!=0 and success!=0 and processing:
                         time.sleep(30)
                         error = subprocess.Popen(['scp', host + ':' + host_base + error_path, BASE_DIR + error_path]).wait()
@@ -1004,7 +1014,84 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
                                 image.message = 'Processing'
                                 image.save()
                         else:
-                            processing = False
+                            processing = False'''
+
+                    # local filename
+                    if train:
+                        shortfilename= os.path.splitext(image.shortfilename)[0]
+                        model_on_host = f'{host_base}/private_storage/images/{image.user.username}/{shortfilename}.h5'
+                        path_to_model = unique_file_path(model_on_host.replace(host_base,BASE_DIR))
+                        result_paths = [path_to_model]
+                        for suffix in ['_acc.png', '_loss.png', '.csv']:
+                            result_paths.append(unique_file_path(path_to_model.replace('.h5', suffix)))
+                        # remove data from host
+                        for suffix in ['.h5', '_acc.png', '_loss.png', '.csv']:
+                            subprocess.Popen(['ssh', host, 'rm', model_on_host.replace('.h5', suffix)]).wait()
+
+                    # wait for the server to finish
+                    stopped = False
+                    while True:
+                        # wait
+                        time.sleep(30)
+
+                        # check if job was started or aborted
+                        image = Upload.objects.filter(pk=image.id).first()
+                        if image and image.status==2 and image.queue==queue_id:
+                            if image.message!='Processing' and 'Training epoch' not in image.message and subprocess.Popen(['scp',host+':'+host_base+pid_path,BASE_DIR+pid_path]).wait()==0:
+                                image.message = 'Processing'
+                                image.save()
+                        else:
+                            stopped = True
+
+                        # check for termination
+                        if not stopped:
+                            if sbatch:
+                                monitor = subprocess.Popen(cmd_host + ["squeue", "-j", job_id], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                            else:
+                                monitor = subprocess.Popen(cmd_host + ["qstat", job_id], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                            stdout, stderr = monitor.communicate()
+                            if monitor.returncode!=0:
+                                stdout = str(job_id)
+
+                            # check if job completed
+                            success = subprocess.Popen(['scp', host + ':' + host_base + config_path, BASE_DIR + config_path]).wait()
+                            error = subprocess.Popen(['scp', host + ':' + host_base + error_path, BASE_DIR + error_path]).wait()
+
+                            if train:
+                                # copy files
+                                for path_to_result, suffix in zip(result_paths, ['.h5', '_acc.png', '_loss.png', '.csv']):
+                                    # ensure files are transfered completely
+                                    if os.path.exists(path_to_result):
+                                        result = 1
+                                        while result!=0:
+                                            result = subprocess.Popen(['rsync','-avP', host+':'+model_on_host.replace('.h5', suffix), path_to_result]).wait()
+                                    else:
+                                        result = subprocess.Popen(['rsync','-avP', host+':'+model_on_host.replace('.h5', suffix), path_to_result]).wait()
+                                    # create objects
+                                    if result==0:
+                                        os.chmod(path_to_result, 0o664)
+                                        shortfilename = os.path.basename(path_to_result)
+                                        filename = 'images/' + image.user.username + '/' + shortfilename
+                                        if not Upload.objects.filter(pic=filename).exists():
+                                            Upload.objects.create(pic=filename, user=image.user, project=image.project,
+                                                imageType=(4 if suffix=='.h5' else 6), shortfilename=shortfilename, log=3)
+                                # update processing message
+                                if os.path.exists(result_paths[-1]) and success!=0:
+                                    with open(result_paths[-1], "r", encoding="utf-8") as f:
+                                        epochs_trained = 0
+                                        for line in f:
+                                            epochs_trained += 1
+                                    image.message = f'Training epoch {min(epochs_trained,label.epochs)} / {label.epochs}'
+                                    image.save()
+
+                        # terminate loop
+                        if stopped or (job_id not in stdout) or success==0 or error==0:
+                            print(f"Job {job_id} is no longer running.")
+                            # make training results fully visible
+                            if train:
+                                Upload.objects.filter(user=image.user, project=image.project, log=3).update(log=0)
+                            break
+                        print(f"Job {job_id} is still running...")
 
                 # interactive shell
                 else:
@@ -1025,9 +1112,6 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
                         message = errorfile.read()
                     create_error_object(message, img_id=image.id)
 
-                    # remove error file
-                    subprocess.Popen(['ssh', host, 'rm', host_base + error_path]).wait()
-
                 elif success == 0:
 
                     with open(BASE_DIR + config_path, 'r') as configfile:
@@ -1042,8 +1126,8 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
                         path_to_final = unique_file_path(final_on_host.replace(host_base,BASE_DIR))
                         if cropped_on_host:
                             path_to_cropped_image = unique_file_path(cropped_on_host.replace(host_base,BASE_DIR))
-                    else:
-                        path_to_model = unique_file_path(model_on_host.replace(host_base,BASE_DIR))
+                    #else:
+                    #    path_to_model = unique_file_path(model_on_host.replace(host_base,BASE_DIR))
 
                     # get results
                     if predict:
@@ -1052,12 +1136,12 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
                         if cropped_on_host:
                             subprocess.Popen(['scp', host+':'+cropped_on_host, path_to_cropped_image]).wait()
                             os.chmod(path_to_cropped_image, 0o664)
-                    else:
-                        subprocess.Popen(['scp', host+':'+model_on_host, path_to_model]).wait()
-                        os.chmod(path_to_model, 0o664)
-                        for suffix in ['_acc.png', '_loss.png', '.csv']:
-                            subprocess.Popen(['scp', host+':'+model_on_host.replace('.h5', suffix), path_to_model.replace('.h5', suffix)]).wait()
-                            os.chmod(path_to_model.replace('.h5', suffix), 0o664)
+                    #else:
+                    #    subprocess.Popen(['scp', host+':'+model_on_host, path_to_model]).wait()
+                    #    os.chmod(path_to_model, 0o664)
+                    #    for suffix in ['_acc.png', '_loss.png', '.csv']:
+                    #        subprocess.Popen(['scp', host+':'+model_on_host.replace('.h5', suffix), path_to_model.replace('.h5', suffix)]).wait()
+                    #        os.chmod(path_to_model.replace('.h5', suffix), 0o664)
 
                     # post processing
                     post_processing(path_to_final, time_str, server_name, False, None,
@@ -1065,16 +1149,14 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
                         predict=predict, train=train,
                         img_id=image.id, label_id=label.id)
 
-                    # remove config file
-                    subprocess.Popen(['ssh', host, 'rm', host_base + config_path]).wait()
-
                 # something went wrong
-                elif processing:
-                    return_error(image, 'Something went wrong. Please restart.')
+                elif stopped==False:
+                    return_error(image, 'The process has reached the time limit of 48 hours.')
 
-                # remove pid file
-                if started == 0:
-                    subprocess.Popen(['ssh', host, 'rm', host_base + pid_path]).wait()
+                # remove config files
+                subprocess.Popen(['ssh', host, 'rm', host_base + error_path]).wait()
+                subprocess.Popen(['ssh', host, 'rm', host_base + config_path]).wait()
+                subprocess.Popen(['ssh', host, 'rm', host_base + pid_path]).wait()
 
         # local server
         else:
@@ -1429,10 +1511,10 @@ def app(request):
         state = None
 
     if request.method == "POST":
-        img = UploadForm(request.POST, request.FILES)
-        if img.is_valid():
+        img_form = UploadForm(request.POST, request.FILES)
+        if img_form.is_valid():
             newimg = Upload(pic=request.FILES['pic'])
-            cd = img.cleaned_data
+            cd = img_form.cleaned_data
             newimg.project = cd['project']
             newimg.imageType = cd['imageType']
             newimg.user = request.user
@@ -1471,13 +1553,13 @@ def app(request):
             return redirect(reverse('app') + "?project=%s" %(newimg.project) + "&type=%s" %(nextType))
 
     else:
-        img = UploadForm()
+        img_form = UploadForm()
 
     # set initial upload image type
     current_imageType = request.GET.get('type', '')
-    img.fields['imageType'].initial = [current_imageType]
+    img_form.fields['imageType'].initial = [current_imageType]
     current_project = request.GET.get('project', '')
-    img.fields['project'].initial = [current_project]
+    img_form.fields['project'].initial = [current_project]
 
     # get all images
     images = Upload.objects.filter(user=request.user, project__gt=0)
@@ -1491,12 +1573,18 @@ def app(request):
             process_running = 1
             process_list += ";" + str(image.id) + ":" + str(image.status) + ":" + str(image.message)
 
-        # one and only one final object is allowed to be active
+        # one and only one final object must be active
         if image.final:
-            tmp = [x for x in images if image.friend==x.friend]
-            if not any(x.active for x in tmp):
-                tmp[0].active = 1
-                tmp[0].save()
+            # Count how many objects have active=1
+            active_images = images.filter(friend=image.friend, active=1)
+            if active_images.count() == 0:
+                # If none are active, set the first one as active
+                image.active = 1
+                image.save()
+            elif active_images.count() > 1:
+                # If more than one is active, reset all and set only the first one as active
+                active_images.update(active=0)
+                active_images.first().update(active=1)
 
         # update queue position
         if image.status == 1:
@@ -1532,23 +1620,18 @@ def app(request):
     StartProject = np.zeros(9)
     ImageIdRaw = np.zeros(9)
     ImageIdLabel = np.zeros(9)
-    max_project = 0
-
     for k in range(1,10):
-        img_obj = Upload.objects.filter(user=request.user, project=k, imageType=1, status=0)
-        img_any = Upload.objects.filter(user=request.user, project=k, imageType=1)
-        label = Upload.objects.filter(user=request.user, project=k, imageType=2)
-        final = Upload.objects.filter(user=request.user, project=k, imageType=3)
-        ai = Upload.objects.filter(user=request.user, project=k, imageType=4)
-        log = Upload.objects.filter(user=request.user, project=k, log=1)
+        project_images = images.filter(project=k)
+        if project_images.count()==2:
+            for img in project_images:
+                if img.imageType == 1 and img.status == 0:
+                    ImageIdRaw[k-1] = img.id
+                elif img.imageType == 2:
+                    ImageIdLabel[k-1] = img.id
+            if ImageIdRaw[k-1] and ImageIdLabel[k-1]:
+                StartProject[k-1] = 1
 
-        if len(img_obj)==1 and len(label)==1 and not final and not ai and not log:
-            StartProject[k-1] = 1
-            ImageIdRaw[k-1] = img_obj[0].id
-            ImageIdLabel[k-1] = label[0].id
-        if any([img_any,label,final,ai,log]):
-            max_project = k
-
+    max_project = images.aggregate(Max('project'))['project__max']
     looptimes = zip(StartProject, range(1,max_project+1), ImageIdRaw, ImageIdLabel)
 
     # get storage size of user
@@ -1574,7 +1657,7 @@ def app(request):
         for line in lines:
             messages.success(request, line)
 
-    return render(request, 'app.html', {'state':state, 'loop_times':looptimes, 'form':img, 'images':images,
+    return render(request, 'app.html', {'state':state, 'loop_times':looptimes, 'form':img_form, 'images':images,
             'datasize':datasize, 'storage_full':storage_full, 'storage_size':storage_size,
             'process_running':process_running, 'process_list':process_list})
 
@@ -2188,9 +2271,6 @@ def init_random_walk(image, label):
                         message = errorfile.read()
                     create_error_object(message, img_id=image.id)
 
-                    # remove error file
-                    subprocess.Popen(['ssh', host, 'rm', host_base + error_path]).wait()
-
                 elif success == 0:
 
                     with open(BASE_DIR + config_path, 'r') as configfile:
@@ -2220,16 +2300,14 @@ def init_random_walk(image, label):
                         uncertainty=uncertainty, smooth=smooth,
                         img_id=image.id, label_id=label.id)
 
-                    # remove config file
-                    subprocess.Popen(['ssh', host, 'rm', host_base + config_path]).wait()
-
                 # something went wrong
                 elif processing:
                     return_error(image, 'Something went wrong. Please restart.')
 
-                # remove pid file
-                if started == 0:
-                    subprocess.Popen(['ssh', host, 'rm', host_base + pid_path]).wait()
+                # remove config files
+                subprocess.Popen(['ssh', host, 'rm', host_base + error_path]).wait()
+                subprocess.Popen(['ssh', host, 'rm', host_base + pid_path]).wait()
+                subprocess.Popen(['ssh', host, 'rm', host_base + config_path]).wait()
 
         # local server
         else:
@@ -2326,7 +2404,7 @@ def stop_running_job(pid, queue_id):
         QUEUE, host = 'SECOND', config['SECOND_QUEUE_HOST']
     elif queue_id == 3:
         QUEUE, host = 'THIRD', config['THIRD_QUEUE_HOST']
-    elif queue_id in [5,7]:
+    elif queue_id in [4,5,6,7]:
         if 'REMOTE_QUEUE_HOST' in config:
             QUEUE, host = 'REMOTE', config['REMOTE_QUEUE_HOST']
         else:
