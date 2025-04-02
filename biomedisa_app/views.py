@@ -1632,6 +1632,8 @@ def app(request):
                 StartProject[k-1] = 1
 
     max_project = images.aggregate(Max('project'))['project__max']
+    if not max_project:
+        max_project = 0
     looptimes = zip(StartProject, range(1,max_project+1), ImageIdRaw, ImageIdLabel)
 
     # get storage size of user
