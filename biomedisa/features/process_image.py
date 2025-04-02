@@ -161,7 +161,7 @@ def init_process_image(id, process=None):
                         img.pid = job_id
                         img.save()
 
-                        # wait for the server to finish TODO check job_id
+                        # wait for the server to finish
                         error, success, started, processing = 1, 1, 1, True
                         while error!=0 and success!=0 and processing:
                             time.sleep(30)
@@ -215,7 +215,7 @@ def init_process_image(id, process=None):
                 img.save()
 
                 # load data
-                data, header = load_data(img.pic.path, process='converter')
+                data, header = load_data(img.pic.path)
                 if data is None:
                     # return error
                     success = 1
