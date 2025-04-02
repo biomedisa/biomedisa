@@ -908,6 +908,15 @@ def dice_coef_loss(nb_labels):
         return loss
     return loss_fn
 
+def loss_fn(y_true, y_pred):
+    dice = 0
+    for index in range(1,nb_labels):
+        dice += dice_coef(y_true[:,:,:,:,index], y_pred[:,:,:,:,index])
+    dice = dice / (nb_labels-1)
+    #loss = -K.log(dice)
+    loss = 1 - dice
+    return loss
+
 def custom_loss(y_true, y_pred):
     # Extract labels and ignore mask
     labels = tf.cast(y_true[..., 0], tf.int32)  # First channel contains class labels
@@ -1088,7 +1097,14 @@ def train_segmentation(bm):
 
         # pretrained model
         if bm.pretrained_model:
-            model_pretrained = load_model(bm.pretrained_model)
+            # custom objects
+            if bm.dice_loss:
+                custom_objects = {'dice_coef_loss': dice_coef_loss,'loss_fn': loss_fn}
+            elif bm.ignore_mask:
+                custom_objects={'custom_loss': custom_loss}
+            else:
+                custom_objects=None
+            model_pretrained = load_model(bm.pretrained_model, custom_objects=custom_objects)
             model.set_weights(model_pretrained.get_weights())
             if not bm.fine_tune:
                 nb_blocks = len(bm.network_filters.split('-'))
@@ -1115,10 +1131,12 @@ def train_segmentation(bm):
             metrics=['accuracy']
 
         # loss function
-        if bm.ignore_mask:
+        if bm.dice_loss:
+            loss=dice_coef_loss(nb_labels)
+        elif bm.ignore_mask:
             loss=custom_loss
         else:
-            loss=dice_coef_loss(nb_labels) if bm.dice_loss else 'categorical_crossentropy'
+            loss='categorical_crossentropy'
 
         # comile model
         model.compile(loss=loss,
