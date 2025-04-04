@@ -435,8 +435,8 @@ if __name__ == '__main__':
         # django environment
         if bm.img_id is not None:
             bm.django_env = True
-            bm.username = os.path.basename(os.path.dirname(bm.path_to_data))
-            bm.shortfilename = os.path.basename(bm.path_to_data)
+            bm.username = os.path.basename(os.path.dirname(bm.path_to_labels))
+            bm.shortfilename = os.path.basename(bm.path_to_labels)
             bm.path_to_logfile = biomedisa.BASE_DIR + '/log/logfile.txt'
             bm = _error_(bm, str(e))
 
