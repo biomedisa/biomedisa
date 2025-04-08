@@ -1191,6 +1191,8 @@ def load_prediction_data(bm, channels, normalization_parameters,
             img_header = None
             tif = TiffFile(bm.path_to_image)
             img = imread(bm.path_to_image, key=range(z,min(len(tif.pages),z+bm.z_patch)))
+            if len(img.shape)==2:
+                img = img.reshape(1,img.shape[0],img.shape[1])
             if img.shape[0] < bm.z_patch:
                 rest = bm.z_patch - img.shape[0]
                 tmp = imread(bm.path_to_image, key=range(len(tif.pages)-rest,len(tif.pages)))
@@ -1513,6 +1515,8 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
                 # load mask block
                 if bm.separation or bm.refinement:
                     mask = imread(bm.mask, key=range(z,min(len(tif.pages),z+bm.z_patch)))
+                    if len(mask.shape)==2:
+                        mask = mask.reshape(1,mask.shape[0],mask.shape[1])
                     # pad zeros to make dimensions divisible by patch dimensions
                     pad_z = bm.z_patch - mask.shape[0]
                     pad_y = (bm.y_patch - (mask.shape[1] % bm.y_patch)) % bm.y_patch
