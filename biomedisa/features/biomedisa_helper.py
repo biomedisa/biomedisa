@@ -30,7 +30,7 @@ import os
 import biomedisa
 from biomedisa.features.amira_to_np.amira_helper import amira_to_np, np_to_amira
 from biomedisa.features.nc_reader import nc_to_np, np_to_nc
-from tifffile import imread, imwrite
+from tifffile import imread, imwrite, TiffFile
 from medpy.io import load, save
 import SimpleITK as sitk
 from PIL import Image
@@ -51,6 +51,16 @@ def silent_remove(filename):
         os.remove(filename)
     except OSError:
         pass
+
+class TiffInfo:
+    def __init__(self, path):
+        tif = TiffFile(path)
+        zsh = len(tif.pages)
+        ysh, xsh = tif.pages[0].shape
+        self.shape = (zsh,ysh,xsh)
+        self.dtype = tif.pages[0].dtype
+    def __repr__(self):
+        return f"TiffFile(shape={self.shape}, dtype={self.dtype})"
 
 # calculate mean and standard deviation using Welford's algorithm
 @numba.jit(nopython=True)
