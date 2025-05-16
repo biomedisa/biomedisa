@@ -1149,9 +1149,12 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
                         predict=predict, train=train,
                         img_id=image.id, label_id=label.id)
 
-                # something went wrong
+                # process reached time limit
                 elif stopped==False:
-                    return_error(image, 'The process has reached the time limit of 48 hours.')
+                    # check if job was stopped by user
+                    image = Upload.objects.filter(pk=image.id).first()
+                    if image and image.status==2 and image.queue==queue_id:
+                        return_error(image, 'The process has reached the time limit of 48 hours.')
 
                 # remove config files
                 subprocess.Popen(['ssh', host, 'rm', host_base + error_path]).wait()
