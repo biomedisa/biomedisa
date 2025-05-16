@@ -1084,13 +1084,15 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
                                         if not Upload.objects.filter(pic=filename).exists():
                                             Upload.objects.create(pic=filename, user=image.user, project=image.project,
                                                 imageType=(4 if suffix=='.h5' else 6), shortfilename=shortfilename, log=3)
+
                                 # update processing message
                                 if os.path.exists(result_paths[-1]) and success!=0:
                                     with open(result_paths[-1], "r", encoding="utf-8") as f:
-                                        epochs_trained = 0
+                                        epochs_trained = -1
                                         for line in f:
                                             epochs_trained += 1
-                                    image.message = f'Training epoch {min(epochs_trained,label.epochs)} / {label.epochs}'
+                                    epochs_trained = (epochs_trained-1) * label.validation_freq + 1
+                                    image.message = f'Training epoch {epochs_trained} / {label.epochs}'
                                     image.save()
 
                         # terminate loop
