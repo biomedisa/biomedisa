@@ -259,7 +259,7 @@ def walk(comm, raw, slices, indices, nbrw, sorw, blockmin, blockmax,
     # allocate device memory or use subdomains
     memory_error = False
     subdomains = False
-    if zsh * ysh * xsh > 42e8 or platform.split('_')[-1] == 'GPU':
+    if zsh * ysh * xsh > 42e8:# or platform.split('_')[-1] == 'GPU':
         if zsh * ysh * xsh > 42e8:
             print('Warning: Volume indexes exceed unsigned long int range. The volume is splitted into subdomains.')
         else:

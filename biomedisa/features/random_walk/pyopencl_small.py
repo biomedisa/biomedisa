@@ -98,9 +98,9 @@ def _walk_on_current_gpu(raw, slices, allLabels, indices, nbrw, sorw, name, ctx,
     segment_cl = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=np.int32(0))
 
     # block and grid size
-    #block = (1, 32, 32)
-    #x_grid = ((xsh // 32) + 1)*32
-    #y_grid = ((ysh // 32) + 1)*32
+    #block = (1, 16, 16)
+    #x_grid = ((xsh // 16) + 1)*16
+    #y_grid = ((ysh // 16) + 1)*16
     #grid = (slshape, y_grid, x_grid)
 
     block = None
