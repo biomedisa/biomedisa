@@ -1,6 +1,6 @@
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2019-2024 Philipp Lösel. All rights reserved.         ##
+##  Copyright (c) 2019-2025 Philipp Lösel. All rights reserved.         ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -27,9 +27,9 @@
 ##########################################################################
 
 import numpy as np
-import tensorflow as tf
+import tf_keras
 
-class PredictDataGeneratorCrop(tf.keras.utils.Sequence):
+class PredictDataGeneratorCrop(tf_keras.utils.Sequence):
     def __init__(self, img, list_IDs, batch_size=32, dim=(32,32,32),
                  dim_img=(32,32,32), n_channels=3):
         'Initialization'

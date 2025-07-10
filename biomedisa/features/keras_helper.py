@@ -27,18 +27,15 @@
 ##########################################################################
 
 import os
-try:
-    from tensorflow.keras.optimizers.legacy import SGD
-except:
-    from tensorflow.keras.optimizers import SGD
-from tensorflow.keras.models import Model, load_model
-from tensorflow.keras.layers import (
+from tf_keras.optimizers import SGD
+from tf_keras.models import Model, load_model
+from tf_keras.layers import (
     Input, Conv3D, MaxPooling3D, UpSampling3D, Activation, Reshape,
     BatchNormalization, Concatenate, ReLU, Add, GlobalAveragePooling3D,
     Dense, Dropout, MaxPool3D, Flatten, Multiply)
-from tensorflow.keras import backend as K
-from tensorflow.keras.utils import to_categorical
-from tensorflow.keras.callbacks import Callback, ModelCheckpoint, EarlyStopping
+from tf_keras import backend as K
+from tf_keras.utils import to_categorical
+from tf_keras.callbacks import Callback, ModelCheckpoint, EarlyStopping
 from biomedisa.features.DataGenerator import DataGenerator, welford_mean_std
 from biomedisa.features.PredictDataGenerator import PredictDataGenerator
 from biomedisa.features.biomedisa_helper import (unique, welford_mean_std,
@@ -1127,11 +1124,20 @@ def train_segmentation(bm):
                 layer = model.get_layer(name)
                 layer.trainable = False
 
+        # decay
+        from tf_keras.optimizers.schedules import InverseTimeDecay
+        lr_schedule = InverseTimeDecay(
+            initial_learning_rate=bm.learning_rate,
+            decay_rate=1e-6,
+            decay_steps=1,
+            staircase=False)
+
         # optimizer
-        optimizer = SGD(learning_rate=bm.learning_rate, decay=1e-6, momentum=0.9, nesterov=True)
-        #optimizer = tf.keras.optimizers.Adam(learning_rate=bm.learning_rate, epsilon=1e-4) lr=0.0001
+        optimizer = SGD(learning_rate=lr_schedule, momentum=0.9, nesterov=True)
+        #optimizer = tf_keras.optimizers.Adam(learning_rate=bm.learning_rate, epsilon=1e-4) lr=0.0001
         if bm.mixed_precision:
-            optimizer = tf.keras.mixed_precision.LossScaleOptimizer(optimizer, dynamic=False, initial_scale=128)
+            from tf_keras.mixed_precision import LossScaleOptimizer
+            optimizer = LossScaleOptimizer(optimizer, dynamic=False, initial_scale=128)
 
         # Rename the function to appear as "accuracy" in logs
         if bm.ignore_mask:
