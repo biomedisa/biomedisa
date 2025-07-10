@@ -84,7 +84,13 @@ def save_csv(path, history):
         for row in zip(*history.values()):
             writer.writerow(dict(zip(history.keys(), row)))
 
-def save_history(history, path_to_model):
+def save_history(history, path_to_model, validation_freq):
+    # xticks
+    x_labels = []
+    for epoch in range(len(history['accuracy'])):
+        x_labels.append(str(epoch * validation_freq + 1))
+    x = np.arange(len(x_labels))
+    plt.xticks(x, x_labels)
     # standard accuracy history
     plt.plot(history['accuracy'])
     legend = ['Accuracy (train)']
@@ -114,6 +120,7 @@ def save_history(history, path_to_model):
     plt.title('model loss')
     plt.ylabel('loss')
     plt.xlabel('epoch')
+    plt.xticks(x, x_labels)
     plt.legend(legend, loc='upper left')
     plt.tight_layout()  # To prevent overlapping of subplots
     plt.savefig(path_to_model.replace('.h5','_loss.png'), dpi=300, bbox_inches='tight')
@@ -823,7 +830,7 @@ class Metrics(Callback):
                 logs['best_val_dice'] = max(self.history['val_dice'])
 
                 # plot history in figure and save as numpy array
-                save_history(self.history, self.path_to_model)
+                save_history(self.history, self.path_to_model, self.validation_freq)
 
                 # print accuracies
                 print('\nValidation history:')
@@ -843,6 +850,7 @@ class HistoryCallback(Callback):
         self.path_to_model = bm.path_to_model
         self.train_dice = bm.train_dice
         self.val_img_data = bm.val_img_data
+        self.validation_freq = bm.validation_freq
 
     def on_train_begin(self, logs={}):
         self.history = {}
@@ -865,7 +873,7 @@ class HistoryCallback(Callback):
             self.history['val_accuracy'].append(logs['val_accuracy'])
 
         # plot history in figure and save as numpy array
-        save_history(self.history, self.path_to_model)
+        save_history(self.history, self.path_to_model, self.validation_freq)
 
 def softmax(x):
     # Avoiding numerical instability by subtracting the maximum value
