@@ -31,11 +31,11 @@ from biomedisa.features.keras_helper import read_img_list
 from biomedisa.features.biomedisa_helper import (img_resize,
     load_data, save_data, set_labels_to_zero, welford_mean_std)
 from tensorflow.python.framework.errors_impl import ResourceExhaustedError
-from tensorflow.keras.applications import DenseNet121, densenet
-from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.models import Model, load_model
-from tensorflow.keras.layers import Input, GlobalAveragePooling2D, Dropout, Dense
-from tensorflow.keras.callbacks import Callback, ModelCheckpoint
+from tf_keras.applications import DenseNet121, densenet
+from tf_keras.optimizers import Adam
+from tf_keras.models import Model, load_model
+from tf_keras.layers import Input, GlobalAveragePooling2D, Dropout, Dense
+from tf_keras.callbacks import Callback, ModelCheckpoint
 from biomedisa.features.DataGeneratorCrop import DataGeneratorCrop
 from biomedisa.features.PredictDataGeneratorCrop import PredictDataGeneratorCrop
 import tensorflow as tf
@@ -328,12 +328,12 @@ def train_cropping(img, label, path_to_model, epochs, batch_size,
         save_best_only = True
     else:
         save_best_only = False
-    checkpoint_cb = tf.keras.callbacks.ModelCheckpoint(str(path_to_model), save_best_only=save_best_only)
+    checkpoint_cb = tf_keras.callbacks.ModelCheckpoint(str(path_to_model), save_best_only=save_best_only)
 
     # compile model
     with strategy.scope():
         model = make_densenet(input_shape)
-        model.compile(loss= tf.keras.losses.BinaryCrossentropy(),
+        model.compile(loss= tf_keras.losses.BinaryCrossentropy(),
                       optimizer= Adam(learning_rate=0.001),
                       metrics=['accuracy'])
     # train model
@@ -350,7 +350,7 @@ def train_cropping(img, label, path_to_model, epochs, batch_size,
     with strategy.scope():
         model = load_model(str(path_to_model))
         model.trainable = True
-        model.compile(loss= tf.keras.losses.BinaryCrossentropy(),
+        model.compile(loss= tf_keras.losses.BinaryCrossentropy(),
                       optimizer= Adam(learning_rate=1e-5),
                       metrics=['accuracy'])
 

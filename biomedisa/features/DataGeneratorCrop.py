@@ -1,6 +1,6 @@
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2019-2024 Philipp Lösel. All rights reserved.         ##
+##  Copyright (c) 2019-2025 Philipp Lösel. All rights reserved.         ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -27,7 +27,7 @@
 ##########################################################################
 
 import numpy as np
-import tensorflow as tf
+import tf_keras
 from scipy.ndimage import gaussian_filter, map_coordinates, rotate
 import random
 
@@ -41,7 +41,7 @@ def elastic_transform(image, alpha=100, sigma=20):
         image[:,:,k] = map_coordinates(image[:,:,k], indices, order=0, mode='reflect').reshape(ysh, xsh)
     return image
 
-class DataGeneratorCrop(tf.keras.utils.Sequence):
+class DataGeneratorCrop(tf_keras.utils.Sequence):
     'Generates data for Keras'
     def __init__(self, img, label, list_IDs_fg, list_IDs_bg, batch_size=32,
             dim=(32,32,32), n_channels=3, n_classes=2, shuffle=True,
