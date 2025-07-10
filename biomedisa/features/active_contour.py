@@ -450,7 +450,7 @@ if __name__ == '__main__':
                         help='Label ID within django environment/browser version')
     parser.add_argument('-r','--remote', action='store_true', default=False,
                         help='Process is carried out on a remote server. Must be set up in config.py')
-    parser.add_argument('-q','--queue', type=int, default=0,
+    parser.add_argument('-q','--queue', type=int, default=4,
                         help='Processing queue when using a remote server')
     bm = parser.parse_args()
     kwargs = vars(bm)

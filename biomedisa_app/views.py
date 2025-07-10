@@ -51,13 +51,12 @@ from biomedisa.mesh import init_create_mesh
 from biomedisa.features.process_image import init_process_image
 from biomedisa.features.create_slices import create_slices
 from biomedisa.features.biomedisa_helper import (load_data, save_data, id_generator,
-    unique_file_path, _get_platform, smooth_img_3x3, img_to_uint8)
+    unique_file_path, _get_platform, smooth_img_3x3, img_to_uint8, TiffInfo)
 from biomedisa.features.django_env import post_processing, create_error_object
 from django.utils.crypto import get_random_string
 from biomedisa_app.config import config
 from biomedisa.settings import BASE_DIR, PRIVATE_STORAGE_ROOT
 
-from tifffile import TiffFile
 from wsgiref.util import FileWrapper
 import numpy as np
 from PIL import Image
@@ -974,8 +973,14 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
                 # adjust command
                 cmd += ['-re', f'-q={queue_id}']
                 if qsub:
-                    args = " ".join(cmd)
-                    cmd = [f"qsub -v ARGS='{args}' queue_{queue_id}.sh"]
+                    if predict:
+                        queue_type='_small'
+                    elif label.scaling==False:
+                        queue_type='_large'
+                    else:
+                        queue_type = ''
+                    args = " ".join(cmd).replace(',','PKWDhXNo')
+                    cmd = [f"qsub -v ARGS='{args}' queue_{queue_id}{queue_type}.sh"]
                 if subhost:
                     cmd_host = ['ssh', host, 'ssh', subhost]
                     cmd = cmd_host + cmd
@@ -1030,6 +1035,9 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
 
                     # wait for the server to finish
                     stopped = False
+                    TIC = time.time()
+                    if qsub:
+                        monitor = subprocess.Popen(cmd_host + ["qstat"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
                     while True:
                         # wait
                         time.sleep(30)
@@ -1047,8 +1055,9 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
                         if not stopped:
                             if sbatch:
                                 monitor = subprocess.Popen(cmd_host + ["squeue", "-j", job_id], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-                            else:
-                                monitor = subprocess.Popen(cmd_host + ["qstat", job_id], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                            elif time.time()-TIC > 15 * 60:
+                                monitor = subprocess.Popen(cmd_host + ["qstat"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                                TIC = time.time()
                             stdout, stderr = monitor.communicate()
                             if monitor.returncode!=0:
                                 stdout = str(job_id)
@@ -1075,13 +1084,15 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
                                         if not Upload.objects.filter(pic=filename).exists():
                                             Upload.objects.create(pic=filename, user=image.user, project=image.project,
                                                 imageType=(4 if suffix=='.h5' else 6), shortfilename=shortfilename, log=3)
+
                                 # update processing message
                                 if os.path.exists(result_paths[-1]) and success!=0:
                                     with open(result_paths[-1], "r", encoding="utf-8") as f:
-                                        epochs_trained = 0
+                                        epochs_trained = -1
                                         for line in f:
                                             epochs_trained += 1
-                                    image.message = f'Training epoch {min(epochs_trained,label.epochs)} / {label.epochs}'
+                                    epochs_trained = (epochs_trained-1) * label.validation_freq + 1
+                                    image.message = f'Training epoch {epochs_trained} / {label.epochs}'
                                     image.save()
 
                         # terminate loop
@@ -1149,9 +1160,12 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
                         predict=predict, train=train,
                         img_id=image.id, label_id=label.id)
 
-                # something went wrong
+                # process reached time limit
                 elif stopped==False:
-                    return_error(image, 'The process has reached the time limit of 48 hours.')
+                    # check if job was stopped by user
+                    image = Upload.objects.filter(pk=image.id).first()
+                    if image and image.status==2 and image.queue==queue_id:
+                        return_error(image, 'The process has reached the time limit of 48 hours.')
 
                 # remove config files
                 subprocess.Popen(['ssh', host, 'rm', host_base + error_path]).wait()
@@ -2214,8 +2228,16 @@ def init_random_walk(image, label):
                 # adjust command
                 cmd += ['-r', f'-q={queue_id}']
                 if qsub:
+                    queue_type = ''
+                    if os.path.splitext(image.pic.path)[1] in ['.tif','.tiff']:
+                        try:
+                            zsh, ysh, xsh = TiffInfo(image.pic.path).shape
+                            if zsh*ysh*xsh < 1000**3:
+                                queue_type='_small'
+                        except:
+                            pass
                     args = " ".join(cmd)
-                    cmd = [f"qsub -v ARGS='{args}' queue_{queue_id}.sh"]
+                    cmd = [f"qsub -v ARGS='{args}' queue_{queue_id}{queue_type}.sh"]
                 if subhost:
                     cmd = ['ssh', host, 'ssh', subhost] + cmd
                 else:
@@ -2349,10 +2371,7 @@ def run(request):
                     # check image size
                     voxels = 0
                     if os.path.splitext(raw.pic.path)[1] in ['.tif','.tiff']:
-                        tif = TiffFile(raw.pic.path)
-                        zsh = len(tif.pages)
-                        ysh, xsh = tif.pages[0].shape
-                        voxels = zsh*ysh*xsh
+                        zsh, ysh, xsh = TiffInfo(raw.pic.path).shape
 
                     #if lenq1 > lenq2 or (lenq1==lenq2 and w1.state=='busy' and w2.state=='idle'):
                     # large image queue
