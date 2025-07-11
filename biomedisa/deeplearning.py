@@ -70,7 +70,7 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
     save_cropped=False, epochs=100, normalization=True, rotate=0.0, rotate3d=0.0, validation_split=0.0,
     learning_rate=0.01, stride_size=32, validation_stride_size=32, validation_freq=1,
     batch_size=None, x_scale=256, y_scale=256, z_scale=256, scaling=True, early_stopping=0,
-    pretrained_model=None, fine_tune=False, workers=1, cropping_epochs=50,
+    pretrained_model=None, initial_epoch=0, workers=1, cropping_epochs=50,
     x_range=None, y_range=None, z_range=None, header=None, extension=None,
     img_header=None, img_extension='.tif', average_dice=False, django_env=False,
     path=None, success=True, return_probs=False, patch_normalization=False,
@@ -474,9 +474,9 @@ if __name__ == '__main__':
     parser.add_argument('-es','--early_stopping', type=int, default=0,
                         help='Training is terminated when the accuracy has not increased in the epochs defined by this')
     parser.add_argument('-pm','--pretrained_model', type=str, metavar='PATH', default=None,
-                        help='Location of pretrained model (only encoder will be trained if specified)')
-    parser.add_argument('-ft','--fine_tune', action='store_true', default=False,
-                        help='Fine-tune the entire pretrained model. Choose a smaller learning rate, e.g. 0.0001')
+                        help='Location of pretrained model (useful for resuming a previous training run).')
+    parser.add_argument('-ie','--initial_epoch', type=int, default=0,
+                        help='Epoch at which to start training (useful for resuming a previous training run).')
     parser.add_argument('-w','--workers', type=int, default=1,
                         help='Parallel workers for batch processing')
     parser.add_argument('-xr','--x_range', nargs="+", type=int, default=None,

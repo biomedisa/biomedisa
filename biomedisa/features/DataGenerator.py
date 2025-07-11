@@ -176,7 +176,7 @@ def rotate_label_patch_3d(src,trg,k,l,m,rm_xx,rm_xy,rm_xz,rm_yx,rm_yy,rm_yz,rm_z
 
 class DataGenerator(tf_keras.utils.Sequence):
     'Generates data for Keras'
-    def __init__(self, img, label, list_IDs_fg, list_IDs_bg, shuffle, train, batch_size=32, dim=(32,32,32),
+    def __init__(self, img, label, list_IDs_fg, list_IDs_bg, train, shuffle=True, batch_size=32, dim=(32,32,32),
                  dim_img=(32,32,32), n_classes=10, n_channels=1, augment=(False,False,False,False,0,False),
                  patch_normalization=False, separation=False, ignore_mask=False, downsample=False):
         'Initialization'
