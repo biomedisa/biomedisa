@@ -1060,7 +1060,8 @@ def train_segmentation(bm):
     input_shape = (bm.z_patch, bm.y_patch, bm.x_patch, bm.channels)
 
     # parameters
-    params = {'batch_size': bm.batch_size,
+    params = {'shuffle': True,
+              'batch_size': bm.batch_size,
               'dim': (bm.z_patch, bm.y_patch, bm.x_patch),
               'dim_img': (zsh, ysh, xsh),
               'n_classes': nb_labels,
@@ -1074,14 +1075,16 @@ def train_segmentation(bm):
 
     # data generator
     validation_generator = None
-    training_generator = DataGenerator(bm.img_data, bm.label_data, list_IDs_fg, list_IDs_bg, True, True, **params)
+    training_generator = DataGenerator(bm.img_data, bm.label_data, list_IDs_fg, list_IDs_bg, True, **params)
     if bm.val_img_data is not None:
         if bm.val_dice:
             val_metrics = Metrics(bm, bm.val_img_data, bm.val_label_data, list_IDs_val_fg, (zsh_val, ysh_val, xsh_val), nb_labels, False)
         else:
             params['dim_img'] = (zsh_val, ysh_val, xsh_val)
             params['augment'] = (False, False, False, False, 0, False)
-            validation_generator = DataGenerator(bm.val_img_data, bm.val_label_data, list_IDs_val_fg, list_IDs_val_bg, True, False, **params)
+            if len(list_IDs_val_bg) == 0:
+                params['shuffle'] = False
+            validation_generator = DataGenerator(bm.val_img_data, bm.val_label_data, list_IDs_val_fg, list_IDs_val_bg, False, **params)
 
     # monitor dice score on training data
     if bm.train_dice:
@@ -1098,31 +1101,20 @@ def train_segmentation(bm):
     # compile model
     with strategy.scope():
 
-        # build model
-        model = make_unet(bm, input_shape, nb_labels)
-        model.summary()
+        # custom objects
+        if bm.dice_loss:
+            custom_objects = {'dice_coef_loss': dice_coef_loss,'loss_fn': loss_fn}
+        elif bm.ignore_mask:
+            custom_objects={'custom_loss': custom_loss}
+        else:
+            custom_objects=None
 
-        # pretrained model
+        # build model
         if bm.pretrained_model:
-            # custom objects
-            if bm.dice_loss:
-                custom_objects = {'dice_coef_loss': dice_coef_loss,'loss_fn': loss_fn}
-            elif bm.ignore_mask:
-                custom_objects={'custom_loss': custom_loss}
-            else:
-                custom_objects=None
-            model_pretrained = load_model(bm.pretrained_model, custom_objects=custom_objects)
-            model.set_weights(model_pretrained.get_weights())
-            if not bm.fine_tune:
-                nb_blocks = len(bm.network_filters.split('-'))
-                for k in range(nb_blocks+1, 2*nb_blocks):
-                    for l in [1,2]:
-                        name = f'conv_{k}_{l}'
-                        layer = model.get_layer(name)
-                        layer.trainable = False
-                name = f'conv_{2*nb_blocks}_1'
-                layer = model.get_layer(name)
-                layer.trainable = False
+            model = load_model(bm.pretrained_model, custom_objects=custom_objects)
+        else:
+            model = make_unet(bm, input_shape, nb_labels)
+        model.summary()
 
         # decay
         from tf_keras.optimizers.schedules import InverseTimeDecay
@@ -1194,7 +1186,8 @@ def train_segmentation(bm):
         epochs=bm.epochs,
         validation_data=validation_generator,
         callbacks=callbacks,
-        workers=bm.workers)
+        workers=bm.workers,
+        initial_epoch=bm.initial_epoch)
 
 def load_prediction_data(bm, channels, normalization_parameters,
     region_of_interest, img, img_header, load_blockwise=False, z=None):
