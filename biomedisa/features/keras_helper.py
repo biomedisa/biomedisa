@@ -87,7 +87,10 @@ def save_history(history, path_to_model, validation_freq):
     for epoch in range(len(history['accuracy'])):
         x_labels.append(str(epoch * validation_freq + 1))
     x = np.arange(len(x_labels))
-    plt.xticks(x, x_labels)
+    step = len(x)//10 + 1
+    tick_indices = x[::step]
+    tick_labels = [x_labels[i] for i in tick_indices]
+    plt.xticks(tick_indices, tick_labels)
     # standard accuracy history
     plt.plot(history['accuracy'])
     legend = ['Accuracy (train)']
@@ -117,7 +120,7 @@ def save_history(history, path_to_model, validation_freq):
     plt.title('model loss')
     plt.ylabel('loss')
     plt.xlabel('epoch')
-    plt.xticks(x, x_labels)
+    plt.xticks(tick_indices, tick_labels)
     plt.legend(legend, loc='upper left')
     plt.tight_layout()  # To prevent overlapping of subplots
     plt.savefig(path_to_model.replace('.h5','_loss.png'), dpi=300, bbox_inches='tight')
