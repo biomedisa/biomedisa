@@ -1,0 +1,36 @@
+name: biomedisa
+channels:
+  - conda-forge
+  - anaconda
+  - defaults
+dependencies:
+  - python=3.10
+  - setuptools
+  - wheel
+  - pip
+  - colorama
+  - imagecodecs
+  - importlib-metadata
+  - llvm-openmp
+  - itk
+  - matplotlib
+  - medpy
+  - nibabel
+  - numba
+  - numpy
+  - numpy-stl
+  - opencv
+  - pillow
+  - pydicom
+  - pyopenssl
+  - scikit-image
+  - scipy
+  - simpleitk
+  - tifffile
+  - vtk
+  - pyopencl
+  - mpi4py
+  - netcdf4
+  - mrcfile
+  - pip:
+      - biomedisa
