@@ -9,7 +9,7 @@
 - [Install Biomedisa from Source (Optional)](#install-biomedisa-from-source-optional)
 
 #### Install GPU Driver (Intel, AMD, NVIDIA)
-Windows Search `Check for updates` and `View optional updates`  
+Use Windows Search: `Check for updates` and `View optional updates`  
 Windows automatically detects your GPU and installs the required drivers.  
 Alternatively, install them manually, e.g. Download and install [NVIDIA](https://www.nvidia.com/Download/Find.aspx?lang=en-us).
 
@@ -25,7 +25,7 @@ Install Biomedisa environment:
 ```
 conda env create --file conda_interpolation.yml
 ```
-Note: If your computer didn't find `conda_interpolation.yml` the easiest way is to locate the file in your User directory and drag and drop it onto the Anaconda Prompt after typing `conda env create -f`.
+Note: If your computer didn't find `conda_interpolation.yml` the easiest way is to locate the file in your User directory and drag and drop it onto the Anaconda Prompt after typing `conda env create --file`.
 
 
 #### Download Test Files
@@ -42,11 +42,11 @@ conda activate biomedisa
 ```
 Run the interpolation (the first run might take a bit longer):
 ```
-python -m biomedisa.interpolation Downloads\tumor.tif Downloads\labels.tumor.tif
+python -m biomedisa.interpolation Downloads\tumor.tif Downloads\labels.tumor.nrrd
 ```
 Specify the platform if the wrong platform is detected:
 ```
-python -m biomedisa.interpolation Downloads\tumor.tif Downloads\labels.tumor.tif --platform=opencl_AMD_GPU
+python -m biomedisa.interpolation Downloads\tumor.tif Downloads\labels.tumor.nrrd --platform=opencl_AMD_GPU
 ```
 
 #### Update Biomedisa
