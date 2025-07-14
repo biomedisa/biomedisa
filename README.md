@@ -20,14 +20,14 @@
 Biomedisa (https://biomedisa.info) is a free and easy-to-use open-source application for segmenting large 3D volumetric images such as CT and MRI scans, developed at [The Australian National University CTLab](https://ctlab.anu.edu.au/). Biomedisa's smart interpolation of sparsely pre-segmented slices enables accurate semi-automated segmentation by considering the complete underlying image data. Additionally, Biomedisa enables deep learning for fully automated segmentation across similar samples and structures. It is compatible with segmentation tools like Amira/Avizo, ImageJ/Fiji, and 3D Slicer. If you are using Biomedisa or the data for your research please cite: Lösel, P.D. et al. [Introducing Biomedisa as an open-source online platform for biomedical image segmentation.](https://www.nature.com/articles/s41467-020-19303-w) *Nat. Commun.* **11**, 5577 (2020).
 
 ## Hardware Requirements
-+ One or more Intel, AMD, or NVIDIA GPUs
++ One or more NVIDIA, AMD, or Intel GPUs
 
 ## Installation (command-line based)
 + [Ubuntu 22/24 + Smart Interpolation](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu_interpolation_cli.md)
 + [Ubuntu 22/24 + Deep Learning](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu_deeplearning_cli.md)
 + [Ubuntu 22/24 + Smart Interpolation + Deep Learning](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu_cli.md)
 + [Windows (WSL) + Smart Interpolation + Deep Learning ("advanced")](https://github.com/biomedisa/biomedisa/blob/master/README/windows_wsl.md)
-+ [Windows 10/11 + Smart Interpolation (Intel, AMD, NVIDIA) ("simple")](https://github.com/biomedisa/biomedisa/blob/master/README/windows_interpolation.md)
++ [Windows 10/11 + Smart Interpolation (NVIDIA, AMD, Intel) ("simple")](https://github.com/biomedisa/biomedisa/blob/master/README/windows_interpolation.md)
 
 ## Installation (3D Slicer extension)
 + [Ubuntu 22/24](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu_slicer.md)
