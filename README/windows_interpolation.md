@@ -8,7 +8,7 @@
 - [Update Biomedisa](#update-biomedisa)
 - [Install Biomedisa from Source (Optional)](#install-biomedisa-from-source-optional)
 
-#### Install GPU Driver (Intel, AMD, NVIDIA)
+#### Install GPU Driver (NVIDIA, AMD, Intel)
 Use Windows Search: `Check for updates` and `View optional updates`  
 Windows automatically detects your GPU and installs the required drivers.  
 Alternatively, install them manually, e.g. Download and install [NVIDIA](https://www.nvidia.com/Download/Find.aspx?lang=en-us).
