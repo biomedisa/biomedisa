@@ -32,6 +32,7 @@ from biomedisa.features.amira_to_np.amira_helper import amira_to_np, np_to_amira
 from biomedisa.features.nc_reader import nc_to_np, np_to_nc
 from tifffile import imread, imwrite
 from medpy.io import load, save
+from skimage import io
 import SimpleITK as sitk
 from PIL import Image
 import numpy as np
@@ -273,6 +274,10 @@ def recursive_file_permissions(path_to_dir):
         except:
             pass
 
+def natural_key(string):
+    # Split the string into parts of digits and non-digits
+    return [int(s) if s.isdigit() else s.lower() for s in re.split(r'(\d+)', string)]
+
 def load_data(path_to_data, process='None', return_extension=False):
 
     if not os.path.exists(path_to_data):
@@ -354,7 +359,7 @@ def load_data(path_to_data, process='None', return_extension=False):
                         file_names = []
                         img_slices = []
                         header = []
-                        files.sort()
+                        files.sort(key=natural_key)
                         for file_name in files:
                             if os.path.isfile(file_name):
                                 try:
@@ -362,8 +367,16 @@ def load_data(path_to_data, process='None', return_extension=False):
                                     file_names.append(file_name)
                                     img_slices.append(img)
                                     header.append(img_header)
-                                except:
-                                    pass
+                                except RuntimeError as e:
+                                    # Check for 64-bit TIFF error
+                                    if "Unable to read tiff file" in str(e) and "64-bit samples" in str(e):
+                                        try:
+                                            img = io.imread(file_name)
+                                            file_names.append(file_name)
+                                            img_slices.append(img)
+                                            header.append(None)
+                                        except:
+                                            pass
 
                         # get data size
                         img = img_slices[0]
