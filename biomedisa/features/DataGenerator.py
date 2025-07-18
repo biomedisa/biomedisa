@@ -176,9 +176,9 @@ def rotate_label_patch_3d(src,trg,k,l,m,rm_xx,rm_xy,rm_xz,rm_yx,rm_yy,rm_yz,rm_z
 
 class DataGenerator(tf.keras.utils.Sequence):
     'Generates data for Keras'
-    def __init__(self, img, label, list_IDs_fg, list_IDs_bg, shuffle, train, batch_size=32, dim=(32,32,32),
+    def __init__(self, img, label, list_IDs_fg, list_IDs_bg, train, shuffle=True, batch_size=32, dim=(32,32,32),
                  dim_img=(32,32,32), n_classes=10, n_channels=1, augment=(False,False,False,False,0,False),
-                 patch_normalization=False, separation=False, ignore_mask=False):
+                 patch_normalization=False, separation=False, ignore_mask=False, downsample=False):
         'Initialization'
         self.dim = dim
         self.dim_img = dim_img
@@ -192,15 +192,19 @@ class DataGenerator(tf.keras.utils.Sequence):
         self.shuffle = shuffle
         self.augment = augment
         self.train = train
-        self.on_epoch_end()
         self.patch_normalization = patch_normalization
         self.separation = separation
         self.ignore_mask = ignore_mask
+        self.downsample = downsample
+        self.on_epoch_end()
 
     def __len__(self):
         'Denotes the number of batches per epoch'
         if len(self.list_IDs_bg) > 0:
-            len_IDs = max(len(self.list_IDs_fg), len(self.list_IDs_bg))
+            if self.downsample:
+                len_IDs = min(len(self.list_IDs_fg), len(self.list_IDs_bg))
+            else:
+                len_IDs = max(len(self.list_IDs_fg), len(self.list_IDs_bg))
             n_batches = len_IDs // (self.batch_size // 2)
         else:
             len_IDs = len(self.list_IDs_fg)
@@ -212,18 +216,15 @@ class DataGenerator(tf.keras.utils.Sequence):
         if len(self.list_IDs_bg) > 0:
             # Generate indexes of the batch
             half_batch_size = self.batch_size // 2
-            indexes_fg = self.indexes_fg[index*half_batch_size:(index+1)*half_batch_size]
-            indexes_bg = self.indexes_bg[index*half_batch_size:(index+1)*half_batch_size]
+            fg_ids = self.indexes_fg[index*half_batch_size:(index+1)*half_batch_size]
+            bg_ids = self.indexes_bg[index*half_batch_size:(index+1)*half_batch_size]
 
-            # Find list of IDs
-            list_IDs_temp = [self.list_IDs_fg[k] for k in indexes_fg] + [self.list_IDs_bg[k] for k in indexes_bg]
+            # concatenate foreground and background IDs
+            list_IDs_temp = np.concatenate((fg_ids, bg_ids))
 
         else:
-            # Generate indexes of the batch
-            indexes_fg = self.indexes_fg[index*self.batch_size:(index+1)*self.batch_size]
-
-            # Find list of IDs
-            list_IDs_temp = [self.list_IDs_fg[k] for k in indexes_fg]
+            # batch of IDs
+            list_IDs_temp = self.list_IDs_fg[index*self.batch_size:(index+1)*self.batch_size]
 
         # Generate data
         X, y = self.__data_generation(list_IDs_temp)
@@ -233,21 +234,23 @@ class DataGenerator(tf.keras.utils.Sequence):
     def on_epoch_end(self):
         'Updates indexes after each epoch'
         if len(self.list_IDs_bg) > 0:
-            # upsample lists of indexes
-            indexes_fg = np.arange(len(self.list_IDs_fg))
-            indexes_bg = np.arange(len(self.list_IDs_bg))
-            len_IDs = max(len(self.list_IDs_fg), len(self.list_IDs_bg))
-            repetitions = len_IDs // len(self.list_IDs_fg) + 1
-            self.indexes_fg = np.tile(indexes_fg, repetitions)
-            repetitions = len_IDs // len(self.list_IDs_bg) + 1
-            self.indexes_bg = np.tile(indexes_bg, repetitions)
-        else:
-            self.indexes_fg = np.arange(len(self.list_IDs_fg))
+            # downsample lists of indexes
+            if self.downsample:
+                len_IDs = min(len(self.list_IDs_fg), len(self.list_IDs_bg))
+                self.indexes_fg = self.list_IDs_fg[:len_IDs]
+                self.indexes_bg = self.list_IDs_bg[:len_IDs]
+            else:
+                len_IDs = max(len(self.list_IDs_fg), len(self.list_IDs_bg))
+                repetitions = len_IDs // len(self.list_IDs_fg) + 1
+                self.indexes_fg = np.tile(self.list_IDs_fg, repetitions)
+                repetitions = len_IDs // len(self.list_IDs_bg) + 1
+                self.indexes_bg = np.tile(self.list_IDs_bg, repetitions)
+
         # shuffle indexes
         if self.shuffle == True:
-            np.random.shuffle(self.indexes_fg)
+            np.random.shuffle(self.list_IDs_fg)
             if len(self.list_IDs_bg) > 0:
-                np.random.shuffle(self.indexes_bg)
+                np.random.shuffle(self.list_IDs_bg)
 
     def __data_generation(self, list_IDs_temp):
         'Generates data containing batch_size samples' # X : (n_samples, *dim, n_channels)

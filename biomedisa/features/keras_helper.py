@@ -84,7 +84,13 @@ def save_csv(path, history):
         for row in zip(*history.values()):
             writer.writerow(dict(zip(history.keys(), row)))
 
-def save_history(history, path_to_model):
+def save_history(history, path_to_model, validation_freq):
+    # xticks
+    x_labels = []
+    for epoch in range(len(history['accuracy'])):
+        x_labels.append(str(epoch * validation_freq + 1))
+    x = np.arange(len(x_labels))
+    plt.xticks(x, x_labels)
     # standard accuracy history
     plt.plot(history['accuracy'])
     legend = ['Accuracy (train)']
@@ -114,6 +120,7 @@ def save_history(history, path_to_model):
     plt.title('model loss')
     plt.ylabel('loss')
     plt.xlabel('epoch')
+    plt.xticks(x, x_labels)
     plt.legend(legend, loc='upper left')
     plt.tight_layout()  # To prevent overlapping of subplots
     plt.savefig(path_to_model.replace('.h5','_loss.png'), dpi=300, bbox_inches='tight')
@@ -823,7 +830,7 @@ class Metrics(Callback):
                 logs['best_val_dice'] = max(self.history['val_dice'])
 
                 # plot history in figure and save as numpy array
-                save_history(self.history, self.path_to_model)
+                save_history(self.history, self.path_to_model, self.validation_freq)
 
                 # print accuracies
                 print('\nValidation history:')
@@ -843,6 +850,7 @@ class HistoryCallback(Callback):
         self.path_to_model = bm.path_to_model
         self.train_dice = bm.train_dice
         self.val_img_data = bm.val_img_data
+        self.validation_freq = bm.validation_freq
 
     def on_train_begin(self, logs={}):
         self.history = {}
@@ -865,7 +873,7 @@ class HistoryCallback(Callback):
             self.history['val_accuracy'].append(logs['val_accuracy'])
 
         # plot history in figure and save as numpy array
-        save_history(self.history, self.path_to_model)
+        save_history(self.history, self.path_to_model, self.validation_freq)
 
 def softmax(x):
     # Avoiding numerical instability by subtracting the maximum value
@@ -907,6 +915,15 @@ def dice_coef_loss(nb_labels):
         loss = 1 - dice
         return loss
     return loss_fn
+
+def loss_fn(y_true, y_pred):
+    dice = 0
+    for index in range(1,nb_labels):
+        dice += dice_coef(y_true[:,:,:,:,index], y_pred[:,:,:,:,index])
+    dice = dice / (nb_labels-1)
+    #loss = -K.log(dice)
+    loss = 1 - dice
+    return loss
 
 def custom_loss(y_true, y_pred):
     # Extract labels and ignore mask
@@ -1046,7 +1063,8 @@ def train_segmentation(bm):
     input_shape = (bm.z_patch, bm.y_patch, bm.x_patch, bm.channels)
 
     # parameters
-    params = {'batch_size': bm.batch_size,
+    params = {'shuffle': True,
+              'batch_size': bm.batch_size,
               'dim': (bm.z_patch, bm.y_patch, bm.x_patch),
               'dim_img': (zsh, ysh, xsh),
               'n_classes': nb_labels,
@@ -1054,18 +1072,22 @@ def train_segmentation(bm):
               'augment': (bm.flip_x, bm.flip_y, bm.flip_z, bm.swapaxes, bm.rotate, bm.rotate3d),
               'patch_normalization': bm.patch_normalization,
               'separation': bm.separation,
-              'ignore_mask': bm.ignore_mask}
+              'ignore_mask': bm.ignore_mask,
+              'downsample': bm.downsample
+              }
 
     # data generator
     validation_generator = None
-    training_generator = DataGenerator(bm.img_data, bm.label_data, list_IDs_fg, list_IDs_bg, True, True, **params)
+    training_generator = DataGenerator(bm.img_data, bm.label_data, list_IDs_fg, list_IDs_bg, True, **params)
     if bm.val_img_data is not None:
         if bm.val_dice:
             val_metrics = Metrics(bm, bm.val_img_data, bm.val_label_data, list_IDs_val_fg, (zsh_val, ysh_val, xsh_val), nb_labels, False)
         else:
             params['dim_img'] = (zsh_val, ysh_val, xsh_val)
             params['augment'] = (False, False, False, False, 0, False)
-            validation_generator = DataGenerator(bm.val_img_data, bm.val_label_data, list_IDs_val_fg, list_IDs_val_bg, True, False, **params)
+            if len(list_IDs_val_bg) == 0:
+                params['shuffle'] = False
+            validation_generator = DataGenerator(bm.val_img_data, bm.val_label_data, list_IDs_val_fg, list_IDs_val_bg, False, **params)
 
     # monitor dice score on training data
     if bm.train_dice:
@@ -1082,24 +1104,20 @@ def train_segmentation(bm):
     # compile model
     with strategy.scope():
 
-        # build model
-        model = make_unet(bm, input_shape, nb_labels)
-        model.summary()
+        # custom objects
+        if bm.dice_loss:
+            custom_objects = {'dice_coef_loss': dice_coef_loss,'loss_fn': loss_fn}
+        elif bm.ignore_mask:
+            custom_objects={'custom_loss': custom_loss}
+        else:
+            custom_objects=None
 
-        # pretrained model
+        # build model
         if bm.pretrained_model:
-            model_pretrained = load_model(bm.pretrained_model)
-            model.set_weights(model_pretrained.get_weights())
-            if not bm.fine_tune:
-                nb_blocks = len(bm.network_filters.split('-'))
-                for k in range(nb_blocks+1, 2*nb_blocks):
-                    for l in [1,2]:
-                        name = f'conv_{k}_{l}'
-                        layer = model.get_layer(name)
-                        layer.trainable = False
-                name = f'conv_{2*nb_blocks}_1'
-                layer = model.get_layer(name)
-                layer.trainable = False
+            model = load_model(bm.pretrained_model, custom_objects=custom_objects)
+        else:
+            model = make_unet(bm, input_shape, nb_labels)
+        model.summary()
 
         # optimizer
         optimizer = SGD(learning_rate=bm.learning_rate, decay=1e-6, momentum=0.9, nesterov=True)
@@ -1115,10 +1133,12 @@ def train_segmentation(bm):
             metrics=['accuracy']
 
         # loss function
-        if bm.ignore_mask:
+        if bm.dice_loss:
+            loss=dice_coef_loss(nb_labels)
+        elif bm.ignore_mask:
             loss=custom_loss
         else:
-            loss=dice_coef_loss(nb_labels) if bm.dice_loss else 'categorical_crossentropy'
+            loss='categorical_crossentropy'
 
         # comile model
         model.compile(loss=loss,
@@ -1160,7 +1180,8 @@ def train_segmentation(bm):
         epochs=bm.epochs,
         validation_data=validation_generator,
         callbacks=callbacks,
-        workers=bm.workers)
+        workers=bm.workers,
+        initial_epoch=bm.initial_epoch)
 
 def load_prediction_data(bm, channels, normalization_parameters,
     region_of_interest, img, img_header, load_blockwise=False, z=None):
@@ -1171,6 +1192,8 @@ def load_prediction_data(bm, channels, normalization_parameters,
             img_header = None
             tif = TiffFile(bm.path_to_image)
             img = imread(bm.path_to_image, key=range(z,min(len(tif.pages),z+bm.z_patch)))
+            if len(img.shape)==2:
+                img = img.reshape(1,img.shape[0],img.shape[1])
             if img.shape[0] < bm.z_patch:
                 rest = bm.z_patch - img.shape[0]
                 tmp = imread(bm.path_to_image, key=range(len(tif.pages)-rest,len(tif.pages)))
@@ -1493,6 +1516,8 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
                 # load mask block
                 if bm.separation or bm.refinement:
                     mask = imread(bm.mask, key=range(z,min(len(tif.pages),z+bm.z_patch)))
+                    if len(mask.shape)==2:
+                        mask = mask.reshape(1,mask.shape[0],mask.shape[1])
                     # pad zeros to make dimensions divisible by patch dimensions
                     pad_z = bm.z_patch - mask.shape[0]
                     pad_y = (bm.y_patch - (mask.shape[1] % bm.y_patch)) % bm.y_patch
