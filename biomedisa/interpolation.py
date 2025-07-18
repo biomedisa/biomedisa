@@ -111,8 +111,8 @@ def smart_interpolation(data, labelData, nbrw=10, sorw=4000, acwe=False, acwe_al
             if bm.uncertainty:
                 bm.uncertainty = False
                 print('Warning: Uncertainty is not yet supported for opencl. Process starts without uncertainty.')
-            if bm.allaxis:
-                bm = _error_(bm, 'Allx is not yet supported for opencl.')
+            #if bm.allaxis:
+            #    bm = _error_(bm, 'Allx is not yet supported for opencl.')
 
         if not bm.success:
 
