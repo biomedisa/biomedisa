@@ -35,6 +35,7 @@ from medpy.io import load, save
 from skimage import io
 import SimpleITK as sitk
 from PIL import Image
+import zarr
 import numpy as np
 import glob
 import random
@@ -46,6 +47,7 @@ import subprocess
 import re
 import math
 import tempfile
+import shutil
 
 def silent_remove(filename):
     try:
@@ -278,7 +280,16 @@ def natural_key(string):
     # Split the string into parts of digits and non-digits
     return [int(s) if s.isdigit() else s.lower() for s in re.split(r'(\d+)', string)]
 
-def load_data(path_to_data, process='None', return_extension=False):
+def load_data(path_to_data, process='None', return_extension=False, **kwargs):
+
+    zarr_keys = {'mode'}
+    tifffile_keys = {'key'}
+
+    zarr_args = {k: v for k, v in kwargs.items() if k in zarr_keys}
+    tifffile_args = {k: v for k, v in kwargs.items() if k in tifffile_keys}
+
+    # Set default if 'mode' not provided
+    zarr_args.setdefault('mode', 'r')
 
     if not os.path.exists(path_to_data):
         print(f"Error: No such file or directory '{path_to_data}'")
@@ -313,6 +324,15 @@ def load_data(path_to_data, process='None', return_extension=False):
         try:
             header = sitk.ReadImage(path_to_data)
             data = sitk.GetArrayViewFromImage(header).copy()
+        except Exception as e:
+            print(e)
+            data, header = None, None
+
+    elif extension == '.zarr':
+        try:
+            zarr_store = zarr.DirectoryStore(path_to_data)
+            data = zarr.open(zarr_store, **zarr_args)
+            header = None
         except Exception as e:
             print(e)
             data, header = None, None
@@ -420,7 +440,7 @@ def load_data(path_to_data, process='None', return_extension=False):
 
     elif extension in ['.tif', '.tiff']:
         try:
-            data = imread(path_to_data)
+            data = imread(path_to_data, **tifffile_args)
             header = None
         except Exception as e:
             print(e)
@@ -531,7 +551,14 @@ def pre_processing(bm):
     bm.success = True
     return bm
 
-def save_data(path_to_final, final, header=None, final_image_type=None, compress=True):
+def save_data(path_to_final, final, header=None, final_image_type=None, compress=True, **kwargs):
+
+    zarr_keys = {'chunks'}
+    zarr_args = {k: v for k, v in kwargs.items() if k in zarr_keys}
+
+    # Set default values if not provided
+    zarr_args.setdefault('chunks', (100, 100, 100))
+
     if final_image_type == None:
         final_image_type = os.path.splitext(path_to_final)[1]
         if final_image_type == '.gz':
@@ -576,6 +603,19 @@ def save_data(path_to_final, final, header=None, final_image_type=None, compress
                 with zipfile.ZipFile(path_to_final, 'w') as zip:
                     for file in file_names:
                         zip.write(results_dir + '/' + os.path.basename(file), os.path.basename(file))
+    elif final_image_type == '.zarr':
+        if os.path.exists(path_to_final):
+            shutil.rmtree(path_to_final)
+        # Create a Zarr array with the specified chunk size
+        zarr_array = zarr.create(
+            shape=final.shape,
+            dtype=final.dtype,
+            store=zarr.DirectoryStore(path_to_final),
+            compressor=zarr.get_codec({'id': 'zlib', 'level': 5}) if compress else None,
+            **zarr_args
+            )
+        # Write the data into the Zarr array
+        zarr_array[:] = final
     else:
         imageSize = int(final.nbytes * 10e-7)
         bigtiff = True if imageSize > 2000 else False
@@ -644,7 +684,7 @@ def _get_platform(bm):
 
     # select the first detected device
     if cl and bm.platform is None:
-        for vendor in ['NVIDIA', 'Intel', 'AMD', 'Apple']:
+        for vendor in ['NVIDIA', 'AMD', 'Intel', 'Apple']:
             for dev, device_type in [('GPU',cl.device_type.GPU),('CPU',cl.device_type.CPU)]:
                 try:
                     all_platforms = cl.get_platforms()
