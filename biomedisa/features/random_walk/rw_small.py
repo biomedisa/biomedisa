@@ -43,7 +43,7 @@ def walk_allaxis(data, labels, indices, indices_split, nbrw, sorw, name, platfor
     from biomedisa.features.random_walk.pyopencl_small import walk
     walkmap = None
     all_indices_axis = _extract_indices(indices, 0)
-    indices_axis = _extract_indices(indices_split[0], 0)
+    indices_axis = _extract_indices(indices_split, 0)
     if np.any(indices_axis):
         print(f'Start axis 0 device {rank}')
         ctx, queue = _get_device(platform, rank)
@@ -51,7 +51,7 @@ def walk_allaxis(data, labels, indices, indices_split, nbrw, sorw, name, platfor
 
     data = np.swapaxes(data, 0, 1).copy(order='C')
     all_indices_axis = _extract_indices(indices, 1)
-    indices_axis = _extract_indices(indices_split[0], 1)
+    indices_axis = _extract_indices(indices_split, 1)
 
     if np.any(indices_axis):
         print(f'Start axis 1 device {rank}')
@@ -64,7 +64,7 @@ def walk_allaxis(data, labels, indices, indices_split, nbrw, sorw, name, platfor
 
     data = np.swapaxes(data, 0, 2).copy(order='C')
     all_indices_axis = _extract_indices(indices, 2)
-    indices_axis = _extract_indices(indices_split[0], 2)
+    indices_axis = _extract_indices(indices_split, 2)
 
     if np.any(indices_axis):
         print(f'Start axis 2 device {rank}')
@@ -122,7 +122,7 @@ def _diffusion_child(comm, bm=None):
         tic = time.time()
         if bm.allaxis and 'opencl' in bm.platform:
             walkmap, bm.data = walk_allaxis(bm.data, bm.labels, bm.indices,
-                indices_split, bm.nbrw, bm.sorw, name, bm.platform, rank)
+                indices_split[0], bm.nbrw, bm.sorw, name, bm.platform, rank)
         else:
             walkmap = walk(bm.data, bm.labels, bm.indices, indices_split[0], bm.nbrw, bm.sorw, name, ctx, queue)
         tac = time.time()
