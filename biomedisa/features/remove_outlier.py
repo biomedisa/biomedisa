@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2019-2024 Philipp Lösel. All rights reserved.         ##
+##  Copyright (c) 2019-2025 Philipp Lösel. All rights reserved.         ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -30,12 +30,13 @@
 import os
 import biomedisa
 from biomedisa.features.biomedisa_helper import (load_data, save_data,
-    unique_file_path, silent_remove, unique)
+    unique_file_path, silent_remove, unique, _error_)
 import numpy as np
 from scipy import ndimage
 import argparse
 import traceback
 import subprocess
+import time
 
 def reduce_blocksize(data):
     zsh, ysh, xsh = data.shape
@@ -142,7 +143,7 @@ def fill(image, threshold=0.9):
 
     return image_i
 
-def main_helper(path_to_labels, img_id=None, friend_id=None, fill_holes=True,
+def main_helper(path_to_labels, img_id=None, friend_id=None, queue=6, fill_holes=True,
     clean_threshold=0.1, fill_threshold=0.9, remote=False, compression=True):
 
     # django environment
@@ -161,7 +162,7 @@ def main_helper(path_to_labels, img_id=None, friend_id=None, fill_holes=True,
     path_to_cleaned_filled = filename + '.cleaned.filled' + extension
 
     # load data
-    final, header = load_data(path_to_labels, 'cleanup')
+    final, header = load_data(path_to_labels)
 
     # process data
     final_cleaned = clean(final, clean_threshold)
@@ -197,8 +198,8 @@ def post_processing(path_to_cleaned, path_to_filled, path_to_cleaned_filled, img
         from rq import Queue
 
         # check if reference data still exists
-        image = Upload.objects.filter(pk=img_id)
-        friend = Upload.objects.filter(pk=friend_id)
+        image = Upload.objects.filter(id=img_id)
+        friend = Upload.objects.filter(id=friend_id)
         if len(friend)>0:
             friend = friend[0]
 
@@ -257,13 +258,13 @@ def init_remove_outlier(image_id, final_id, label_id, fill_holes=True):
     django.setup()
     from biomedisa_app.models import Upload
     from biomedisa_app.config import config
-    from biomedisa_app.views import send_data_to_host, qsub_start, qsub_stop
+    from biomedisa_app.views import send_data_to_host, stop_running_job
 
     # get objects
     try:
-        image = Upload.objects.get(pk=image_id)
-        final = Upload.objects.get(pk=final_id)
-        label = Upload.objects.get(pk=label_id)
+        image = Upload.objects.get(id=image_id)
+        final = Upload.objects.get(id=final_id)
+        label = Upload.objects.get(id=label_id)
         success = True
     except Upload.DoesNotExist:
         success = False
@@ -274,6 +275,8 @@ def init_remove_outlier(image_id, final_id, label_id, fill_holes=True):
     subhost, qsub_pid = None, None
     if 'REMOTE_QUEUE_HOST' in config:
         host = config['REMOTE_QUEUE_HOST']
+    if host and 'REMOTE_QUEUE_SUBHOST' in config:
+        subhost = config['REMOTE_QUEUE_SUBHOST']
     if host and 'REMOTE_QUEUE_BASE_DIR' in config:
         host_base = config['REMOTE_QUEUE_BASE_DIR']
 
@@ -282,8 +285,17 @@ def init_remove_outlier(image_id, final_id, label_id, fill_holes=True):
         # remote server
         if host:
 
-            # command
-            cmd = ['python3', host_base+'/biomedisa/features/remove_outlier.py', final.pic.path.replace(biomedisa.BASE_DIR,host_base)]
+            # base command
+            qsub, sbatch = False, False
+            cmd = ['python3', '-m', 'biomedisa.features.remove_outlier']
+            if 'REMOTE_QUEUE_SBATCH' in config and config['REMOTE_QUEUE_SBATCH']:
+                cmd = ['sbatch', 'queue_6.sh']
+                sbatch = True
+            elif 'REMOTE_QUEUE_QSUB' in config and config['REMOTE_QUEUE_QSUB']:
+                cmd = []
+                qsub = True
+
+            cmd += [final.pic.path.replace(biomedisa.BASE_DIR,host_base)]
             cmd += [f'-iid={image.id}', f'-fid={final.friend}', '-r']
 
             # command (append only on demand)
@@ -304,22 +316,50 @@ def init_remove_outlier(image_id, final_id, label_id, fill_holes=True):
 
             if success==0:
 
-                # qsub start
-                if 'REMOTE_QUEUE_QSUB' in config and config['REMOTE_QUEUE_QSUB']:
-                    subhost, qsub_pid = qsub_start(host, host_base, 6)
-
-                # start removing outliers
+                # adjust command
+                if qsub:
+                    args = " ".join(cmd)
+                    cmd = [f"qsub -v ARGS='{args}' queue_6.sh"]
                 if subhost:
-                    cmd = ['ssh', '-t', host, 'ssh', subhost] + cmd
+                    cmd_host = ['ssh', host, 'ssh', subhost]
+                    cmd = cmd_host + cmd
                 else:
-                    cmd = ['ssh', host] + cmd
-                subprocess.Popen(cmd).wait()
+                    cmd_host = ['ssh', host]
+                    cmd = cmd_host + cmd
 
-                # config
-                success = subprocess.Popen(['scp', host+':'+host_base+'/log/config_6', biomedisa.BASE_DIR+'/log/config_6']).wait()
+                # config files
+                error_path = '/log/error_6'
+                config_path = '/log/config_6'
 
-                if success==0:
-                    with open(biomedisa.BASE_DIR + '/log/config_6', 'r') as configfile:
+                # submit job
+                if qsub or sbatch:
+                    process = subprocess.Popen(cmd, stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE, text=True)
+                    stdout, stderr = process.communicate()
+                    if sbatch:
+                        job_id = stdout.strip().split()[-1]
+                    else:
+                        job_id = stdout.strip().split('.')[0]
+                    print(f"submit output: {stdout.strip()}")
+
+                    # wait for the server to finish
+                    error, success, processing = 1, 1, True
+                    while error!=0 and success!=0 and processing:
+                        time.sleep(30)
+                        error = subprocess.Popen(['scp', host+':'+host_base+error_path, biomedisa.BASE_DIR+error_path]).wait()
+                        success = subprocess.Popen(['scp', host+':'+host_base+config_path, biomedisa.BASE_DIR+config_path]).wait()
+                        if not Upload.objects.filter(id=final_id).exists():
+                            processing = False
+                            stop_running_job(job_id, 6)
+
+                # interactive shell
+                else:
+                    subprocess.Popen(cmd).wait()
+                    error = subprocess.Popen(['scp', host+':'+host_base+error_path, biomedisa.BASE_DIR+error_path]).wait()
+                    success = subprocess.Popen(['scp', host+':'+host_base+config_path, biomedisa.BASE_DIR+config_path]).wait()
+
+                if success == 0:
+                    with open(biomedisa.BASE_DIR + config_path, 'r') as configfile:
                         cleaned_on_host, filled_on_host, cleaned_filled_on_host = configfile.read().split()
 
                     # local file names
@@ -329,15 +369,22 @@ def init_remove_outlier(image_id, final_id, label_id, fill_holes=True):
 
                     # get results
                     subprocess.Popen(['scp', host+':'+cleaned_on_host, path_to_cleaned]).wait()
+                    if os.path.exists(path_to_cleaned):
+                        os.chmod(path_to_cleaned, 0o664)
                     if fill_holes:
                         subprocess.Popen(['scp', host+':'+filled_on_host, path_to_filled]).wait()
                         subprocess.Popen(['scp', host+':'+cleaned_filled_on_host, path_to_cleaned_filled]).wait()
+                        if os.path.exists(path_to_filled):
+                            os.chmod(path_to_filled, 0o664)
+                        if os.path.exists(path_to_cleaned_filled):
+                            os.chmod(path_to_cleaned_filled, 0o664)
 
                     # post processing
                     post_processing(path_to_cleaned, path_to_filled, path_to_cleaned_filled, image_id, final.friend, fill_holes)
 
-                    # remove config file
-                    subprocess.Popen(['ssh', host, 'rm', host_base + '/log/config_6']).wait()
+                # remove config files
+                subprocess.Popen(['ssh', host, 'rm', host_base + error_path]).wait()
+                subprocess.Popen(['ssh', host, 'rm', host_base + config_path]).wait()
 
         # local server
         else:
@@ -347,10 +394,6 @@ def init_remove_outlier(image_id, final_id, label_id, fill_holes=True):
                     compression=label.compression)
             except Exception as e:
                 print(traceback.format_exc())
-
-    # qsub stop
-    if 'REMOTE_QUEUE_QSUB' in config and config['REMOTE_QUEUE_QSUB']:
-        qsub_stop(host, host_base, 6, 'cleanup', subhost, qsub_pid)
 
 if __name__ == '__main__':
 
@@ -379,12 +422,21 @@ if __name__ == '__main__':
                         help='Label ID within django environment/browser version')
     parser.add_argument('-r','--remote', action='store_true', default=False,
                         help='Process is carried out on a remote server. Must be set up in config.py')
-
-    kwargs = vars(parser.parse_args())
+    parser.add_argument('-q','--queue', type=int, default=6,
+                        help='Processing queue when using a remote server')
+    bm = parser.parse_args()
+    kwargs = vars(bm)
 
     # main function
     try:
         main_helper(**kwargs)
     except Exception as e:
         print(traceback.format_exc())
+        # django environment
+        if bm.img_id is not None:
+            bm.django_env = True
+            bm.username = os.path.basename(os.path.dirname(bm.path_to_labels))
+            bm.shortfilename = os.path.basename(bm.path_to_labels)
+            bm.path_to_logfile = biomedisa.BASE_DIR + '/log/logfile.txt'
+            bm = _error_(bm, str(e))
 
