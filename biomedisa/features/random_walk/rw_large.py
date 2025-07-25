@@ -37,6 +37,53 @@ import time
 import socket
 import os
 
+def walk_allaxis(comm, data, labels, indices, nbrw, sorw,
+    blockmin, blockmax, name, allLabels, smooth, uncertainty, ctx, queue, platform):
+
+    rank = comm.Get_rank()
+    final = np.zeros((blockmax-blockmin, data.shape[1], data.shape[2]), dtype=np.uint8)
+
+    from biomedisa.features.random_walk.pyopencl_large import walk
+    walkmap = None
+    if np.any(indices[0]):
+        print(f'Start axis 0 device {rank}')
+        ctx, queue = _get_device(platform, rank)
+        memory_error, final, _, _, walkmap = walk(comm, data, labels[0], indices[0], nbrw, sorw,
+            blockmin, blockmax, name, allLabels, smooth, uncertainty, ctx, queue, platform, final, walkmap, 0)
+        if memory_error:
+            return memory_error, None, None, None
+
+    data = np.swapaxes(data, 0, 1).copy(order='C')
+    final = np.swapaxes(final, 0, 1).copy(order='C')
+    if np.any(walkmap):
+        walkmap = np.swapaxes(walkmap, 0, 1).copy(order='C')
+
+    if np.any(indices[1]):
+        print(f'Start axis 1 device {rank}')
+        ctx, queue = _get_device(platform, rank)
+        memory_error, final, _, _, walkmap = walk(comm, data, labels[1], indices[1], nbrw, sorw,
+            blockmin, blockmax, name, allLabels, smooth, uncertainty, ctx, queue, platform, final, walkmap, 1)
+        if memory_error:
+            return memory_error, None, None, None
+
+    data = np.swapaxes(data, 0, 2).copy(order='C')
+    final = np.swapaxes(final, 0, 2).copy(order='C')
+    if np.any(walkmap):
+        walkmap = np.swapaxes(walkmap, 0, 2).copy(order='C')
+
+    if np.any(indices[2]):
+        print(f'Start axis 2 device {rank}')
+        ctx, queue = _get_device(platform, rank)
+        memory_error, final, _, _, _ = walk(comm, data, labels[2], indices[2], nbrw, sorw,
+            blockmin, blockmax, name, allLabels, smooth, uncertainty, ctx, queue, platform, final, walkmap, 2)
+        if memory_error:
+            return memory_error, None, None, None
+
+    final = np.swapaxes(np.swapaxes(final, 2, 0), 1, 0).copy(order='C')
+    data = np.swapaxes(np.swapaxes(data, 2, 0), 1, 0).copy(order='C')
+
+    return memory_error, final, None, None
+
 def _diffusion_child(comm, bm=None):
 
     rank = comm.Get_rank()
@@ -144,11 +191,18 @@ def _diffusion_child(comm, bm=None):
 
                 # run random walks
                 tic = time.time()
-                memory_error, final, final_uncertainty, final_smooth = walk(comm, datablock,
-                                    labels_child, indices_child, bm.nbrw, bm.sorw,
-                                    blockmin-datablockmin, blockmax-datablockmin, name,
-                                    bm.allLabels, bm.smooth, bm.uncertainty,
-                                    ctx, queue, bm.platform)
+                if bm.allaxis and 'opencl' in bm.platform:
+                    memory_error, final, final_uncertainty, final_smooth = walk_allaxis(comm, datablock,
+                        labels_child, indices_child, bm.nbrw, bm.sorw,
+                        blockmin-datablockmin, blockmax-datablockmin, name,
+                        bm.allLabels, bm.smooth, bm.uncertainty,
+                        ctx, queue, bm.platform)
+                else:
+                    memory_error, final, final_uncertainty, final_smooth, _ = walk(comm, datablock,
+                        labels_child, indices_child, bm.nbrw, bm.sorw,
+                        blockmin-datablockmin, blockmax-datablockmin, name,
+                        bm.allLabels, bm.smooth, bm.uncertainty,
+                        ctx, queue, bm.platform)
                 tac = time.time()
                 print('Walktime_%s: ' %(name) + str(int(tac - tic)) + ' ' + 'seconds')
 
@@ -354,7 +408,12 @@ def _diffusion_child(comm, bm=None):
 
         # run random walks
         tic = time.time()
-        memory_error, final, final_uncertainty, final_smooth = walk(comm, data, labels, indices, nbrw, sorw,
+        if allx and 'opencl' in platform:
+            memory_error, final, final_uncertainty, final_smooth = walk_allaxis(comm, data,
+                labels, indices, nbrw, sorw, blockmin, blockmax, name,
+                allLabels, smooth, uncertainty, ctx, queue, platform)
+        else:
+            memory_error, final, final_uncertainty, final_smooth, _ = walk(comm, data, labels, indices, nbrw, sorw,
                 blockmin, blockmax, name, allLabels, smooth, uncertainty, ctx, queue, platform)
         tac = time.time()
         print('Walktime_%s: ' %(name) + str(int(tac - tic)) + ' ' + 'seconds')
