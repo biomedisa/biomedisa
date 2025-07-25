@@ -1,6 +1,6 @@
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2019-2024 Philipp Lösel. All rights reserved.         ##
+##  Copyright (c) 2019-2025 Philipp Lösel. All rights reserved.         ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -336,7 +336,7 @@ def walk(comm, raw, slices, indices, nbrw, sorw, blockmin, blockmax, name,
             a_gpu.free()
         except:
             pass
-        return memory_error, None, None, None
+        return memory_error, None, None, None, None
 
     if smooth:
         try:
@@ -444,7 +444,7 @@ def walk(comm, raw, slices, indices, nbrw, sorw, blockmin, blockmax, name,
     except:
         pass
 
-    return memory_error, final, final_uncertainty, final_smooth
+    return memory_error, final, final_uncertainty, final_smooth, None
 
 def _build_kernel_int8():
     code = """
