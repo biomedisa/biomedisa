@@ -35,7 +35,6 @@ from medpy.io import load, save
 from skimage import io
 import SimpleITK as sitk
 from PIL import Image
-import zarr
 import numpy as np
 import glob
 import random
@@ -341,6 +340,7 @@ def load_data(path_to_data, process='None', return_extension=False, **kwargs):
 
     elif extension == '.zarr':
         try:
+            import zarr
             zarr_store = zarr.DirectoryStore(path_to_data)
             data = zarr.open(zarr_store, **zarr_args)
             header = None
@@ -615,18 +615,23 @@ def save_data(path_to_final, final, header=None, final_image_type=None, compress
                     for file in file_names:
                         zip.write(results_dir + '/' + os.path.basename(file), os.path.basename(file))
     elif final_image_type == '.zarr':
-        if os.path.exists(path_to_final):
-            shutil.rmtree(path_to_final)
-        # Create a Zarr array with the specified chunk size
-        zarr_array = zarr.create(
-            shape=final.shape,
-            dtype=final.dtype,
-            store=zarr.DirectoryStore(path_to_final),
-            compressor=zarr.get_codec({'id': 'zlib', 'level': 5}) if compress else None,
-            **zarr_args
-            )
-        # Write the data into the Zarr array
-        zarr_array[:] = final
+        try:
+            import zarr
+            if os.path.exists(path_to_final):
+                shutil.rmtree(path_to_final)
+            # Create a Zarr array with the specified chunk size
+            zarr_array = zarr.create(
+                shape=final.shape,
+                dtype=final.dtype,
+                store=zarr.DirectoryStore(path_to_final),
+                compressor=zarr.get_codec({'id': 'zlib', 'level': 5}) if compress else None,
+                **zarr_args
+                )
+            # Write the data into the Zarr array
+            zarr_array[:] = final
+        except Exception as e:
+            print(e)
+            data, header = None, None
     else:
         imageSize = int(final.nbytes * 10e-7)
         bigtiff = True if imageSize > 2000 else False
