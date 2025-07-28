@@ -87,6 +87,8 @@ class BiomedisaPredictionLogic():
             model_path = parameter.path_to_model
 
             # adapt paths for WSL
+            if os.path.exists(os.path.expanduser("~")+"/anaconda3/envs/biomedisa/python.exe") and wsl_path==None:
+                wsl_path=False
             if os.name == "nt" and wsl_path!=False:
                 image_path = image_path.replace('\\','/').replace('C:','/mnt/c')
                 model_path = model_path.replace('\\','/').replace('C:','/mnt/c')
