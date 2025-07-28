@@ -118,6 +118,10 @@ class Helper():
         from pathlib import Path
         biomedisa_path = Path(__file__).resolve().parents[3]
 
+        # disable WSL if Anaconda is detected and WSL in auto mode
+        if os.path.exists(os.path.expanduser("~")+"/anaconda3/envs/biomedisa/python.exe") and wsl_path==None:
+            wsl_path=False
+
         # Windows using WSL
         if os.name == "nt" and wsl_path!=False:
             if wsl_path==None:
@@ -137,14 +141,20 @@ class Helper():
             cmd = wsl_path + [lib_path + " && " + python_path + " " + (" ").join(cmd)]
             print("Command used:", cmd)
 
-        # Linux or Windows without WSL
+        # Linux and Windows with Anaconda
         else:
             # Path to the desired Python executable
             if python_path==None:
-                if os.path.exists(os.path.expanduser("~")+"/biomedisa_env/bin/python"):
+                # Anaconda
+                if os.path.exists(os.path.expanduser("~")+"/anaconda3/envs/biomedisa/python.exe"):
+                    python_path = os.path.expanduser("~")+"/anaconda3/envs/biomedisa/python.exe"
+                    lib_path = os.path.expanduser("~")+"/anaconda3/envs/biomedisa/lib/site-packages"
+                # Biomedisa environment
+                elif os.path.exists(os.path.expanduser("~")+"/biomedisa_env/bin/python"):
                     python_path = os.path.expanduser("~")+"/biomedisa_env/bin/python"
                     python_version = Helper.get_python_version(python_path)
                     lib_path = f"{biomedisa_path}:"+os.path.expanduser("~")+f"/biomedisa_env/lib/python{python_version}/site-package"
+                # System Python
                 else:
                     python_path = "/usr/bin/python3"
                     python_version = Helper.get_python_version(python_path)
@@ -157,7 +167,7 @@ class Helper():
             # Set new pythonpath
             new_env["PYTHONPATH"] = lib_path
 
-            # Run the Python 3 subprocess
+            # Print Python environment
             subprocess.Popen(
                 [python_path, "-c", "import sys; print(sys.version); print(sys.executable); print(sys.path)"],
                 env=new_env
