@@ -79,23 +79,26 @@ def welford_mean_std(arr):
 
 # determine all values and their count from an array
 def unique(arr, return_counts=False):
-    try:
-        arr = arr.ravel()
-        counts = np.zeros(np.amax(arr)+1, dtype=int)
-        @numba.jit(nopython=True)
-        def __unique__(arr, size, counts):
-            for k in range(size):
-                counts[arr[k]] += 1
-            return counts
-        counts = __unique__(arr, arr.size, counts)
-        labels = np.where(counts)[0]
-        if return_counts:
-            return labels, counts[labels]
-        else:
-            return labels
-    except Exception as e:
-        print(f"Error: {e}")
-        return None
+    if np.issubdtype(arr.dtype, np.integer) and np.all(arr >= 0):
+        try:
+            arr = arr.ravel()
+            counts = np.zeros(np.amax(arr)+1, dtype=int)
+            @numba.jit(nopython=True)
+            def __unique__(arr, size, counts):
+                for k in range(size):
+                    counts[arr[k]] += 1
+                return counts
+            counts = __unique__(arr, arr.size, counts)
+            labels = np.where(counts)[0]
+            if return_counts:
+                return labels, counts[labels]
+            else:
+                return labels
+        except Exception as e:
+            print(f"Error: {e}")
+            return None
+    else:
+        return np.unique(arr, return_counts=return_counts)
 
 # create a unique filename
 def unique_file_path(path, dir_path=biomedisa.BASE_DIR+'/private_storage/'):
