@@ -15,7 +15,7 @@ wsl_path = None
 #-------------------------------
 # biomedisa_path:
 #   - Auto detection uses the Biomedisa Git repository
-#   - If you want to use the Git repository, add its path to lib_path, e.g. "export PYTHONPATH=/mnt/c/Users/<USERNAME>/git/biomedisa:${PYTHONPATH} && "
+#   - If you also want to use the Git repository in your manual configuration, add the Git repository path to lib_path, e.g. "export PYTHONPATH=/mnt/c/Users/<USERNAME>/git/biomedisa:${PYTHONPATH} && "
 
 '''Virtual Python Environment'''
 #python_path = "/home/$USER/biomedisa_env/bin/python" # if the environment is in the WSL home directory
@@ -29,14 +29,14 @@ wsl_path = None
 #wsl_path = ["wsl","-d","Ubuntu-22.04","-e","bash","-c"]
 
 #-------------------------------
-# Windows without WSL (not recommended)
+# Windows without WSL
 #-------------------------------
 '''Conda Environment'''
 #python_path = f"C:/Users/{username}/anaconda3/envs/biomedisa/python.exe"
 #lib_path = f"C:/Users/{username}/anaconda3/envs/biomedisa/lib/site-packages"
 #wsl_path = False
 
-'''Slicer environment'''
+'''Slicer environment (not recommended)'''
 #python_path = f"C:/Users/{username}/AppData/Local/slicer.org/Slicer 5.6.2/bin/PythonSlicer.exe"
 #lib_path = f"C:/Users/{username}/AppData/Local/slicer.org/Slicer 5.6.2/lib/Python/Lib/site-packages"
 #wsl_path = False
@@ -45,8 +45,8 @@ wsl_path = None
 # Linux
 #-------------------------------
 # biomedisa_path:
-#   - Biomedisa Git repository
-#   - Remove from lib_path if you want to use the biomedisa pip package
+#   - Location of Biomedisa Git repository
+#   - Remove "{biomedisa_path}:" from lib_path if you want to use the biomedisa pip package
 
 '''Virtual Python Environment'''
 #python_path = f"/home/{username}/biomedisa_env/bin/python"
