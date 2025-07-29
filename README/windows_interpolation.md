@@ -11,7 +11,7 @@
 #### Option 1: Install GPU Driver (NVIDIA, AMD, Intel)
 Use Windows Search: `Check for updates` and `View optional updates`  
 Windows automatically detects your GPU and installs the required drivers.  
-Alternatively, install them manually, e.g. Download and install [NVIDIA](https://www.nvidia.com/Download/Find.aspx?lang=en-us).
+Alternatively, install them manually, e.g. Download and install [NVIDIA](https://www.nvidia.com/Download/Find.aspx?lang=en-us) driver.
 
 #### Option 2: Install CPU Runtime for OpenCL
 For Intel CPU support, download and install [Intel CPU Runtime for OpenCL Applications for Windows OS](https://software.intel.com/en-us/articles/opencl-drivers).
