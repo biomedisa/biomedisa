@@ -1,4 +1,4 @@
-# Windows + OpenCL
+# Windows + Smart Interpolation
 
 - [Install GPU Driver](#install-nvidia-driver)
 - [Install Anaconda3](#install-anaconda3)
