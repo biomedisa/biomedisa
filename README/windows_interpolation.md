@@ -47,7 +47,7 @@ Run the interpolation (the first run might take a bit longer):
 ```
 python -m biomedisa.interpolation Downloads\tumor.tif Downloads\labels.tumor.nrrd
 ```
-Specify the platform if the wrong platform is detected:
+Specify the platform if the wrong platform is detected, e.g. `opencl_AMD_GPU` or `opencl_Intel_CPU`:
 ```
 python -m biomedisa.interpolation Downloads\tumor.tif Downloads\labels.tumor.nrrd --platform=opencl_AMD_GPU
 ```
