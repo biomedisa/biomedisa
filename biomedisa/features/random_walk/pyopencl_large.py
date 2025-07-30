@@ -1,6 +1,6 @@
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2019-2024 Philipp Lösel. All rights reserved.         ##
+##  Copyright (c) 2019-2025 Philipp Lösel. All rights reserved.         ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -203,18 +203,25 @@ def sendrecv(a, blockmin, blockmax, comm, rank, size):
     return a
 
 @numba.jit(nopython=True)
-def max_to_label(a, walkmap, final, blockmin, blockmax, segment):
+def max_to_label(a, walkmap, final, blockmin, blockmax, segment, axis):
     zsh, ysh, xsh = a.shape
-    for k in range(blockmin, blockmax):
-        for l in range(ysh):
-            for m in range(xsh):
+    zmin, zmax = 0, zsh
+    ymin, ymax = 0, ysh
+    xmin, xmax = 0, xsh
+    if axis==0:
+        zmin, zmax = blockmin, blockmax
+    else:
+        ymin, ymax = blockmin, blockmax
+    for k in range(zmin, zmax):
+        for l in range(ymin, ymax):
+            for m in range(xmin, xmax):
                 if a[k,l,m] > walkmap[k,l,m]:
                     walkmap[k,l,m] = a[k,l,m]
-                    final[k-blockmin,l,m] = segment
+                    final[k-zmin,l-ymin,m-xmin] = segment
     return walkmap, final
 
 def walk(comm, raw, slices, indices, nbrw, sorw, blockmin, blockmax,
-         name, allLabels, smooth, uncertainty, ctx, queue, platform):
+         name, allLabels, smooth, uncertainty, ctx, queue, platform, final=None, walkmap=None, axis=0):
 
     # disable smoothing and uncertainty
     smooth, uncertainty = 0, 0
@@ -240,7 +247,8 @@ def walk(comm, raw, slices, indices, nbrw, sorw, blockmin, blockmax,
 
     # allocate host memory
     hits = np.empty(raw.shape, dtype=np.int32)
-    final = np.zeros((blockmax-blockmin, ysh, xsh), dtype=np.uint8)
+    if final is None:
+        final = np.zeros((blockmax-blockmin, ysh, xsh), dtype=np.uint8)
 
     # kernel function instantiation
     mf = cl.mem_flags
@@ -259,16 +267,13 @@ def walk(comm, raw, slices, indices, nbrw, sorw, blockmin, blockmax,
     # allocate device memory or use subdomains
     memory_error = False
     subdomains = False
-    if zsh * ysh * xsh > 42e8 or platform.split('_')[-1] == 'GPU':
-        if zsh * ysh * xsh > 42e8:
+    if zsh * ysh * xsh > 42e8:# or platform.split('_')[-1] == 'GPU':
+        if axis==0:
             print('Warning: Volume indexes exceed unsigned long int range. The volume is splitted into subdomains.')
+            subdomains = True
         else:
-            print('The volume is splitted into subdomains for better performance.')
-        subdomains = True
-        sendbuf = np.zeros(1, dtype=np.int32) + 1
-        recvbuf = np.zeros(1, dtype=np.int32)
-        comm.Barrier()
-        comm.Allreduce([sendbuf, MPI.INT], [recvbuf, MPI.INT], op=MPI.MAX)
+            print('Error: Volume indexes exceed unsigned long int range.')
+            memory_error = True
     else:
         try:
             if np.any(indices):
@@ -278,23 +283,32 @@ def walk(comm, raw, slices, indices, nbrw, sorw, blockmin, blockmax,
                 slices_cl = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=slices)
             raw_cl = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=raw)
             hits_cl = cl.Buffer(ctx, mf.WRITE_ONLY | mf.COPY_HOST_PTR, hostbuf=hits)
-            sendbuf = np.zeros(1, dtype=np.int32)
-            recvbuf = np.zeros(1, dtype=np.int32)
-            comm.Barrier()
-            comm.Allreduce([sendbuf, MPI.INT], [recvbuf, MPI.INT], op=MPI.MAX)
         except Exception as e:
-            print('Warning: Device ran out of memory. The volume is splitted into subdomains.')
-            subdomains = True
-            sendbuf = np.zeros(1, dtype=np.int32) + 1
-            recvbuf = np.zeros(1, dtype=np.int32)
-            comm.Barrier()
-            comm.Allreduce([sendbuf, MPI.INT], [recvbuf, MPI.INT], op=MPI.MAX)
+            if axis==0:
+                print('Warning: Device ran out of memory. The volume is splitted into subdomains.')
+                subdomains = True
+            else:
+                print('Error: Device out of memory. Data too large.')
+                memory_error = True
             try:
                 raw_cl.release()
                 hits_cl.release()
                 slices_cl.release()
             except:
                 pass
+
+    # memory error
+    if memory_error:
+        sendbuf = np.zeros(1, dtype=np.int32) + 1
+        recvbuf = np.zeros(1, dtype=np.int32)
+    else:
+        sendbuf = np.zeros(1, dtype=np.int32)
+        recvbuf = np.zeros(1, dtype=np.int32)
+    comm.Barrier()
+    comm.Allreduce([sendbuf, MPI.INT], [recvbuf, MPI.INT], op=MPI.MAX)
+    if recvbuf > 0:
+        memory_error = True
+        return memory_error, None, None, None, None
 
     for label_counter, segment in enumerate(allLabels):
         print('%s:' %(name) + ' ' + str(label_counter+1) + '/' + str(len(allLabels)))
@@ -362,26 +376,28 @@ def walk(comm, raw, slices, indices, nbrw, sorw, blockmin, blockmax,
         if memory_error:
             sendbuf = np.zeros(1, dtype=np.int32) + 1
             recvbuf = np.zeros(1, dtype=np.int32)
-            comm.Barrier()
-            comm.Allreduce([sendbuf, MPI.INT], [recvbuf, MPI.INT], op=MPI.MAX)
         else:
             sendbuf = np.zeros(1, dtype=np.int32)
             recvbuf = np.zeros(1, dtype=np.int32)
-            comm.Barrier()
-            comm.Allreduce([sendbuf, MPI.INT], [recvbuf, MPI.INT], op=MPI.MAX)
+        comm.Barrier()
+        comm.Allreduce([sendbuf, MPI.INT], [recvbuf, MPI.INT], op=MPI.MAX)
         if recvbuf > 0:
             memory_error = True
-            return memory_error, None, None, None
+            return memory_error, None, None, None, None
 
         # communicate hits
         if size > 1:
+            if axis>0:
+                hits = np.swapaxes(hits, 1, 0).copy(order='C')
             hits = sendrecv(hits, blockmin, blockmax, comm, rank, size)
+            if axis>0:
+                hits = np.swapaxes(hits, 0, 1).copy(order='C')
 
         # get the label with the most hits
-        if label_counter == 0:
+        if label_counter==0 and walkmap is None:
             walkmap = np.copy(hits, order='C')
         else:
-            walkmap, final = max_to_label(hits, walkmap, final, blockmin, blockmax, segment)
+            walkmap, final = max_to_label(hits, walkmap, final, blockmin, blockmax, segment, axis)
             #update = hits[blockmin:blockmax] > walkmap[blockmin:blockmax]
             #walkmap[blockmin:blockmax][update] = hits[blockmin:blockmax][update]
             #final[update] = segment
@@ -390,7 +406,7 @@ def walk(comm, raw, slices, indices, nbrw, sorw, blockmin, blockmax,
     final_uncertainty = None
     final_smooth = None
 
-    return memory_error, final, final_uncertainty, final_smooth
+    return memory_error, final, final_uncertainty, final_smooth, walkmap
 
 def _build_kernel_int8():
     src = '''

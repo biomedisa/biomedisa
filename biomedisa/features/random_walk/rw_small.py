@@ -36,6 +36,48 @@ import time
 import socket
 import os
 
+def _extract_indices(indicesChunk, k):
+    return [x for (x, y) in indicesChunk if y == k]
+
+def walk_allaxis(data, labels, indices, indices_split, nbrw, sorw, name, platform, rank):
+    from biomedisa.features.random_walk.pyopencl_small import walk
+    walkmap = None
+    all_indices_axis = _extract_indices(indices, 0)
+    indices_axis = _extract_indices(indices_split, 0)
+    if np.any(indices_axis):
+        print(f'Start axis 0 device {rank}')
+        ctx, queue = _get_device(platform, rank)
+        walkmap = walk(data, labels[0], all_indices_axis, indices_axis, nbrw, sorw, name, ctx, queue)
+
+    data = np.swapaxes(data, 0, 1).copy(order='C')
+    all_indices_axis = _extract_indices(indices, 1)
+    indices_axis = _extract_indices(indices_split, 1)
+
+    if np.any(indices_axis):
+        print(f'Start axis 1 device {rank}')
+        ctx, queue = _get_device(platform, rank)
+        walkmap_axis = walk(data, labels[1], all_indices_axis, indices_axis, nbrw, sorw, name, ctx, queue)
+        if np.any(walkmap):
+            walkmap += np.swapaxes(walkmap_axis, 2, 1).copy(order='C')
+        else:
+            walkmap = np.swapaxes(walkmap_axis, 2, 1).copy(order='C')
+
+    data = np.swapaxes(data, 0, 2).copy(order='C')
+    all_indices_axis = _extract_indices(indices, 2)
+    indices_axis = _extract_indices(indices_split, 2)
+
+    if np.any(indices_axis):
+        print(f'Start axis 2 device {rank}')
+        ctx, queue = _get_device(platform, rank)
+        walkmap_axis = walk(data, labels[2], all_indices_axis, indices_axis, nbrw, sorw, name, ctx, queue)
+        if np.any(walkmap):
+            walkmap += np.swapaxes(np.swapaxes(walkmap_axis, 3, 1), 2, 1).copy(order='C')
+        else:
+            walkmap = np.swapaxes(np.swapaxes(walkmap_axis, 3, 1), 2, 1).copy(order='C')
+
+    data = np.swapaxes(np.swapaxes(data, 2, 0), 1, 0).copy(order='C')
+    return walkmap, data
+
 def _diffusion_child(comm, bm=None):
 
     rank = comm.Get_rank()
@@ -78,7 +120,11 @@ def _diffusion_child(comm, bm=None):
 
         # run random walks
         tic = time.time()
-        walkmap = walk(bm.data, bm.labels, bm.indices, indices_split[0], bm.nbrw, bm.sorw, name, ctx, queue)
+        if bm.allaxis and 'opencl' in bm.platform:
+            walkmap, bm.data = walk_allaxis(bm.data, bm.labels, bm.indices,
+                indices_split[0], bm.nbrw, bm.sorw, name, bm.platform, rank)
+        else:
+            walkmap = walk(bm.data, bm.labels, bm.indices, indices_split[0], bm.nbrw, bm.sorw, name, ctx, queue)
         tac = time.time()
         print('Walktime_%s: ' %(name) + str(int(tac - tic)) + ' ' + 'seconds')
 
@@ -294,7 +340,11 @@ def _diffusion_child(comm, bm=None):
 
         # run random walks
         tic = time.time()
-        walkmap = walk(data, labels, indices, indices_child, nbrw, sorw, name, ctx, queue)
+        if allx and 'opencl' in platform:
+            walkmap, bm.data = walk_allaxis(data, labels, indices,
+                indices_child, nbrw, sorw, name, platform, rank)
+        else:
+            walkmap = walk(data, labels, indices, indices_child, nbrw, sorw, name, ctx, queue)
         tac = time.time()
         print('Walktime_%s: ' %(name) + str(int(tac - tic)) + ' ' + 'seconds')
 

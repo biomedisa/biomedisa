@@ -1677,7 +1677,7 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
         if bm.return_probs and not load_blockwise:
             probabilities = scale_probabilities(final)
             if bm.scaling:
-                probabilities = img_resize(probabilities, z_shape, y_shape, x_shape)
+                probabilities = img_resize(probabilities, z_shape, y_shape, x_shape, interpolation=cv2.INTER_LINEAR)
             if np.any(region_of_interest):
                 min_z,max_z,min_y,max_y,min_x,max_x,original_zsh,original_ysh,original_xsh = region_of_interest[:]
                 tmp = np.zeros((original_zsh, original_ysh, original_xsh, nb_labels), dtype=np.float32)
