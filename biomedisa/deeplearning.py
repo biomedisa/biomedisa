@@ -32,8 +32,7 @@ import biomedisa
 import biomedisa.features.crop_helper as ch
 from biomedisa.features.keras_helper import *
 from biomedisa.features.biomedisa_helper import _error_, unique_file_path
-from tensorflow.python.framework.errors_impl import ResourceExhaustedError
-import tensorflow as tf
+from keras.backend import backend
 import numpy as np
 import traceback
 import argparse
@@ -70,7 +69,7 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
     save_cropped=False, epochs=100, normalization=True, rotate=0.0, rotate3d=0.0, validation_split=0.0,
     learning_rate=0.01, stride_size=32, validation_stride_size=32, validation_freq=1,
     batch_size=None, x_scale=256, y_scale=256, z_scale=256, scaling=True, early_stopping=0,
-    pretrained_model=None, initial_epoch=0, workers=1, cropping_epochs=50,
+    pretrained_model=None, initial_epoch=0, optimizer='sgd', cropping_epochs=50,
     x_range=None, y_range=None, z_range=None, header=None, extension=None,
     img_header=None, img_extension='.tif', average_dice=False, django_env=False,
     path=None, success=True, return_probs=False, patch_normalization=False,
@@ -192,8 +191,15 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
         bm.path_to_cropped_image = None
 
         # get number of GPUs
-        strategy = tf.distribute.MirroredStrategy()
-        ngpus = int(strategy.num_replicas_in_sync)
+        if backend() == 'tensorflow':
+            import tensorflow as tf
+            strategy = tf.distribute.MirroredStrategy()
+            ngpus = int(strategy.num_replicas_in_sync)
+        elif backend() == 'torch':
+            import torch
+            ngpus = int(torch.cuda.device_count())
+        else:
+            raise RuntimeError("Unknown backend: " + backend())
 
         # batch size must be divisible by the number of GPUs and two
         rest = bm.batch_size % (2*ngpus)
@@ -477,8 +483,8 @@ if __name__ == '__main__':
                         help='Location of pretrained model (useful for resuming a previous training run).')
     parser.add_argument('-ie','--initial_epoch', type=int, default=0,
                         help='Epoch at which to start training (useful for resuming a previous training run).')
-    parser.add_argument('-w','--workers', type=int, default=1,
-                        help='Parallel workers for batch processing')
+    parser.add_argument('-opt','--optimizer', type=str, default='sgd',
+                        help='Optimizer used for training. If "adam" is used, please reduce learning_rate to 0.0001')
     parser.add_argument('-xr','--x_range', nargs="+", type=int, default=None,
                         help='Manually crop x-axis of image data for prediction, e.g. -xr 100 200')
     parser.add_argument('-yr','--y_range', nargs="+", type=int, default=None,
@@ -565,6 +571,13 @@ if __name__ == '__main__':
         bm = _error_(bm, "Invalid model.")
         raise RuntimeError("Invalid model.")
 
+    # resource error
+    ResourceExhaustedError = None
+    if backend() == 'tensorflow':
+        from tensorflow.python.framework.errors_impl import ResourceExhaustedError
+    elif backend() == 'torch':
+        import torch
+
     # train or predict segmentation
     try:
         deep_learning(None, **kwargs)
@@ -577,10 +590,17 @@ if __name__ == '__main__':
     except MemoryError:
         print(traceback.format_exc())
         bm = _error_(bm, 'MemoryError')
-    except ResourceExhaustedError:
-        print(traceback.format_exc())
-        bm = _error_(bm, 'GPU out of memory. Reduce your batch size')
     except Exception as e:
-        print(traceback.format_exc())
-        bm = _error_(bm, str(e))
+        # Check for TensorFlow OOM
+        if ResourceExhaustedError and isinstance(e, ResourceExhaustedError):
+            print(traceback.format_exc())
+            bm = _error_(bm, 'GPU out of memory. Reduce your batch size')
+        # Check for PyTorch OOM
+        elif backend() == 'torch' and isinstance(e, RuntimeError) and 'out of memory' in str(e).lower():
+            print(traceback.format_exc())
+            bm = _error_(bm, 'GPU out of memory. Reduce your batch size')
+        else:
+            # Uncaught exception
+            print(traceback.format_exc())
+            bm = _error_(bm, str(e))
 

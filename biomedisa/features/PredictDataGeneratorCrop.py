@@ -27,12 +27,12 @@
 ##########################################################################
 
 import numpy as np
-import tf_keras
+import keras
 
-class PredictDataGeneratorCrop(tf_keras.utils.Sequence):
+class PredictDataGeneratorCrop(keras.utils.PyDataset):
     def __init__(self, img, list_IDs, batch_size=32, dim=(32,32,32),
-                 dim_img=(32,32,32), n_channels=3):
-        'Initialization'
+                 dim_img=(32,32,32), n_channels=3, **kwargs):
+        super().__init__(**kwargs)
         self.dim = dim
         self.dim_img = dim_img
         self.list_IDs = list_IDs

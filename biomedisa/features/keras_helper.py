@@ -27,15 +27,15 @@
 ##########################################################################
 
 import os
-from tf_keras.optimizers import SGD
-from tf_keras.models import Model, load_model
-from tf_keras.layers import (
+from keras.optimizers import SGD, Adam
+from keras.models import Model, load_model
+from keras.layers import (
     Input, Conv3D, MaxPooling3D, UpSampling3D, Activation, Reshape,
     BatchNormalization, Concatenate, ReLU, Add, GlobalAveragePooling3D,
     Dense, Dropout, MaxPool3D, Flatten, Multiply)
-from tf_keras import backend as K
-from tf_keras.utils import to_categorical
-from tf_keras.callbacks import Callback, ModelCheckpoint, EarlyStopping
+from keras import backend as K
+from keras.utils import to_categorical
+from keras.callbacks import Callback, ModelCheckpoint, EarlyStopping
 from biomedisa.features.DataGenerator import DataGenerator, welford_mean_std
 from biomedisa.features.PredictDataGenerator import PredictDataGenerator
 from biomedisa.features.biomedisa_helper import (unique, welford_mean_std,
@@ -45,7 +45,6 @@ from biomedisa.features.active_contour import activeContour
 from tifffile import TiffFile, imread, imwrite
 import matplotlib.pyplot as plt
 import SimpleITK as sitk
-import tensorflow as tf
 import numpy as np
 import cv2
 import tarfile
@@ -56,7 +55,6 @@ import numba
 import re
 import time
 import h5py
-import atexit
 import tempfile
 import csv
 
@@ -819,7 +817,7 @@ class Metrics(Callback):
                 self.history['val_dice'].append(dice)
                 self.history['val_loss'].append(val_loss)
 
-                # tensorflow monitoring variables
+                # monitoring variables
                 logs['val_loss'] = val_loss
                 logs['val_accuracy'] = accuracy
                 logs['val_dice'] = dice
@@ -926,6 +924,7 @@ def loss_fn(y_true, y_pred):
     return loss
 
 def custom_loss(y_true, y_pred):
+    import tensorflow as tf #TODO: use keras backend
     # Extract labels and ignore mask
     labels = tf.cast(y_true[..., 0], tf.int32)  # First channel contains class labels
     ignore_mask = tf.cast(y_true[..., 1], tf.float32)  # Second channel contains mask (0 = ignore, 1 = include)
@@ -946,6 +945,7 @@ def custom_loss(y_true, y_pred):
     return tf.reduce_sum(loss) / tf.reduce_sum(ignore_mask)
 
 def custom_accuracy(y_true, y_pred):
+    import tensorflow as tf
     labels = tf.cast(y_true[..., 0], tf.int32)  # Extract actual values
     ignore_mask = y_true[..., 1]  # Extract mask (1 = include, 0 = ignore)
 
@@ -1093,66 +1093,95 @@ def train_segmentation(bm):
     if bm.train_dice:
         train_metrics = Metrics(bm, bm.img_data, bm.label_data, list_IDs_fg, (zsh, ysh, xsh), nb_labels, True)
 
-    # create a MirroredStrategy
-    cdo = tf.distribute.ReductionToOneDevice()
-    strategy = tf.distribute.MirroredStrategy(cross_device_ops=cdo)
-    ngpus = int(strategy.num_replicas_in_sync)
-    print(f'Number of devices: {ngpus}')
-    if ngpus == 1 and os.name == 'nt':
-        atexit.register(strategy._extended._collective_ops._pool.close)
+    # custom objects
+    if bm.dice_loss:
+        custom_objects = {'dice_coef_loss': dice_coef_loss,'loss_fn': loss_fn}
+    elif bm.ignore_mask:
+        custom_objects={'custom_loss': custom_loss}
+    else:
+        custom_objects=None
 
-    # compile model
-    with strategy.scope():
+    # Rename the function to appear as "accuracy" in logs
+    if bm.ignore_mask:
+        custom_accuracy.__name__ = "accuracy"
+        metrics=[custom_accuracy]
+    else:
+        metrics=['accuracy']
 
-        # custom objects
-        if bm.dice_loss:
-            custom_objects = {'dice_coef_loss': dice_coef_loss,'loss_fn': loss_fn}
-        elif bm.ignore_mask:
-            custom_objects={'custom_loss': custom_loss}
-        else:
-            custom_objects=None
+    # loss function
+    if bm.dice_loss:
+        loss=dice_coef_loss(nb_labels)
+    elif bm.ignore_mask:
+        loss=custom_loss
+    else:
+        loss='categorical_crossentropy'
 
-        # build model
+    # Backend-specific setup functions
+    def setup_tensorflow_strategy():
+        import tensorflow as tf
+        cdo = tf.distribute.ReductionToOneDevice()
+        strategy = tf.distribute.MirroredStrategy(cross_device_ops=cdo)
+        ngpus = int(strategy.num_replicas_in_sync)
+        print(f'Using TensorFlow backend with {ngpus} GPUs')
+        return strategy
+
+    def setup_pytorch_devices(model):
+        import torch
+        import torch.nn as nn
+        ngpus = torch.cuda.device_count()
+        print(f'Using PyTorch backend with {ngpus} GPUs')
+        # Access underlying PyTorch model (depends on Keras version)
+        # Sometimes: model._model or model.keras_model._model
+        pt_model = getattr(model, "_model", model) # fallback to model if no _model attr
+        if ngpus > 1:
+            pt_model = nn.DataParallel(pt_model)
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        pt_model.to(device)
+        return pt_model
+
+    # Common model build function
+    def build_model():
         if bm.pretrained_model:
-            model = load_model(bm.pretrained_model, custom_objects=custom_objects)
+            return load_model(bm.pretrained_model, custom_objects=custom_objects)
         else:
-            model = make_unet(bm, input_shape, nb_labels)
-        model.summary()
+            return make_unet(bm, input_shape, nb_labels)
 
-        # decay
-        from tf_keras.optimizers.schedules import InverseTimeDecay
+    # Common optimizer setup
+    def build_optimizer():
+        from keras.optimizers.schedules import InverseTimeDecay
         lr_schedule = InverseTimeDecay(
             initial_learning_rate=bm.learning_rate,
             decay_rate=1e-6,
             decay_steps=1,
             staircase=False)
-
-        # optimizer
-        optimizer = SGD(learning_rate=lr_schedule, momentum=0.9, nesterov=True)
-        #optimizer = tf_keras.optimizers.Adam(learning_rate=bm.learning_rate, epsilon=1e-4) lr=0.0001
+        if bm.optimizer in ['adam','Adam']:
+            optimizer = Adam(learning_rate=lr_schedule, epsilon=1e-4) #lr=0.0001
+        else:
+            if bm.optimizer not in ['sgd','SGD']:
+                print(f"Warning: unsupported optimizer {bm.optimizer}. Falling back to SGD.")
+            optimizer = SGD(learning_rate=lr_schedule, momentum=0.9, nesterov=True)
         if bm.mixed_precision:
-            from tf_keras.mixed_precision import LossScaleOptimizer
+            from keras.mixed_precision import LossScaleOptimizer
             optimizer = LossScaleOptimizer(optimizer, dynamic=False, initial_scale=128)
+        return optimizer
 
-        # Rename the function to appear as "accuracy" in logs
-        if bm.ignore_mask:
-            custom_accuracy.__name__ = "accuracy"
-            metrics=[custom_accuracy]
-        else:
-            metrics=['accuracy']
-
-        # loss function
-        if bm.dice_loss:
-            loss=dice_coef_loss(nb_labels)
-        elif bm.ignore_mask:
-            loss=custom_loss
-        else:
-            loss='categorical_crossentropy'
-
-        # comile model
-        model.compile(loss=loss,
-                      optimizer=optimizer,
-                      metrics=metrics)
+    # Configure backend
+    backend_name = K.backend()
+    if backend_name == 'tensorflow':
+        strategy = setup_tensorflow_strategy()
+        with strategy.scope():
+            model = build_model()
+            model.summary()
+            optimizer = build_optimizer()
+            model.compile(loss=loss, optimizer=optimizer, metrics=metrics)
+    elif backend_name == 'torch':
+        model = build_model()
+        model.summary()
+        pt_model = setup_pytorch_devices(model)
+        optimizer = build_optimizer()
+        model.compile(loss=loss, optimizer=optimizer, metrics=metrics)
+    else:
+        raise RuntimeError(f"Unsupported backend: {backend_name}")
 
     # save meta data
     meta_data = MetaData(bm.path_to_model, configuration_data, allLabels,
@@ -1189,7 +1218,6 @@ def train_segmentation(bm):
         epochs=bm.epochs,
         validation_data=validation_generator,
         callbacks=callbacks,
-        workers=bm.workers,
         initial_epoch=bm.initial_epoch)
 
 def load_prediction_data(bm, channels, normalization_parameters,
@@ -1336,15 +1364,35 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
         path_to_acwe = filename + '.acwe' + bm.extension
         path_to_probs = filename + '.probs.tif'
 
-    # Set the visible GPU by ID
-    gpus = tf.config.experimental.list_physical_devices('GPU')
-    if gpus:
-        try:
-            # Restrict TensorFlow to only use the specified GPU
-            tf.config.experimental.set_visible_devices(gpus[rank % len(gpus)], 'GPU')
-            tf.config.experimental.set_memory_growth(gpus[rank % len(gpus)], True)
-        except RuntimeError as e:
-            print(e)
+    # configure backend
+    backend_name = K.backend()
+    if backend_name == 'tensorflow':
+        import tensorflow as tf
+        # Set the visible GPU by ID
+        gpus = tf.config.experimental.list_physical_devices('GPU')
+        if gpus:
+            try:
+                # Restrict TensorFlow to only use the specified GPU
+                tf.config.experimental.set_visible_devices(gpus[rank % len(gpus)], 'GPU')
+                tf.config.experimental.set_memory_growth(gpus[rank % len(gpus)], True)
+                print(f"[Rank {rank}] Using TensorFlow GPU {rank % len(gpus)}")
+            except RuntimeError as e:
+                print(e)
+    elif backend_name == 'torch':
+        import torch
+        if  torch.cuda.is_available() and torch.cuda.device_count() > 0:
+            # Assign GPU based on MPI rank
+            gpu_id = rank % torch.cuda.device_count()
+            # Set the current CUDA device
+            torch.cuda.set_device(gpu_id)
+            device = torch.device("cuda")
+            # Optional: also set environment variable for consistency with other libraries
+            os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
+            print(f"[Rank {rank}] Using PyTorch GPU {gpu_id}")
+        else:
+            device = torch.device("cpu")
+    else:
+        raise RuntimeError(f"Unsupported backend: {backend_name}")
 
     # initialize results
     results = {}
@@ -1371,6 +1419,8 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
 
     # load model
     model = load_model(bm.path_to_model, custom_objects=custom_objects)
+    if backend_name == 'torch':
+        model.to(device)
 
     # check if data can be loaded blockwise to save host memory
     load_blockwise = False

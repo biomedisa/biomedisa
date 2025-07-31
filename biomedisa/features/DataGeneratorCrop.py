@@ -27,7 +27,7 @@
 ##########################################################################
 
 import numpy as np
-import tf_keras
+import keras
 from scipy.ndimage import gaussian_filter, map_coordinates, rotate
 import random
 
@@ -41,13 +41,12 @@ def elastic_transform(image, alpha=100, sigma=20):
         image[:,:,k] = map_coordinates(image[:,:,k], indices, order=0, mode='reflect').reshape(ysh, xsh)
     return image
 
-class DataGeneratorCrop(tf_keras.utils.Sequence):
+class DataGeneratorCrop(keras.utils.PyDataset):
     'Generates data for Keras'
     def __init__(self, img, label, list_IDs_fg, list_IDs_bg, batch_size=32,
             dim=(32,32,32), n_channels=3, n_classes=2, shuffle=True,
-            augment=(False,False,False,0), train=True):
-
-        'Initialization'
+            augment=(False,False,False,0), train=True, **kwargs):
+        super().__init__(**kwargs)
         self.dim = dim
         self.list_IDs_fg = list_IDs_fg
         self.list_IDs_bg = list_IDs_bg
