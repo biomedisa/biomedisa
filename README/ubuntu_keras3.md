@@ -66,7 +66,7 @@ python3.10 -m pip install --pre torch torchvision torchaudio --index-url https:/
 ```
 python3.10 -m pip install keras keras-core
 ```
-If you use PyTorch, you need to change the backend entry in `~/.keras/keras.json`.
+If you use PyTorch, you need to change the backend entry in `~/.keras/keras.json` to `torch`.
 
 #### Verify that your GPUs are detected
 TensorFlow:
