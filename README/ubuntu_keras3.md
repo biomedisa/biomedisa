@@ -84,7 +84,7 @@ Download test files via command-line:
 wget -P ~/Downloads/ https://biomedisa.info/media/images/mouse_molar_tooth.tif
 wget -P ~/Downloads/ https://biomedisa.info/media/images/teeth.h5
 ```
-Inference:
+Biomedisa inference test:
 ```
 python3.10 -m biomedisa.deeplearning ~/Downloads/mouse_molar_tooth.tif ~/Downloads/teeth.h5 --extension='.nrrd'
 ```
