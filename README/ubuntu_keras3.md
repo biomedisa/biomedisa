@@ -47,12 +47,12 @@ python3.10 -m venv ~/biomedisa_env
 source ~/biomedisa_env/bin/activate
 ```
 
-#### Install Pip Packages
+#### Install Pip Dependencies
 ```
 python3.10 -m pip install -r ~/git/biomedisa/requirements_inter.txt
 ```
 
-#### Install PyTorch or TensorFlow
+#### Install TensorFlow or PyTorch
 TensorFlow (ROCm):
 ```
 python3.10 -m pip install tensorflow-rocm==2.16.2 -f https://repo.radeon.com/rocm/manylinux/rocm-rel-6.4.2/ --upgrade
@@ -66,6 +66,7 @@ python3.10 -m pip install --pre torch torchvision torchaudio --index-url https:/
 ```
 python3.10 -m pip install keras keras-core
 ```
+If you use PyTorch, you need to change the backend entry in `~/.keras/keras.json`.
 
 #### Verify that your GPUs are detected
 TensorFlow:
