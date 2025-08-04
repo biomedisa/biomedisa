@@ -1127,15 +1127,12 @@ def train_segmentation(bm):
 
     def setup_pytorch_devices(model):
         import torch
-        import torch.nn as nn
-        ngpus = torch.cuda.device_count()
+        ngpus = 1 if torch.cuda.is_available() else 0
         print(f'Using PyTorch backend with {ngpus} GPUs')
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         # Access underlying PyTorch model (depends on Keras version)
         # Sometimes: model._model or model.keras_model._model
         pt_model = getattr(model, "_model", model) # fallback to model if no _model attr
-        if ngpus > 1:
-            pt_model = nn.DataParallel(pt_model)
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         pt_model.to(device)
         return pt_model
 
@@ -1171,12 +1168,12 @@ def train_segmentation(bm):
         strategy = setup_tensorflow_strategy()
         with strategy.scope():
             model = build_model()
-            model.summary()
+            #model.summary()
             optimizer = build_optimizer()
             model.compile(loss=loss, optimizer=optimizer, metrics=metrics)
     elif backend_name == 'torch':
         model = build_model()
-        model.summary()
+        #model.summary()
         pt_model = setup_pytorch_devices(model)
         optimizer = build_optimizer()
         model.compile(loss=loss, optimizer=optimizer, metrics=metrics)
@@ -1418,7 +1415,7 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
         custom_objects=None
 
     # load model
-    model = load_model(bm.path_to_model, custom_objects=custom_objects)
+    model = load_model(bm.path_to_model, custom_objects=custom_objects, compile=False)
     if backend_name == 'torch':
         model.to(device)
 
