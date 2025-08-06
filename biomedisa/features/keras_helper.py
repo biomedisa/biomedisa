@@ -29,7 +29,7 @@
 import os
 if os.name == 'nt':
     os.environ['KERAS_BACKEND'] = 'torch'
-    os.environ['KMP_DUBLICATE_LIB_OK'] = 'TRUE'
+    os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 from keras.optimizers import SGD, Adam
 from keras.models import Model, load_model
 from keras.layers import (
