@@ -11,7 +11,7 @@
 #### Option 1: Install GPU Driver (NVIDIA, AMD, Intel)
 Use Windows Search: `Check for updates` and `View optional updates`  
 Windows automatically detects your GPU and installs the required drivers.  
-Alternatively, install them manually, e.g. Download and install [NVIDIA](https://www.nvidia.com/Download/Find.aspx?lang=en-us) driver.
+Alternatively, install them manually, e.g. Download and install [NVIDIA](https://www.nvidia.com/Download/Find.aspx?lang=en-us) driver.  
 Warning: Intel integrated GPUs (iGPUs) are not recommended, as they may produce incorrect results.
 
 #### Option 2: Install CPU Runtime for OpenCL
@@ -23,13 +23,13 @@ Download and install [Anaconda3](https://repo.anaconda.com/archive/).
 #### Install Biomedisa Environment
 Open Anaconda Prompt (e.g. Windows Search `Anaconda Prompt`). Download Biomedisa environment:
 ```
-curl https://raw.githubusercontent.com/biomedisa/biomedisa/refs/heads/master/conda_interpolation.yml --output conda_interpolation.yml
+curl https://raw.githubusercontent.com/biomedisa/biomedisa/refs/heads/master/biomedisa_env.yml --output biomedisa_env.yml
 ```
 Install Biomedisa environment:
 ```
 conda env create --file biomedisa_env.yml
 ```
-Note: If your computer didn't find `conda_interpolation.yml` the easiest way is to locate the file in your User directory and drag and drop it onto the Anaconda Prompt after typing `conda env create --file`.
+Note: If your computer didn't find `biomedisa_env.yml` the easiest way is to locate the file in your User directory and drag and drop it onto the Anaconda Prompt after typing `conda env create --file`.
 
 
 #### Download Test Files
