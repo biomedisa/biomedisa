@@ -245,14 +245,16 @@ def make_conv_block(nb_filters, input_tensor, block, dtype):
     x = make_stage(x, 2)
     return x
 
-def make_conv_block_resnet(nb_filters, input_tensor, block):
+def make_conv_block_resnet(nb_filters, input_tensor, block, dtype):
 
     # Residual/Skip connection
-    res = Conv3D(nb_filters, (1, 1, 1), padding='same', use_bias=False, name="Identity{}_1".format(block))(input_tensor)
+    res = Conv3D(nb_filters, (1, 1, 1), padding='same',
+        use_bias=False, name="Identity{}_1".format(block), dtype=dtype)(input_tensor)
 
     stage = 1
     name = 'conv_{}_{}'.format(block, stage)
-    fx = Conv3D(nb_filters, (3, 3, 3), activation='relu', padding='same', name=name, data_format="channels_last")(input_tensor)
+    fx = Conv3D(nb_filters, (3, 3, 3), activation='relu',
+        padding='same', name=name, data_format="channels_last", dtype=dtype)(input_tensor)
     name = 'batch_norm_{}_{}'.format(block, stage)
     try:
         fx = BatchNormalization(name=name, synchronized=True)(fx)
@@ -262,7 +264,7 @@ def make_conv_block_resnet(nb_filters, input_tensor, block):
 
     stage = 2
     name = 'conv_{}_{}'.format(block, stage)
-    fx = Conv3D(nb_filters, (3, 3, 3), padding='same', name=name, data_format="channels_last")(fx)
+    fx = Conv3D(nb_filters, (3, 3, 3), padding='same', name=name, data_format="channels_last", dtype=dtype)(fx)
     name = 'batch_norm_{}_{}'.format(block, stage)
     try:
         fx = BatchNormalization(name=name, synchronized=True)(fx)
@@ -299,12 +301,12 @@ def make_unet(bm, input_shape, nb_labels):
     for f in filters:
         if i==1:
             if bm.resnet:
-                conv = make_conv_block_resnet(f, inputs, i)
+                conv = make_conv_block_resnet(f, inputs, i, dtype)
             else:
                 conv = make_conv_block(f, inputs, i, dtype)
         else:
             if bm.resnet:
-                conv = make_conv_block_resnet(f, pool, i)
+                conv = make_conv_block_resnet(f, pool, i, dtype)
             else:
                 conv = make_conv_block(f, pool, i, dtype)
         pool = MaxPooling3D(pool_size=(2, 2, 2))(conv)
@@ -313,7 +315,7 @@ def make_unet(bm, input_shape, nb_labels):
 
     # latent space
     if bm.resnet:
-        conv = make_conv_block_resnet(latent_space_size, pool, i)
+        conv = make_conv_block_resnet(latent_space_size, pool, i, dtype)
     else:
         conv = make_conv_block(latent_space_size, pool, i, dtype)
     i += 1
@@ -322,7 +324,7 @@ def make_unet(bm, input_shape, nb_labels):
     for k, f in enumerate(filters[::-1]):
         up = Concatenate()([UpSampling3D(size=(2, 2, 2))(conv), convs[-(k+1)]])
         if bm.resnet:
-            conv = make_conv_block_resnet(f, up, i)
+            conv = make_conv_block_resnet(f, up, i, dtype)
         else:
             conv = make_conv_block(f, up, i, dtype)
         i += 1
