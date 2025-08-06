@@ -64,7 +64,7 @@ python3.10 -m pip install --pre torch torchvision torchaudio --index-url https:/
 
 #### Install Keras
 ```
-python3.10 -m pip install keras keras-core
+python3.10 -m pip install keras
 ```
 If you use PyTorch, you need to change the backend entry in `~/.keras/keras.json` to `torch`.
 
