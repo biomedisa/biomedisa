@@ -26,7 +26,7 @@ curl https://raw.githubusercontent.com/biomedisa/biomedisa/refs/heads/master/con
 ```
 Install Biomedisa environment:
 ```
-conda env create --file conda_interpolation.yml
+conda env create --file biomedisa_env.yml
 ```
 Note: If your computer didn't find `conda_interpolation.yml` the easiest way is to locate the file in your User directory and drag and drop it onto the Anaconda Prompt after typing `conda env create --file`.
 
