@@ -28,12 +28,12 @@
 
 from biomedisa.features.biomedisa_helper import welford_mean_std
 import numpy as np
-import tensorflow as tf
+import keras
 
-class PredictDataGenerator(tf.keras.utils.Sequence):
+class PredictDataGenerator(keras.utils.PyDataset):
     def __init__(self, img, list_IDs, batch_size=32, dim=(32,32,32),
-                 dim_img=(32,32,32), n_channels=1, patch_normalization=False):
-        'Initialization'
+                 dim_img=(32,32,32), n_channels=1, patch_normalization=False, **kwargs):
+        super().__init__(**kwargs)
         self.dim = dim
         self.dim_img = dim_img
         self.list_IDs = list_IDs

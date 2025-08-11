@@ -28,7 +28,7 @@
 
 from biomedisa.features.biomedisa_helper import welford_mean_std
 import numpy as np
-import tensorflow as tf
+import keras
 import numba
 import random
 
@@ -174,12 +174,12 @@ def rotate_label_patch_3d(src,trg,k,l,m,rm_xx,rm_xy,rm_xz,rm_yx,rm_yy,rm_yz,rm_z
                 trg[z-k,y-l,x-m] = src[idx_src_z,idx_src_y,idx_src_x]
     return trg
 
-class DataGenerator(tf.keras.utils.Sequence):
+class DataGenerator(keras.utils.PyDataset):
     'Generates data for Keras'
     def __init__(self, img, label, list_IDs_fg, list_IDs_bg, train, shuffle=True, batch_size=32, dim=(32,32,32),
                  dim_img=(32,32,32), n_classes=10, n_channels=1, augment=(False,False,False,False,0,False),
-                 patch_normalization=False, separation=False, ignore_mask=False, downsample=False):
-        'Initialization'
+                 patch_normalization=False, separation=False, ignore_mask=False, downsample=False, **kwargs):
+        super().__init__(**kwargs)
         self.dim = dim
         self.dim_img = dim_img
         self.list_IDs_fg = list_IDs_fg
@@ -372,5 +372,5 @@ class DataGenerator(tf.keras.utils.Sequence):
         if self.ignore_mask:
             return X, y
         else:
-            return X, tf.keras.utils.to_categorical(y, num_classes=self.n_classes)
+            return X, keras.utils.to_categorical(y, num_classes=self.n_classes)
 
