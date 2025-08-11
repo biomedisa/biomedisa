@@ -31,7 +31,7 @@ conda env create --file biomedisa_env.yml
 ```
 Note: If your computer didn't find `biomedisa_env.yml` the easiest way is to locate the file in your User directory and drag and drop it onto the Anaconda Prompt after typing `conda env create --file`.
 
-#### Install Deep Learning (optional, NVIDIA only)
+#### Optional: Install Deep Learning (NVIDIA GPUs only)
 Activate conda environment:
 ```
 conda activate biomedisa
