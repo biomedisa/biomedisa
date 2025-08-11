@@ -1,4 +1,4 @@
-# Windows + Smart Interpolation
+# Windows + Smart Interpolation + Deep Learning
 
 - [Install GPU Driver](#install-nvidia-driver)
 - [Install Anaconda3](#install-anaconda3)
@@ -31,6 +31,23 @@ conda env create --file biomedisa_env.yml
 ```
 Note: If your computer didn't find `biomedisa_env.yml` the easiest way is to locate the file in your User directory and drag and drop it onto the Anaconda Prompt after typing `conda env create --file`.
 
+#### Install Deep Learning (optional, NVIDIA only)
+Activate conda environment:
+```
+conda activate biomedisa
+```
+Install Biomedisa prerelease:
+```
+python -m pip install --pre -U biomedisa
+```
+Install PyTorch:
+```
+python -m pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu129
+```
+Install Keras 3:
+```
+conda install conda-forge::keras
+```
 
 #### Download Test Files
 Download test files from [Gallery](https://biomedisa.info/gallery/) or via command-line:
