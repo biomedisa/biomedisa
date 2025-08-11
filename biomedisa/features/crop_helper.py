@@ -30,15 +30,14 @@ import os
 from biomedisa.features.keras_helper import read_img_list
 from biomedisa.features.biomedisa_helper import (img_resize,
     load_data, save_data, set_labels_to_zero, welford_mean_std)
-from tensorflow.python.framework.errors_impl import ResourceExhaustedError
-from tensorflow.keras.applications import DenseNet121, densenet
-from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.models import Model, load_model
-from tensorflow.keras.layers import Input, GlobalAveragePooling2D, Dropout, Dense
-from tensorflow.keras.callbacks import Callback, ModelCheckpoint
+from keras.applications import DenseNet121
+from keras.optimizers import Adam
+from keras.models import Model, load_model
+from keras.losses import BinaryCrossentropy
+from keras.layers import Input, GlobalAveragePooling2D, Dropout, Dense
+from keras.callbacks import Callback, ModelCheckpoint
 from biomedisa.features.DataGeneratorCrop import DataGeneratorCrop
 from biomedisa.features.PredictDataGeneratorCrop import PredictDataGeneratorCrop
-import tensorflow as tf
 import numpy as np
 from glob import glob
 import h5py
@@ -81,13 +80,12 @@ def make_densenet(inputshape):
     base_model = DenseNet121(
         input_tensor=Input(inputshape),
         include_top=False,)
-    
-    base_model.trainable= False
-    
-    inputs = Input(inputshape)
-    x = densenet.preprocess_input(inputs)
 
-    x = base_model(x, training=False)
+    base_model.trainable= False
+
+    inputs = Input(inputshape)
+
+    x = base_model(inputs, training=False)
     x = GlobalAveragePooling2D()(x)
     x = Dropout(0.3)(x)
 
@@ -318,7 +316,8 @@ def train_cropping(img, label, path_to_model, epochs, batch_size,
     else:
         validation_generator = None
 
-    # create a MirroredStrategy
+    # create a MirroredStrategy #TODO: support torch
+    import tensorflow as tf
     cdo = tf.distribute.ReductionToOneDevice()
     strategy = tf.distribute.MirroredStrategy(cross_device_ops=cdo)
     print('Number of devices: {}'.format(strategy.num_replicas_in_sync))
@@ -328,12 +327,12 @@ def train_cropping(img, label, path_to_model, epochs, batch_size,
         save_best_only = True
     else:
         save_best_only = False
-    checkpoint_cb = tf.keras.callbacks.ModelCheckpoint(str(path_to_model), save_best_only=save_best_only)
+    checkpoint_cb = ModelCheckpoint(str(path_to_model), save_best_only=save_best_only)
 
     # compile model
     with strategy.scope():
         model = make_densenet(input_shape)
-        model.compile(loss= tf.keras.losses.BinaryCrossentropy(),
+        model.compile(loss= BinaryCrossentropy(),
                       optimizer= Adam(learning_rate=0.001),
                       metrics=['accuracy'])
     # train model
@@ -350,7 +349,7 @@ def train_cropping(img, label, path_to_model, epochs, batch_size,
     with strategy.scope():
         model = load_model(str(path_to_model))
         model.trainable = True
-        model.compile(loss= tf.keras.losses.BinaryCrossentropy(),
+        model.compile(loss= BinaryCrossentropy(),
                       optimizer= Adam(learning_rate=1e-5),
                       metrics=['accuracy'])
 

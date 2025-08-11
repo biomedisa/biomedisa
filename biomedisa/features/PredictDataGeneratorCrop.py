@@ -1,6 +1,6 @@
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2019-2024 Philipp Lösel. All rights reserved.         ##
+##  Copyright (c) 2019-2025 Philipp Lösel. All rights reserved.         ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -27,12 +27,13 @@
 ##########################################################################
 
 import numpy as np
-import tensorflow as tf
+from keras.utils import PyDataset
+from keras.applications.densenet import preprocess_input
 
-class PredictDataGeneratorCrop(tf.keras.utils.Sequence):
+class PredictDataGeneratorCrop(PyDataset):
     def __init__(self, img, list_IDs, batch_size=32, dim=(32,32,32),
-                 dim_img=(32,32,32), n_channels=3):
-        'Initialization'
+                 dim_img=(32,32,32), n_channels=3, **kwargs):
+        super().__init__(**kwargs)
         self.dim = dim
         self.dim_img = dim_img
         self.list_IDs = list_IDs
@@ -55,7 +56,7 @@ class PredictDataGeneratorCrop(tf.keras.utils.Sequence):
 
         # Generate data
         X = self.__data_generation(list_IDs_temp)
-
+        X = preprocess_input(X)
         return X
 
     def __data_generation(self, list_IDs_temp):
