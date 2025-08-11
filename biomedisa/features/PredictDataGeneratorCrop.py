@@ -27,9 +27,10 @@
 ##########################################################################
 
 import numpy as np
-import keras
+from keras.utils import PyDataset
+from keras.applications.densenet import preprocess_input
 
-class PredictDataGeneratorCrop(keras.utils.PyDataset):
+class PredictDataGeneratorCrop(PyDataset):
     def __init__(self, img, list_IDs, batch_size=32, dim=(32,32,32),
                  dim_img=(32,32,32), n_channels=3, **kwargs):
         super().__init__(**kwargs)
@@ -55,7 +56,7 @@ class PredictDataGeneratorCrop(keras.utils.PyDataset):
 
         # Generate data
         X = self.__data_generation(list_IDs_temp)
-
+        X = preprocess_input(X)
         return X
 
     def __data_generation(self, list_IDs_temp):
