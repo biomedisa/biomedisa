@@ -30,7 +30,7 @@ import os
 from biomedisa.features.keras_helper import read_img_list
 from biomedisa.features.biomedisa_helper import (img_resize,
     load_data, save_data, set_labels_to_zero, welford_mean_std)
-from keras.applications import DenseNet121, densenet
+from keras.applications import DenseNet121
 from keras.optimizers import Adam
 from keras.models import Model, load_model
 from keras.losses import BinaryCrossentropy
@@ -80,13 +80,12 @@ def make_densenet(inputshape):
     base_model = DenseNet121(
         input_tensor=Input(inputshape),
         include_top=False,)
-    
-    base_model.trainable= False
-    
-    inputs = Input(inputshape)
-    x = densenet.preprocess_input(inputs)
 
-    x = base_model(x, training=False)
+    base_model.trainable= False
+
+    inputs = Input(inputshape)
+
+    x = base_model(inputs, training=False)
     x = GlobalAveragePooling2D()(x)
     x = Dropout(0.3)(x)
 

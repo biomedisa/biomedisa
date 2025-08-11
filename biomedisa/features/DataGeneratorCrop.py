@@ -27,8 +27,9 @@
 ##########################################################################
 
 import numpy as np
-import keras
 from scipy.ndimage import gaussian_filter, map_coordinates, rotate
+from keras.utils import PyDataset
+from keras.applications.densenet import preprocess_input
 import random
 
 def elastic_transform(image, alpha=100, sigma=20):
@@ -41,7 +42,7 @@ def elastic_transform(image, alpha=100, sigma=20):
         image[:,:,k] = map_coordinates(image[:,:,k], indices, order=0, mode='reflect').reshape(ysh, xsh)
     return image
 
-class DataGeneratorCrop(keras.utils.PyDataset):
+class DataGeneratorCrop(PyDataset):
     'Generates data for Keras'
     def __init__(self, img, label, list_IDs_fg, list_IDs_bg, batch_size=32,
             dim=(32,32,32), n_channels=3, n_classes=2, shuffle=True,
@@ -98,7 +99,7 @@ class DataGeneratorCrop(keras.utils.PyDataset):
 
         # Generate data
         X, y = self.__data_generation(list_IDs_temp)
-
+        X = preprocess_input(X)
         return X, y
 
     def on_epoch_end(self):
