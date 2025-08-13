@@ -262,7 +262,9 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
             bm.tarfile = False
             if bm.path_to_images is not None and (os.path.splitext(bm.path_to_images)[1]=='.tar' or bm.path_to_images[-7:]=='.tar.gz'):
                 bm.tarfile = True
-                path_to_result = os.path.dirname(bm.path_to_images) + '/final.'+os.path.basename(bm.path_to_images)
+                dirname = os.path.dirname(bm.path_to_images)
+                basename = os.path.basename(bm.path_to_images)
+                path_to_result = os.path.join(dirname, 'final.' + basename) if dirname else 'final.' + basename
                 if path_to_result[-3:]=='.gz':
                     path_to_result = path_to_result[:-3]
                 if bm.django_env and not bm.remote:
@@ -295,17 +297,18 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
 
                 # create path_to_final
                 if bm.path_to_image:
-                    filename = os.path.basename(bm.path_to_image)
-                    filename = os.path.splitext(filename)[0]
-                    if filename[-4:] == '.nii':
-                        filename = filename[:-4]
-                    bm.path_to_cropped_image = os.path.dirname(bm.path_to_image) + '/' + filename + '.cropped.tif'
+                    dirname = os.path.dirname(bm.path_to_image)
+                    basename = os.path.basename(bm.path_to_image)
+                    basename = os.path.splitext(basename)[0]
+                    if basename[-4:] == '.nii':
+                        basename = basename[:-4]
+                    bm.path_to_cropped_image = os.path.join(dirname, basename+'.cropped.tif') if dirname else basename+'.cropped.tif'
                     if bm.django_env and not bm.remote and not bm.tarfile:
                         bm.path_to_cropped_image = unique_file_path(bm.path_to_cropped_image)
-                    filename = 'final.' + filename
+                    basename = 'final.' + basename
                     if bm.refinement:
-                        filename += '.refined'
-                    bm.path_to_final = os.path.dirname(bm.path_to_image) + '/' + filename + bm.extension
+                        basename += '.refined'
+                    bm.path_to_final = os.path.join(dirname, basename + bm.extension) if dirname else basename + bm.extension
                     if bm.django_env and not bm.remote and not bm.tarfile:
                         bm.path_to_final = unique_file_path(bm.path_to_final)
 
