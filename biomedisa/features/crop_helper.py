@@ -30,12 +30,12 @@ import os
 from biomedisa.features.keras_helper import read_img_list
 from biomedisa.features.biomedisa_helper import (img_resize,
     load_data, save_data, set_labels_to_zero, welford_mean_std)
-from keras.applications import DenseNet121
-from keras.optimizers import Adam
-from keras.models import Model, load_model
-from keras.losses import BinaryCrossentropy
-from keras.layers import Input, GlobalAveragePooling2D, Dropout, Dense
-from keras.callbacks import Callback, ModelCheckpoint
+from tf_keras.applications import DenseNet121
+from tf_keras.optimizers import Adam
+from tf_keras.models import Model, load_model
+from tf_keras.losses import BinaryCrossentropy
+from tf_keras.layers import Input, GlobalAveragePooling2D, Dropout, Dense
+from tf_keras.callbacks import ModelCheckpoint
 from biomedisa.features.DataGeneratorCrop import DataGeneratorCrop
 from biomedisa.features.PredictDataGeneratorCrop import PredictDataGeneratorCrop
 import numpy as np
@@ -284,8 +284,8 @@ def train_cropping(img, label, path_to_model, epochs, batch_size,
             tmp_fg.extend(list_IDs_val_fg)
             tmp_fg = tmp_fg[:max_IDs]
         list_IDs_val_fg = tmp_fg[:]
-        tmp_bg = []
 
+        tmp_bg = []
         while len(tmp_bg) < max_IDs:
             tmp_bg.extend(list_IDs_val_bg)
             tmp_bg = tmp_bg[:max_IDs]
@@ -324,10 +324,10 @@ def train_cropping(img, label, path_to_model, epochs, batch_size,
 
     # create callback
     if np.any(img_val) or validation_split:
-        save_best_only = True
+        checkpoint_cb = ModelCheckpoint(str(path_to_model), save_best_only=True,
+            save_weights_only=False, monitor='val_accuracy', mode='max')
     else:
-        save_best_only = False
-    checkpoint_cb = ModelCheckpoint(str(path_to_model), save_best_only=save_best_only)
+        checkpoint_cb = ModelCheckpoint(str(path_to_model), save_best_only=False)
 
     # compile model
     with strategy.scope():
@@ -345,7 +345,7 @@ def train_cropping(img, label, path_to_model, epochs, batch_size,
     if np.any(img_val) or validation_split:
         save_history(history.history, path_to_model.replace(".h5","_cropping.h5"))
 
-    # compile model for finetunning
+    # compile model for finetuning
     with strategy.scope():
         model = load_model(str(path_to_model))
         model.trainable = True
