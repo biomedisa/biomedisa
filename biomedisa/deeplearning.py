@@ -193,8 +193,7 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
         # get number of GPUs
         if backend() == 'tensorflow':
             import tensorflow as tf
-            strategy = tf.distribute.MirroredStrategy()
-            ngpus = int(strategy.num_replicas_in_sync)
+            ngpus = len(tf.config.list_physical_devices('GPU'))
         elif backend() == 'torch':
             import torch
             ngpus = int(torch.cuda.device_count())
