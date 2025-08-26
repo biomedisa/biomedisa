@@ -557,7 +557,7 @@ if __name__ == "__main__":
              formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     # arguments
-    parser.add_argument('-m','--model', type=str,
+    parser.add_argument('-m','--model', type=str, default='implicit',
                         help='Model used (sam, explicit, implicit)')
     parser.add_argument('-pr','--project', type=str,
                         help='Project name')
@@ -707,6 +707,8 @@ if __name__ == "__main__":
 
                 # get previous data
                 _, old_path = get_data_size(BASE+f'/{bm.project}/step={bm.step-1}/corr.{dataset}.nrrd')
+                if not old_path:
+                    raise RuntimeError("No previous result available.")
                 matched,_ = load_data(old_path)
                 mask = imread(BASE +'/'+ os.path.basename(old_path).replace('corr.','mask.').replace('.nrrd','.tif'))
 
@@ -781,7 +783,7 @@ if __name__ == "__main__":
             if not os.path.exists(path_to_boundaries):
                 print(os.path.basename(path_to_img))
                 if bm.model == 'sam':
-                    from sam_helper import sam_boundaries
+                    from biomedisa.features.matching.sam_helper import sam_boundaries
                     sam_boundaries(volume_path=path_to_img, boundaries_path=path_to_boundaries,
                         sam_checkpoint=bm.model_path, mask_path=path_to_mask)
                 elif bm.model == 'explicit':
@@ -811,7 +813,7 @@ if __name__ == "__main__":
             # path to data
             path_to_boundaries = f'{path_to_dir}/final.{dataset}.tif'
             path_to_result = f'{path_to_dir}/result.{dataset}.nrrd'
-            if scale_labels:
+            if bm.scale_labels:
                 path_to_result = path_to_result.replace('.nrrd','_half.nrrd')
 
             if not os.path.exists(path_to_result):
@@ -835,7 +837,7 @@ if __name__ == "__main__":
                     print('Data loaded:', time.time() - TIC)
 
                     # downsize mask
-                    if scale_labels:
+                    if bm.scale_labels:
                         zsh, ysh, xsh = mask.shape
                         zoom_factors = [t / s for t, s in zip((zsh//2,ysh//2,xsh//2), mask.shape)]
                         mask = ndimage.zoom(mask, zoom_factors, order=0)
@@ -850,12 +852,12 @@ if __name__ == "__main__":
                 # load pre-calculated labels
                 else:
                     labeled_array,_ = load_data(BASE+'/'+bm.labelDatasets[sample_i])
-                    if scale_labels:
+                    if bm.scale_labels:
                         zsh, ysh, xsh = TiffInfo(BASE+f'/{dataset}.tif').shape
                         zoom_factors = [t / s for t, s in zip((zsh//2,ysh//2,xsh//2), labeled_array.shape)]
 
                 # downsize labels
-                if scale_labels:
+                if bm.scale_labels:
                     #labeled_array = ndimage.zoom(labeled_array, 0.5, order=0)
                     labeled_array = ndimage.zoom(labeled_array, zoom_factors, order=0)
                 print(labeled_array.shape)
@@ -1519,6 +1521,7 @@ if __name__ == "__main__":
         nprocs = comm.Get_size()
 
         # load matching particles
+        dataset1, dataset2, dataset3 = bm.datasets
         if rank==0:
             for dataset in bm.datasets:
                 convert_to_zarr(f'{path_to_dir}/match.{dataset}.nrrd')
@@ -1809,6 +1812,7 @@ if __name__ == "__main__":
     #=======================================================================================
     if bm.matched_area:
         # dataset (1: 1,2,23; 250: 2,3,31; 63: 1,2,23)
+        dataset1, dataset2, dataset3 = bm.datasets
         dataset_a = dataset1
         dataset_b = dataset2
         additional = '23'
@@ -1866,28 +1870,6 @@ if __name__ == "__main__":
         #print('Missing particles:', int(round((total_area - matched_area) / np.mean(ln[1:]))))
 
     #=======================================================================================
-    # fill corrected particles
-    #=======================================================================================
-    if bm.fill_labels:
-        for sample, dataset in enumerate(bm.datasets):
-            labels = np.load(f'{path_to_meta}/labels{sample+1}.npy')
-            bounding_boxes = np.load(f'{path_to_meta}/bounding_boxes{sample+1}.npy')
-            result,_=load_data(f'{path_to_dir}/corr.{dataset}.nrrd')
-            for label in labels:
-                argmin_z, argmax_z, argmin_y, argmax_y, argmin_x, argmax_x = bounding_boxes[label-1]
-                p = np.zeros((argmax_z-argmin_z,argmax_y-argmin_y,argmax_x-argmin_x), dtype=np.uint8)
-                p[result[argmin_z:argmax_z, argmin_y:argmax_y, argmin_x:argmax_x]==label]=1
-                p = fill_fast(p)
-                result[argmin_z:argmax_z, argmin_y:argmax_y, argmin_x:argmax_x] = (1-p)*result[argmin_z:argmax_z, argmin_y:argmax_y, argmin_x:argmax_x] + p*label
-            save_data(f'{path_to_dir}/filled.{dataset}.nrrd', result)
-
-            # scale data
-            '''img = imread(BASE+f'/{dataset}.tif'.replace('_small.tif', '_half.tif'))
-            zoom_factors = [t / s for t, s in zip(img.shape, result.shape)]
-            result = ndimage.zoom(result, zoom_factors, order=0)
-            save_data(f'{path_to_dir}/corr.{dataset}.nrrd'.replace('_small.nrrd', '_half.nrrd'), result)'''
-
-    #=======================================================================================
     # train
     #=======================================================================================
     if bm.train:
@@ -1901,16 +1883,16 @@ if __name__ == "__main__":
             batch_size = 48
 
         # load image data
-        images = imread(BASE+f'Quartz/training_img.tif')
-        val_img = imread(BASE+f'Quartz/validation_img.tif')
+        images = imread(BASE+'/training_img.tif')
+        val_img = imread(BASE+'/validation_img.tif')
 
         if bm.model == 'explicit':
             # load labels (explicit)
-            labels = np.load(BASE+f'Quartz/training_labels_explicit.npy')
-            val_label = np.load(BASE+f'Quartz/validation_labels_explicit.npy')
+            labels = np.load(BASE+'/training_labels_explicit.npy')
+            val_label = np.load(BASE+'/validation_labels_explicit.npy')
 
             # model path
-            path_to_model = BASE+f'/models/model_explicit.h5'
+            path_to_model = BASE+'/model_explicit.h5'
             pretrained_model = None
 
             # train explicit boundary prediction
@@ -1925,11 +1907,11 @@ if __name__ == "__main__":
 
         if bm.model == 'implicit':
             # load labels (implicit)
-            labels,_ = load_data(BASE+f'Quartz/training_labels_implicit.nrrd')
-            val_label,_ = load_data(BASE+f'Quartz/validation_labels_implicit.nrrd')
+            labels,_ = load_data(BASE+'/training_labels_implicit.nrrd')
+            val_label,_ = load_data(BASE+'/validation_labels_implicit.nrrd')
 
             # model path
-            path_to_model = BASE+f'/models/model_implicit.h5'
+            path_to_model = BASE+'/model_implicit.h5'
             pretrained_model = None
 
             # train network

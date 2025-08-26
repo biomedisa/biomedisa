@@ -106,7 +106,7 @@ def rotation_dice(a, b, best_alpha, best_beta, best_gamma, rank, gpu=True):
         cuda.init()
         dev = cuda.Device(rank)
         ctx = dev.make_context()
-        from find_rotation_gpu import best_rotation_gpu
+        from biomedisa.features.matching.find_rotation_gpu import best_rotation_gpu
         best_match, best_alpha, best_beta, best_gamma = best_rotation_gpu(
             verts1, verts2, a, b, centroid1, centroid2)
         ctx.pop()
@@ -117,7 +117,7 @@ def rotation_dice(a, b, best_alpha, best_beta, best_gamma, rank, gpu=True):
         cuda.init()
         dev = cuda.Device(rank)
         ctx = dev.make_context()
-        from refine_rotation_gpu import best_rotation_gpu
+        from biomedisa.features.matching.refine_rotation_gpu import best_rotation_gpu
         best_match, best_alpha, best_beta, best_gamma = best_rotation_gpu(
             verts1, verts2, a, b, centroid1, centroid2, best_alpha, best_beta, best_gamma)
         ctx.pop()
@@ -398,7 +398,7 @@ def correct_match(p1, p2, m1, m2, l1, l2, alpha, beta, gamma, rank=0, gpu=True):
         cuda.init()
         dev = cuda.Device(rank)
         ctx = dev.make_context()
-        from correct_particle_gpu import correct_particle
+        from biomedisa.features.matching.correct_particle_gpu import correct_particle
         p1, p2 = correct_particle(verts1, verts2, centroid1, centroid2, alpha, beta, gamma, p1, p2, m1, m2, l1, l2)
         ctx.pop()
         ctx.detach()
@@ -440,7 +440,7 @@ def correct_match_majority(p1, p2, m1, alpha, beta, gamma, rank=0, inverse=False
     cuda.init()
     dev = cuda.Device(rank)
     ctx = dev.make_context()
-    from correct_particle_majority_gpu import correct_particle
+    from biomedisa.features.matching.correct_particle_majority_gpu import correct_particle
     p12 = correct_particle(verts1, centroid1, centroid2, alpha, beta, gamma, p1, p2, inverse)
     ctx.pop()
     ctx.detach()
@@ -450,7 +450,7 @@ def correct_match_majority(p1, p2, m1, alpha, beta, gamma, rank=0, inverse=False
 
 
 def register_particles(img1_path, img2_path, result1_path, result2_path, mappings_path):
-    from match_particles import reduce_blocksize_fast, fill_fast
+    from biomedisa.features.matching.match_particles import reduce_blocksize_fast, fill_fast
     import xarray as xr
     # load data
     img1,_=load_data(img1_path)
@@ -538,7 +538,7 @@ def register_particles(img1_path, img2_path, result1_path, result2_path, mapping
 
 
 if __name__ == "__main__":
-    from match_particles import reduce_blocksize_fast, fill_fast
+    from biomedisa.features.matching.match_particles import reduce_blocksize_fast, fill_fast
     # values to match
     result_val1 = 461
     result_val2 = 426
