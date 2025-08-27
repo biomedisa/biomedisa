@@ -30,10 +30,10 @@ mkdir git
 cd git
 git clone https://github.com/biomedisa/biomedisa.git
 ```
-Use `keras3` branch:
+Use `develop` branch:
 ```
 cd ~/git/biomedisa
-git checkout keras3
+git checkout develop
 ```
 Add the Biomedisa base directory (e.g., `${HOME}/git/biomedisa`) to the PYTHONPATH variable:
 ```
@@ -65,6 +65,7 @@ python3.10 -m pip install --pre torch torchvision torchaudio --index-url https:/
 #### Install Keras
 ```
 python3.10 -m pip install keras
+python3.10 -m pip install tf-keras --no-deps
 ```
 If you use PyTorch, you need to change the backend entry in `~/.keras/keras.json` to `torch`.
 
