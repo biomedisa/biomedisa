@@ -57,6 +57,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'biomedisa_app.context_processors.selected_settings',
+                'django.template.context_processors.media',
             ],
         },
     },
