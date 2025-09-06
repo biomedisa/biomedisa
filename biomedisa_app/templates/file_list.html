@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+
+{% block menubar %}
+{% include 'menu_bar.html' with activate="gallery" user=user %}
+{% endblock %}
+
+{% block content %}
+<style>
+    table { border-collapse: collapse; width: 90%; }
+    th, td { padding: 1px; text-align: left; }
+</style>
+
+<div class="content">
+  <div class="content_resize">
+
+    <div class="mainbar">
+      {% if msg %}
+      <div class="article">
+      <h2><span>{{msg}}</span></h2>
+      <div class="post_content">
+        <p style="line-height: 175%">
+        {% if msg %}  {{sub_msg}}<br/> {% endif %}
+        </p>
+      </div>
+      <div class="clr"></div>
+      </div>
+      {% endif %}
+
+      <div class="article">
+        <h2><span>Quartz Particles</span></h2>
+        <div class="post_content">
+
+        <table>
+            <tr>
+                <th>Filename</th>
+                <th>Size (MB)</th>
+                <th>Last Modified</th>
+            </tr>
+            {% for f in files %}
+            <tr>
+                <td><a href="{{ MEDIA_URL }}Quartz/{{ f.name }}">{{ f.name }}</a></td>
+                <td>{{ f.size }}</td>
+                <td>{{ f.modified|date:"Y-m-d H:i" }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+
+        </div>
+        <div class="clr"></div>
+      </div>
+
+    </div>
+
+    {% block sidebar %}
+    {% include 'side_bar.html' %}
+    {% endblock %}
+    <div class="clr"></div>
+  </div>
+</div>
+{% endblock %}
+
