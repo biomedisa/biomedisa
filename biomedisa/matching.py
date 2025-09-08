@@ -228,7 +228,8 @@ def get_gpu_count():
         gpu_list = result.strip().split('\n')
         return len(gpu_list)
     except:
-        return None
+        print('Warning: No NVIDIA GPU detected. Defaulting to 1 device.')
+        return 1
 
 @numba.jit(nopython=True)
 def nearest_neighbour(labeled_array, mask, nearest_indices):

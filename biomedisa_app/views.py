@@ -2004,7 +2004,7 @@ def gallery(request):
 def file_list(request):
     folder = os.path.join(MEDIA_ROOT, "Quartz")
     files = []
-    for filename in os.listdir(folder):
+    for filename in sorted(os.listdir(folder)):
         filepath = os.path.join(folder, filename)
         if os.path.isfile(filepath):
             stat = os.stat(filepath)
