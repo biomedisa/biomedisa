@@ -52,8 +52,6 @@ if __name__ == "__main__":
                         help='Biomedisa version')
     parser.add_argument('-mp','--model_path', type=str, metavar='PATH', default=None,
                         help='Location of trained model for prediction')
-    parser.add_argument('-m','--model', type=str, default='implicit',
-                        help='Model used (sam, implicit)')
     parser.add_argument('-mps','--min_particle_size', type=int, default=1000,
                         help='Objects smaller than this value will be removed')
     bm = parser.parse_args()
@@ -74,7 +72,7 @@ if __name__ == "__main__":
     basename = os.path.basename(bm.img_path)
     boundaries_path = bm.img_path.replace(basename, 'final.' + basename)
 
-    if bm.model == 'sam':
+    if os.path.splitext(bm.model_path)[1] == '.pth':
         from biomedisa.features.matching.sam_helper import sam_boundaries
         sam_boundaries(volume_path=bm.img_path, boundaries_path=boundaries_path,
             sam_checkpoint=bm.model_path, mask_path=bm.mask_path)
