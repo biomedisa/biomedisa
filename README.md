@@ -147,9 +147,14 @@ wget https://biomedisa.info/media/images/large_particles_rescan_0_x4.tif
 wget https://biomedisa.info/media/images/mask.large_particles_rescan_0_x4.tif
 wget https://biomedisa.info/media/Quartz/model_svl_step=2.h5
 ```
-Instance segmentation of individual particles:
+Instance segmentation of individual particles using implicit boundary detection:
 ```
-python -m biomedisa.particles large_particles_rescan_0_x4.tif mask.large_particles_rescan_0_x4.tif -mp=model_svl_step=2.h5
+python -m biomedisa.particles large_particles_rescan_0_x4.tif mask.large_particles_rescan_0_x4.tif --model model_svl_step=2.h5
+```
+Using the SAM backend:
+```
+wget https://dl.fbaipublicfiles.com/segment_anything/sam_vit_l_0b3195.pth
+python -m biomedisa.particles large_particles_rescan_0_x4.tif mask.large_particles_rescan_0_x4.tif --model sam_vit_l_0b3195.pth
 ```
 
 ## Mesh Generator
