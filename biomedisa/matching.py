@@ -563,7 +563,7 @@ if __name__ == "__main__":
                         help='Project name')
     parser.add_argument('-d','--datasets', type=str, nargs='+',
                         help='List of dataset paths')
-    parser.add_argument('-ld','--labelDatasets', type=str, nargs='+',
+    parser.add_argument('-ld','--labelDatasets', type=str, nargs='+', default=None,
                         help='List of pre-calculated label dataset paths')
     parser.add_argument('--sample', type=int, default=None,
                         help='If not given, calculate all')
@@ -581,8 +581,6 @@ if __name__ == "__main__":
                         help='predict boundaries')
     parser.add_argument('-l','--label_particles', action='store_true', default=False,
                         help='label particles individually')
-    parser.add_argument('-nb','--no-boundaries', dest='boundaries', action='store_false',
-                        help='Disable boundary removal, e.g. for watershed')
     parser.add_argument('-dc','--distances', action='store_true', default=False,
                         help='distances to centroid')
     parser.add_argument('-mp2','--match_particles', action='store_true', default=False,
@@ -806,7 +804,7 @@ if __name__ == "__main__":
     #=======================================================================================
     # label particles
     #=======================================================================================
-    if bm.label_particles:
+    if bm.label_particles and not bm.labelDatasets:
         for sample_i, dataset in enumerate(bm.datasets):
           if bm.sample==None or bm.sample==sample_i:
 
@@ -818,61 +816,52 @@ if __name__ == "__main__":
 
             if not os.path.exists(path_to_result):
                 print(os.path.basename(path_to_result))
-                if bm.boundaries:
-                    # load mask
-                    TIC = time.time()
-                    if os.path.exists(f'{path_to_dir}/mask.{dataset}.tif'):
-                        path_to_mask = f'{path_to_dir}/mask.{dataset}.tif'
-                    else:
-                        path_to_mask = BASE+f'/mask.{dataset}.tif'
-                    print('Mask:', path_to_mask)
-                    mask = imread(path_to_mask).astype(np.uint8)
 
-                    # remove boundary
-                    labeled_array = mask.copy()
-                    edge = imread(path_to_boundaries)
-                    labeled_array[edge>0]=0
-                    print(edge.shape)
-                    del edge
-                    print('Data loaded:', time.time() - TIC)
-
-                    # downsize mask
-                    if bm.scale_labels:
-                        zsh, ysh, xsh = mask.shape
-                        zoom_factors = [t / s for t, s in zip((zsh//2,ysh//2,xsh//2), mask.shape)]
-                        mask = ndimage.zoom(mask, zoom_factors, order=0)
-
-                    # label particles individually
-                    TIC = time.time()
-                    s = [[[0,0,0], [0,1,0], [0,0,0]], [[0,1,0], [1,1,1], [0,1,0]], [[0,0,0], [0,1,0], [0,0,0]]]
-                    labeled_array = labeled_array.astype(np.uint32)
-                    ndimage.label(labeled_array, structure=s, output=labeled_array)
-                    print('Label particles:', time.time() - TIC)
-
-                # load pre-calculated labels
+                # load mask
+                TIC = time.time()
+                if os.path.exists(f'{path_to_dir}/mask.{dataset}.tif'):
+                    path_to_mask = f'{path_to_dir}/mask.{dataset}.tif'
                 else:
-                    labeled_array,_ = load_data(BASE+'/'+bm.labelDatasets[sample_i])
-                    if bm.scale_labels:
-                        zsh, ysh, xsh = TiffInfo(BASE+f'/{dataset}.tif').shape
-                        zoom_factors = [t / s for t, s in zip((zsh//2,ysh//2,xsh//2), labeled_array.shape)]
+                    path_to_mask = BASE+f'/mask.{dataset}.tif'
+                print('Mask:', path_to_mask)
+                mask = imread(path_to_mask).astype(np.uint8)
+
+                # remove boundary
+                labeled_array = mask.copy()
+                edge = imread(path_to_boundaries)
+                labeled_array[edge>0]=0
+                print(edge.shape)
+                del edge
+                print('Data loaded:', time.time() - TIC)
+
+                # downsize mask
+                if bm.scale_labels:
+                    zsh, ysh, xsh = mask.shape
+                    zoom_factors = [t / s for t, s in zip((zsh//2,ysh//2,xsh//2), mask.shape)]
+                    mask = ndimage.zoom(mask, zoom_factors, order=0)
+
+                # label particles individually
+                TIC = time.time()
+                s = [[[0,0,0], [0,1,0], [0,0,0]], [[0,1,0], [1,1,1], [0,1,0]], [[0,0,0], [0,1,0], [0,0,0]]]
+                labeled_array = labeled_array.astype(np.uint32)
+                ndimage.label(labeled_array, structure=s, output=labeled_array)
+                print('Label particles:', time.time() - TIC)
 
                 # downsize labels
                 if bm.scale_labels:
-                    #labeled_array = ndimage.zoom(labeled_array, 0.5, order=0)
                     labeled_array = ndimage.zoom(labeled_array, zoom_factors, order=0)
                 print(labeled_array.shape)
 
                 # fill segments up to mask
-                if bm.boundaries:
-                    TIC = time.time()
-                    nearest_indices = np.zeros(((3,) + labeled_array.shape), dtype=np.uint16)
-                    #ndimage.distance_transform_edt(labeled_array==0, return_distances=False, return_indices=True, indices=nearest_indices)
-                    distances = np.zeros(labeled_array.shape, dtype=np.float32)
-                    distances[labeled_array==0] = np.inf
-                    nearest_indices = init_indices(nearest_indices) # TODO: use global index and calculate z,y,x on the fly
-                    nearest_indices = nearest_neighbour_indices(distances, mask, nearest_indices)
-                    labeled_array = nearest_neighbour(labeled_array, mask, nearest_indices)
-                    print('Segments refilled:', time.time() - TIC)
+                TIC = time.time()
+                nearest_indices = np.zeros(((3,) + labeled_array.shape), dtype=np.uint16)
+                #ndimage.distance_transform_edt(labeled_array==0, return_distances=False, return_indices=True, indices=nearest_indices)
+                distances = np.zeros(labeled_array.shape, dtype=np.float32)
+                distances[labeled_array==0] = np.inf
+                nearest_indices = init_indices(nearest_indices) # TODO: use global index and calculate z,y,x on the fly
+                nearest_indices = nearest_neighbour_indices(distances, mask, nearest_indices)
+                labeled_array = nearest_neighbour(labeled_array, mask, nearest_indices)
+                print('Segments refilled:', time.time() - TIC)
 
                 # sort according to size, label in ascending order, remove small particles & save as 16bit if possible
                 TIC = time.time()
@@ -945,6 +934,80 @@ if __name__ == "__main__":
                     labeled_array[matched>0] = matched[matched>0]
                 else:
                     print('No previous result merged.')
+
+                # save results
+                save_data(path_to_result, labeled_array)
+                print('Saving done.')
+
+                # save labels, sizes and bounding boxes
+                bounding_boxes = get_bounding_boxes(labeled_array)
+                np.save(f'{path_to_meta}/bounding_boxes{sample_i+1}.npy', bounding_boxes)
+                lv, ln = unique(labeled_array, return_counts=True)
+                np.save(f'{path_to_meta}/labels{sample_i+1}.npy', lv[1:])
+                np.save( f'{path_to_meta}/sizes{sample_i+1}.npy', ln[1:])
+                print('Labels and sizes done.')
+
+    #=======================================================================================
+    # pre-calculated particles
+    #=======================================================================================
+    if bm.label_particles and bm.labelDatasets:
+        for sample_i, dataset in enumerate(bm.datasets):
+          if bm.sample==None or bm.sample==sample_i:
+
+            # path to data
+            path_to_boundaries = f'{path_to_dir}/final.{dataset}.tif'
+            path_to_result = f'{path_to_dir}/result.{dataset}.nrrd'
+            if bm.scale_labels:
+                path_to_result = path_to_result.replace('.nrrd','_half.nrrd')
+
+            if not os.path.exists(path_to_result):
+                print(os.path.basename(path_to_result))
+
+                # load pre-calculated labels
+                labeled_array,_ = load_data(bm.labelDatasets[sample_i])
+
+                # downsize labels
+                if bm.scale_labels:
+                    zsh, ysh, xsh = TiffInfo(BASE+f'/{dataset}.tif').shape
+                    zoom_factors = [t / s for t, s in zip((zsh//2,ysh//2,xsh//2), labeled_array.shape)]
+                    labeled_array = ndimage.zoom(labeled_array, zoom_factors, order=0)
+                    #tmp = np.zeros_like(labeled_array)
+                    #max_z, max_y, max_x = 0, 70, 112
+                    #tmp[:, max_y:, max_x:]=labeled_array[:,:-max_y,:-max_x]
+                    #labeled_array = tmp.copy()
+                print(labeled_array.shape)
+
+                # sort according to size, label in ascending order, remove small particles & save as 16bit if possible
+                TIC = time.time()
+                lv, ln = unique(labeled_array, return_counts=True)
+                t = []
+                for v,n in zip(lv, ln):
+                    t.append((n,v))
+                t = sorted(t, key=lambda x: x[0])[::-1]
+                ref = np.zeros(np.amax(lv)+1, dtype=np.int32)
+                for i,nv in enumerate(t):
+                    if nv[0]>=0:#min_particle_size:
+                        ref[int(nv[1])] = i
+                labeled_array = change_label_values(labeled_array, ref)
+                if np.amax(labeled_array) <= 65535:
+                    labeled_array = labeled_array.astype(np.uint16)
+                print('Sorting and removing of small particles done:', time.time() - TIC)
+
+                # fill inclusions and pores
+                TIC = time.time()
+                bounding_boxes = get_bounding_boxes(labeled_array)
+                lv, ln = unique(labeled_array, return_counts=True)
+                for value in lv[1:]:
+                    argmin_z, argmax_z, argmin_y, argmax_y, argmin_x, argmax_x = bounding_boxes[value-1]
+                    p1 = np.zeros((argmax_z-argmin_z,argmax_y-argmin_y,argmax_x-argmin_x), dtype=np.uint8)
+                    p1[labeled_array[argmin_z:argmax_z, argmin_y:argmax_y, argmin_x:argmax_x]==value]=1
+                    if np.any(p1):
+                        p1 = fill_fast(p1)
+                        labeled_array[argmin_z:argmax_z, argmin_y:argmax_y, argmin_x:argmax_x][p1==1] = value
+                print('Inclusions filled:', time.time() - TIC)
+
+                # label in ascending order TODO: merge with sorting above
+                labeled_array = label_in_ascending_order(labeled_array)
 
                 # save results
                 save_data(path_to_result, labeled_array)
@@ -1453,6 +1516,19 @@ if __name__ == "__main__":
             if np.sum(mappings[i])==0:
                 rows_to_delete.append(i)
         mappings = np.delete(mappings, rows_to_delete, axis=0)
+
+        # sort mappings according to number of detections (5,4,3,2)
+        m2 = np.zeros_like(mappings)
+        i = 0
+        for n in range(5,1,-1):
+            for k in range(mappings.shape[0]):
+                if np.sum(mappings[k]>0)==n:
+                    m2[i] = mappings[k]
+                    mappings[k]=0
+                    i += 1
+
+        # save mappings
+        mappings = m2.copy()
         np.save(f'{path_to_meta}/mappings.npy', mappings)
 
         # label matched particles
@@ -1555,10 +1631,14 @@ if __name__ == "__main__":
         mappings = np.load(f'{path_to_meta}/mappings.npy')
 
         # load previous mappings
+        m1_max = -1
         previous_maps_path = BASE+f'/{bm.project}/step={bm.step-1}/meta/mappings.npy'
         if os.path.exists(previous_maps_path):
             previous_mappings = np.load(previous_maps_path)
-            m1_max = np.amax(previous_mappings[:,0])
+            #m1_max = np.amax(previous_mappings[:,0])
+            for k in range(previous_mappings.shape[0]):
+                if np.sum(previous_mappings[k]>0)==5:
+                    m1_max = k
 
         # load rotations
         rotations12 = np.load(f'{path_to_meta}/rotations12.npy')
@@ -1575,18 +1655,41 @@ if __name__ == "__main__":
         corr2_path = f'{path_to_dir}/corr.{dataset2}.nrrd'
         corr3_path = f'{path_to_dir}/corr.{dataset3}.nrrd'
         if rank==0:
-            if os.path.exists(corr1_path + '.zarr'):
-                shutil.rmtree(corr1_path + '.zarr')
-            if os.path.exists(corr2_path + '.zarr'):
-                shutil.rmtree(corr2_path + '.zarr')
-            if os.path.exists(corr3_path + '.zarr'):
-                shutil.rmtree(corr3_path + '.zarr')
-            zarr.create(shape=particles1.shape, chunks=(100,100,100), dtype=particles1.dtype,
-                store=zarr.DirectoryStore(corr1_path + '.zarr'), compressor=None)
-            zarr.create(shape=particles2.shape, chunks=(100,100,100), dtype=particles2.dtype,
-                store=zarr.DirectoryStore(corr2_path + '.zarr'), compressor=None)
-            zarr.create(shape=particles3.shape, chunks=(100,100,100), dtype=particles3.dtype,
-                store=zarr.DirectoryStore(corr3_path + '.zarr'), compressor=None)
+            # copy all previously fully matched particles to corr
+            if os.path.exists(previous_maps_path):
+                labels_array1 = np.zeros(int(np.amax(mappings))+1, np.uint64)
+                labels_array2 = np.zeros(int(np.amax(mappings))+1, np.uint64)
+                labels_array3 = np.zeros(int(np.amax(mappings))+1, np.uint64)
+                for i in range(m1_max+1):
+                    r1, r12, r13, r2, r23 = previous_mappings[i]
+                    labels_array1[int(r1)]=1
+                    labels_array2[int(r12)]=1
+                    labels_array3[int(r13)]=1
+                match,_ = load_data(f'{path_to_dir}/match.{dataset1}.nrrd')
+                corr1 = matched_particles(match, labels_array1)
+                save_data(corr1_path + '.zarr', corr1, compress=False)
+                del corr1
+                match,_ = load_data(f'{path_to_dir}/match.{dataset2}.nrrd')
+                corr2 = matched_particles(match, labels_array2)
+                save_data(corr2_path + '.zarr', corr2, compress=False)
+                del corr2
+                match,_ = load_data(f'{path_to_dir}/match.{dataset3}.nrrd')
+                corr3 = matched_particles(match, labels_array3)
+                save_data(corr3_path + '.zarr', corr3, compress=False)
+                del corr3
+            else:
+                if os.path.exists(corr1_path + '.zarr'):
+                    shutil.rmtree(corr1_path + '.zarr')
+                if os.path.exists(corr2_path + '.zarr'):
+                    shutil.rmtree(corr2_path + '.zarr')
+                if os.path.exists(corr3_path + '.zarr'):
+                    shutil.rmtree(corr3_path + '.zarr')
+                zarr.create(shape=particles1.shape, chunks=(100,100,100), dtype=particles1.dtype,
+                    store=zarr.DirectoryStore(corr1_path + '.zarr'), compressor=None)
+                zarr.create(shape=particles2.shape, chunks=(100,100,100), dtype=particles2.dtype,
+                    store=zarr.DirectoryStore(corr2_path + '.zarr'), compressor=None)
+                zarr.create(shape=particles3.shape, chunks=(100,100,100), dtype=particles3.dtype,
+                    store=zarr.DirectoryStore(corr3_path + '.zarr'), compressor=None)
         comm.Barrier()
         corr1 = zarr.open(zarr.DirectoryStore(corr1_path + '.zarr'), mode='r+')
         corr2 = zarr.open(zarr.DirectoryStore(corr2_path + '.zarr'), mode='r+')
@@ -1600,7 +1703,7 @@ if __name__ == "__main__":
             # initialize values and particles
             result_val1, result_val12, result_val13, result_val2, result_val23 = None, None, None, None, None
             p1, p2, p3 = None, None, None
-            skip = False
+            result_val3 = None
 
             # get mappings
             if i < mappings.shape[0]:
@@ -1609,10 +1712,11 @@ if __name__ == "__main__":
                 result_val3 = max(result_val13, result_val23)
 
                 # skip correction
-                if os.path.exists(previous_maps_path) and result_val1 <= m1_max and result_val1 in previous_mappings[:,0]:
-                    arg = np.argwhere(previous_mappings[:,0]==result_val1)[0][0]
-                    if previous_mappings[arg,1]>0 and previous_mappings[arg,2]>0:
-                        skip = True
+                if os.path.exists(previous_maps_path):
+                    for k in range(previous_mappings.shape[0]):
+                        if np.sum(previous_mappings[k]>0)==5 and np.all(previous_mappings[k]==mappings[i]):
+                            result_val1, result_val12, result_val13, result_val2, result_val23 = None, None, None, None, None
+                            result_val3 = None
 
             if result_val1:
                 # extract particle1
@@ -1624,7 +1728,6 @@ if __name__ == "__main__":
                 p1[particles1[argmin_z:argmax_z, argmin_y:argmax_y, argmin_x:argmax_x]==result_val1]=1
                 m1[mask1[argmin_z:argmax_z, argmin_y:argmax_y, argmin_x:argmax_x]>0]=1
                 l1[corr1[argmin_z:argmax_z, argmin_y:argmax_y, argmin_x:argmax_x]>0]=1
-                #p1 = fill_fast(p1)
 
             if result_val2:
                 # extract particle2
@@ -1636,7 +1739,6 @@ if __name__ == "__main__":
                 p2[particles2[argmin_z2:argmax_z2, argmin_y2:argmax_y2, argmin_x2:argmax_x2]==result_val2]=1
                 m2[mask2[argmin_z2:argmax_z2, argmin_y2:argmax_y2, argmin_x2:argmax_x2]>0]=1
                 l2[corr2[argmin_z2:argmax_z2, argmin_y2:argmax_y2, argmin_x2:argmax_x2]>0]=1
-                #p2 = fill_fast(p2)
 
             if result_val3:
                 # extract particle3
@@ -1648,10 +1750,9 @@ if __name__ == "__main__":
                 p3[particles3[argmin_z3:argmax_z3, argmin_y3:argmax_y3, argmin_x3:argmax_x3]==result_val3]=1
                 m3[mask3[argmin_z3:argmax_z3, argmin_y3:argmax_y3, argmin_x3:argmax_x3]>0]=1
                 l3[corr3[argmin_z3:argmax_z3, argmin_y3:argmax_y3, argmin_x3:argmax_x3]>0]=1
-                #p3 = fill_fast(p3)
 
-            # majority voting TODO: also use locking?
-            if result_val1 and result_val12 and result_val13 and not skip:
+            # majority voting
+            if result_val1 and result_val12 and result_val13:
                 alpha12, beta12, gamma12 = rotations12[int(result_val1),-3:]
                 alpha13, beta13, gamma13 = rotations13[int(result_val1),-3:]
                 p12 = correct_match_majority(p1, p2, m1, alpha12, beta12, gamma12, rank=rank)
@@ -1659,55 +1760,76 @@ if __name__ == "__main__":
                 p1 += p12 + p13
                 p1[p1<2]=0
                 p1[p1>0]=1
+                p1[l1>0]=0
                 if np.any(p1):
                     p1 = clean_fast(p1)
 
-            if result_val1 and result_val12 and result_val23 and not skip:
+            if result_val1 and result_val12 and result_val23:
                 alpha12, beta12, gamma12 = rotations12[int(result_val1),-3:]
                 alpha23, beta23, gamma23 = rotations23[int(result_val2),-3:]
-                p21 = correct_match_majority(p2, p1, m2, alpha12, beta12, gamma12, rank=rank, inverse=True)
+                if np.any(p1):
+                    p21 = correct_match_majority(p2, p1, m2, alpha12, beta12, gamma12, rank=rank, inverse=True)
+                else:
+                    p21 = np.zeros_like(p2)
                 p23 = correct_match_majority(p2, p3, m2, alpha23, beta23, gamma23, rank=rank)
                 p2 += p21 + p23
                 p2[p2<2]=0
                 p2[p2>0]=1
+                p2[l2>0]=0
                 if np.any(p2):
                     p2 = clean_fast(p2)
 
-            if result_val1 and result_val13 and result_val23 and not skip:
+            if result_val1 and result_val13 and result_val23:
                 alpha13, beta13, gamma13 = rotations13[int(result_val1),-3:]
                 alpha23, beta23, gamma23 = rotations23[int(result_val2),-3:]
-                p31 = correct_match_majority(p3, p1, m3, alpha13, beta13, gamma13, rank=rank, inverse=True)
-                p32 = correct_match_majority(p3, p2, m3, alpha23, beta23, gamma23, rank=rank, inverse=True)
+                if np.any(p1):
+                    p31 = correct_match_majority(p3, p1, m3, alpha13, beta13, gamma13, rank=rank, inverse=True)
+                else:
+                    p31 = np.zeros_like(p3)
+                if np.any(p2):
+                    p32 = correct_match_majority(p3, p2, m3, alpha23, beta23, gamma23, rank=rank, inverse=True)
+                else:
+                    p32 = np.zeros_like(p3)
                 p3 += p31 + p32
                 p3[p3<2]=0
                 p3[p3>0]=1
+                p3[l3>0]=0
                 if np.any(p3):
                     p3 = clean_fast(p3)
 
             # correction if N=2 (N=2 correction < majority voting)
-            if result_val1 and result_val12 and not (result_val13 and result_val23) and not skip:
+            if result_val1 and result_val12 and not (result_val13 and result_val23):
                 alpha12, beta12, gamma12 = rotations12[int(result_val1),-3:]
-                p1t, p2t = correct_match(p1, p2, m1, m2, l1, l2, alpha12, beta12, gamma12, rank=rank)
-                if not result_val13 and np.any(p1t):
-                    p1 = clean_fast(p1t)
-                if not result_val23 and np.any(p2t):
-                    p2 = clean_fast(p2t)
+                if np.any(p1) and np.any(p2):
+                    p1t, p2t = correct_match(p1, p2, m1, m2, l1, l2, alpha12, beta12, gamma12, rank=rank)
+                    if not result_val13 and np.any(p1t):
+                        p1 = clean_fast(p1t)
+                        p1[l1>0]=0
+                    if not result_val23 and np.any(p2t):
+                        p2 = clean_fast(p2t)
+                        p2[l2>0]=0
 
-            if result_val1 and result_val13 and not (result_val12 and result_val23) and not skip:
+            if result_val1 and result_val13 and not (result_val12 and result_val23):
                 alpha13, beta13, gamma13 = rotations13[int(result_val1),-3:]
-                p1t, p3t = correct_match(p1, p3, m1, m3, l1, l3, alpha13, beta13, gamma13, rank=rank)
-                if not result_val12 and np.any(p1t):
-                    p1 = clean_fast(p1t)
-                if not result_val23 and np.any(p3t):
-                    p3 = clean_fast(p3t)
+                if np.any(p1) and np.any(p3):
+                    p1t, p3t = correct_match(p1, p3, m1, m3, l1, l3, alpha13, beta13, gamma13, rank=rank)
+                    if not result_val12 and np.any(p1t):
+                        p1 = clean_fast(p1t)
+                        p1[l1>0]=0
+                    if not result_val23 and np.any(p3t):
+                        p3 = clean_fast(p3t)
+                        p3[l3>0]=0
 
-            if result_val23 and not (result_val12 and result_val13) and not skip:
+            if result_val23 and not (result_val12 and result_val13):
                 alpha23, beta23, gamma23 = rotations23[int(result_val2),-3:]
-                p2t, p3t = correct_match(p2, p3, m2, m3, l2, l3, alpha23, beta23, gamma23, rank=rank)
-                if not result_val12 and np.any(p2t):
-                    p2 = clean_fast(p2t)
-                if not result_val13 and np.any(p3t):
-                    p3 = clean_fast(p3t)
+                if np.any(p2) and np.any(p3):
+                    p2t, p3t = correct_match(p2, p3, m2, m3, l2, l3, alpha23, beta23, gamma23, rank=rank)
+                    if not result_val12 and np.any(p2t):
+                        p2 = clean_fast(p2t)
+                        p2[l2>0]=0
+                    if not result_val13 and np.any(p3t):
+                        p3 = clean_fast(p3t)
+                        p3[l3>0]=0
 
             # wait until the reading process is complete
             comm.Barrier()
