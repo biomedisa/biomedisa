@@ -91,7 +91,7 @@ def sam_boundaries(volume=None, volume_path=None, sam_checkpoint=None, boundarie
 
     # load data
     if volume is None:
-        volume = imread(volume_path)   # TODO: WARNING data must be uint16 for Multi-GPU
+        volume = imread(volume_path)
 
     # crop volume to mask
     if mask_path:
@@ -143,7 +143,7 @@ def sam_boundaries(volume=None, volume_path=None, sam_checkpoint=None, boundarie
                 elif axis==2:
                     slc_data = volume[:,:,slc].copy()
 
-                '''# send slices to childs
+                '''# send slices to childs   # WARNING data must be uint16
                 for dest in range(1, size):
                     if slc+dest < sh:
                         if axis==0:
@@ -183,8 +183,8 @@ def sam_boundaries(volume=None, volume_path=None, sam_checkpoint=None, boundarie
                         data = slc_data[start:end].copy()
 
                     # scale data
-                    data -= np.amin(data)
                     data = data.astype(np.float32)
+                    data -= np.amin(data)
                     if np.amax(data)>0:
                         data /= np.amax(data)
                     data *= 255.0

@@ -9,6 +9,7 @@
 - [Revisions](#revisions)
 - [Smart Interpolation](#smart-interpolation)
 - [Deep Learning](#deep-learning)
+- [Particle Segmentation](#particle-segmentation)
 - [Mesh Generator](#mesh-generator)
 - [Biomedisa Features](#biomedisa-features)
 - [Authors](#authors)
@@ -137,6 +138,23 @@ save_data('final.Head5.am', results['regular'], results['header'])
 #### Command-line based (prediction)
 ```
 python -m biomedisa.deeplearning C:\Users\%USERNAME%\Downloads\testing_axial_crop_pat13.nii.gz C:\Users\%USERNAME%\Downloads\heart.h5
+```
+
+## Particle Segmentation
+Download a test dataset (downsampled by a factor of 4):
+```
+wget https://biomedisa.info/media/images/large_particles_rescan_0_x4.tif
+wget https://biomedisa.info/media/images/mask.large_particles_rescan_0_x4.tif
+wget https://biomedisa.info/media/Quartz/model_svl_step=2.h5
+```
+Instance segmentation of individual particles using implicit boundary detection:
+```
+python -m biomedisa.particles large_particles_rescan_0_x4.tif mask.large_particles_rescan_0_x4.tif --model model_svl_step=2.h5
+```
+Using the SAM backend:
+```
+wget https://dl.fbaipublicfiles.com/segment_anything/sam_vit_l_0b3195.pth
+python -m biomedisa.particles large_particles_rescan_0_x4.tif mask.large_particles_rescan_0_x4.tif --model sam_vit_l_0b3195.pth
 ```
 
 ## Mesh Generator
