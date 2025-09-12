@@ -55,7 +55,7 @@ from biomedisa.features.biomedisa_helper import (load_data, save_data, id_genera
 from biomedisa.features.django_env import post_processing, create_error_object
 from django.utils.crypto import get_random_string
 from biomedisa_app.config import config
-from biomedisa.settings import BASE_DIR, PRIVATE_STORAGE_ROOT
+from biomedisa.settings import BASE_DIR, PRIVATE_STORAGE_ROOT, MEDIA_ROOT
 
 from wsgiref.util import FileWrapper
 import numpy as np
@@ -70,7 +70,7 @@ import zipfile
 import shutil, wget
 import subprocess
 import glob
-
+from datetime import datetime
 from redis import Redis
 from rq import Queue, Worker, get_current_job
 
@@ -1999,6 +1999,21 @@ def download(request, id):
 # 35. gallery
 def gallery(request):
     return render(request, 'gallery.html', {'k': request.session.get('k')})
+
+# file list
+def file_list(request):
+    folder = os.path.join(MEDIA_ROOT, "Quartz")
+    files = []
+    for filename in sorted(os.listdir(folder)):
+        filepath = os.path.join(folder, filename)
+        if os.path.isfile(filepath):
+            stat = os.stat(filepath)
+            files.append({
+                "name": filename,
+                "size": round(stat.st_size/(1000**2),1),
+                "modified": timezone.make_aware(datetime.fromtimestamp(stat.st_mtime)),
+            })
+    return render(request, "file_list.html", {"files": files})
 
 # 36. run_demo
 def run_demo(request):
