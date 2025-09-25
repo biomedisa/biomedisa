@@ -538,7 +538,8 @@ def register_particles(img1_path, img2_path, result1_path, result2_path, mapping
 
 
 if __name__ == "__main__":
-    from biomedisa.features.matching.match_particles import reduce_blocksize_fast, fill_fast
+    from biomedisa.matching import reduce_blocksize_fast, fill_fast
+
     # values to match
     result_val1 = 461
     result_val2 = 426
