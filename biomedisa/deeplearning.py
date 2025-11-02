@@ -201,6 +201,7 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
             raise RuntimeError("Unknown backend: " + backend())
 
         # batch size must be divisible by the number of GPUs and two
+        ngpus = max(1, ngpus)
         rest = bm.batch_size % (2*ngpus)
         if 2*ngpus - rest < rest:
             bm.batch_size = bm.batch_size + 2*ngpus - rest
