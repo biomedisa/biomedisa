@@ -62,7 +62,7 @@ PyTorch (ROCm):
 python3.10 -m pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/rocm6.4
 ```
 
-#### Install Keras
+#### Install Keras 3.0
 ```
 python3.10 -m pip install -U keras
 python3.10 -m pip install tf-keras --no-deps
