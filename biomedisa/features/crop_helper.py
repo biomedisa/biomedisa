@@ -498,6 +498,7 @@ def crop_volume(img, path_to_model, path_to_final, z_shape, y_shape, x_shape, ba
         plt.tight_layout()  # To prevent overlapping of subplots
         #matplotlib.use("GTK3Agg")
         plt.savefig(path_to_final.replace('.tif','.png'), dpi=300)
+        plt.close()
 
     # crop image data
     cropped_volume = img_data[z_lower:z_upper, y_lower:y_upper, x_lower:x_upper]
