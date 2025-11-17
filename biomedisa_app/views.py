@@ -2387,6 +2387,13 @@ def run(request):
                     voxels = 0
                     if os.path.splitext(raw.pic.path)[1] in ['.tif','.tiff']:
                         zsh, ysh, xsh = TiffInfo(raw.pic.path).shape
+                        voxels = zsh * ysh * xsh
+                        if TiffInfo(raw.pic.path).dtype in ['uint16','int16','float16']:
+                            voxels *= 2
+                        elif TiffInfo(raw.pic.path).dtype in ['uint32','int32','float32']:
+                            voxels *= 4
+                        elif TiffInfo(raw.pic.path).dtype in ['uint64','int64','float64']:
+                            voxels *= 8
 
                     #if lenq1 > lenq2 or (lenq1==lenq2 and w1.state=='busy' and w2.state=='idle'):
                     # large image queue
