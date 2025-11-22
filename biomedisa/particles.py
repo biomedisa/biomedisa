@@ -50,10 +50,14 @@ if __name__ == "__main__":
     # optional arguments
     parser.add_argument('-v', '--version', action='version', version=f'{biomedisa.__version__}',
                         help='Biomedisa version')
+    parser.add_argument('-bp','--boundaries_path', type=str, metavar='PATH', default=None,
+                        help='Location of boundaries')
     parser.add_argument('-mp','--model_path', type=str, metavar='PATH', default=None,
                         help='Location of trained model for prediction')
     parser.add_argument('-mps','--min_particle_size', type=int, default=1000,
                         help='Objects smaller than this value will be removed')
+    parser.add_argument('-ext','--extension', type=str, default=".nrrd",
+                        help='Save data in formats like NRRD or TIFF using --extension=".nrrd"')
     bm = parser.parse_args()
 
     # image and mask data must be Multipage-TIFF
@@ -65,24 +69,25 @@ if __name__ == "__main__":
     #=======================================================================================
     # predict boundaries
     #=======================================================================================
-    ngpus = get_gpu_count()
-    print('Number of GPUs:', ngpus)
+    if bm.boundaries_path is None:
+        ngpus = get_gpu_count()
+        print('Number of GPUs:', ngpus)
 
-    # boundaries path
-    basename = os.path.basename(bm.img_path)
-    boundaries_path = bm.img_path.replace(basename, 'final.' + basename)
+        # boundaries path
+        basename = os.path.basename(bm.img_path)
+        bm.boundaries_path = bm.img_path.replace(basename, 'final.' + basename)
 
-    if os.path.splitext(bm.model_path)[1] == '.pth':
-        from biomedisa.features.matching.sam_helper import sam_boundaries
-        sam_boundaries(volume_path=bm.img_path, boundaries_path=boundaries_path,
-            sam_checkpoint=bm.model_path, mask_path=bm.mask_path)
-    else:
-        cmd = [sys.executable, '-m', 'biomedisa.deeplearning',
-            bm.img_path, bm.model_path, '-ss=4', '-s', f'-m={bm.mask_path}',
-            '-xp=16', '-yp=16', '-zp=16', '-bs=1024']
-        if ngpus>1:
-            cmd = ['mpirun', '-n', f'{ngpus}'] + cmd
-        subprocess.Popen(cmd).wait()
+        if os.path.splitext(bm.model_path)[1] == '.pth':
+            from biomedisa.features.matching.sam_helper import sam_boundaries
+            sam_boundaries(volume_path=bm.img_path, boundaries_path=bm.boundaries_path,
+                sam_checkpoint=bm.model_path, mask_path=bm.mask_path)
+        else:
+            cmd = [sys.executable, '-m', 'biomedisa.deeplearning',
+                bm.img_path, bm.model_path, '-ss=4', '-s', f'-m={bm.mask_path}',
+                '-xp=16', '-yp=16', '-zp=16', '-bs=1024']
+            if ngpus>1:
+                cmd = ['mpirun', '-n', f'{ngpus}'] + cmd
+            subprocess.Popen(cmd).wait()
 
     #=======================================================================================
     # label particles
@@ -93,7 +98,8 @@ if __name__ == "__main__":
     if rank==0:
 
         # path to result
-        path_to_result = bm.img_path.replace(basename, 'result.' + basename).replace('.tif','.nrrd')
+        basename = os.path.basename(bm.img_path)
+        path_to_result = bm.img_path.replace(basename, 'result.' + basename).replace('.tif', bm.extension)
 
         # load mask
         TIC = time.time()
@@ -103,7 +109,7 @@ if __name__ == "__main__":
 
         # remove boundary
         labeled_array = mask.copy()
-        boundaries = imread(boundaries_path)
+        boundaries = imread(bm.boundaries_path)
         labeled_array[boundaries>0]=0
         print(boundaries.shape)
         del boundaries

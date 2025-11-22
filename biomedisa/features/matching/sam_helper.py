@@ -119,6 +119,7 @@ def sam_boundaries(volume=None, volume_path=None, sam_checkpoint=None, boundarie
         if m_type in sam_checkpoint:
             model_type = m_type
     sam = sam_model_registry[model_type](checkpoint=sam_checkpoint)
+
     #sam.to("cuda")  # Use "cuda" if a GPU is available, otherwise "cpu"
     sam.to(device)  # Ensure SAM model loads on the correct GPU
     print(f"Rank {rank} using GPU {torch.cuda.current_device()}")
@@ -129,11 +130,12 @@ def sam_boundaries(volume=None, volume_path=None, sam_checkpoint=None, boundarie
     # iterate over views
     for axis, sh in enumerate([zsh,ysh,xsh]):
         # iterate over slices
+        print(" " * 40, end="\r")
         for slc in range(sh):
             if slc % size == rank:
 
-                #if rank==0:
-                #    print(f'Axis: {axis}, Slice: {slc+1}/{sh}       ', end='\r')
+                if rank==0:
+                    print(f'Axis: {axis}, Slice: {slc+1}/{sh}', end='\r')
 
                 # extract slice
                 if axis==0:
@@ -162,7 +164,7 @@ def sam_boundaries(volume=None, volume_path=None, sam_checkpoint=None, boundarie
                         slc_data = np.empty((zsh,ysh), dtype=np.uint16)
                     comm.Recv([slc_data, MPI.UNSIGNED_SHORT], source=0)'''
 
-                print(f'Rank: {rank}, Axis: {axis}, Slice: {slc+1}/{sh}')
+                #print(f'Rank: {rank}, Axis: {axis}, Slice: {slc+1}/{sh}')
 
                 # determine tiles
                 if axis==0:
