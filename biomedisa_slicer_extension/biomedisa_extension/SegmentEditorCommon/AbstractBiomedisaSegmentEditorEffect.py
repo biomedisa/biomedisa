@@ -95,12 +95,31 @@ class AbstractBiomedisaSegmentEditorEffect(AbstractScriptedSegmentEditorEffect):
         self.removePreviewNode()
 
     def onApply(self):
+        # Get names before removal
+        originalName = self.originalSegmentationNode.GetName()
+
+        # Remove original node from the scene
+        slicer.mrmlScene.RemoveNode(self.originalSegmentationNode)
+
+        # Rename preview node to original name
+        self.previewSegmentationNode.SetName(originalName)
+
+        # Activate source volume
+        sliceNode = slicer.util.getNode("vtkMRMLSliceNodeRed")
+        sliceLogic = slicer.app.applicationLogic().GetSliceLogic(sliceNode)
+        sourceVolume = sliceLogic.GetBackgroundLayer().GetVolumeNode()
+        segmentEditorNode = slicer.modules.SegmentEditorWidget.parameterSetNode
+        segmentEditorNode.SetAndObserveSourceVolumeNode(sourceVolume)
+
         # move result form preview nod to main node and delete preview segmentation node
-        self.originalSegmentationNode.GetSegmentation().DeepCopy(self.previewSegmentationNode.GetSegmentation())
+        #self.originalSegmentationNode.GetSegmentation().DeepCopy(self.previewSegmentationNode.GetSegmentation())
         self.running = False
         self.updateRunButtonState()
-        self.removePreviewNode()
-    
+        #self.removePreviewNode()
+        self.previewSegmentationNode = None
+        self.originalSegmentationNode = None
+        self.updateButtonStates()
+
     def onShow3DButtonClicked(self):
         showing = self.getPreviewShow3D()
         self.setPreviewShow3D(not showing)
