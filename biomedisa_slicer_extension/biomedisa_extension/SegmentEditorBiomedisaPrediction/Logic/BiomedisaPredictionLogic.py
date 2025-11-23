@@ -164,6 +164,22 @@ class BiomedisaPredictionLogic():
                     "SegmentationFile",
                     properties
                 )
+
+                # Get labelmap
+                segmentation = segmentationNode.GetSegmentation()
+                representationName = slicer.vtkSegmentationConverter.GetBinaryLabelmapRepresentationName()
+                segmentId = segmentation.GetNthSegmentID(0)
+                labelmapNode = segmentation.GetSegment(segmentId).GetRepresentation(representationName)
+
+                # Set geometry
+                direction_matrix = np.zeros((3,3))
+                volumeNode.GetIJKToRASDirections(direction_matrix)
+                labelmapNode.SetDirections(direction_matrix)
+                labelmapNode.SetOrigin(volumeNode.GetOrigin())
+                labelmapNode.SetSpacing(volumeNode.GetSpacing())
+
+                # Set reference volume
+                segmentationNode.SetReferenceImageGeometryParameterFromVolumeNode(volumeNode)
                 return segmentationNode
             else:
                 return None
