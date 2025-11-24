@@ -19,15 +19,15 @@ class AbstractBiomedisaSegmentEditorEffect(AbstractScriptedSegmentEditorEffect):
     def createCursor(self, widget):
         return slicer.util.mainWindow().cursor
 
-    @abstractmethod                
+    @abstractmethod
     def runAlgorithm(self):
         pass
 
-    @abstractmethod                
+    @abstractmethod
     def onLoadParameter(self):
         pass
 
-    @abstractmethod                
+    @abstractmethod
     def onRestoreParameter(self):
         pass
 
@@ -82,7 +82,7 @@ class AbstractBiomedisaSegmentEditorEffect(AbstractScriptedSegmentEditorEffect):
 
         self.selectModelButton = qt.QPushButton("Apply")
         self.selectModelButton.objectName = self.__class__.__name__ + 'Apply'
-        self.selectModelButton.setToolTip("Run the biomedisa algorithm and generate segment data")
+        self.selectModelButton.setToolTip("Accept and apply preview")
         self.selectModelButton.setEnabled(False)
         self.selectModelButton.clicked.connect(self.onApply)
         self.fileLayout.addWidget(self.selectModelButton)
@@ -123,7 +123,7 @@ class AbstractBiomedisaSegmentEditorEffect(AbstractScriptedSegmentEditorEffect):
     def onShow3DButtonClicked(self):
         showing = self.getPreviewShow3D()
         self.setPreviewShow3D(not showing)
-    
+
     def updateRunButtonState(self):
         if self.running:
             self.runButton.setEnabled(False)
@@ -168,7 +168,7 @@ class AbstractBiomedisaSegmentEditorEffect(AbstractScriptedSegmentEditorEffect):
             self.selectModelButton.setEnabled(True)
             self.cancelButton.setEnabled(True)
             self.previewShow3DButton.setEnabled(True)
-   
+
     def createPreviewNode(self):
         self.originalSegmentationNode = self.scriptedEffect.parameterSetNode().GetSegmentationNode()
         self.previewSegmentationNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSegmentationNode")
@@ -187,7 +187,7 @@ class AbstractBiomedisaSegmentEditorEffect(AbstractScriptedSegmentEditorEffect):
             self.previewSegmentationNode = None
         self.originalSegmentationNode = None
         self.updateButtonStates()
-        
+
     def onRun(self):
         # This can be a long operation - indicate it to the user
         qt.QApplication.setOverrideCursor(qt.Qt.WaitCursor)
@@ -229,3 +229,4 @@ class AbstractBiomedisaSegmentEditorEffect(AbstractScriptedSegmentEditorEffect):
             if split[0] == self.effectParameterName:
                 parameterList.append(split[1])
         return parameterList
+

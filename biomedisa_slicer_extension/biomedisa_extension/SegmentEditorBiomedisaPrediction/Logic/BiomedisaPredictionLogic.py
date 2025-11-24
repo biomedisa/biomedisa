@@ -1,7 +1,6 @@
 import numpy as np
 import vtk, slicer
 import vtk.util.numpy_support as vtk_np
-from vtkmodules.util.numpy_support import vtk_to_numpy
 from slicer import vtkMRMLScalarVolumeNode
 from slicer import vtkMRMLLabelMapVolumeNode
 from biomedisa_extension.SegmentEditorBiomedisaPrediction.Logic.BiomedisaPredictionParameter import BiomedisaPredictionParameter
@@ -73,7 +72,7 @@ class BiomedisaPredictionLogic():
                                     stride_size=parameter.stride_size,
                                     batch_size=batch_size,
                                     predict=True)
-            # TODO: create segmentationNode
+            # TODO: run particle separation, save as NRRD and load segmentationNode from file
 
         # run within dedicated python environment
         else:
