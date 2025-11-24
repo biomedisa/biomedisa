@@ -68,6 +68,16 @@ class Helper():
         return fullimage
 
     @staticmethod
+    def prompt_error_message(error_message):
+        import qt
+        msgBox = qt.QMessageBox()
+        msgBox.setIcon(qt.QMessageBox.Critical)
+        msgBox.setText(error_message)
+        #msgBox.setInformativeText(error_message)
+        msgBox.setWindowTitle("Error")
+        msgBox.exec_()
+
+    @staticmethod
     def get_python_version(env_path):
         try:
             # Run the Python executable of a pyhthon environment with --version

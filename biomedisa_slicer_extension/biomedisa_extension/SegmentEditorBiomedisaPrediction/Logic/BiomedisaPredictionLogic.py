@@ -9,6 +9,7 @@ import subprocess
 import tempfile
 from tifffile import imwrite
 import os
+import h5py
 
 class BiomedisaPredictionLogic():
 
@@ -72,13 +73,26 @@ class BiomedisaPredictionLogic():
                                     stride_size=parameter.stride_size,
                                     batch_size=batch_size,
                                     predict=True)
-            # TODO: run particle separation, save as NRRD and load segmentationNode from file
+            # TODO: use Slicer environment in subprocess
 
         # run within dedicated python environment
         else:
 
           with tempfile.TemporaryDirectory() as temp_dir:
-            separation = False # TODO: get from model
+
+            # model path
+            model_path = parameter.path_to_model
+
+            # load model
+            separation = False
+            try:
+                with h5py.File(model_path, 'r') as hf:
+                    meta = hf.get('meta')
+                    if 'separation' in meta:
+                        separation = bool(meta['separation'][()])
+            except:
+                Helper.prompt_error_message('Invalid model.')
+                return None
 
             # temporary file paths
             image_path = os.path.join(temp_dir, 'biomedisa-image.tif')
@@ -93,9 +107,6 @@ class BiomedisaPredictionLogic():
             if labels is not None:
                 numpyLabels[numpyLabels>0]=1
                 imwrite(mask_path, numpyLabels)
-
-            # model path
-            model_path = parameter.path_to_model
 
             # adapt paths for WSL
             if os.path.exists(os.path.expanduser("~")+"/anaconda3/envs/biomedisa/python.exe") and wsl_path==None:
@@ -113,16 +124,11 @@ class BiomedisaPredictionLogic():
             # append parameters on demand
             if separation:
                 if labels is None:
-                    import qt
-                    msgBox = qt.QMessageBox()
-                    msgBox.setIcon(qt.QMessageBox.Critical)
-                    msgBox.setText('Binary mask of instances required for separation model.')
-                    msgBox.setWindowTitle("Error")
-                    msgBox.exec_()
+                    Helper.prompt_error_message('Binary mask of instances required for separation model.')
                     return None
                 #batch_size = 1024
                 parameter.stride_size = 4
-                cmd += [f'-m={mask_path}', '-xp=16', '-yp=16', '-zp=16', '-s']   #TODO -s
+                cmd += [f'-m={mask_path}', '-xp=16', '-yp=16', '-zp=16', '-s']
             if parameter.stride_size != 32:
                 cmd += [f'-ss={parameter.stride_size}']
             if batch_size:
@@ -137,13 +143,7 @@ class BiomedisaPredictionLogic():
             # prompt error message
             if os.path.exists(error_path):
                 with open(error_path, 'r') as file:
-                    import qt
-                    msgBox = qt.QMessageBox()
-                    msgBox.setIcon(qt.QMessageBox.Critical)
-                    msgBox.setText(file.read())
-                    #msgBox.setInformativeText(error_message)
-                    msgBox.setWindowTitle("Error")
-                    msgBox.exec_()
+                    Helper.prompt_error_message(file.read())
 
             # load result
             if os.path.exists(results_path):

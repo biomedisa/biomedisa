@@ -77,7 +77,6 @@ class BiomedisaLogic():
         # unify directions if required
         numpyImage = BiomedisaLogic.unify_to_identity(numpyImage, direction_matrix)
         numpyLabels = BiomedisaLogic.unify_to_identity(numpyLabels, direction_matrix)
-        uniqueLabels = np.unique(numpyLabels)
 
         try:
             from biomedisa_extension.config import python_path, wsl_path
@@ -148,13 +147,7 @@ class BiomedisaLogic():
             # prompt error message
             if os.path.exists(error_path):
                 with open(error_path, 'r') as file:
-                    import qt
-                    msgBox = qt.QMessageBox()
-                    msgBox.setIcon(qt.QMessageBox.Critical)
-                    msgBox.setText(file.read())
-                    #msgBox.setInformativeText(error_message)
-                    msgBox.setWindowTitle("Error")
-                    msgBox.exec_()
+                    Helper.prompt_error_message(file.read())
 
             # load result
             results = None
