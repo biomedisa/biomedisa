@@ -38,7 +38,7 @@ class Helper():
         labelNumpyArray = labelNumpyArray.reshape(labelImageData.GetDimensions()[::-1])
 
         # Initialize the NumPy array for the new label image data with zeros
-        newLabelNumpyArray = np.zeros(inputDimensions, dtype=np.uint8)
+        newLabelNumpyArray = np.zeros(inputDimensions, dtype=np.uint16)
         newLabelNumpyArray = newLabelNumpyArray.reshape(inputDimensions[::-1])
 
         # Copy label data to the new image data at the correct position

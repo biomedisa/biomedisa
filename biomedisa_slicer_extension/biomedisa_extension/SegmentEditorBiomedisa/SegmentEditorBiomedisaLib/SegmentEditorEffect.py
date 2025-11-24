@@ -1,5 +1,8 @@
 import os, qt, ctk, slicer, sys
 import numpy as np
+import vtk
+from vtk.util.numpy_support import numpy_to_vtk
+from SegmentEditorCommon.Helper import Helper
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 root_dir = os.path.abspath(os.path.join(current_dir, '..', '..', '..'))
@@ -24,7 +27,7 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     clonedEffect = effects.qSlicerSegmentEditorScriptedEffect(None)
     clonedEffect.setPythonSource(__file__.replace('\\','/'))
     return clonedEffect
-  
+
   def icon(self):
     # It should not be necessary to modify this method
     iconPath = os.path.join(os.path.dirname(__file__), 'SegmentEditorEffect.png')
@@ -101,9 +104,9 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     self.platform.toolTip = 'One of "cuda", "opencl_NVIDIA_GPU", "opencl_Intel_CPU"'
     self.platform.setPlaceholderText('Enter one of "cuda", "opencl_NVIDIA_GPU", "opencl_Intel_CPU", "None", ...')
     collapsibleLayout.addRow("Platform:", self.platform)
-    
+
     self.setParameterToGui(BiomedisaParameter())
- 
+
     collapsibleLayout.addRow("Parameter:", self.createParameterGui())
     AbstractBiomedisaSegmentEditorEffect.setupOptionsFrame(self)
 
@@ -133,7 +136,7 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
         self.setParameterToGui(parameter)
     self.dialog.dialogClosed.connect(handleDialogClosed)
     self.dialog.show()
-        
+
   def onRestoreParameter(self):
     parameter = BiomedisaParameter()
     self.setParameterToGui(parameter)
@@ -148,7 +151,7 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     parameter.only = self.only.text if self.only.text else 'all'
     parameter.platform = self.platform.text if self.platform.text and self.platform.text != 'None' else None
     return parameter
-  
+
   def setParameterToGui(self, parameter: BiomedisaParameter):
     self.allaxis.setChecked(parameter.allaxis)
     self.denoise.setChecked(parameter.denoise)
@@ -157,15 +160,6 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     self.ignore.text = parameter.ignore
     self.only.text = parameter.only
     self.platform.text = parameter.platform if parameter.platform is not None else 'None'
-
-  def getLabeledSlices(self):
-    sourceImageData = self.scriptedEffect.parameterSetNode().GetSourceVolumeNode().GetImageData()
-    segmentationNode = self.scriptedEffect.parameterSetNode().GetSegmentationNode()
-    segmentation = segmentationNode.GetSegmentation()
-    segmentID = self.scriptedEffect.parameterSetNode().GetSelectedSegmentID()
-    segment = segmentation.GetSegment(segmentID)
-    binaryLabelmap = segment.GetRepresentation(slicer.vtkSegmentationConverter.GetSegmentationBinaryLabelmapRepresentationName())
-    return BiomedisaLogic.getLabeledSlices(input=sourceImageData, labels=binaryLabelmap)
 
   def runAlgorithm(self):
     self.createPreviewNode()
@@ -185,10 +179,20 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
 
     parameter = self.getParameterFromGui()
     # Run the algorithm
-    resultLabelMaps = BiomedisaLogic.runBiomedisa(input=sourceImageData,
+    result = BiomedisaLogic.runBiomedisa(input=sourceImageData,
         labels=binaryLabelmap, direction_matrix=direction_matrix, parameter=parameter)
 
-    for label, binaryLabelmap in enumerate(resultLabelMaps):
+    # Replace voxel data
+    binaryLabelmap.SetDimensions(sourceImageData.GetDimensions())
+    new_np = result.astype(np.uint16).ravel()
+    vtk_arr = numpy_to_vtk(new_np, deep=True, array_type=vtk.VTK_UNSIGNED_SHORT)
+    vtk_arr.SetName("ImageScalars")
+    binaryLabelmap.GetPointData().SetScalars(vtk_arr)
+
+    # Notify Slicer
+    self.previewSegmentationNode.Modified()
+
+    '''for label, binaryLabelmap in enumerate(resultLabelMaps):
       # Get segment ID from label index. This is 0 based even though first the voxel value is 1.
       segmentID = segmentation.GetNthSegmentID(label)
       slicer.vtkSlicerSegmentationsModuleLogic.SetBinaryLabelmapToSegment(
@@ -196,5 +200,5 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
         self.previewSegmentationNode, 
         segmentID, 
         slicer.vtkSlicerSegmentationsModuleLogic.MODE_REPLACE, 
-        binaryLabelmap.GetExtent())
+        binaryLabelmap.GetExtent())'''
 

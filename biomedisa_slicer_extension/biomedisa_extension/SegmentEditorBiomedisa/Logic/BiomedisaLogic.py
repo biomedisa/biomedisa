@@ -2,7 +2,6 @@ import platform
 import numpy as np
 import vtk, slicer
 import vtk.util.numpy_support as vtk_np
-from vtkmodules.util.numpy_support import vtk_to_numpy
 from slicer import vtkMRMLScalarVolumeNode
 from slicer import vtkMRMLLabelMapVolumeNode
 from Logic.BiomedisaParameter import BiomedisaParameter
@@ -36,13 +35,6 @@ class BiomedisaLogic():
             print(f"label: {label}")
             labelMapList.append(vtkBinaryLabelmap)
         return labelMapList
-
-    def getLabeledSlices(input: vtkMRMLScalarVolumeNode, labels: vtkMRMLLabelMapVolumeNode):
-        extendedLabel = Helper.expandLabelToMatchInputImage(labels, input.GetDimensions())
-        numpyLabels = Helper.vtkToNumpy(extendedLabel)
-        from biomedisa.interpolation import read_labeled_slices
-        labeledSlices, _ = read_labeled_slices(numpyLabels)
-        return labeledSlices
 
     def unify_to_identity(array, direction_matrix):
         # Determine the permutation of axes
@@ -112,10 +104,10 @@ class BiomedisaLogic():
           with tempfile.TemporaryDirectory() as temp_dir:
 
             # temporary file paths
-            image_path = temp_dir + '/biomedisa-image.tif'
-            labels_path = temp_dir + '/biomedisa-labels.tif'
-            results_path = temp_dir + '/final.biomedisa-image.tif'
-            error_path = temp_dir + '/biomedisa-error.txt'
+            image_path = os.path.join(temp_dir, 'biomedisa-image.tif')
+            labels_path = os.path.join(temp_dir, 'biomedisa-labels.tif')
+            results_path = os.path.join(temp_dir, 'final.biomedisa-image.tif')
+            error_path = os.path.join(temp_dir, 'biomedisa-error.txt')
 
             # save temporary data
             imwrite(image_path, numpyImage)
@@ -173,11 +165,8 @@ class BiomedisaLogic():
         if results is None:
             return None
 
-        # get results
-        regular_result = results['regular']
-
         # restore original directions
-        regular_result = BiomedisaLogic.reverse_unify_to_identity(regular_result, direction_matrix)
+        regular_result = BiomedisaLogic.reverse_unify_to_identity(results['regular'], direction_matrix)
 
-        return BiomedisaLogic._getBinaryLabelMaps(regular_result, direction_matrix, labels, uniqueLabels)
+        return regular_result#BiomedisaLogic._getBinaryLabelMaps(regular_result, direction_matrix, labels, uniqueLabels)
 
