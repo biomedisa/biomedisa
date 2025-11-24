@@ -82,7 +82,7 @@ class AbstractBiomedisaSegmentEditorEffect(AbstractScriptedSegmentEditorEffect):
 
         self.selectModelButton = qt.QPushButton("Apply")
         self.selectModelButton.objectName = self.__class__.__name__ + 'Apply'
-        self.selectModelButton.setToolTip("Accept and apply preview")
+        self.selectModelButton.setToolTip("Update segmentation with the previewed result")
         self.selectModelButton.setEnabled(False)
         self.selectModelButton.clicked.connect(self.onApply)
         self.fileLayout.addWidget(self.selectModelButton)

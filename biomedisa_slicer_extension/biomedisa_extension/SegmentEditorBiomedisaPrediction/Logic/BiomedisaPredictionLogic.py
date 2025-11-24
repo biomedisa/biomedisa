@@ -36,7 +36,7 @@ class BiomedisaPredictionLogic():
                 continue
             binaryLabelmapArray = np.where(labelmapArray == label, 1, 0).astype(np.uint8)
             print(f"binaryLabelmapArray: {binaryLabelmapArray.shape}")
-            binaryLabelmapArray = Helper.embed(binaryLabelmapArray, dimensions, parameter.x_min, parameter.x_max, parameter.y_min, parameter.y_max, parameter.z_min, parameter.z_max)
+            binaryLabelmapArray = Helper.embed(binaryLabelmapArray, dimensions, parameter)
             print(f"uncropped: {binaryLabelmapArray.shape}")
             vtkBinaryLabelmap  = BiomedisaPredictionLogic._getBinaryLabelMap(binaryLabelmapArray, volumeNode)
             labelMapList.append((int(label), vtkBinaryLabelmap))
@@ -51,11 +51,12 @@ class BiomedisaPredictionLogic():
         print(f"Running biomedisa prediction with: {parameter}")
 
         # convert data
-        if labels is not None:
-            numpyLabels = Helper.expandLabelToMatchInputImage(labels, input.GetDimensions())
-        numpyImage = Helper.vtkToNumpy(input)
         dimensions = input.GetDimensions()
-        numpyImage = Helper.crop(numpyImage, parameter.x_min, parameter.x_max, parameter.y_min, parameter.y_max, parameter.z_min, parameter.z_max)
+        if labels is not None:
+            numpyLabels = Helper.expandLabelToMatchInputImage(labels, dimensions)
+            numpyLabels = Helper.crop(numpyLabels, parameter)
+        numpyImage = Helper.vtkToNumpy(input)
+        numpyImage = Helper.crop(numpyImage, parameter)
 
         # batch size
         batch_size = parameter.batch_size if parameter.batch_size_active else None
@@ -153,6 +154,10 @@ class BiomedisaPredictionLogic():
                     # adjust result path to particles result
                     basename = os.path.basename(results_path).replace('.tif', '.nrrd')
                     results_path = os.path.join(temp_dir, basename.replace('final.', 'result.', 1))
+
+                # Restore original dimensions if data was cropped to ROI
+                if any([numpyImage.shape[0]!=dimensions[2], numpyImage.shape[1]!=dimensions[1], numpyImage.shape[2]!=dimensions[0]]):
+                    Helper.restore_original_dimensions(results_path, dimensions, parameter)
 
                 # Define properties for segmentation import
                 properties = {"name": "Segmentation preview", "filetype": "SegmentationFile"}
