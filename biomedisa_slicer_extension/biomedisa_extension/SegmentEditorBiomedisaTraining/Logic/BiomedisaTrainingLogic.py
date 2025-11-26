@@ -23,8 +23,8 @@ class BiomedisaTrainingLogic():
         numpyImage = Helper.vtkToNumpy(input)
 
         # crop training data
-        numpyImage = Helper.crop(numpyImage, parameter.x_min, parameter.x_max, parameter.y_min, parameter.y_max, parameter.z_min, parameter.z_max)
-        numpyLabels = Helper.crop(numpyLabels, parameter.x_min, parameter.x_max, parameter.y_min, parameter.y_max, parameter.z_min, parameter.z_max)
+        numpyImage = Helper.crop(numpyImage, parameter)
+        numpyLabels = Helper.crop(numpyLabels, parameter)
 
         try:
             from biomedisa_extension.config import python_path, wsl_path
@@ -58,9 +58,9 @@ class BiomedisaTrainingLogic():
           with tempfile.TemporaryDirectory() as temp_dir:
 
             # temporary file paths
-            image_path = temp_dir + '/biomedisa-image.tif'
-            labels_path = temp_dir + '/biomedisa-labels.tif'
-            error_path = temp_dir + '/biomedisa-error.txt'
+            image_path = os.path.join(temp_dir, 'biomedisa-image.tif')
+            labels_path = os.path.join(temp_dir, 'biomedisa-labels.tif')
+            error_path = os.path.join(temp_dir, 'biomedisa-error.txt')
 
             # save temporary data
             imwrite(image_path, numpyImage)
@@ -70,6 +70,8 @@ class BiomedisaTrainingLogic():
             model_path = parameter.path_to_model
 
             # adapt paths for WSL
+            if os.path.exists(os.path.expanduser("~")+"/anaconda3/envs/biomedisa/python.exe") and wsl_path==None:
+                wsl_path=False
             if os.name == "nt" and wsl_path!=False:
                 image_path = image_path.replace('\\','/').replace('C:','/mnt/c')
                 labels_path = labels_path.replace('\\','/').replace('C:','/mnt/c')
@@ -110,11 +112,5 @@ class BiomedisaTrainingLogic():
             # prompt error message
             if os.path.exists(error_path):
                 with open(error_path, 'r') as file:
-                    import qt
-                    msgBox = qt.QMessageBox()
-                    msgBox.setIcon(qt.QMessageBox.Critical)
-                    msgBox.setText(file.read())
-                    #msgBox.setInformativeText(error_message)
-                    msgBox.setWindowTitle("Error")
-                    msgBox.exec_()
+                    Helper.prompt_error_message(file.read())
 

@@ -59,7 +59,8 @@ urlpatterns = [
     url(r'^app/$', views.app, name='app'),
     # demo
     url(r'^paraview/$', views.paraview, name='paraview'),
-    # demo
+    # gallery
+    url(r'^quartz/$', views.file_list, name="file_list"),
     url(r'^gallery/$', views.gallery, name='gallery'),
     # contact
     url(r'^contact/$', views.contact, name='contact'),

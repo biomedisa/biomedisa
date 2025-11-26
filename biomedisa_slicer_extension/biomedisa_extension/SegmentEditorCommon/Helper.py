@@ -1,7 +1,7 @@
 import numpy as np
 import vtk
 import vtk.util.numpy_support as vtk_np
-from vtkmodules.util.numpy_support import vtk_to_numpy
+from vtkmodules.util.numpy_support import vtk_to_numpy, numpy_to_vtk
 import subprocess
 import sys
 import os
@@ -38,7 +38,7 @@ class Helper():
         labelNumpyArray = labelNumpyArray.reshape(labelImageData.GetDimensions()[::-1])
 
         # Initialize the NumPy array for the new label image data with zeros
-        newLabelNumpyArray = np.zeros(inputDimensions, dtype=np.uint8)
+        newLabelNumpyArray = np.zeros(inputDimensions, dtype=np.uint16)
         newLabelNumpyArray = newLabelNumpyArray.reshape(inputDimensions[::-1])
 
         # Copy label data to the new image data at the correct position
@@ -50,22 +50,39 @@ class Helper():
         return newLabelNumpyArray
 
     @staticmethod
-    def crop(image: np.ndarray,
-             x_min: int, x_max: int,
-             y_min: int, y_max: int,
-             z_min: int, z_max: int) -> np.ndarray:
-        image = image[z_min:z_max+1, y_min:y_max+1, x_min:x_max+1].copy()
+    def crop(image: np.ndarray, parameter) -> np.ndarray:
+        x_min, x_max, y_min, y_max, z_min, z_max \
+            = parameter.x_min, parameter.x_max, parameter.y_min, parameter.y_max, parameter.z_min, parameter.z_max
+        if any([z_max+1-z_min!=image.shape[0], y_max+1-y_min!=image.shape[1], x_max+1-x_min!=image.shape[2]]):
+            image = image[z_min:z_max+1, y_min:y_max+1, x_min:x_max+1].copy()
         return image
 
     @staticmethod
-    def embed(image: np.ndarray,
-             dimensions,
-             x_min: int, x_max: int,
-             y_min: int, y_max: int,
-             z_min: int, z_max: int) -> np.ndarray:
+    def embed(image: np.ndarray, dimensions, parameter) -> np.ndarray:
+        x_min, x_max, y_min, y_max, z_min, z_max \
+            = parameter.x_min, parameter.x_max, parameter.y_min, parameter.y_max, parameter.z_min, parameter.z_max
         fullimage = np.zeros((dimensions[2], dimensions[1], dimensions[0]), dtype=image.dtype)
         fullimage[z_min:z_max+1, y_min:y_max+1, x_min:x_max+1] = image
         return fullimage
+
+    @staticmethod
+    def restore_original_dimensions(file_path, dimensions, parameter):
+        import SimpleITK as sitk
+        header = sitk.ReadImage(file_path)
+        np_array = sitk.GetArrayViewFromImage(header).copy()
+        np_array = Helper.embed(np_array, dimensions, parameter)
+        simg = sitk.GetImageFromArray(np_array)
+        sitk.WriteImage(simg, file_path)
+
+    @staticmethod
+    def prompt_error_message(error_message):
+        import qt
+        msgBox = qt.QMessageBox()
+        msgBox.setIcon(qt.QMessageBox.Critical)
+        msgBox.setText(error_message)
+        #msgBox.setInformativeText(error_message)
+        msgBox.setWindowTitle("Error")
+        msgBox.exec_()
 
     @staticmethod
     def get_python_version(env_path):

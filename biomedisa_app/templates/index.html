@@ -151,11 +151,23 @@ save_data(<span style='color: #f900ff;'>'final.Head5.am'</span>, results[<span s
       </div>
 
       <div class="article">
+        <h2>Smart Interpolation: Multi-Platform Support</h2>
+        <p class="infopost">Posted on <span class="date">13 aug 2025</span> by Philipp </p>
+        <div class="clr"></div>
+        <div class="img"><a href="https://biomedisa.info/media/interpolation_times.png" target="_blank"><img src="/media/interpolation_times.png" width="640" height="267" title="opencl"></a></div>
+        <div class="post_content">
+          <p> Biomedisa's Smart Interpolation works across NVIDIA, AMD, and Intel GPUs, as well as Intel CPUs. To get started, follow the <a href="https://github.com/biomedisa/biomedisa#installation-command-line-based" target="_blank">installation instructions</a>. By default, Biomedisa automatically chooses the best available platform for your system. You can also manually specify a platform, for example with <i>&#8209;p=cuda</i>, <i>&#8209;p=opencl_NVIDIA_GPU</i>, or <i>&#8209;p=opencl_Intel_CPU</i>. Tests displayed were run on datasets from the <a href="https://biomedisa.info/gallery/">gallery</a>. Mineralized wasp 1077×992×2553 voxels, every 20th slice pre-segmented, <i>Trigonopterus</i> 1497×734×1117 voxels, and Mouse molar 413×553×413 voxels.
+          </p>
+        </div>
+        <div class="clr"></div>
+      </div>
+
+      <div class="article">
         <h2>Tutorial: How to use Smart Interpolation in 3D Slicer</h2>
         <p class="infopost">Posted on <span class="date">7 mar 2025</span> by Philipp </p>
         <div class="clr"></div>
         <div class="post_content">
-          <iframe width="640" height="360" src="https://www.youtube.com/embed/VJXDxwp6eHY" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+        <iframe width="640" height="360" src="https://www.youtube.com/embed/VJXDxwp6eHY?si=Ek1ulq_Ce7JTnPDz" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
           <p> In this short video, I demonstrate how to use Biomedisa’s Smart Interpolation extension in 3D Slicer. Follow the <a href="https://github.com/biomedisa/biomedisa/?tab=readme-ov-file#installation-3d-slicer-extension" target="_blank">installation</a> instructions on GitHub to get started.
           </p>
         </div>
@@ -167,7 +179,7 @@ save_data(<span style='color: #f900ff;'>'final.Head5.am'</span>, results[<span s
         <p class="infopost">Posted on <span class="date">11 sep 2024</span> by Philipp </p>
         <div class="clr"></div>
         <div class="post_content">
-          <iframe width="640" height="360" src="https://www.youtube.com/embed/V4VBud8Qtog" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+          <iframe width="640" height="360" src="https://www.youtube.com/embed/V4VBud8Qtog?si=gEXDdLr2XA4uXXWN" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
           <p> In this <a href="https://micro.org.au/events/via-webinar-semi-automated-segmentation-of-biological-images-with-biomedisa-and-3d-slicer/" target="_blank">webinar</a> presented by <a href="https://microscopy.org.au/volume-imaging-australia" target="_blank">Volume Imaging Australia</a> and <a href="https://micro.org.au/" target="_blank">Microscopy Australia</a>, you learn how to use Biomedisa in combination with <a href="https://www.slicer.org/" target="_blank">3D Slicer</a>, both freely available open-source platforms for biological and medical image analysis. We begin by using Biomedisa’s smart interpolation to semi-automatically create training data. This data will then be used to train Biomedisa’s deep neural network for automated segmentation, demonstrated through example cases such as mouse molar teeth from micro-CT scans and mitochondria in electron microscopy images.
           </p>
         </div>
@@ -211,18 +223,6 @@ save_data(<span style='color: #f900ff;'>'final.Head5.am'</span>, results[<span s
       </div>
 
       <div class="article">
-        <h2>Smart interpolation on Intel CPUs with OpenCL</h2>
-        <p class="infopost">Posted on <span class="date">20 sep 2022</span> by Philipp </p>
-        <div class="clr"></div>
-        <div class="img"><a href="https://biomedisa.info/static/hardware_ctimes.png" target="_blank"><img src="/static/hardware_ctimes.png" width="640" height="320" title="opencl"></a></div>
-        <div class="post_content">
-          <p> Biomedisa's smart interpolation runs on both NVIDIA GPUs and Intel CPUs with OpenCL. Follow the <a href="https://github.com/biomedisa/biomedisa#installation-command-line-based" target="_blank">installation instructions</a>. The best available platform is selected automatically. You can manually select a specific platform by calling one of the options: <i>--platform cuda</i>, <i>opencl_NVIDIA_GPU</i> or <i>opencl_Intel_CPU</i>. If you are using Biomedisa via web browser, select the platform on the <a href="https://biomedisa.info/profile/" target="_blank">Profile tab</a>. Performance tests were run on examples from the <a href="https://biomedisa.info/gallery/">gallery</a>. Mineralized wasp: (1077, 992, 2553), every 20th slice pre-segmented. <i>Trigonopterus:</i> (1497, 734, 1117). Mouse molar: (413, 553, 413).
-          </p>
-        </div>
-        <div class="clr"></div>
-      </div>
-
-      <div class="article">
         <h2>Biomedisa uses ParaView Glance for visualization</h2>
         <p class="infopost">Posted on <span class="date">22 nov 2020</span> by Philipp </p>
         <div class="clr"></div>
@@ -238,7 +238,7 @@ save_data(<span style='color: #f900ff;'>'final.Head5.am'</span>, results[<span s
         <p class="infopost">Posted on <span class="date">09 nov 2020</span> by Philipp </p>
         <div class="clr"></div>
         <div class="post_content">
-          <iframe width="640" height="360" src="https://www.youtube.com/embed/uNoyAPkCKnI" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+          <iframe width="640" height="360" src="https://www.youtube.com/embed/uNoyAPkCKnI?si=Y1YA6UsVfdCvBjRK" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
           <p> This short tutorial shows how to use Biomedisa to segment a weevil from a tomographic image stack (presented by <a href="https://las.physik.kit.edu/21_684.php">Thomas van de Kamp</a>, KIT).</p>
         </div>
         <div class="clr"></div>
@@ -249,7 +249,7 @@ save_data(<span style='color: #f900ff;'>'final.Head5.am'</span>, results[<span s
         <p class="infopost">Posted on <span class="date">09 nov 2020</span> by Philipp </p>
         <div class="clr"></div>
         <div class="post_content">
-          <iframe width="640" height="360" src="https://www.youtube.com/embed/2Vc0zJxv42g" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+          <iframe width="640" height="360" src="https://www.youtube.com/embed/2Vc0zJxv42g?si=8IlD3E3aBTScPH5X" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
           <p> Comparison of Biomedisa with a conventional approach for segmenting a weevil from a tomographic image stack (<a href="https://www.nature.com/articles/s41467-020-19303-w" target="_blank">Lösel et al.</a><i> Nat. Commun.</i>).</p>
         </div>
         <div class="clr"></div>
@@ -260,7 +260,7 @@ save_data(<span style='color: #f900ff;'>'final.Head5.am'</span>, results[<span s
         <p class="infopost">Posted on <span class="date">09 nov 2020</span> by Philipp </p>
         <div class="clr"></div>
         <div class="post_content">
-          <iframe width="640" height="360" src="https://www.youtube.com/embed/gKUa78LAMms" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+          <iframe width="640" height="360" src="https://www.youtube.com/embed/gKUa78LAMms?si=Y0D3YzEQQl84By0L" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
           <p> Biomedisa segmentation results of a medaka rice fish, a fossil parasoid wasp reconstructed from Baltic amber, the tracheal system of a hissing cockroach, and the head of a bull ant queen (featured in <a href="https://www.nature.com/articles/s41467-020-19303-w" target="_blank">Lösel et al.</a><i> Nat. Commun.</i>).</p>
         </div>
         <div class="clr"></div>
@@ -334,7 +334,7 @@ save_data(<span style='color: #f900ff;'>'final.Head5.am'</span>, results[<span s
         <p class="infopost">Posted on <span class="date">28 aug 2018</span> by Philipp </p>
         <div class="clr"></div>
         <div class="post_content">
-          <iframe width="640" height="360" src="https://www.youtube.com/embed/xDvYjHTf3lc" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+          <iframe width="640" height="360" src="https://www.youtube.com/embed/xDvYjHTf3lc?si=EIeGp5RNP9K04UYZ" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
           <p> The parasitic wasp <i>Xenomorphia resurrecta</i> deposits an egg in a fly pupa. Following imaging of the mineralized fly pupae at the imaging beamline of the Institute for Photon Science and Synchrotron Radiation <a href="https://www.anka.kit.edu/IPS.php">(IPS)</a> at Karlsruhe Institute of Technology, the parasitic wasps
     from the Paleogene were reconstructed digitally with Biomedisa. (Video: <a href="https://las.physik.kit.edu/21_684.php">Thomas van de Kamp</a>, KIT; <i>Nature Communications</i>)</p>
         </div>

@@ -19,15 +19,15 @@ class AbstractBiomedisaSegmentEditorEffect(AbstractScriptedSegmentEditorEffect):
     def createCursor(self, widget):
         return slicer.util.mainWindow().cursor
 
-    @abstractmethod                
+    @abstractmethod
     def runAlgorithm(self):
         pass
 
-    @abstractmethod                
+    @abstractmethod
     def onLoadParameter(self):
         pass
 
-    @abstractmethod                
+    @abstractmethod
     def onRestoreParameter(self):
         pass
 
@@ -82,7 +82,7 @@ class AbstractBiomedisaSegmentEditorEffect(AbstractScriptedSegmentEditorEffect):
 
         self.selectModelButton = qt.QPushButton("Apply")
         self.selectModelButton.objectName = self.__class__.__name__ + 'Apply'
-        self.selectModelButton.setToolTip("Run the biomedisa algorithm and generate segment data")
+        self.selectModelButton.setToolTip("Update segmentation with the previewed result")
         self.selectModelButton.setEnabled(False)
         self.selectModelButton.clicked.connect(self.onApply)
         self.fileLayout.addWidget(self.selectModelButton)
@@ -95,16 +95,35 @@ class AbstractBiomedisaSegmentEditorEffect(AbstractScriptedSegmentEditorEffect):
         self.removePreviewNode()
 
     def onApply(self):
+        # Get names before removal
+        originalName = self.originalSegmentationNode.GetName()
+
+        # Remove original node from the scene
+        slicer.mrmlScene.RemoveNode(self.originalSegmentationNode)
+
+        # Rename preview node to original name
+        self.previewSegmentationNode.SetName(originalName)
+
+        # Activate source volume
+        sliceNode = slicer.util.getNode("vtkMRMLSliceNodeRed")
+        sliceLogic = slicer.app.applicationLogic().GetSliceLogic(sliceNode)
+        sourceVolume = sliceLogic.GetBackgroundLayer().GetVolumeNode()
+        segmentEditorNode = slicer.modules.SegmentEditorWidget.parameterSetNode
+        segmentEditorNode.SetAndObserveSourceVolumeNode(sourceVolume)
+
         # move result form preview nod to main node and delete preview segmentation node
-        self.originalSegmentationNode.GetSegmentation().DeepCopy(self.previewSegmentationNode.GetSegmentation())
+        #self.originalSegmentationNode.GetSegmentation().DeepCopy(self.previewSegmentationNode.GetSegmentation())
         self.running = False
         self.updateRunButtonState()
-        self.removePreviewNode()
-    
+        #self.removePreviewNode()
+        self.previewSegmentationNode = None
+        self.originalSegmentationNode = None
+        self.updateButtonStates()
+
     def onShow3DButtonClicked(self):
         showing = self.getPreviewShow3D()
         self.setPreviewShow3D(not showing)
-    
+
     def updateRunButtonState(self):
         if self.running:
             self.runButton.setEnabled(False)
@@ -149,7 +168,7 @@ class AbstractBiomedisaSegmentEditorEffect(AbstractScriptedSegmentEditorEffect):
             self.selectModelButton.setEnabled(True)
             self.cancelButton.setEnabled(True)
             self.previewShow3DButton.setEnabled(True)
-   
+
     def createPreviewNode(self):
         self.originalSegmentationNode = self.scriptedEffect.parameterSetNode().GetSegmentationNode()
         self.previewSegmentationNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSegmentationNode")
@@ -168,7 +187,7 @@ class AbstractBiomedisaSegmentEditorEffect(AbstractScriptedSegmentEditorEffect):
             self.previewSegmentationNode = None
         self.originalSegmentationNode = None
         self.updateButtonStates()
-        
+
     def onRun(self):
         # This can be a long operation - indicate it to the user
         qt.QApplication.setOverrideCursor(qt.Qt.WaitCursor)
@@ -210,3 +229,4 @@ class AbstractBiomedisaSegmentEditorEffect(AbstractScriptedSegmentEditorEffect):
             if split[0] == self.effectParameterName:
                 parameterList.append(split[1])
         return parameterList
+
