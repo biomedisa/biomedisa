@@ -23,7 +23,7 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     clonedEffect = effects.qSlicerSegmentEditorScriptedEffect(None)
     clonedEffect.setPythonSource(__file__.replace('\\','/'))
     return clonedEffect
-  
+
   def icon(self):
     # It should not be necessary to modify this method
     iconPath = os.path.join(os.path.dirname(__file__), 'SegmentEditorEffect.svg')
@@ -40,6 +40,7 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
         <li>Click <i>Apply</i> to update segmentation with the previewed result.</li>
         <li><b>Batch size:</b> number of patches per batch. If not specified, it will be adjusted to the available GPU memory.</li>
         <li><b>Stride size:</b> specifies the stride for extracting patches. Increase for a faster but less accurate calculation.</li>
+        <li><b>Available devices:</b> specifies the number of available devices. Increase for multi GPU support.</li>
       </ul>
       <p>
         Masking settings are ignored. The effect uses <a href="https://doi.org/10.1371/journal.pcbi.1011529">deep learning</a>. For more information, visit the <a href="https://biomedisa.info/">project page</a>.
@@ -47,7 +48,7 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
       <p><u>Contributors:</u> <i>Matthias Fabian, Philipp Lösel</i></p>
       <p>
     </html>"""
-  
+
   def setupOptionsFrame(self):
     # Network file
     self.path_to_model = qt.QLineEdit()
@@ -59,7 +60,7 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     self.selectModelButton.setFixedWidth(30)
     self.selectModelButton.setToolTip("Select a model file")
     self.selectModelButton.clicked.connect(self.onSelectModelButton)
-    
+
     self.fileLayout = qt.QHBoxLayout()
     self.fileLayout.addWidget(self.path_to_model)
     self.fileLayout.addWidget(self.selectModelButton)
@@ -72,6 +73,13 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     self.scriptedEffect.addOptionsWidget(collapsibleButton)
 
     collapsibleLayout = qt.QFormLayout(collapsibleButton)
+
+    self.available_devices = qt.QSpinBox()
+    self.available_devices.toolTip = 'Number of available devices'
+    self.available_devices.minimum = 1
+    self.available_devices.maximum = 64
+    self.available_devices.value = 1
+    collapsibleLayout.addRow("Available devices:", self.available_devices)
 
     self.stride_size = qt.QSpinBox()
     self.stride_size.toolTip = 'Stride size for patches'
@@ -129,6 +137,7 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
 
     parameter = BiomedisaPredictionParameter()
     parameter.path_to_model = self.path_to_model.text
+    parameter.available_devices = self.available_devices.value
     parameter.stride_size = self.stride_size.value
     parameter.batch_size_active = self.batch_size_active.isChecked()
     parameter.batch_size = self.batch_size.value
@@ -142,6 +151,7 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
   
   def setParameterToGui(self, parameter: BiomedisaPredictionParameter):
     self.path_to_model.text = parameter.path_to_model
+    self.available_devices.value = parameter.available_devices
     self.stride_size.value = parameter.stride_size
     self.batch_size_active.setChecked(parameter.batch_size_active)
     self.batch_size.value = parameter.batch_size
