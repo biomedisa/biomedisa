@@ -55,7 +55,7 @@ from biomedisa.features.biomedisa_helper import (load_data, save_data, id_genera
 from biomedisa.features.django_env import post_processing, create_error_object
 from django.utils.crypto import get_random_string
 from biomedisa_app.config import config
-from biomedisa.settings import BASE_DIR, PRIVATE_STORAGE_ROOT
+from biomedisa.settings import BASE_DIR, PRIVATE_STORAGE_ROOT, MEDIA_ROOT
 
 from wsgiref.util import FileWrapper
 import numpy as np
@@ -70,7 +70,7 @@ import zipfile
 import shutil, wget
 import subprocess
 import glob
-
+from datetime import datetime
 from redis import Redis
 from rq import Queue, Worker, get_current_job
 
@@ -2000,6 +2000,21 @@ def download(request, id):
 def gallery(request):
     return render(request, 'gallery.html', {'k': request.session.get('k')})
 
+# file list
+def file_list(request):
+    folder = os.path.join(MEDIA_ROOT, "Quartz")
+    files = []
+    for filename in sorted(os.listdir(folder)):
+        filepath = os.path.join(folder, filename)
+        if os.path.isfile(filepath):
+            stat = os.stat(filepath)
+            files.append({
+                "name": filename,
+                "size": round(stat.st_size/(1000**2),1),
+                "modified": timezone.make_aware(datetime.fromtimestamp(stat.st_mtime)),
+            })
+    return render(request, "file_list.html", {"files": files})
+
 # 36. run_demo
 def run_demo(request):
     request.session['k'] += 1
@@ -2372,6 +2387,13 @@ def run(request):
                     voxels = 0
                     if os.path.splitext(raw.pic.path)[1] in ['.tif','.tiff']:
                         zsh, ysh, xsh = TiffInfo(raw.pic.path).shape
+                        voxels = zsh * ysh * xsh
+                        if TiffInfo(raw.pic.path).dtype in ['uint16','int16','float16']:
+                            voxels *= 2
+                        elif TiffInfo(raw.pic.path).dtype in ['uint32','int32','float32']:
+                            voxels *= 4
+                        elif TiffInfo(raw.pic.path).dtype in ['uint64','int64','float64']:
+                            voxels *= 8
 
                     #if lenq1 > lenq2 or (lenq1==lenq2 and w1.state=='busy' and w2.state=='idle'):
                     # large image queue

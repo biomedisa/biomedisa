@@ -2,7 +2,6 @@ import platform
 import numpy as np
 import vtk, slicer
 import vtk.util.numpy_support as vtk_np
-from vtkmodules.util.numpy_support import vtk_to_numpy
 from slicer import vtkMRMLScalarVolumeNode
 from slicer import vtkMRMLLabelMapVolumeNode
 from Logic.BiomedisaParameter import BiomedisaParameter
@@ -36,13 +35,6 @@ class BiomedisaLogic():
             print(f"label: {label}")
             labelMapList.append(vtkBinaryLabelmap)
         return labelMapList
-
-    def getLabeledSlices(input: vtkMRMLScalarVolumeNode, labels: vtkMRMLLabelMapVolumeNode):
-        extendedLabel = Helper.expandLabelToMatchInputImage(labels, input.GetDimensions())
-        numpyLabels = Helper.vtkToNumpy(extendedLabel)
-        from biomedisa.interpolation import read_labeled_slices
-        labeledSlices, _ = read_labeled_slices(numpyLabels)
-        return labeledSlices
 
     def unify_to_identity(array, direction_matrix):
         # Determine the permutation of axes
@@ -85,7 +77,6 @@ class BiomedisaLogic():
         # unify directions if required
         numpyImage = BiomedisaLogic.unify_to_identity(numpyImage, direction_matrix)
         numpyLabels = BiomedisaLogic.unify_to_identity(numpyLabels, direction_matrix)
-        uniqueLabels = np.unique(numpyLabels)
 
         try:
             from biomedisa_extension.config import python_path, wsl_path
@@ -112,16 +103,18 @@ class BiomedisaLogic():
           with tempfile.TemporaryDirectory() as temp_dir:
 
             # temporary file paths
-            image_path = temp_dir + '/biomedisa-image.tif'
-            labels_path = temp_dir + '/biomedisa-labels.tif'
-            results_path = temp_dir + '/final.biomedisa-image.tif'
-            error_path = temp_dir + '/biomedisa-error.txt'
+            image_path = os.path.join(temp_dir, 'biomedisa-image.tif')
+            labels_path = os.path.join(temp_dir, 'biomedisa-labels.tif')
+            results_path = os.path.join(temp_dir, 'final.biomedisa-image.tif')
+            error_path = os.path.join(temp_dir, 'biomedisa-error.txt')
 
             # save temporary data
             imwrite(image_path, numpyImage)
             imwrite(labels_path, numpyLabels)
 
             # adapt paths for WSL
+            if os.path.exists(os.path.expanduser("~")+"/anaconda3/envs/biomedisa/python.exe") and wsl_path==None:
+                wsl_path=False
             if os.name == "nt" and wsl_path!=False:
                 image_path = image_path.replace('\\','/').replace('C:','/mnt/c')
                 labels_path = labels_path.replace('\\','/').replace('C:','/mnt/c')
@@ -143,7 +136,7 @@ class BiomedisaLogic():
             if parameter.denoise:
                 cmd += ['-d']
             if parameter.platform:
-                cmd += [f'-p={bm.platform}']
+                cmd += [f'-p={parameter.platform}']
 
             # build environment
             cmd, env = Helper.build_environment(cmd)
@@ -154,13 +147,7 @@ class BiomedisaLogic():
             # prompt error message
             if os.path.exists(error_path):
                 with open(error_path, 'r') as file:
-                    import qt
-                    msgBox = qt.QMessageBox()
-                    msgBox.setIcon(qt.QMessageBox.Critical)
-                    msgBox.setText(file.read())
-                    #msgBox.setInformativeText(error_message)
-                    msgBox.setWindowTitle("Error")
-                    msgBox.exec_()
+                    Helper.prompt_error_message(file.read())
 
             # load result
             results = None
@@ -171,11 +158,8 @@ class BiomedisaLogic():
         if results is None:
             return None
 
-        # get results
-        regular_result = results['regular']
-
         # restore original directions
-        regular_result = BiomedisaLogic.reverse_unify_to_identity(regular_result, direction_matrix)
+        regular_result = BiomedisaLogic.reverse_unify_to_identity(results['regular'], direction_matrix)
 
-        return BiomedisaLogic._getBinaryLabelMaps(regular_result, direction_matrix, labels, uniqueLabels)
+        return regular_result#BiomedisaLogic._getBinaryLabelMaps(regular_result, direction_matrix, labels, uniqueLabels)
 

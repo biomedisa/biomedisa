@@ -172,19 +172,30 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
 
   def runAlgorithm(self):
     self.createPreviewNode()
+    slicer.mrmlScene.RemoveNode(self.previewSegmentationNode)
+
+    # Get maskmap
+    try:
+        segmentation = self.originalSegmentationNode.GetSegmentation()
+        segmentID = self.scriptedEffect.parameterSetNode().GetSelectedSegmentID()
+        segment = segmentation.GetSegment(segmentID)
+        binaryLabelmap = segment.GetRepresentation(slicer.vtkSegmentationConverter.GetSegmentationBinaryLabelmapRepresentationName())
+    except:
+        binaryLabelmap = None
 
     # Get source volume image data
     volumeNode = self.scriptedEffect.parameterSetNode().GetSourceVolumeNode()
     sourceImageData = volumeNode.GetImageData()
 
     # Run the algorithm
-    resultLabelMaps = BiomedisaPredictionLogic.predictDeepLearning(
+    self.previewSegmentationNode = BiomedisaPredictionLogic.predictDeepLearning(
       input=sourceImageData,
+      labels=binaryLabelmap,
       volumeNode=volumeNode,
       parameter=self.getParameterFromGui())
 
     # Show the result in slicer
-    segmentation = self.previewSegmentationNode.GetSegmentation()
+    '''segmentation = self.previewSegmentationNode.GetSegmentation()
     segmentIDs = segmentation.GetSegmentIDs()
     availableLabelValues = {segmentation.GetSegment(segmentID).GetLabelValue(): segmentID for segmentID in segmentIDs}
 
@@ -196,7 +207,6 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
         segment = segmentation.GetSegment(segmentID)
         segment.SetLabelValue(label)
         segment.SetName(f"Segment_{label}")
-
       segment = segmentation.GetSegment(segmentID)
       segment.SetLabelValue(label)
       slicer.vtkSlicerSegmentationsModuleLogic.SetBinaryLabelmapToSegment(
@@ -204,4 +214,4 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
         self.previewSegmentationNode, 
         segmentID, 
         slicer.vtkSlicerSegmentationsModuleLogic.MODE_REPLACE, 
-        binaryLabelmap.GetExtent())
+        binaryLabelmap.GetExtent())'''

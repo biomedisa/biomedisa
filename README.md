@@ -9,6 +9,7 @@
 - [Revisions](#revisions)
 - [Smart Interpolation](#smart-interpolation)
 - [Deep Learning](#deep-learning)
+- [Particle Segmentation](#particle-segmentation)
 - [Mesh Generator](#mesh-generator)
 - [Biomedisa Features](#biomedisa-features)
 - [Authors](#authors)
@@ -27,7 +28,7 @@ Biomedisa (https://biomedisa.info) is a free and easy-to-use open-source applica
 + [Ubuntu 22/24 + Deep Learning](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu_deeplearning_cli.md)
 + [Ubuntu 22/24 + Smart Interpolation + Deep Learning](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu_cli.md)
 + [Windows (WSL) + Smart Interpolation + Deep Learning ("advanced")](https://github.com/biomedisa/biomedisa/blob/master/README/windows_wsl.md)
-+ [Windows 10/11 + Smart Interpolation (NVIDIA, AMD, Intel) ("simple")](https://github.com/biomedisa/biomedisa/blob/master/README/windows_interpolation.md)
++ [Windows 10/11 + Smart Interpolation + Deep Learning ("simple")](https://github.com/biomedisa/biomedisa/blob/master/README/windows_interpolation.md)
 
 ## Installation (3D Slicer extension)
 + [Ubuntu 22/24](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu_slicer.md)
@@ -137,6 +138,23 @@ save_data('final.Head5.am', results['regular'], results['header'])
 #### Command-line based (prediction)
 ```
 python -m biomedisa.deeplearning C:\Users\%USERNAME%\Downloads\testing_axial_crop_pat13.nii.gz C:\Users\%USERNAME%\Downloads\heart.h5
+```
+
+## Particle Segmentation
+Download a test dataset (downsampled by a factor of 4):
+```
+wget https://biomedisa.info/media/images/large_particles_rescan_0_x4.tif
+wget https://biomedisa.info/media/images/mask.large_particles_rescan_0_x4.tif
+wget https://biomedisa.info/media/Quartz/model_svl_step=2.h5
+```
+Instance segmentation of individual particles using implicit boundary detection:
+```
+python -m biomedisa.particles large_particles_rescan_0_x4.tif mask.large_particles_rescan_0_x4.tif --model_path model_svl_step=2.h5
+```
+Using the SAM backend:
+```
+wget https://dl.fbaipublicfiles.com/segment_anything/sam_vit_l_0b3195.pth
+python -m biomedisa.particles large_particles_rescan_0_x4.tif mask.large_particles_rescan_0_x4.tif --model_path sam_vit_l_0b3195.pth
 ```
 
 ## Mesh Generator
