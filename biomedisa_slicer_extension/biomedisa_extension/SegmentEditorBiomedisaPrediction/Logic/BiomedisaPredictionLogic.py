@@ -8,7 +8,7 @@ from biomedisa_extension.SegmentEditorCommon.Helper import Helper
 import subprocess
 import tempfile
 from tifffile import imwrite
-import os
+import os, sys
 import h5py
 
 class BiomedisaPredictionLogic():
@@ -67,19 +67,18 @@ class BiomedisaPredictionLogic():
             from biomedisa_extension.config_template import python_path, wsl_path
 
         # run within Slicer environment
-        if python_path==None and Helper.module_exists("tensorflow"):
+        '''if python_path==None and Helper.module_exists("tensorflow"):
             from biomedisa.deeplearning import deep_learning
             results = deep_learning(numpyImage,
                                     path_to_model=parameter.path_to_model,
                                     stride_size=parameter.stride_size,
                                     batch_size=batch_size,
-                                    predict=True)
-            # TODO: use Slicer environment in subprocess
+                                    predict=True)'''
 
         # run within dedicated python environment
-        else:
+        #else:
 
-          with tempfile.TemporaryDirectory() as temp_dir:
+        with tempfile.TemporaryDirectory() as temp_dir:
 
             # model path
             model_path = parameter.path_to_model
@@ -136,7 +135,12 @@ class BiomedisaPredictionLogic():
                 cmd += [f'-bs={batch_size}']
 
             # build environment
-            cmd, env = Helper.build_environment(cmd)
+            if python_path==None and Helper.module_exists("tensorflow"):
+                cmd.insert(0, sys.executable)
+                env = os.environ.copy()
+                print("Using Slicer environment.")
+            else:
+                cmd, env = Helper.build_environment(cmd)
 
             # run prediction
             subprocess.Popen(cmd, env=env).wait()
