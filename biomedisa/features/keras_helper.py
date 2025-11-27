@@ -1404,6 +1404,7 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
     results['allLabels'] = bm.allLabels
 
     # custom objects
+    custom_objects = {"SyncBatchNormalization": BatchNormalization}
     if bm.dice_loss:
         def loss_fn(y_true, y_pred):
             dice = 0
@@ -1413,11 +1414,9 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
             #loss = -K.log(dice)
             loss = 1 - dice
             return loss
-        custom_objects = {'dice_coef_loss': dice_coef_loss,'loss_fn': loss_fn}
+        custom_objects.update({'dice_coef_loss': dice_coef_loss,'loss_fn': loss_fn})
     elif bm.ignore_mask:
-        custom_objects={'custom_loss': custom_loss}
-    else:
-        custom_objects=None
+        custom_objects['custom_loss'] = custom_loss
 
     # load model
     model = load_model(bm.path_to_model, custom_objects=custom_objects, compile=False)
