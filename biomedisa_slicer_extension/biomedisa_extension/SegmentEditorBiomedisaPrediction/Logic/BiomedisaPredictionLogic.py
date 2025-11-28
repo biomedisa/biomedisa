@@ -140,6 +140,11 @@ class BiomedisaPredictionLogic():
             else:
                 cmd, env = Helper.build_environment(cmd)
 
+            # multi gpu
+            python_exe = cmd[0]
+            if parameter.available_devices > 1:
+                cmd = ['mpirun', '-n', f'{parameter.available_devices}'] + cmd
+
             # run prediction
             subprocess.Popen(cmd, env=env).wait()
 
@@ -152,7 +157,7 @@ class BiomedisaPredictionLogic():
             if os.path.exists(results_path):
                 # label particles
                 if separation:
-                    subprocess.Popen([cmd[0], "-m", "biomedisa.particles", image_path, mask_path, f"-bp={boundary_path}"], env=env).wait()
+                    subprocess.Popen([python_exe, "-m", "biomedisa.particles", image_path, mask_path, f"-bp={boundary_path}"], env=env).wait()
                     # adjust result path to particles result
                     basename = os.path.basename(results_path).replace('.tif', '.nrrd')
                     results_path = os.path.join(temp_dir, basename.replace('final.', 'result.', 1))
