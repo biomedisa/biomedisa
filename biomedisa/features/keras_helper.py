@@ -664,7 +664,7 @@ class CustomCallback(Callback):
             print("Start epoch {} of training; got log keys: {}".format(epoch, keys))
 
 class MetaData(Callback):
-    def __init__(self, path_to_model, configuration_data, allLabels,
+    def __init__(self, bm, path_to_model, configuration_data, allLabels,
         extension, header, crop_data, cropping_weights, cropping_config,
         normalization_parameters, cropping_norm, patch_normalization, scaling):
 
@@ -680,6 +680,8 @@ class MetaData(Callback):
         self.cropping_norm = cropping_norm
         self.patch_normalization = patch_normalization
         self.scaling = scaling
+        self.separation = bm.separation
+        self.patch_size = np.array([bm.z_patch, bm.y_patch, bm.x_patch])
 
     def on_epoch_end(self, epoch, logs={}):
         hf = h5py.File(self.path_to_model, 'r')
@@ -692,6 +694,8 @@ class MetaData(Callback):
             group.create_dataset('labels', data=self.allLabels)
             group.create_dataset('patch_normalization', data=int(self.patch_normalization))
             group.create_dataset('scaling', data=int(self.scaling))
+            group.create_dataset('separation', data=int(self.separation))
+            group.create_dataset('patch_size', data=self.patch_size)
             if self.extension == '.am':
                 group.create_dataset('extension', data=self.extension)
                 group.create_dataset('header', data=self.header)
@@ -1186,7 +1190,7 @@ def train_segmentation(bm):
         raise RuntimeError(f"Unsupported backend: {backend_name}")
 
     # save meta data
-    meta_data = MetaData(bm.path_to_model, configuration_data, allLabels,
+    meta_data = MetaData(bm, bm.path_to_model, configuration_data, allLabels,
         bm.extension, bm.header, bm.crop_data, bm.cropping_weights, bm.cropping_config,
         normalization_parameters, bm.cropping_norm, bm.patch_normalization, bm.scaling)
 
@@ -1512,7 +1516,7 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
         nb_patches = len(list_IDs)
 
     # load all patches on GPU memory
-    if not load_blockwise and nb_patches < 400:
+    if not load_blockwise and nb_patches < 400 and not bm.separation and not bm.refinement:
       if rank==0:
 
         # parameters

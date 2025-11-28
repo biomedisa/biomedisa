@@ -58,6 +58,8 @@ if __name__ == "__main__":
                         help='Objects smaller than this value will be removed')
     parser.add_argument('-ext','--extension', type=str, default=".nrrd",
                         help='Save data in formats like NRRD or TIFF using --extension=".nrrd"')
+    parser.add_argument('-bs','--batch_size', type=int, default=None,
+                        help='Number of samples processed in a batch. Should be as high as possible, e.g. 1024.')
     bm = parser.parse_args()
 
     # image and mask data must be Multipage-TIFF
@@ -83,8 +85,9 @@ if __name__ == "__main__":
                 sam_checkpoint=bm.model_path, mask_path=bm.mask_path)
         else:
             cmd = [sys.executable, '-m', 'biomedisa.deeplearning',
-                bm.img_path, bm.model_path, '-ss=4', '-s', f'-m={bm.mask_path}',
-                '-xp=16', '-yp=16', '-zp=16', '-bs=1024']
+                bm.img_path, bm.model_path, f'-m={bm.mask_path}']
+            if bm.batch_size:
+                cmd += [f'-bs={bm.batch_size}']
             if ngpus>1:
                 cmd = ['mpirun', '-n', f'{ngpus}'] + cmd
             subprocess.Popen(cmd).wait()
