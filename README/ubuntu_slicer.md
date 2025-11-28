@@ -25,7 +25,7 @@ Download [3D Slicer](https://download.slicer.org/) and extract the files to a lo
 Run `PythonSlicer` from `Slicer-<VERSION>-linux-amd64/bin` (replace `<VERSION>` with your specific version):
 ```
 cd Slicer-<VERSION>-linux-amd64/bin
-./PythonSlicer -m pip install PyQt5 tifffile
+./PythonSlicer -m pip install PyQt5 tifffile h5py
 ```
 
 #### Add Biomedisa modules to 3D Slicer

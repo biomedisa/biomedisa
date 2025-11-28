@@ -243,6 +243,17 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
             bm.patch_normalization = bool(meta['patch_normalization'][()])
         if 'scaling' in meta:
             bm.scaling = bool(meta['scaling'][()])
+        if 'patch_size' in meta:
+            bm.z_patch, bm.y_patch, bm.x_patch = np.array(meta['patch_size'], dtype=int)
+        if 'separation' in meta:
+            bm.separation = bool(meta['separation'][()])
+            bm.stride_size = min(bm.z_patch, bm.y_patch, bm.x_patch) // 4
+
+        # separation and refinement require binary mask as TIFF file
+        if bm.separation and not (bm.mask and os.path.splitext(bm.mask)[1] in ['.tif', '.tiff']):
+            raise RuntimeError("Separation requires a binary instance mask provided as a multi-page TIFF file.")
+        if bm.refinement and not (bm.mask and os.path.splitext(bm.mask)[1] in ['.tif', '.tiff']):
+            raise RuntimeError("Refinement requires a binary mask of the target area provided as a multi-page TIFF file.")
 
         # check if amira header is available in the network
         if bm.extension is None and bm.header is None and meta.get('header') is not None:

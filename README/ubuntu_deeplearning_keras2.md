@@ -21,24 +21,7 @@ sudo apt-get install python3.10 python3.10-dev python3-pip python3.10-venv
 ```
 sudo apt-get install libsm6 libxrender-dev unzip \
     libboost-python-dev build-essential libssl-dev cmake \
-    openmpi-bin openmpi-doc libopenmpi-dev libgl1 wget git
-```
-
-#### Clone Biomedisa
-```
-mkdir git
-cd git
-git clone https://github.com/biomedisa/biomedisa.git
-```
-Use `develop` branch:
-```
-cd ~/git/biomedisa
-git checkout develop
-```
-Add the Biomedisa base directory (e.g., `${HOME}/git/biomedisa`) to the PYTHONPATH variable:
-```
-echo 'export PYTHONPATH=${HOME}/git/biomedisa:${PYTHONPATH}' >> ~/.bashrc
-source ~/.bashrc
+    openmpi-bin openmpi-doc libopenmpi-dev libgl1 wget
 ```
 
 #### Create a virtual Python Environment
@@ -47,46 +30,33 @@ python3.10 -m venv ~/biomedisa_env
 source ~/biomedisa_env/bin/activate
 ```
 
-#### Install Pip Dependencies
+#### Install Pip Packages
+Download the list of requirements and install pip packages:
 ```
-python3.10 -m pip install -r ~/git/biomedisa/requirements_inter.txt
-```
-
-#### Install TensorFlow or PyTorch
-TensorFlow (ROCm):
-```
-python3.10 -m pip install tensorflow-rocm==2.16.2 -f https://repo.radeon.com/rocm/manylinux/rocm-rel-6.4.2/ --upgrade
-```
-PyTorch (ROCm):
-```
-python3.10 -m pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/rocm6.4
+wget https://raw.githubusercontent.com/biomedisa/biomedisa/refs/heads/master/requirements_keras2.txt
+python3.10 -m pip install -r requirements_keras2.txt
 ```
 
-#### Install Keras 3.0
-```
-python3.10 -m pip install -U keras
-python3.10 -m pip install tf-keras --no-deps
-```
-If you use PyTorch, you need to change the backend entry in `~/.keras/keras.json` to `torch`.
-
-#### Verify that your GPUs are detected
-TensorFlow:
+#### Verify that TensorFlow detects your GPUs
 ```
 python3.10 -c "import tensorflow as tf; print('Detected GPUs:', len(tf.config.list_physical_devices('GPU')))"
 ```
-PyTorch:
-```
-python3.10 -c "import torch; print('Detected GPUs:', torch.cuda.device_count())"
-```
 
 #### Biomedisa Example
-Download test files via command-line:
+Download test files from [Gallery](https://biomedisa.info/gallery/) or via command-line:
 ```
 wget -P ~/Downloads/ https://biomedisa.info/media/images/mouse_molar_tooth.tif
 wget -P ~/Downloads/ https://biomedisa.info/media/images/teeth.h5
 ```
-Biomedisa inference test:
+Deep Learning:
 ```
 python3.10 -m biomedisa.deeplearning ~/Downloads/mouse_molar_tooth.tif ~/Downloads/teeth.h5 --extension='.nrrd'
 ```
+If you prefer not to activate the environment (Direct Execution):
+```
+biomedisa_env/bin/python3.10 -m biomedisa.deeplearning ~/Downloads/mouse_molar_tooth.tif ~/Downloads/teeth.h5 --extension='.nrrd'
+```
+
+#### Install Biomedisa from source (optional)
+To develop Biomedisa or for the latest version install Biomedisa from [source](https://github.com/biomedisa/biomedisa/blob/master/README/installation_from_source.md).
 

@@ -51,8 +51,8 @@ nvcc --version
 
 #### Create a virtual Python Environment
 ```
-python3.10 -m venv biomedisa_env
-source biomedisa_env/bin/activate
+python3 -m ~/venv biomedisa_env
+source ~/biomedisa_env/bin/activate
 ```
 
 #### Install Pip Packages
@@ -66,14 +66,38 @@ Install PyCUDA (adjust the CUDA version if required):
 PATH=/usr/local/cuda-12.6/bin:${PATH} python3.10 -m pip install pycuda
 ```
 
+#### Install TensorFlow or PyTorch
+TensorFlow (NVIDIA/CUDA):
+```
+python3.10 -m pip install keras tensorflow[and-cuda]==2.16.2 tf-keras==2.16
+```
+PyTorch (NVIDIA/CUDA):
+```
+python3.10 -m pip install keras torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
+```
+TensorFlow (AMD/ROCm):
+```
+python3.10 -m pip install keras tf-keras==2.16 tensorflow-rocm==2.16.2 -f https://repo.radeon.com/rocm/manylinux/rocm-rel-6.4.2/ --upgrade
+```
+PyTorch (AMD/ROCm):
+```
+python3.10 -m pip install keras --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/rocm6.4
+```
+If you use PyTorch, you need to change the backend entry in `~/.keras/keras.json` to `torch`.
+
 #### Verify that PyCUDA is working properly
 ```
 python3.10 -m biomedisa.features.pycuda_test
 ```
 
-#### Verify that TensorFlow detects your GPUs
+#### Verify that TensorFlow or PyTorch detects your GPUs
+TensorFlow:
 ```
 python3.10 -c "import tensorflow as tf; print('Detected GPUs:', len(tf.config.list_physical_devices('GPU')))"
+```
+PyTorch:
+```
+python3.10 -c "import torch; print('Detected GPUs:', torch.cuda.device_count())"
 ```
 
 #### Biomedisa Examples
@@ -91,11 +115,6 @@ python3.10 -m biomedisa.interpolation ~/Downloads/tumor.tif ~/Downloads/labels.t
 Deep Learning:
 ```
 python3.10 -m biomedisa.deeplearning ~/Downloads/mouse_molar_tooth.tif ~/Downloads/teeth.h5 --extension='.nrrd'
-```
-If you prefer not to activate the environment (Direct Execution):
-```
-biomedisa_env/bin/python3.10 -m biomedisa.interpolation ~/Downloads/tumor.tif ~/Downloads/labels.tumor.nrrd
-biomedisa_env/bin/python3.10 -m biomedisa.deeplearning ~/Downloads/mouse_molar_tooth.tif ~/Downloads/teeth.h5 --extension='.nrrd'
 ```
 
 #### Install Biomedisa from source (optional)

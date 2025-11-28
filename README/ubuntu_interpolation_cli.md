@@ -45,15 +45,15 @@ nvcc --version
 
 #### Create a virtual Python Environment
 ```
-python3 -m venv biomedisa_env
-source biomedisa_env/bin/activate
+python3 -m ~/venv biomedisa_env
+source ~/biomedisa_env/bin/activate
 ```
 
 #### Install Pip Packages
 Download the list of requirements and install pip packages:
 ```
-wget https://raw.githubusercontent.com/biomedisa/biomedisa/refs/heads/master/requirements_inter.txt
-python3 -m pip install -r requirements_inter.txt --upgrade
+wget https://raw.githubusercontent.com/biomedisa/biomedisa/refs/heads/master/requirements.txt
+python3 -m pip install -r requirements.txt
 ```
 Install PyCUDA (adjust the CUDA version if required):
 ```
@@ -74,10 +74,6 @@ wget -P ~/Downloads/ https://biomedisa.info/media/images/labels.tumor.nrrd
 Smart Interpolation:
 ```
 python3 -m biomedisa.interpolation ~/Downloads/tumor.tif ~/Downloads/labels.tumor.nrrd
-```
-If you prefer not to activate the environment (Direct Execution):
-```
-biomedisa_env/bin/python3 -m biomedisa.interpolation ~/Downloads/tumor.tif ~/Downloads/labels.tumor.nrrd
 ```
 
 #### Install Biomedisa from source (optional)

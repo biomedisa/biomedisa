@@ -30,7 +30,7 @@ Download and install [3D Slicer](https://download.slicer.org/).
 Run `PythonSlicer.exe` from `AppData\Local\slicer.org\Slicer <VERSION>\bin` (replace `<VERSION>` with your specific version):
 ```
 cd "AppData\Local\slicer.org\Slicer <VERSION>\bin"
-PythonSlicer.exe -m pip install PyQt5 tifffile
+PythonSlicer.exe -m pip install PyQt5 tifffile h5py
 ```
 
 #### Add Biomedisa modules to 3D Slicer

@@ -126,9 +126,7 @@ class BiomedisaPredictionLogic():
                 if labels is None:
                     Helper.prompt_error_message('Binary mask of instances required for separation model.')
                     return None
-                #batch_size = 1024
-                parameter.stride_size = 4
-                cmd += [f'-m={mask_path}', '-xp=16', '-yp=16', '-zp=16', '-s']
+                cmd += [f'-m={mask_path}']
             if parameter.stride_size != 32:
                 cmd += [f'-ss={parameter.stride_size}']
             if batch_size:
