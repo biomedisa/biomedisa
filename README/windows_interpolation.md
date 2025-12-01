@@ -36,13 +36,9 @@ Activate conda environment:
 ```
 conda activate biomedisa
 ```
-Install Biomedisa prerelease:
-```
-python -m pip install biomedisa>=25.8.3
-```
 Install PyTorch:
 ```
-python -m pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu129
+python -m pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cu128
 ```
 Install Keras 3:
 ```
