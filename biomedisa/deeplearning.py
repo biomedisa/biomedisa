@@ -29,7 +29,6 @@
 
 import os
 import biomedisa
-import biomedisa.features.crop_helper as ch
 from biomedisa.features.keras_helper import *
 from biomedisa.features.biomedisa_helper import _error_, unique_file_path
 from keras.backend import backend
@@ -215,6 +214,7 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
         # train automatic cropping
         bm.cropping_weights, bm.cropping_config, bm.cropping_norm = None, None, None
         if bm.crop_data:
+            import biomedisa.features.crop_helper as ch
             bm.cropping_weights, bm.cropping_config, bm.cropping_norm = ch.load_and_train(bm)
 
         # train automatic segmentation
@@ -328,6 +328,7 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
                 if any([bm.x_range, bm.y_range, bm.z_range]):
                     region_of_interest = [bm.z_range[0], bm.z_range[1], bm.y_range[0], bm.y_range[1], bm.x_range[0], bm.x_range[1]]
                 elif crop_data:
+                    import biomedisa.features.crop_helper as ch
                     region_of_interest, cropped_volume = ch.crop_data(bm)
 
                 # make prediction
@@ -592,15 +593,22 @@ if __name__ == '__main__':
     elif backend() == 'torch':
         import torch
 
+    # InputError
+    try:
+        import biomedisa.features.crop_helper as ch
+        ChInputError = ch.InputError
+    except:
+        ChInputError = InputError
+
     # train or predict segmentation
     try:
         deep_learning(None, **kwargs)
     except InputError:
         print(traceback.format_exc())
         bm = _error_(bm, f'{InputError.message}')
-    except ch.InputError:
+    except ChInputError:
         print(traceback.format_exc())
-        bm = _error_(bm, f'{ch.InputError.message}')
+        bm = _error_(bm, f'{ChInputError.message}')
     except MemoryError:
         print(traceback.format_exc())
         bm = _error_(bm, 'MemoryError')
