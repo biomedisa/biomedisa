@@ -21,6 +21,6 @@ mpi4py
 itk
 vtk
 matplotlib
-biomedisa>=25.8.3
+biomedisa>=25.8.4
 importlib_metadata
 zarr
