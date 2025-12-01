@@ -25,7 +25,7 @@ Biomedisa (https://biomedisa.info) is a free and easy-to-use open-source applica
 
 ## Installation (command-line based)
 + [Ubuntu 22/24 + Smart Interpolation](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu_interpolation_cli.md)
-+ [Ubuntu 22/24 + Deep Learning](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu_deeplearning_cli.md)
++ [Ubuntu 22/24 + Deep Learning](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu_deeplearning_keras3.md)
 + [Ubuntu 22/24 + Smart Interpolation + Deep Learning](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu_cli.md)
 + [Windows (WSL) + Smart Interpolation + Deep Learning ("advanced")](https://github.com/biomedisa/biomedisa/blob/master/README/windows_wsl.md)
 + [Windows 10/11 + Smart Interpolation + Deep Learning ("simple")](https://github.com/biomedisa/biomedisa/blob/master/README/windows_interpolation.md)

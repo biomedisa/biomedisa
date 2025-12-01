@@ -83,7 +83,7 @@ PyTorch (AMD/ROCm):
 ```
 python3.10 -m pip install keras --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/rocm6.4
 ```
-If you use PyTorch, you need to change the backend entry in `~/.keras/keras.json` to `torch`.
+If you use PyTorch, you need to change the backend entry in `~/.keras/keras.json` to `torch`. PyTorch currently lacks support for auto-cropping and multi-GPU training.
 
 #### Verify that PyCUDA is working properly
 ```
