@@ -38,7 +38,7 @@ conda activate biomedisa
 ```
 Install PyTorch:
 ```
-python -m pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+python -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
 ```
 Install Keras 3:
 ```
