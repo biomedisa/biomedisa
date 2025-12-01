@@ -38,7 +38,7 @@ conda activate biomedisa
 ```
 Install Biomedisa prerelease:
 ```
-python -m pip install --pre -U biomedisa
+python -m pip install biomedisa>=25.8.3
 ```
 Install PyTorch:
 ```
