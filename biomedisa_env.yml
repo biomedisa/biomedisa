@@ -240,9 +240,10 @@ dependencies:
   - zstd=1.5.7=hbeecb71_2
   - zarr=2.18.3
   - pip:
-      - biomedisa>=25.8.3
+      - biomedisa>=25.8.4
       - itk-core==5.3.0
       - itk-filtering==5.3.0
       - itk-numerics==5.3.0
       - itk-registration==5.3.0
+
 
