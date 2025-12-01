@@ -32,5 +32,6 @@ dependencies:
   - mpi4py
   - netcdf4
   - mrcfile
+  - zarr
   - pip:
       - biomedisa
