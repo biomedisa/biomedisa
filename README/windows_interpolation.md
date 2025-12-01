@@ -36,13 +36,9 @@ Activate conda environment:
 ```
 conda activate biomedisa
 ```
-Install Biomedisa prerelease:
+Install PyTorch as follows or check [PyTorch](https://pytorch.org/get-started/locally/):
 ```
-python -m pip install --pre -U biomedisa
-```
-Install PyTorch:
-```
-python -m pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu129
+python -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
 ```
 Install Keras 3:
 ```
@@ -54,6 +50,11 @@ Download test files from [Gallery](https://biomedisa.info/gallery/) or via comma
 ```
 curl https://biomedisa.info/media/images/tumor.tif --output C:\Users\%USERNAME%\Downloads\tumor.tif
 curl https://biomedisa.info/media/images/labels.tumor.nrrd --output C:\Users\%USERNAME%\Downloads\labels.tumor.nrrd
+```
+Deep learning test files:
+```
+curl https://biomedisa.info/media/images/mouse_molar_tooth.tif --output C:\Users\%USERNAME%\Downloads\mouse_molar_tooth.tif
+curl https://biomedisa.info/media/images/teeth.h5 --output C:\Users\%USERNAME%\Downloads\teeth.h5
 ```
 
 #### Biomedisa Examples
@@ -68,6 +69,10 @@ python -m biomedisa.interpolation Downloads\tumor.tif Downloads\labels.tumor.nrr
 Specify the platform if the wrong platform is detected, e.g. `opencl_AMD_GPU` or `opencl_Intel_CPU`:
 ```
 python -m biomedisa.interpolation Downloads\tumor.tif Downloads\labels.tumor.nrrd --platform=opencl_AMD_GPU
+```
+Test deep learning:
+```
+python -m biomedisa.deeplearning Downloads\mouse_molar_tooth.tif Downloads\teeth.h5
 ```
 
 #### Update Biomedisa
