@@ -36,7 +36,7 @@ Activate conda environment:
 ```
 conda activate biomedisa
 ```
-Install PyTorch:
+Install PyTorch as follows or check [PyTorch](https://pytorch.org/get-started/locally/):
 ```
 python -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
 ```
