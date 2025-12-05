@@ -141,6 +141,7 @@ python -m biomedisa.deeplearning C:\Users\%USERNAME%\Downloads\testing_axial_cro
 ```
 
 ## Particle Segmentation
+Checkout the [preprint](https://arxiv.org/abs/2508.16224) for more information.
 Download a test dataset (downsampled by a factor of 4):
 ```
 wget https://biomedisa.info/media/images/large_particles_rescan_0_x4.tif
@@ -151,9 +152,17 @@ Instance segmentation of individual particles using implicit boundary detection:
 ```
 python -m biomedisa.particles large_particles_rescan_0_x4.tif mask.large_particles_rescan_0_x4.tif --model_path model_svl_step=2.h5
 ```
-Using the SAM backend:
+### Using the SAM backend (requires Biomedisa installation with PyTorch):
+Install SAM:
+```
+python3 -m pip install git+https://github.com/facebookresearch/segment-anything.git
+```
+Download the pretrained model:
 ```
 wget https://dl.fbaipublicfiles.com/segment_anything/sam_vit_l_0b3195.pth
+```
+Instance segmentation of individual particles:
+```
 python -m biomedisa.particles large_particles_rescan_0_x4.tif mask.large_particles_rescan_0_x4.tif --model_path sam_vit_l_0b3195.pth
 ```
 
