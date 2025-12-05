@@ -52,7 +52,7 @@ python3.10 -m pip install keras tf-keras==2.16 tensorflow-rocm==2.16.2 -f https:
 ```
 PyTorch (AMD/ROCm):
 ```
-python3.10 -m pip install keras --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/rocm6.4
+python3.10 -m pip install keras torch torchvision --index-url https://download.pytorch.org/whl/rocm6.4
 ```
 If you use PyTorch, you need to change the backend entry in `~/.keras/keras.json` to `torch`. PyTorch currently lacks support for auto-cropping and multi-GPU training.
 
