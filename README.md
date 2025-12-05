@@ -142,12 +142,12 @@ python -m biomedisa.deeplearning C:\Users\%USERNAME%\Downloads\testing_axial_cro
 
 ## Particle Segmentation
 Checkout the [preprint](https://arxiv.org/abs/2508.16224) for more information.
-### Using U-Net for implicit boundary detection:
 Download a test dataset from the paper (downsampled by a factor of 4):
 ```
 wget https://biomedisa.info/media/images/large_particles_rescan_0_x4.tif
 wget https://biomedisa.info/media/images/mask.large_particles_rescan_0_x4.tif
 ```
+### Using U-Net for implicit boundary detection:
 Download a pretrained model:
 ```
 wget https://biomedisa.info/media/Quartz/model_svl_step=2.h5
