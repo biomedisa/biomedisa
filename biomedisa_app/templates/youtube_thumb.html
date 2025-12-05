@@ -1,0 +1,34 @@
+<div class="ytthumb" style="position:relative; width:{{ width }}px; display:inline-block;">
+  <a href="https://www.youtube.com/watch?v={{ video_id }}"
+     target="_blank"
+     rel="noopener noreferrer"
+     style="display:block;">
+
+    <img
+      src="/media/thumbnails/{{ video_id }}.jpg"
+      alt="YouTube thumbnail"
+      style="width:100%; display:block;">
+
+    <span class="ytplay"
+          style="
+             position:absolute;
+             top:50%;
+             left:50%;
+             transform:translate(-50%, -50%);
+             width:80px;
+             height:80px;
+             background:rgba(0,0,0,0.6);
+             border-radius:50%;
+             display:flex;
+             align-items:center;
+             justify-content:center;">
+      <svg viewBox='0 0 68 48' width='46' height='32'>
+        <path d="M66.52 7.76a8 8 0 0 0-5.63-5.66C55.77 0.5 34 0.5 34 0.5s-21.77 0-26.89 1.6a8 8 0 0 0-5.63 5.66A83.3 83.3 0 0 0 0.5 24a83.3 83.3 0 0 0 .98 16.24 8 8 0 0 0 5.63 5.66C12.23 46.5 34 46.5 34 46.5s21.77 0 26.89-1.6a8 8 0 0 0 5.63-5.66A83.3 83.3 0 0 0 67.5 24a83.3 83.3 0 0 0-0.98-16.24z"
+              fill="#f00"></path>
+        <polygon points="45 24 27 14 27 34" fill="#fff"></polygon>
+      </svg>
+    </span>
+
+  </a>
+</div>
+
