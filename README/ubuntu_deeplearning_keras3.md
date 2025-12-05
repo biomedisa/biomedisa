@@ -44,7 +44,7 @@ python3.10 -m pip install keras tensorflow[and-cuda]==2.16.2 tf-keras==2.16
 ```
 PyTorch (NVIDIA/CUDA):
 ```
-python3.10 -m pip install keras torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
+python3.10 -m pip install keras torch torchvision --index-url https://download.pytorch.org/whl/cu126
 ```
 TensorFlow (AMD/ROCm):
 ```
