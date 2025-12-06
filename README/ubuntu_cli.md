@@ -67,6 +67,8 @@ PATH=/usr/local/cuda-12.6/bin:${PATH} python3.10 -m pip install pycuda
 ```
 
 #### Install TensorFlow or PyTorch
+- Choose one of the following frameworks:
+
 TensorFlow (NVIDIA/CUDA):
 ```
 python3.10 -m pip install keras tensorflow[and-cuda]==2.16.2 tf-keras==2.16
