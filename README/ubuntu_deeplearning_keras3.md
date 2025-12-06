@@ -38,6 +38,7 @@ python3.10 -m pip install -r requirements.txt
 ```
 
 #### Install TensorFlow or PyTorch
+Install **one** of the following:  
 TensorFlow (NVIDIA/CUDA):
 ```
 python3.10 -m pip install keras tensorflow[and-cuda]==2.16.2 tf-keras==2.16
