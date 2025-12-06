@@ -72,8 +72,6 @@ if __name__ == "__main__":
     # predict boundaries
     #=======================================================================================
     if bm.boundaries_path is None:
-        ngpus = get_gpu_count()
-        print('Number of GPUs:', ngpus)
 
         # boundaries path
         basename = os.path.basename(bm.img_path)
@@ -84,13 +82,9 @@ if __name__ == "__main__":
             sam_boundaries(volume_path=bm.img_path, boundaries_path=bm.boundaries_path,
                 sam_checkpoint=bm.model_path, mask_path=bm.mask_path)
         else:
-            cmd = [sys.executable, '-m', 'biomedisa.deeplearning',
-                bm.img_path, bm.model_path, f'-m={bm.mask_path}']
-            if bm.batch_size:
-                cmd += [f'-bs={bm.batch_size}']
-            if ngpus>1:
-                cmd = ['mpirun', '-n', f'{ngpus}'] + cmd
-            subprocess.Popen(cmd).wait()
+            from biomedisa.deeplearning import deep_learning
+            deep_learning(None, path_to_images=bm.img_path, path_to_model=bm.model_path,
+                predict=True, batch_size=bm.batch_size, mask=bm.mask_path)
 
     #=======================================================================================
     # label particles

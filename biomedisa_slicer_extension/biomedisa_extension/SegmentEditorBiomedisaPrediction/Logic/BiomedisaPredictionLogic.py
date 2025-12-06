@@ -85,22 +85,26 @@ class BiomedisaPredictionLogic():
 
             # load model
             separation = False
-            try:
+            if os.path.splitext(model_path)[1] == '.pth':
+                separation = True
+            else:
+              try:
                 with h5py.File(model_path, 'r') as hf:
                     meta = hf.get('meta')
                     if 'separation' in meta:
                         separation = bool(meta['separation'][()])
-            except:
+              except:
                 Helper.prompt_error_message('Invalid model.')
                 return None
 
             # temporary file paths
             image_path = os.path.join(temp_dir, 'biomedisa-image.tif')
             mask_path = os.path.join(temp_dir, 'biomedisa-mask.tif')
-            extension = '.tif' if separation else '.nrrd'
-            results_path = os.path.join(temp_dir, f'final.biomedisa-image{extension}')
+            if separation:
+                results_path = os.path.join(temp_dir, f'result.biomedisa-image.nrrd')
+            else:
+                results_path = os.path.join(temp_dir, f'final.biomedisa-image.nrrd')
             error_path = os.path.join(temp_dir, 'biomedisa-error.txt')
-            boundary_path = results_path
 
             # save temporary data
             imwrite(image_path, numpyImage)
@@ -114,26 +118,26 @@ class BiomedisaPredictionLogic():
             if os.name == "nt" and wsl_path!=False:
                 image_path = image_path.replace('\\','/').replace('C:','/mnt/c')
                 model_path = model_path.replace('\\','/').replace('C:','/mnt/c')
-                mask_path = model_path.replace('\\','/').replace('C:','/mnt/c')
-                boundary_path = model_path.replace('\\','/').replace('C:','/mnt/c')
+                mask_path = mask_path.replace('\\','/').replace('C:','/mnt/c')
 
             # base command
-            cmd = ["-m", "biomedisa.deeplearning", image_path, model_path,
-                "-p", f"-ext={extension}", "--slicer"]
-
-            # append parameters on demand
             if separation:
                 if labels is None:
                     Helper.prompt_error_message('Binary mask of instances required for separation model.')
                     return None
-                cmd += [f'-m={mask_path}']
+                cmd = ["-m", "biomedisa.particles", image_path, mask_path, f"-mp={model_path}"]
+            else:
+                cmd = ["-m", "biomedisa.deeplearning", image_path, model_path,
+                    "-p", "-ext='.nrrd'", "--slicer"]
+
+            # append parameters on demand
             if parameter.stride_size != 32:
                 cmd += [f'-ss={parameter.stride_size}']
             if batch_size:
                 cmd += [f'-bs={batch_size}']
 
             # build environment
-            if python_path==None and Helper.module_exists("tensorflow"):
+            if python_path==None and (Helper.module_exists("tensorflow") or Helper.module_exists("torch")):
                 cmd.insert(0, sys.executable)
                 env = os.environ.copy()
                 print("Using Slicer environment.")
@@ -141,7 +145,6 @@ class BiomedisaPredictionLogic():
                 cmd, env = Helper.build_environment(cmd)
 
             # multi gpu
-            python_exe = cmd[0]
             if parameter.available_devices > 1:
                 cmd = ['mpirun', '-n', f'{parameter.available_devices}'] + cmd
 
@@ -155,12 +158,6 @@ class BiomedisaPredictionLogic():
 
             # load result
             if os.path.exists(results_path):
-                # label particles
-                if separation:
-                    subprocess.Popen([python_exe, "-m", "biomedisa.particles", image_path, mask_path, f"-bp={boundary_path}"], env=env).wait()
-                    # adjust result path to particles result
-                    basename = os.path.basename(results_path).replace('.tif', '.nrrd')
-                    results_path = os.path.join(temp_dir, basename.replace('final.', 'result.', 1))
 
                 # Restore original dimensions if data was cropped to ROI
                 if any([numpyImage.shape[0]!=dimensions[2], numpyImage.shape[1]!=dimensions[1], numpyImage.shape[2]!=dimensions[0]]):
