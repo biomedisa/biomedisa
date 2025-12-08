@@ -27,12 +27,17 @@
 ##                                                                      ##
 ##########################################################################
 
-import sys
-import numpy as np
+import os
+if os.name == 'nt':
+    os.environ['KERAS_BACKEND'] = 'torch'
+    os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
+from keras.backend import backend
 from biomedisa.features.biomedisa_helper import *
 from biomedisa.matching import *
 from tifffile import imread
 from scipy import ndimage
+import numpy as np
+import argparse
 import time
 
 if __name__ == "__main__":
@@ -77,7 +82,7 @@ if __name__ == "__main__":
         basename = os.path.basename(bm.img_path)
         bm.boundaries_path = bm.img_path.replace(basename, 'final.' + basename)
 
-        if os.path.splitext(bm.model_path)[1] == '.pth':
+        if os.path.splitext(bm.model_path)[1] in ['.pth','.pt']:
             from biomedisa.features.matching.sam_helper import sam_boundaries
             sam_boundaries(volume_path=bm.img_path, boundaries_path=bm.boundaries_path,
                 sam_checkpoint=bm.model_path, mask_path=bm.mask_path)

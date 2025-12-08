@@ -28,10 +28,13 @@
 ##########################################################################
 
 import os
+if os.name == 'nt':
+    os.environ['KERAS_BACKEND'] = 'torch'
+    os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
+from keras.backend import backend
 import biomedisa
 from biomedisa.features.keras_helper import *
 from biomedisa.features.biomedisa_helper import _error_, unique_file_path
-from keras.backend import backend
 import numpy as np
 import traceback
 import argparse
