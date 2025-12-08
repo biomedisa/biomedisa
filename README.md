@@ -159,7 +159,7 @@ python -m biomedisa.particles large_particles_rescan_0_x4.tif mask.large_particl
 ### Using SAM backend (requires Biomedisa installation with PyTorch):
 Install SAM:
 ```
-python3 -m pip install git+https://github.com/facebookresearch/segment-anything.git
+python -m pip install git+https://github.com/facebookresearch/segment-anything.git
 ```
 Download a pretrained model:
 ```
