@@ -68,7 +68,7 @@ def repository(request, id=1):
     query = request.GET.get('search')
     show_all = True
     if query:
-        specimens = Specimen.objects.filter(Q(internal_id__icontains=query) | Q(subfamily__icontains=query) | Q(genus__icontains=query)\
+        specimens = Specimen.objects.filter(Q(name__icontains=query) | Q(internal_id__icontains=query) | Q(subfamily__icontains=query) | Q(genus__icontains=query)\
          | Q(species__icontains=query) | Q(caste__icontains=query), repository=repository).order_by('name').values()
     else:
         specimens = Specimen.objects.filter(repository=repository).order_by('name').values()

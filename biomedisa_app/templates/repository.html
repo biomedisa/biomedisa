@@ -54,10 +54,8 @@ function visualizationFunction(id, repository_name) {
         $( function() {
         var availableTags = [
           {% for specimen in all_specimens %}
+            "{{specimen.name}}",
             "{{specimen.subfamily}}",
-            "{{specimen.genus}}",
-            "{{specimen.species}}",
-            "{{specimen.caste}}",
             "{{specimen.internal_id}}",
           {% endfor %}
           ];
