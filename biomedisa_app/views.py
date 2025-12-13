@@ -181,7 +181,7 @@ def register(request):
                     path_to_data = PRIVATE_STORAGE_ROOT + '/' + directory + '/' + meta['username']
                     os.makedirs(path_to_data)
                     try:
-                        os.chmod(path_to_data, 0o770)
+                        os.chmod(path_to_data, 0o2770)
                     except:
                         pass
                 messages.success(request, 'Account created successfully.')
@@ -235,7 +235,7 @@ def activation(request, key):
                 path_to_data = PRIVATE_STORAGE_ROOT + '/' + directory + '/' + str(profile.user.username)
                 os.makedirs(path_to_data)
                 try:
-                    os.chmod(path_to_data, 0o770)
+                    os.chmod(path_to_data, 0o2770)
                 except:
                     pass
     else:
@@ -1492,7 +1492,7 @@ def app(request):
                 if not os.path.isdir(path_to_data):
                     os.makedirs(path_to_data)
                     try:
-                        os.chmod(path_to_data, 0o770)
+                        os.chmod(path_to_data, 0o2770)
                     except:
                         pass
 
