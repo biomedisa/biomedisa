@@ -72,8 +72,8 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
     learning_rate=0.01, stride_size=32, validation_stride_size=32, validation_freq=1,
     batch_size=None, x_scale=256, y_scale=256, z_scale=256, scaling=True, early_stopping=0,
     pretrained_model=None, initial_epoch=0, optimizer='sgd', cropping_epochs=50,
-    x_range=None, y_range=None, z_range=None, header=None, extension=None,
-    img_header=None, img_extension='.tif', average_dice=False, django_env=False,
+    x_range=None, y_range=None, z_range=None, header=None, extension='.tif',
+    img_header=None, average_dice=False, django_env=False,
     path=None, success=True, return_probs=False, patch_normalization=False,
     z_patch=64, y_patch=64, x_patch=64, path_to_logfile=None, img_id=None, label_id=None,
     remote=False, queue=0, username=None, shortfilename=None, dice_loss=False,
@@ -225,49 +225,51 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
 
     if bm.predict:
 
-        # load model
-        try:
-            hf = h5py.File(bm.path_to_model, 'r')
-            meta = hf.get('meta')
-            configuration = meta.get('configuration')
-            bm.allLabels = np.array(meta.get('labels'))
-        except:
-            raise RuntimeError("Invalid model.")
-
-        # get configuration
-        channels, bm.x_scale, bm.y_scale, bm.z_scale, bm.normalize, mu, sig = np.array(configuration)[:]
-        channels, bm.x_scale, bm.y_scale, bm.z_scale, bm.normalize, mu, sig = int(channels), int(bm.x_scale), \
-                                int(bm.y_scale), int(bm.z_scale), int(bm.normalize), float(mu), float(sig)
-        if 'normalization' in meta:
-            normalization_parameters = np.array(meta['normalization'], dtype=float)
+        # use SAM backend for particle separation
+        if os.path.splitext(bm.path_to_model)[1] in ['.pth','.pt']:
+            bm.separation = True
         else:
-            normalization_parameters = np.array([[mu],[sig]])
-        if 'patch_normalization' in meta:
-            bm.patch_normalization = bool(meta['patch_normalization'][()])
-        if 'scaling' in meta:
-            bm.scaling = bool(meta['scaling'][()])
-        if 'patch_size' in meta:
-            bm.z_patch, bm.y_patch, bm.x_patch = np.array(meta['patch_size'], dtype=int)
-        if 'separation' in meta:
-            bm.separation = bool(meta['separation'][()])
-            bm.stride_size = min(bm.z_patch, bm.y_patch, bm.x_patch) // 4
+            # load model
+            try:
+                hf = h5py.File(bm.path_to_model, 'r')
+                meta = hf.get('meta')
+                configuration = meta.get('configuration')
+                bm.allLabels = np.array(meta.get('labels'))
+            except:
+                raise RuntimeError("Invalid model.")
+
+            # get configuration
+            channels, bm.x_scale, bm.y_scale, bm.z_scale, bm.normalize, mu, sig = np.array(configuration)[:]
+            channels, bm.x_scale, bm.y_scale, bm.z_scale, bm.normalize, mu, sig = int(channels), int(bm.x_scale), \
+                                    int(bm.y_scale), int(bm.z_scale), int(bm.normalize), float(mu), float(sig)
+            if 'normalization' in meta:
+                normalization_parameters = np.array(meta['normalization'], dtype=float)
+            else:
+                normalization_parameters = np.array([[mu],[sig]])
+            if 'patch_normalization' in meta:
+                bm.patch_normalization = bool(meta['patch_normalization'][()])
+            if 'scaling' in meta:
+                bm.scaling = bool(meta['scaling'][()])
+            if 'patch_size' in meta:
+                bm.z_patch, bm.y_patch, bm.x_patch = np.array(meta['patch_size'], dtype=int)
+            if 'separation' in meta:
+                bm.separation = bool(meta['separation'][()])
+                bm.stride_size = min(bm.z_patch, bm.y_patch, bm.x_patch) // 4
+
+            # check if amira header is available in the network
+            if bm.header is None and meta.get('header') is not None:
+                bm.header = [np.array(meta.get('header'))]
+                bm.extension = '.am'
+
+            # crop data
+            crop_data = True if 'cropping_weights' in hf else False
+            hf.close()
 
         # separation and refinement require binary mask as TIFF file
-        if bm.separation and not (bm.mask and os.path.splitext(bm.mask)[1] in ['.tif', '.tiff']):
-            raise RuntimeError("Separation requires a binary instance mask provided as a multi-page TIFF file.")
-        if bm.refinement and not (bm.mask and os.path.splitext(bm.mask)[1] in ['.tif', '.tiff']):
-            raise RuntimeError("Refinement requires a binary mask of the target area provided as a multi-page TIFF file.")
-
-        # check if amira header is available in the network
-        if bm.extension is None and bm.header is None and meta.get('header') is not None:
-            bm.header = [np.array(meta.get('header'))]
-            bm.extension = '.am'
-        if bm.extension is None:
-            bm.extension = '.tif'
-
-        # crop data
-        crop_data = True if 'cropping_weights' in hf else False
-        hf.close()
+        if bm.separation and not (bm.mask and os.path.splitext(bm.mask)[1] in ['.tif','.tiff','.TIF','.TIFF']):
+            raise RuntimeError("Separation requires a binary mask of instances provided as a Multipage-TIFF (.tif) file.")
+        if bm.refinement and not (bm.mask and os.path.splitext(bm.mask)[1] in ['.tif','.tiff','.TIF','.TIFF']):
+            raise RuntimeError("Refinement requires a binary mask of the target area provided as a Multipage-TIFF (.tif) file.")
 
         # make temporary directory
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -334,15 +336,28 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
                     import biomedisa.features.crop_helper as ch
                     region_of_interest, cropped_volume = ch.crop_data(bm)
 
-                # make prediction
-                results, bm = predict_segmentation(bm, region_of_interest,
-                    channels, normalization_parameters)
-
                 from mpi4py import MPI
                 comm = MPI.COMM_WORLD
                 rank = comm.Get_rank()
+
+                # inference
+                if os.path.splitext(bm.path_to_model)[1] in ['.pth','.pt']:
+                    # use SAM backend for particle separation
+                    from biomedisa.features.matching.sam_helper import sam_boundaries
+                    sam_boundaries(volume_path=bm.path_to_image, boundaries_path=bm.path_to_final,
+                        sam_checkpoint=bm.path_to_model, mask_path=bm.mask)
+                else:
+                    # use U-Net for prediction
+                    results, bm = predict_segmentation(bm, region_of_interest,
+                        channels, normalization_parameters)
+
                 if rank>0:
                     return 0
+
+                # particle separation
+                if bm.separation:
+                    from biomedisa.particles import label_particles
+                    label_particles(bm.path_to_final, bm.mask)
 
                 # results
                 if cropped_volume is not None:
@@ -404,7 +419,7 @@ if __name__ == '__main__':
     parser.add_argument('path_to_images', type=str, metavar='PATH_TO_IMAGES',
                         help='Location of image data (tarball, directory, or file)')
     parser.add_argument('path', type=str, metavar='PATH',
-                        help='Location of label data for training (tarball, directory, or file) or model for prediction (.h5)')
+                        help='Location of label data for training (tarball, directory, or file) or model for prediction (.h5, .pth, .pt)')
 
     # optional arguments
     g.add_argument('-p','--predict', action='store_true', default=False,
@@ -535,7 +550,7 @@ if __name__ == '__main__':
                         help='Location of mask')
     parser.add_argument('-rf','--refinement', action='store_true', default=False,
                         help='Refine segmentation on full size data')
-    parser.add_argument('-ext','--extension', type=str, default=None,
+    parser.add_argument('-ext','--extension', type=str, default='.tif',
                         help='Save data in formats like NRRD or TIFF using --extension=".nrrd"')
     parser.add_argument('-ptm','--path_to_model', type=str, metavar='PATH', default=None,
                         help='Specify the model location for training')
@@ -557,7 +572,7 @@ if __name__ == '__main__':
     if not any([bm.train, bm.predict]):
         bm.predict = False
         bm.train = True
-        if os.path.splitext(bm.path)[1] == '.h5':
+        if os.path.splitext(bm.path)[1] in ['.h5','.pth','.pt']:
             bm.predict = True
             bm.train = False
     if bm.predict:
@@ -585,7 +600,7 @@ if __name__ == '__main__':
     bm.path_to_data = bm.path_to_images
 
     # verify model
-    if bm.predict and os.path.splitext(bm.path)[1] != '.h5':
+    if bm.predict and os.path.splitext(bm.path)[1] not in ['.h5','.pth','.pt']:
         bm = _error_(bm, "Invalid model.")
         raise RuntimeError("Invalid model.")
 

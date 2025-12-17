@@ -83,27 +83,10 @@ class BiomedisaPredictionLogic():
             # model path
             model_path = parameter.path_to_model
 
-            # load model
-            separation = False
-            if os.path.splitext(model_path)[1] == '.pth':
-                separation = True
-            else:
-              try:
-                with h5py.File(model_path, 'r') as hf:
-                    meta = hf.get('meta')
-                    if 'separation' in meta:
-                        separation = bool(meta['separation'][()])
-              except:
-                Helper.prompt_error_message('Invalid model.')
-                return None
-
             # temporary file paths
             image_path = os.path.join(temp_dir, 'biomedisa-image.tif')
             mask_path = os.path.join(temp_dir, 'biomedisa-mask.tif')
-            if separation:
-                results_path = os.path.join(temp_dir, f'result.biomedisa-image.nrrd')
-            else:
-                results_path = os.path.join(temp_dir, f'final.biomedisa-image.nrrd')
+            results_path = os.path.join(temp_dir, f'final.biomedisa-image.nrrd')
             error_path = os.path.join(temp_dir, 'biomedisa-error.txt')
 
             # save temporary data
@@ -121,20 +104,16 @@ class BiomedisaPredictionLogic():
                 mask_path = mask_path.replace('\\','/').replace('C:','/mnt/c')
 
             # base command
-            if separation:
-                if labels is None:
-                    Helper.prompt_error_message('Binary mask of instances required for separation model.')
-                    return None
-                cmd = ["-m", "biomedisa.particles", image_path, mask_path, f"-mp={model_path}"]
-            else:
-                cmd = ["-m", "biomedisa.deeplearning", image_path, model_path,
-                    "-p", "-ext='.nrrd'", "--slicer"]
+            cmd = ["-m", "biomedisa.deeplearning", image_path, model_path,
+                    "-p", "-ext", ".nrrd", "--slicer"]
 
             # append parameters on demand
             if parameter.stride_size != 32:
                 cmd += [f'-ss={parameter.stride_size}']
             if batch_size:
                 cmd += [f'-bs={batch_size}']
+            if labels is not None:
+                cmd += [f'-m={mask_path}']
 
             # build environment
             if python_path==None and (Helper.module_exists("tensorflow") or Helper.module_exists("torch")):
@@ -146,7 +125,7 @@ class BiomedisaPredictionLogic():
 
             # multi gpu
             if parameter.available_devices > 1:
-                cmd = ['mpirun', '-n', f'{parameter.available_devices}'] + cmd
+                cmd = ['mpirun', '-np', f'{parameter.available_devices}'] + cmd
 
             # run prediction
             subprocess.Popen(cmd, env=env).wait()
