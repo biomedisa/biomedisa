@@ -73,6 +73,7 @@ import glob
 from datetime import datetime
 from redis import Redis
 from rq import Queue, Worker, get_current_job
+import h5py
 
 class Biomedisa(object):
      pass
@@ -794,13 +795,15 @@ def qsub_stop(host, host_base, queue_id, queue_name, subhost, qsub_pid):
             subprocess.Popen(['ssh', '-t', host, 'ssh', subhost, 'kill', qsub_pid]).wait()
 
 # init_keras_3D
-def init_keras_3D(image, label, predict, img_list=None, label_list=None,
+def init_keras_3D(image, label, predict, mask=None, img_list=None, label_list=None,
     val_img_list=None, val_label_list=None):
 
     # get objects
     try:
         image = Upload.objects.get(pk=image)
         label = Upload.objects.get(pk=label)
+        if mask is not None:
+            mask = Upload.objects.get(pk=mask)
     except Upload.DoesNotExist:
         image.status = 0
         image.save()
@@ -937,6 +940,8 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
         if label.header_file:
             header_file = BASE_DIR + f'/private_storage/images/{label.user.username}/{label.header_file}'
             cmd += [f'-hf={header_file.replace(BASE_DIR,host_base)}']
+        if mask is not None:
+            cmd += [f'-m={mask.pic.path.replace(BASE_DIR,host_base)}']
 
         # remote server
         if host:
@@ -955,6 +960,8 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
                 success+=send_data_to_host(label.pic.path, host+':'+label.pic.path.replace(BASE_DIR,host_base))
                 if label.header_file:
                     send_data_to_host(header_file, host+':'+header_file.replace(BASE_DIR,host_base))
+                if mask is not None:
+                    send_data_to_host(mask.pic.path, host+':'+mask.pic.path.replace(BASE_DIR,host_base))
             else:
                 for path in img_list.split(',')[:-1]:
                     success+=send_data_to_host(path, host+':'+path.replace(BASE_DIR,host_base))
@@ -973,9 +980,9 @@ def init_keras_3D(image, label, predict, img_list=None, label_list=None,
                 # adjust command
                 cmd += ['-re', f'-q={queue_id}']
                 if qsub:
-                    if predict:
+                    if predict and queue_id==1:
                         queue_type='_small'
-                    elif label.scaling==False:
+                    elif label.scaling==False and queue_id==3:
                         queue_type='_large'
                     else:
                         queue_type = ''
@@ -1231,20 +1238,27 @@ def features(request, action):
         images = Upload.objects.filter(pk__in=todo)
 
         # get models
-        model = 0
+        model_id = 0
         for img in images:
             if img.imageType == 4:
-                model = img.id
+                model_id = img.id
+                model_path = img.pic.path
 
         # predict segmentation
-        if model > 0:
+        if model_id > 0:
             for img in images:
                 if img.status > 0:
                     request.session['state'] = 'Image is already being processed.'
                 elif img.imageType == 1:
 
+                    # get mask
+                    mask_id = None
+                    mask = images.filter(project=img.project, imageType=2).first()
+                    if mask is not None:
+                        mask_id = mask.id
+
                     # two processing queues
-                    '''if config['SECOND_QUEUE']:
+                    if config['SECOND_QUEUE']:
                         q1 = Queue('first_queue', connection=Redis())
                         q2 = Queue('second_queue', connection=Redis())
                         w1 = Worker.all(queue=q1)[0]
@@ -1252,24 +1266,35 @@ def features(request, action):
                         lenq1 = len(q1)
                         lenq2 = len(q2)
 
-                        if lenq1 > lenq2 or (lenq1==lenq2 and w1.state=='busy' and w2.state=='idle'):
+                        # load model
+                        scaling = True
+                        try:
+                            with h5py.File(model_path, 'r') as hf:
+                                meta = hf.get('meta')
+                                if 'scaling' in meta:
+                                    scaling = bool(meta['scaling'][()])
+                        except:
+                            pass
+
+                        #if lenq1 > lenq2 or (lenq1==lenq2 and w1.state=='busy' and w2.state=='idle'):
+                        if os.path.splitext(model_path)[1] in ['.pth','.pt'] or scaling==False:
                             queue_short = 'B'
-                            job = q2.enqueue_call(init_keras_3D, args=(img.id, model, True), timeout=-1)
+                            job = q2.enqueue_call(init_keras_3D, args=(img.id, model_id, True, mask_id), timeout=-1)
                             lenq = len(q2)
                             img.queue = 2
                         else:
                             queue_short = 'A'
-                            job = q1.enqueue_call(init_keras_3D, args=(img.id, model, True), timeout=-1)
+                            job = q1.enqueue_call(init_keras_3D, args=(img.id, model_id, True, mask_id), timeout=-1)
                             lenq = len(q1)
-                            img.queue = 1'''
+                            img.queue = 1
 
                     # single processing queue
-                    #else:
-                    queue_short = 'A'
-                    q = Queue('first_queue', connection=Redis())
-                    job = q.enqueue_call(init_keras_3D, args=(img.id, model, True), timeout=-1)
-                    lenq = len(q)
-                    img.queue = 1
+                    else:
+                        queue_short = 'A'
+                        q = Queue('first_queue', connection=Redis())
+                        job = q.enqueue_call(init_keras_3D, args=(img.id, model_id, True, mask_id), timeout=-1)
+                        lenq = len(q)
+                        img.queue = 1
 
                     # processing message
                     if lenq==0 and ((config['FIRST_QUEUE_HOST'] and queue_short=='A') or (config['SECOND_QUEUE_HOST'] and queue_short=='B')):
@@ -1283,9 +1308,6 @@ def features(request, action):
                         img.status = 1
                     img.job_id = job.id
                     img.save()
-
-                elif img.imageType in [2,3]:
-                    request.session['state'] = 'No vaild image selected.'
         else:
             request.session['state'] = 'No vaild network selected.'
 
@@ -1333,7 +1355,7 @@ def features(request, action):
                 queue_name, queue_short = 'first_queue', 'A'
                 raw_out.queue = 1
             q = Queue(queue_name, connection=Redis())
-            job = q.enqueue_call(init_keras_3D, args=(raw_out.id, label_out.id, False,
+            job = q.enqueue_call(init_keras_3D, args=(raw_out.id, label_out.id, False, None,
                                  img_list, label_list, val_img_list, val_label_list), timeout=-1)
 
             # processing message
