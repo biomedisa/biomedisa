@@ -1133,7 +1133,8 @@ def init_keras_3D(image, label, predict, mask=None, img_list=None, label_list=No
                 elif success == 0:
 
                     with open(BASE_DIR + config_path, 'r') as configfile:
-                        final_on_host, _, _, _, _, time_str, server_name, model_on_host, cropped_on_host, _ = configfile.read().split()
+                        final_on_host, _, _, _, _, time_str, server_name, model_on_host, cropped_on_host, _, separation = configfile.read().split()
+                    separation=True if separation=='True' else False
                     if cropped_on_host=='None':
                         cropped_on_host=None
                     time_str = time_str.replace('-',' ')
@@ -1164,7 +1165,7 @@ def init_keras_3D(image, label, predict, mask=None, img_list=None, label_list=No
                     # post processing
                     post_processing(path_to_final, time_str, server_name, False, None,
                         path_to_cropped_image=path_to_cropped_image, path_to_model=path_to_model,
-                        predict=predict, train=train,
+                        predict=predict, train=train, separation=separation,
                         img_id=image.id, label_id=label.id)
 
                 # process reached time limit
@@ -1253,7 +1254,7 @@ def features(request, action):
 
                     # get mask
                     mask_id = None
-                    mask = images.filter(project=img.project, imageType=2).first()
+                    mask = images.filter(project=img.project, imageType__in=[2,3]).first()
                     if mask is not None:
                         mask_id = mask.id
 
@@ -2335,7 +2336,7 @@ def init_random_walk(image, label):
                 elif success == 0:
 
                     with open(BASE_DIR + config_path, 'r') as configfile:
-                        final_on_host, uncertainty_on_host, smooth_on_host, uncertainty, smooth, time_str, server_name, _, _, dice = configfile.read().split()
+                        final_on_host, uncertainty_on_host, smooth_on_host, uncertainty, smooth, time_str, server_name, _, _, dice, _ = configfile.read().split()
                     uncertainty=True if uncertainty=='True' else False
                     smooth=False if smooth=='0' else True
                     time_str = time_str.replace('-',' ')

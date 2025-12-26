@@ -1,6 +1,6 @@
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2019-2024 Philipp Lösel. All rights reserved.         ##
+##  Copyright (c) 2019-2025 Philipp Lösel. All rights reserved.         ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -69,12 +69,12 @@ def create_pid_object(pid, remote=False, queue=None, img_id=None, path_to_model=
         image.pid = pid
         image.save()
 
-def post_processing(path_to_final, time_str, server_name, remote, queue, dice=1.0, path_to_model=None, path_to_uq=None, path_to_smooth=None, path_to_cropped_image=None, uncertainty=False, smooth=False, img_id=None, label_id=None, train=False, predict=False):
+def post_processing(path_to_final, time_str, server_name, remote, queue, dice=1.0, path_to_model=None, path_to_uq=None, path_to_smooth=None, path_to_cropped_image=None, uncertainty=False, smooth=False, img_id=None, label_id=None, train=False, predict=False, separation=False):
 
     # remote server
     if remote:
         with open(biomedisa.BASE_DIR + f'/log/config_{queue}', 'w') as configfile:
-            print(path_to_final, path_to_uq, path_to_smooth, uncertainty, smooth, str(time_str).replace(' ','-'), server_name, path_to_model, path_to_cropped_image, dice, file=configfile)
+            print(path_to_final, path_to_uq, path_to_smooth, uncertainty, smooth, str(time_str).replace(' ','-'), server_name, path_to_model, path_to_cropped_image, dice, separation, file=configfile)
 
     # local server
     else:
@@ -132,13 +132,13 @@ def post_processing(path_to_final, time_str, server_name, remote, queue, dice=1.
                     log=1, imageType=None, shortfilename='Bad result! Activate "All axes" if you labeled axes other than the xy-plane.')
 
             # acwe
-            if not (os.path.splitext(path_to_final)[1]=='.tar' or path_to_final[-7:]=='.tar.gz'):
+            if not separation and not (os.path.splitext(path_to_final)[1]=='.tar' or path_to_final[-7:]=='.tar.gz'):
                 q = Queue('acwe', connection=Redis())
                 job = q.enqueue_call(init_active_contour, args=(img_id, final.id, label_id, True,), timeout=-1)
                 job = q.enqueue_call(init_active_contour, args=(img_id, final.id, label_id,), timeout=-1)
 
             # cleanup
-            if not (os.path.splitext(path_to_final)[1]=='.tar' or path_to_final[-7:]=='.tar.gz'):
+            if not separation and not (os.path.splitext(path_to_final)[1]=='.tar' or path_to_final[-7:]=='.tar.gz'):
                 q = Queue('cleanup', connection=Redis())
                 job = q.enqueue_call(init_remove_outlier, args=(img_id, final.id, label_id,), timeout=-1)
                 if smooth:
