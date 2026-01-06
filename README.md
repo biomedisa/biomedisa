@@ -1,6 +1,6 @@
 [![biomedisa](https://raw.githubusercontent.com/biomedisa/biomedisa/master/biomedisa_app/static/biomedisa_logo.svg)](https://biomedisa.info)
 -----------
-- [Overview](#overview)
+- [About](#about)
 - [Hardware Requirements](#hardware-requirements)
 - [Installation (command-line based)](#installation-command-line-based)
 - [Installation (3D Slicer extension)](#installation-3d-slicer-extension)
@@ -17,8 +17,8 @@
 - [Citation](#citation)
 - [License](#license)
 
-## Overview
-Biomedisa (https://biomedisa.info) is a free and easy-to-use open-source application for segmenting large 3D volumetric images such as CT and MRI scans, developed at [The Australian National University CTLab](https://ctlab.anu.edu.au/). Biomedisa's smart interpolation of sparsely pre-segmented slices enables accurate semi-automated segmentation by considering the complete underlying image data. Additionally, Biomedisa enables deep learning for fully automated segmentation across similar samples and structures. It is compatible with segmentation tools like Amira/Avizo, ImageJ/Fiji, and 3D Slicer. If you are using Biomedisa or the data for your research please cite: Lösel, P.D. et al. [Introducing Biomedisa as an open-source online platform for biomedical image segmentation.](https://www.nature.com/articles/s41467-020-19303-w) *Nat. Commun.* **11**, 5577 (2020).
+## About
+Biomedisa (https://biomedisa.info) is a free and easy-to-use open-source application for segmenting large 3D volumetric images such as CT and MRI scans, developed at [The Australian National University CTLab](https://ctlab.anu.edu.au/). Biomedisa's smart interpolation of sparsely pre-segmented slices enables accurate semi-automated segmentation by considering the complete underlying image data. Additionally, Biomedisa enables deep learning for fully automated segmentation across similar samples and structures. It is compatible with segmentation tools like Amira/Avizo, ImageJ/Fiji, and 3D Slicer. If you are using Biomedisa or the data for your research please cite the following publication: Lösel, P.D. et al. [Introducing Biomedisa as an open-source online platform for biomedical image segmentation.](https://www.nature.com/articles/s41467-020-19303-w) *Nat. Commun.* **11**, 5577 (2020).
 
 ## Hardware Requirements
 + One or more NVIDIA, AMD, or Intel GPUs
