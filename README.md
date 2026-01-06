@@ -259,11 +259,11 @@ If you use Biomedisa or the data, please cite the following paper:
 
 If you use Biomedisa's Deep Learning, you may also cite:
 
-> Lösel, P. D. *et al.* Natural variability in bee brain size and symmetry revealed by micro-CT imaging and deep learning. *PLoS Comput. Biol.* **19**, e1011529 (2023).` https://doi.org/10.1371/journal.pcbi.1011529
+> Lösel, P. D. *et al.* Natural variability in bee brain size and symmetry revealed by micro-CT imaging and deep learning. *PLoS Comput. Biol.* **19**, e1011529 (2023). https://doi.org/10.1371/journal.pcbi.1011529
 
 If you use Biomedisa's Smart Interpolation, you can also cite the initial description of this method:
 
-> Lösel, P. & Heuveline, V. Enhancing a diffusion algorithm for 4D image segmentation using local information. *Proc. SPIE* **9784**, 97842L (2016).` https://doi.org/10.1117/12.2216202
+> Lösel, P. & Heuveline, V. Enhancing a diffusion algorithm for 4D image segmentation using local information. *Proc. SPIE* **9784**, 97842L (2016). https://doi.org/10.1117/12.2216202
 
 ## License
 
