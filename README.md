@@ -20,7 +20,7 @@
 ## About
 Biomedisa (https://biomedisa.info) is a free and easy-to-use open-source application for segmenting large 3D volumetric images such as CT and MRI scans, developed at [The Australian National University CTLab](https://ctlab.anu.edu.au/). Biomedisa's smart interpolation of sparsely pre-segmented slices enables accurate semi-automated segmentation by considering the complete underlying image data. Additionally, Biomedisa enables deep learning for fully automated segmentation across similar samples and structures. It is compatible with segmentation tools like Amira/Avizo, ImageJ/Fiji, and 3D Slicer. If you are using Biomedisa or the data for your research please cite the following publication: 
 
-> Lösel, P. D. *et al.* Introducing Biomedisa as an open-source online platform for biomedical image segmentation. *Nat Commun* **11**, 5577 (2020). [https://www.nature.com/articles/s41467-020-19303-w]
+> Lösel, P. D. *et al.* Introducing Biomedisa as an open-source online platform for biomedical image segmentation. *Nat Commun* **11**, 5577 (2020). https://doi.org/10.1038/s41467-020-19303-w
 
 ## Hardware Requirements
 + One or more NVIDIA, AMD, or Intel GPUs
@@ -255,15 +255,15 @@ Frequently asked questions can be found at: https://biomedisa.info/faq/.
 
 If you use Biomedisa or the data, please cite the following paper:
 
-`Lösel, P.D. et al. Introducing Biomedisa as an open-source online platform for biomedical image segmentation. Nat. Commun. 11, 5577 (2020).` https://doi.org/10.1038/s41467-020-19303-w
+> Lösel, P. D. *et al.* Introducing Biomedisa as an open-source online platform for biomedical image segmentation. *Nat Commun* **11**, 5577 (2020). https://doi.org/10.1038/s41467-020-19303-w
 
 If you use Biomedisa's Deep Learning, you may also cite:
 
-`Lösel, P.D. et al. Natural variability in bee brain size and symmetry revealed by micro-CT imaging and deep learning. PLoS Comput. Biol. 19, e1011529 (2023).` https://doi.org/10.1371/journal.pcbi.1011529
+> Lösel, P. D. *et al.* Natural variability in bee brain size and symmetry revealed by micro-CT imaging and deep learning. *PLoS Comput. Biol.* **19**, e1011529 (2023).` https://doi.org/10.1371/journal.pcbi.1011529
 
 If you use Biomedisa's Smart Interpolation, you can also cite the initial description of this method:
 
-`Lösel, P. & Heuveline, V. Enhancing a diffusion algorithm for 4D image segmentation using local information. Proc. SPIE 9784, 97842L (2016).` https://doi.org/10.1117/12.2216202
+> Lösel, P. & Heuveline, V. Enhancing a diffusion algorithm for 4D image segmentation using local information. *Proc. SPIE* **9784**, 97842L (2016).` https://doi.org/10.1117/12.2216202
 
 ## License
 
