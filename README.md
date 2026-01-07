@@ -18,9 +18,7 @@
 - [License](#license)
 
 ## About
-Biomedisa (https://biomedisa.info) is a free and easy-to-use open-source application for segmenting large 3D volumetric images such as CT and MRI scans, developed at [The Australian National University CTLab](https://ctlab.anu.edu.au/). Biomedisa's smart interpolation of sparsely pre-segmented slices enables accurate semi-automated segmentation by considering the complete underlying image data. Additionally, Biomedisa enables deep learning for fully automated segmentation across similar samples and structures. It is compatible with segmentation tools like Amira/Avizo, ImageJ/Fiji, and 3D Slicer. If you are using Biomedisa or the data for your research please cite the following publication: 
-
-> Lösel, P. D. *et al.* Introducing Biomedisa as an open-source online platform for biomedical image segmentation. *Nat. Commun.* **11**, 5577 (2020). https://doi.org/10.1038/s41467-020-19303-w
+Biomedisa (https://biomedisa.info) is a free and easy-to-use open-source application for segmenting large 3D volumetric images such as CT and MRI scans, developed at [The Australian National University CTLab](https://ctlab.anu.edu.au/). Biomedisa's smart interpolation of sparsely pre-segmented slices enables accurate semi-automated segmentation by considering the complete underlying image data. Additionally, Biomedisa enables deep learning for fully automated segmentation across similar samples and structures. It is compatible with segmentation tools like Amira/Avizo, ImageJ/Fiji, and 3D Slicer. If you use Biomedisa or its data, please cite it following the guidelines in the [publication list](https://github.com/biomedisa/biomedisa/?tab=readme-ov-file#citation). 
 
 ## Hardware Requirements
 + One or more NVIDIA, AMD, or Intel GPUs
