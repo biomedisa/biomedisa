@@ -18,7 +18,7 @@
 - [License](#license)
 
 ## About
-Biomedisa (https://biomedisa.info) is a free and easy-to-use open-source application for segmenting large 3D volumetric images such as CT and MRI scans, developed at [The Australian National University CTLab](https://ctlab.anu.edu.au/). Biomedisa's smart interpolation of sparsely pre-segmented slices enables accurate semi-automated segmentation by considering the complete underlying image data. Additionally, Biomedisa enables deep learning for fully automated segmentation across similar samples and structures. It is compatible with segmentation tools like Amira/Avizo, ImageJ/Fiji, and 3D Slicer. If you use Biomedisa or its data, please cite it following the guidelines in the [publication list](https://github.com/biomedisa/biomedisa/?tab=readme-ov-file#citation). 
+Biomedisa (https://biomedisa.info) is a free and easy-to-use open-source application for segmenting large 3D volumetric images such as CT and MRI scans, developed at [The Australian National University CTLab](https://ctlab.anu.edu.au/). Biomedisa's smart interpolation of sparsely pre-segmented slices enables accurate semi-automated segmentation by considering the complete underlying image data. Additionally, Biomedisa enables deep learning for fully automated segmentation across similar samples and structures. It is compatible with segmentation tools like Amira/Avizo, ImageJ/Fiji, and 3D Slicer. If you use Biomedisa or its data, please cite it following the guidelines in the [publication list](https://github.com/biomedisa/biomedisa/?tab=readme-ov-file#citation).
 
 ## Hardware Requirements
 + One or more NVIDIA, AMD, or Intel GPUs
@@ -261,7 +261,7 @@ If you use Biomedisa's Deep Learning, you may also cite:
 
 If you use Biomedisa's Smart Interpolation, you can also cite the initial description of this method:
 
-> Lösel, P. & Heuveline, V. Enhancing a diffusion algorithm for 4D image segmentation using local information. *Proc. SPIE* **9784**, 97842L (2016). https://doi.org/10.1117/12.2216202
+> Lösel, P. & Heuveline, V. Enhancing a diffusion algorithm for 4D image segmentation using local information. *Proc. SPIE* **9784**, 97842L (2016). https://biomedisa.info/media/97842L.pdf
 
 If you use Biomedisa's Particle Separation or Self-Validated Learning, please cite the following preprint:
 
