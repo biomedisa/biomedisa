@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2019-2024 Philipp Lösel. All rights reserved.         ##
+##  Copyright (c) 2019 Philipp Lösel. All rights reserved.              ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -28,7 +28,8 @@
 ##########################################################################
 
 import sys, os
-from biomedisa.features.biomedisa_helper import load_data, color_to_gray, img_to_uint8, img_resize, id_generator
+from biomedisa.features.biomedisa_helper import (load_data, color_to_gray,
+    img_to_uint8, img_resize, id_generator, unique)
 from PIL import Image
 import numpy as np
 from glob import glob
@@ -38,25 +39,8 @@ import cv2
 import tarfile
 import tempfile
 
-def unique(arr):
-    arr = arr.astype(np.uint8)
-    counts = np.zeros(256, dtype=int)
-    zsh, ysh, xsh = arr.shape
-    @numba.jit(nopython=True)
-    def __unique__(arr, zsh, ysh, xsh, counts):
-        for k in range(zsh):
-            for l in range(ysh):
-                for m in range(xsh):
-                    index = arr[k,l,m]
-                    counts[index] += 1
-        return counts
-    counts = __unique__(arr, zsh, ysh, xsh, counts)
-    labels = np.where(counts)[0]
-    counts = counts[labels]
-    return labels, counts
-
 def percentile(a, limit):
-    values, counts = unique(a)
+    values, counts = unique(a, return_counts=True)
     total_positive = np.sum(counts[1:])
     limit = total_positive / 100.0 * limit
     k, tmp = 1, 0
@@ -76,7 +60,7 @@ def contrast(arr):
     bottom_quantile, top_quantile = percentile(arr, 0.5)
     arr[arr<bottom_quantile] = bottom_quantile
     arr[arr>top_quantile] = top_quantile
-    values, counts = unique(arr)
+    values, counts = unique(arr, return_counts=True)
     mean = np.sum(values * counts) / np.sum(counts)
     std = np.sqrt(np.sum(counts * (values - mean)**2) / (np.sum(counts) - 1))
     arr = arr.astype(np.float16)
@@ -215,12 +199,22 @@ def create_slices(path_to_data, path_to_label, on_site=False):
                     os.makedirs(path_to_label_slices)
                     os.chmod(path_to_label_slices, 0o770)
 
-                    # define colors
-                    Color = [(255,0,0),(255,255,0),(0,0,255),(0,100,0),(0,255,0),(255,165,0),(139,0,0),(255,20,147),(255,105,180),(255,0,0),(139,0,139),(255,0,255),(160,32,240),(184,134,11),(255,185,15),(255,215,0),(0,191,255),(16,78,139),(104,131,139),(255,64,64),(165,42,42),(255,127,36),(139,90,43),(110,139,61),(0,255,127),(255,127,80),(139,10,80),(219,112,147),(178,34,34),(255,48,48),(205,79,57),(160,32,240),(255,100,0)] * 8
-                    labels, _ = unique(mask)
+                    # determine labels
+                    labels = unique(mask)
                     labels = labels[1:]
-                    Color = Color[:len(labels)]
-                    Color = np.array(Color, dtype=np.uint8)
+                    size = len(labels)
+
+                    # define colors
+                    colors = [(255,0,0),(255,255,0),(0,0,255),(0,100,0),(0,255,0),
+                        (255,165,0),(139,0,0),(255,20,147),(255,105,180),
+                        (255,0,0),(139,0,139),(255,0,255),(160,32,240),
+                        (184,134,11),(255,185,15),(255,215,0),(0,191,255),
+                        (16,78,139),(104,131,139),(255,64,64),(165,42,42),
+                        (255,127,36),(139,90,43),(110,139,61),(0,255,127),
+                        (255,127,80),(139,10,80),(219,112,147),(178,34,34),
+                        (255,48,48),(205,79,57),(160,32,240),(255,100,0)]
+                    colors = (colors * ((size // len(colors)) + 1))[:size]
+                    colors = np.array(colors, dtype=np.uint8)
 
                     # allocate memory
                     zsh, ysh, xsh = raw.shape
@@ -256,11 +250,11 @@ def create_slices(path_to_data, path_to_label, on_site=False):
 
                             # colorize
                             for j, label in enumerate(labels):
-                                C = Color[j]
+                                color = colors[j]
                                 tmp = np.logical_and(gradient>0, mask_tmp==label)
-                                out[:,:xsh][tmp] = C
+                                out[:,:xsh][tmp] = color
                                 if extension == '.tar' or os.path.isdir(path_to_label):
-                                    out[:,xsh:][mask_tmp==label] = C
+                                    out[:,xsh:][mask_tmp==label] = color
 
                         # save slice
                         im = Image.fromarray(out)

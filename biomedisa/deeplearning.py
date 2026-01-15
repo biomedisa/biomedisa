@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2019-2025 Philipp Lösel. All rights reserved.         ##
+##  Copyright (c) 2019 Philipp Lösel. All rights reserved.              ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -44,6 +44,7 @@ import subprocess
 import glob
 import tempfile
 import tifffile
+import shutil
 
 class Biomedisa(object):
      pass
@@ -325,6 +326,10 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
                     if bm.refinement:
                         basename += '.refined'
                     bm.path_to_final = os.path.join(dirname, basename + bm.extension) if dirname else basename + bm.extension
+                    if bm.path_to_final==bm.mask:
+                        new_mask_path = os.path.join(dirname, basename.replace('final.','mask.') + bm.extension) if dirname else basename.replace('final.','mask.') + bm.extension
+                        shutil.move(bm.mask, new_mask_path)
+                        bm.mask = new_mask_path
                     if bm.django_env and not bm.remote and not bm.tarfile:
                         bm.path_to_final = unique_file_path(bm.path_to_final)
 
