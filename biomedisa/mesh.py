@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2019-2025 Philipp Lösel. All rights reserved.         ##
+##  Copyright (c) 2019 Philipp Lösel. All rights reserved.              ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -189,9 +189,9 @@ def get_voxel_spacing(header, extension):
             bounding_box = bounding_box.group(1)
             i0, i1, i2, i3, i4, i5 = bounding_box.split(' ')
             # calculate voxel spacing
-            xres = (float(i1)-float(i0)) / xsh
-            yres = (float(i3)-float(i2)) / ysh
-            zres = (float(i5)-float(i4)) / zsh
+            xres = (float(i1) - float(i0)) / (xsh - 1)
+            yres = (float(i3) - float(i2)) / (ysh - 1)
+            zres = (float(i5) - float(i4)) / (zsh - 1)
         else:
             xres, yres, zres = 1, 1, 1
     elif extension in ['.hdr', '.mhd', '.mha', '.nrrd', '.nii', '.nii.gz']:
