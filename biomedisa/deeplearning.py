@@ -28,7 +28,9 @@
 ##########################################################################
 
 import os
-if os.name == 'nt':
+try:
+    import tensorflow
+except ImportError:
     os.environ['KERAS_BACKEND'] = 'torch'
     os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 from keras.backend import backend
