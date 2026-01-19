@@ -1,6 +1,6 @@
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2019-2025 Philipp Lösel. All rights reserved.         ##
+##  Copyright (c) 2019 Philipp Lösel. All rights reserved.              ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -1575,7 +1575,7 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
                 img, _, _, _ = append_ghost_areas(bm, img)
 
                 # load mask block
-                if bm.separation or bm.refinement:
+                if bm.mask:
                     mask = imread(bm.mask, key=range(z,min(len(tif.pages),z+bm.z_patch)))
                     if len(mask.shape)==2:
                         mask = mask.reshape(1,mask.shape[0],mask.shape[1])
@@ -1599,6 +1599,11 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
                         if centerLabel>0 and np.any(patch!=centerLabel):
                             list_IDs_block.append(z*ysh*xsh+l*xsh+m)
                     elif bm.refinement:
+                        centerLabel = mask[k+bm.z_patch//2,l+bm.y_patch//2,m+bm.x_patch//2]
+                        patch = mask[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]
+                        if np.any(patch!=centerLabel):
+                            list_IDs_block.append(z*ysh*xsh+l*xsh+m)
+                    elif bm.mask:
                         if np.any(mask[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]):
                             list_IDs_block.append(z*ysh*xsh+l*xsh+m)
                     else:
@@ -1707,18 +1712,6 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
                         comm.Send([block_probs[i].copy(), MPI.FLOAT], dest=0, tag=i)
     if rank==0:
 
-        # refine mask data with result
-        '''if bm.refinement:
-            # loop over boundary patches
-            for i, ID in enumerate(list_IDs):
-                if i < max_i:
-                    k = ID // (ysh*xsh)
-                    rest = ID % (ysh*xsh)
-                    l = rest // xsh
-                    m = rest % xsh
-                    mask[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch] = label[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]
-            label = mask'''
-
         # remove ghost areas
         if bm.return_probs and not load_blockwise:
             final = final[:-z_rest,:-y_rest,:-x_rest]
@@ -1741,6 +1734,25 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
         if bm.scaling:
             label = img_resize(label, z_shape, y_shape, x_shape, labels=True)
 
+        # get original label values
+        if not bm.separation:
+            label = get_labels(label, bm.allLabels)
+
+        # refine boundary patches of mask
+        if bm.refinement:
+            # load full mask
+            mask, _ = load_data(bm.mask)
+            # loop over boundary patches
+            for k in range(0, zsh-bm.z_patch+1, bm.stride_size):
+                for l in range(0, ysh-bm.y_patch+1, bm.stride_size):
+                    for m in range(0, xsh-bm.x_patch+1, bm.stride_size):
+                        centerLabel = mask[k+bm.z_patch//2,l+bm.y_patch//2,m+bm.x_patch//2]
+                        patch = mask[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]
+                        if np.any(patch!=centerLabel):
+                            mask[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch] = label[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]
+            # set mask to label result
+            label = mask
+
         # revert automatic cropping
         if np.any(region_of_interest):
             min_z,max_z,min_y,max_y,min_x,max_x,original_zsh,original_ysh,original_xsh = region_of_interest[:]
@@ -1748,9 +1760,7 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
             tmp[min_z:max_z,min_y:max_y,min_x:max_x] = label
             label = np.copy(tmp, order='C')
 
-        # get result
-        if not bm.separation:
-            label = get_labels(label, bm.allLabels)
+        # add result labels to dictionary
         results['regular'] = label
 
         # load header from file

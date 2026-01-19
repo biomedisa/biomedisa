@@ -554,7 +554,7 @@ if __name__ == '__main__':
     parser.add_argument('-m','--mask', type=str, metavar='PATH', default=None,
                         help='Location of mask')
     parser.add_argument('-rf','--refinement', action='store_true', default=False,
-                        help='Refine segmentation on full size data')
+                        help='Refine segmentation on full resolution data')
     parser.add_argument('-ext','--extension', type=str, default='.tif',
                         help='Save data in formats like NRRD or TIFF using --extension=".nrrd"')
     parser.add_argument('-ptm','--path_to_model', type=str, metavar='PATH', default=None,
