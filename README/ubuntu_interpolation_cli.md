@@ -45,7 +45,7 @@ nvcc --version
 
 #### Create a virtual Python Environment
 ```
-python3 -m ~/venv biomedisa_env
+python3 -m venv ~/biomedisa_env
 source ~/biomedisa_env/bin/activate
 ```
 
