@@ -121,7 +121,7 @@ Login to MySQL (with the 'biomedisa_root_password' you just set):
 ```
 mysql -u root -p
 ```
-Create a user 'biomedisa' with password 'biomedisa_user_password' (same as set for 'DJANGO_DATABASE'):
+Create a user 'biomedisa' with password 'biomedisa_user_password' (same as set for 'DJANGO_DATABASE' in `~/git/biomedisa/biomedisa_app/config.py`):
 ```
 CREATE USER 'biomedisa'@'localhost' IDENTIFIED BY 'biomedisa_user_password';
 GRANT ALL PRIVILEGES ON *.* TO 'biomedisa'@'localhost' WITH GRANT OPTION;
