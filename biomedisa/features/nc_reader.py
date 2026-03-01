@@ -119,6 +119,7 @@ def nc_to_np(base_dir, start=0, stop=None, show_keys=False):
             f = netCDF4.Dataset(base_dir,'r')
         if show_keys:
             print(f.variables.keys())
+        name = list(f.variables.keys())[0]
         for n in ['labels', 'segmented', 'tomo']:
             if n in f.variables.keys():
                 name = n

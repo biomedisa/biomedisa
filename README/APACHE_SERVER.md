@@ -1,4 +1,5 @@
 # Installation of Apache Server (optional)
+Please note that both the Biomedisa repository and the Biomedisa Python environment are located under /opt/ using a user called 'dummy' who needs to run `./start_workers.sh`.
 
 ### Install Apache packages
 ```
@@ -13,44 +14,54 @@ sudo nano /etc/apache2/sites-available/000-default.conf
 # Add the following lines between <VirtualHost *:80> and </VirtualHost>
 # Replace <USER> properly
 
-        Alias /static /home/<USER>/git/biomedisa/biomedisa_app/static
-        <Directory /home/<USER>/git/biomedisa/biomedisa_app/static>
+        Alias /static /opt/biomedisa/biomedisa_app/static
+        <Directory /opt/biomedisa/biomedisa_app/static>
         Require all granted
         </Directory>
 
-        Alias /media /home/<USER>/git/biomedisa/media
-        <Directory /home/<USER>/git/biomedisa/media>
+        Alias /media /opt/biomedisa/media
+        <Directory /opt/biomedisa/media>
         Require all granted
         </Directory>
 
-        Alias /paraview /home/<USER>/git/biomedisa/biomedisa_app/paraview
-        <Directory /home/<USER>/git/biomedisa/biomedisa_app/paraview>
+        Alias /paraview /opt/biomedisa/biomedisa_app/paraview
+        <Directory /opt/biomedisa/biomedisa_app/paraview>
         Require all granted
         </Directory>
 
-        <Directory /home/<USER>/git/biomedisa/biomedisa>
+        <Directory /opt/biomedisa/biomedisa>
         <Files wsgi.py>
         Require all granted
         </Files>
         </Directory>
 
-        WSGIScriptAlias / /home/<USER>/git/biomedisa/biomedisa/wsgi.py
+        WSGIScriptAlias / /opt/biomedisa/biomedisa/wsgi.py
         WSGIApplicationGroup %{GLOBAL}
-        WSGIDaemonProcess biomedisa python-path=/home/<USER>/git/biomedisa/biomedisa
+        WSGIDaemonProcess biomedisa \
+            python-path=/opt/biomedisa/biomedisa \
+            python-home=/opt/biomedisa_env
         WSGIProcessGroup biomedisa
 ```
 
 ### Set permissions for www-data
 ```
-sudo usermod -aG www-data <USER>
-sudo usermod -aG <USER> www-data
+sudo addgroup biomedisa
+sudo usermod -aG biomedisa www-data
+sudo usermod -aG biomedisa dummy
 
-sudo chown -R <USER>:<USER> ~/git/biomedisa
-chmod -R 750 ~/git/biomedisa
-chmod -R 770 ~/git/biomedisa/private_storage
-chmod -R 770 ~/git/biomedisa/media
-chmod -R 770 ~/git/biomedisa/log
-chmod -R 770 ~/git/biomedisa/tmp
+sudo chown -R dummy:biomedisa /opt/biomedisa_env
+sudo chmod -R 755 /opt/biomedisa_env
+sudo find /opt/biomedisa_env -type d -exec chmod g+s {} +
+
+sudo chown -R dummy:biomedisa /opt/biomedisa
+sudo chmod -R 750 /opt/biomedisa
+sudo chmod -R 770 /opt/biomedisa/private_storage \
+    /opt/biomedisa/media \
+    /opt/biomedisa/log
+
+sudo find /opt/biomedisa/private_storage -type d -exec chmod g+s {} +
+sudo find /opt/biomedisa/media -type d -exec chmod g+s {} +
+sudo find /opt/biomedisa/log -type d -exec chmod g+s {} +
 ```
 
 ### Restart Apache Server
