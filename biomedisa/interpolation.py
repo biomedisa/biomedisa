@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2019-2025 Philipp Lösel. All rights reserved.         ##
+##  Copyright (c) 2019 Philipp Lösel. All rights reserved.              ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -135,7 +135,7 @@ def smart_interpolation(data, labelData, nbrw=10, sorw=4000, acwe=False, acwe_al
                 if extension == '.gz':
                     filename = filename[:-4]
                 bm.path_to_smooth = filename + '.smooth' + bm.final_image_type
-                bm.path_to_smooth_cleaned = filename + '.smooth.cleand' + bm.final_image_type
+                bm.path_to_smooth_cleaned = filename + '.smooth.cleaned' + bm.final_image_type
                 bm.path_to_cleaned = filename + '.cleaned' + bm.final_image_type
                 bm.path_to_filled = filename + '.filled' + bm.final_image_type
                 bm.path_to_cleaned_filled = filename + '.cleaned.filled' + bm.final_image_type

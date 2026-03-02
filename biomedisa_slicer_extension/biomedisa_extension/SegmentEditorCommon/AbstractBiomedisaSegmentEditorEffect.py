@@ -59,11 +59,11 @@ class AbstractBiomedisaSegmentEditorEffect(AbstractScriptedSegmentEditorEffect):
     def setupOptionsFrame(self):
         self.runButton = qt.QPushButton("Initialize")
         self.runButton.objectName = self.__class__.__name__ + 'Run'
-        self.runButton.setToolTip("Run the biomedisa algorithm and generate segment data")
+        self.runButton.setToolTip("Run the biomedisa algorithm and generate segmentation")
         self.runButton.clicked.connect(self.onRun)
         self.scriptedEffect.addOptionsWidget(self.runButton)
         self.updateRunButtonState()
-        
+
         self.previewShow3DButton = qt.QPushButton("Show 3D")
         self.previewShow3DButton.objectName = self.__class__.__name__ + 'Show3D'
         self.previewShow3DButton.toolTip = "Toggle 3D visibility of the segmentation"
