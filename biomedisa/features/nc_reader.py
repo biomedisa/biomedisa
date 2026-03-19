@@ -1,6 +1,6 @@
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2019-2024 Philipp Lösel. All rights reserved.         ##
+##  Copyright (c) 2019 Philipp Lösel. All rights reserved.              ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -29,8 +29,9 @@
 import os
 import glob
 import numpy as np
+import tempfile
 
-def save_nc_block(path_to_dst, arr, path_to_src, offset):
+def save_nc_block(path_to_dst, arr, path_to_src, offset, labels):
     try:
         import netCDF4
     except:
@@ -40,11 +41,25 @@ def save_nc_block(path_to_dst, arr, path_to_src, offset):
             # copy global attributes all at once via dictionary
             dst.setncatts(src.__dict__)
             # copy dimensions
-            for name, dimension in src.dimensions.items():
-                dst.createDimension(
-                    name, (len(dimension) if not dimension.isunlimited() else None))
+            if labels:
+                # Get sizes from existing dimensions
+                z = len(src.dimensions["tomo_zdim"])
+                y = len(src.dimensions["tomo_ydim"])
+                x = len(src.dimensions["tomo_xdim"])
+
+                # Create new dimensions if they don't exist
+                dst.createDimension("labels_zdim", z)
+                dst.createDimension("labels_ydim", y)
+                dst.createDimension("labels_xdim", x)
+                dst.createDimension("md5sums_dim", 16)
+            else:
+                for name, dimension in src.dimensions.items():
+                    dst.createDimension(
+                        name, (len(dimension) if not dimension.isunlimited() else None))
+
             # copy all file data
             for name, variable in src.variables.items():
+                dst_name = name
                 if name in ['labels','segmented']:
                     srcarr = src[name][:]
                     zsh, ysh, xsh = srcarr.shape
@@ -53,16 +68,22 @@ def save_nc_block(path_to_dst, arr, path_to_src, offset):
                 elif name == 'tomo':
                     srcarr = src[name][:]
                     zsh, ysh, xsh = srcarr.shape
-                    x = dst.createVariable(name, variable.datatype, variable.dimensions)
-                    dst[name][:] = arr[offset:offset+zsh]
+                    if labels:
+                        dst_name = 'labels'
+                        x = dst.createVariable('labels', np.int32, ('labels_zdim', 'labels_ydim', 'labels_xdim'), compression='zlib')
+                        dst['labels'][:] = arr[offset:offset+zsh]
+                    else:
+                        x = dst.createVariable(name, variable.datatype, variable.dimensions)
+                        dst[name][:] = arr[offset:offset+zsh]
                 else:
                     x = dst.createVariable(name, variable.datatype, variable.dimensions)
                     dst[name][:] = src[name][:]
                 # copy variable attributes all at once via dictionary
-                dst[name].setncatts(src[name].__dict__)
+                dst[dst_name].setncatts(src[name].__dict__)
     return offset+zsh
 
-def np_to_nc(results_dir, labeled_array, header=None, reference_dir=None, reference_file=None, start=0, stop=None):
+def np_to_nc(results_dir, labeled_array, header=None, reference_dir=None,
+    reference_file=None, start=0, stop=None, labels=False):
     try:
         import netCDF4
     except:
@@ -76,6 +97,7 @@ def np_to_nc(results_dir, labeled_array, header=None, reference_dir=None, refere
     # get reference information
     if reference_dir:
         ref_files = glob.glob(reference_dir+'/*.nc')
+        ref_files += glob.glob(reference_dir+'/*.bz2')
         ref_files.sort()
     elif header:
         ref_files = header[1]
@@ -88,17 +110,35 @@ def np_to_nc(results_dir, labeled_array, header=None, reference_dir=None, refere
     if is_file and len(ref_files) > 1:
         raise Exception("reference needs to be a file")
 
+    # check for compression
+    if os.path.splitext(ref_files[0])[1]=='.bz2':
+        import bz2
+
     if not stop:
         stop = len(ref_files)-1
 
     # save volume by volume
     offset = 0
     for path_to_src in ref_files[start:stop+1]:
-        if is_file:
-            path_to_dst = results_dir
-        else:
-            path_to_dst = results_dir + '/' + os.path.basename(path_to_src)
-        offset = save_nc_block(path_to_dst, labeled_array, path_to_src, offset)
+
+        # make temporary directory
+        with tempfile.TemporaryDirectory() as temp_dir:
+
+            # decompress bz2 files
+            if path_to_src[-4:]=='.bz2':
+                zipfile = bz2.BZ2File(path_to_src) # open the file
+                data = zipfile.read() # get the decompressed data
+                path_to_src = os.path.join(temp_dir, os.path.basename(path_to_src[:-4])) # assuming the filepath ends with .bz2
+                open(path_to_src, 'wb').write(data)
+
+            # path to destination
+            if is_file:
+                path_to_dst = results_dir
+            else:
+                path_to_dst = results_dir + '/' + os.path.basename(path_to_src)
+
+            # save nc block
+            offset = save_nc_block(path_to_dst, labeled_array, path_to_src, offset, labels)
 
 def nc_to_np(base_dir, start=0, stop=None, show_keys=False):
     try:
