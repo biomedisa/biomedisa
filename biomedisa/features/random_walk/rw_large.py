@@ -341,7 +341,7 @@ def _diffusion_child(comm, bm=None):
                 post_processing(bm.path_to_final, time_str, config['SERVER_ALIAS'], bm.remote, bm.queue,
                     dice=dice, uncertainty=bm.uncertainty, smooth=bm.smooth,
                     path_to_uq=bm.path_to_uq, path_to_smooth=bm.path_to_smooth,
-                    img_id=bm.img_id, label_id=bm.label_id)
+                    img_id=bm.img_id, label_id=bm.label_id, interpolation=True)
 
                 # write in logfile
                 with open(bm.path_to_time, 'a') as timefile:
