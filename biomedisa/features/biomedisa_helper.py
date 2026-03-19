@@ -35,6 +35,7 @@ from medpy.io import load, save
 from skimage import io
 import SimpleITK as sitk
 from PIL import Image
+from scipy import ndimage
 import numpy as np
 import glob
 import random
@@ -180,7 +181,11 @@ def ASSD(ground_truth, result):
         print('Error: no CUDA device found. ASSD is not available.')
         return None, None
 
-def img_resize(a, z_shape, y_shape, x_shape, interpolation=None, labels=False):
+def img_resize(a, z_shape, y_shape, x_shape, interpolation=None, labels=False, backend='cv2'):
+  if backend=='ndimage':
+    zoom_factors = [t / s for t, s in zip((z_shape, y_shape, x_shape), a.shape)]
+    data = ndimage.zoom(a, zoom_factors, order=(0 if labels else 3))
+  elif backend=='cv2':
     if len(a.shape) > 3:
         zsh, ysh, xsh, csh = a.shape
     else:
@@ -218,7 +223,10 @@ def img_resize(a, z_shape, y_shape, x_shape, interpolation=None, labels=False):
             data[:,:,:,channel] = __resize__(a[:,:,:,channel])
     else:
         data = __resize__(a)
-    return data
+  else:
+    print(f'Error: backend "{backend}" does not exist.')
+    return None
+  return data
 
 @numba.jit(nopython=True)
 def smooth_img_3x3(img):

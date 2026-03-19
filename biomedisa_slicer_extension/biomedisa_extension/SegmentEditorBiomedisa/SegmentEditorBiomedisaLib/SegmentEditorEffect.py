@@ -46,6 +46,9 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
         <li><b>Denoise:</b> smooths/denoises image data before processing.</li>
         <li><b>Number:</b> number of random walks starting at each pre-segmented pixel.</li>
         <li><b>Steps:</b> steps of each random walk.</li>
+        <li><b>Smoothing:</b> number of smoothing iterations for segmentation result.</li>
+        <li><b>Remove islands:</b> removes islands/outliers, e.g. 0.5 means that objects smaller than 50 percent of the size of the largest object will be removed.</li>
+        <li><b>Fill holes:</b> fills holes, e.g. 0.5 means that all holes smaller than 50 percent of the entire label will be filled.</li>
         <li><b>Ignore:</b> ignores specific label(s), e.g., 2,5,6.</li>
         <li><b>Only:</b> segments only specific label(s), e.g., 1,3,5.</li>
         <li><b>Platform:</b> specifies which platform is used for calculation.</li>
@@ -73,13 +76,15 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     self.denoise.toolTip = 'Smooth/denoise image data before processing'
     collapsibleLayout.addRow("Denoise:", self.denoise)
 
+    # number of random walks
     self.nbrw = qt.QSpinBox()
     self.nbrw.toolTip = 'Number of random walks starting at each pre-segmented pixel'
     self.nbrw.minimum = 1
     self.nbrw.maximum = 1000
     self.nbrw.value = 10
     collapsibleLayout.addRow("Number:", self.nbrw)
-    
+
+    # steps of each random walk
     self.sorw = qt.QSpinBox()
     self.sorw.toolTip = 'Steps of a random walk'
     self.sorw.minimum = 1
@@ -87,18 +92,80 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     self.sorw.value = 4000
     collapsibleLayout.addRow("Steps:", self.sorw)
 
+    # smoothing
+    self.smooth_active = qt.QCheckBox()
+    self.smooth_active.toolTip = 'If deactivated no smoothing will be performed.'
+    self.smooth_active.stateChanged.connect(self.onSmoothActiveChanged)
+
+    self.smooth = qt.QSpinBox()
+    self.smooth.toolTip = 'Number of smoothing steps.'
+    self.smooth.minimum = 0
+    self.smooth.maximum = 10000
+    self.smooth.value = 100
+    self.smooth.setEnabled(False)
+
+    self.smooth_layout = qt.QHBoxLayout()
+    self.smooth_layout.addWidget(self.smooth_active)
+    self.smooth_layout.addWidget(self.smooth)
+    self.smooth_layout.setStretch(0, 0)
+    self.smooth_layout.setStretch(1, 1)
+    collapsibleLayout.addRow("Smoothing:", self.smooth_layout)
+
+    # remove outliers
+    self.clean_active = qt.QCheckBox()
+    self.clean_active.toolTip = 'If deactivated no cleaning will be performed.'
+    self.clean_active.stateChanged.connect(self.onCleanActiveChanged)
+
+    self.clean = qt.QDoubleSpinBox()
+    self.clean.toolTip = 'Remove outliers.'
+    self.clean.setRange(0.0, 1.0)   # Set the range
+    self.clean.setDecimals(1)       # Set the number of decimals
+    self.clean.setSingleStep(0.1)
+    self.clean.value = 0.1
+    self.clean.setEnabled(False)
+
+    self.clean_layout = qt.QHBoxLayout()
+    self.clean_layout.addWidget(self.clean_active)
+    self.clean_layout.addWidget(self.clean)
+    self.clean_layout.setStretch(0, 0)
+    self.clean_layout.setStretch(1, 1)
+    collapsibleLayout.addRow("Remove islands:", self.clean_layout)
+
+    # fill holes
+    self.fill_active = qt.QCheckBox()
+    self.fill_active.toolTip = 'If deactivated no filling will be performed.'
+    self.fill_active.stateChanged.connect(self.onFillActiveChanged)
+
+    self.fill = qt.QDoubleSpinBox()
+    self.fill.toolTip = 'Fill holes.'
+    self.fill.setRange(0.0, 1.0)   # Set the range
+    self.fill.setDecimals(1)       # Set the number of decimals
+    self.fill.setSingleStep(0.1)
+    self.fill.value = 0.9
+    self.fill.setEnabled(False)
+
+    self.fill_layout = qt.QHBoxLayout()
+    self.fill_layout.addWidget(self.fill_active)
+    self.fill_layout.addWidget(self.fill)
+    self.fill_layout.setStretch(0, 0)
+    self.fill_layout.setStretch(1, 1)
+    collapsibleLayout.addRow("Fill holes:", self.fill_layout)
+
+    # ignore labels
     self.ignore = qt.QLineEdit()
     self.ignore.text = ''#'none'
     self.ignore.toolTip = 'Ignore specific label(s), e.g. 2,5,6'
     self.ignore.setPlaceholderText('Enter label(s) to be ignored, e.g. "2,5,6" or "none"...')
     collapsibleLayout.addRow("Ignore:", self.ignore)
 
+    # compute only specific labels
     self.only = qt.QLineEdit()
     self.only.text = ''#'all'
     self.only.toolTip = 'Segment only specific label(s), e.g. 1,3,5'
     self.only.setPlaceholderText('Enter to run only specific label(s), e.g. "1,3,5" or "all"...')
     collapsibleLayout.addRow("Only:", self.only)
 
+    # compute platform
     self.platform = qt.QLineEdit()
     self.platform.text = ''#self.getPlatform()
     self.platform.toolTip = 'One of "cuda", "opencl_NVIDIA_GPU", "opencl_Intel_CPU"'
@@ -147,6 +214,12 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     parameter.denoise = self.denoise.isChecked()
     parameter.nbrw = self.nbrw.value
     parameter.sorw = self.sorw.value
+    parameter.smooth_active = self.smooth_active.isChecked()
+    parameter.smooth = self.smooth.value
+    parameter.clean_active = self.clean_active.isChecked()
+    parameter.clean = self.clean.value
+    parameter.fill_active = self.fill_active.isChecked()
+    parameter.fill = self.fill.value
     parameter.ignore = self.ignore.text if self.ignore.text else 'none'
     parameter.only = self.only.text if self.only.text else 'all'
     parameter.platform = self.platform.text if self.platform.text and self.platform.text != 'None' else None
@@ -157,9 +230,24 @@ class SegmentEditorEffect(AbstractBiomedisaSegmentEditorEffect):
     self.denoise.setChecked(parameter.denoise)
     self.nbrw.value = parameter.nbrw
     self.sorw.value = parameter.sorw
+    self.smooth_active.setChecked(parameter.smooth_active)
+    self.smooth.value = parameter.smooth
+    self.clean_active.setChecked(parameter.clean_active)
+    self.clean.value = parameter.clean
+    self.fill_active.setChecked(parameter.fill_active)
+    self.fill.value = parameter.fill
     self.ignore.text = parameter.ignore
     self.only.text = parameter.only
     self.platform.text = parameter.platform if parameter.platform is not None else 'None'
+
+  def onSmoothActiveChanged(self, state):
+    self.smooth.setEnabled(state == qt.Qt.Checked)
+
+  def onCleanActiveChanged(self, state):
+    self.clean.setEnabled(state == qt.Qt.Checked)
+
+  def onFillActiveChanged(self, state):
+    self.fill.setEnabled(state == qt.Qt.Checked)
 
   def runAlgorithm(self):
     self.createPreviewNode()

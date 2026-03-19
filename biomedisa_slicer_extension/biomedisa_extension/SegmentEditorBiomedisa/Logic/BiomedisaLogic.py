@@ -68,6 +68,28 @@ class BiomedisaLogic():
                 direction_matrix: np.array,
                 parameter: BiomedisaParameter) -> list:
 
+        # parameters
+        option, suffix = 'regular', ''
+        if parameter.smooth_active:
+            option = 'smooth'
+        else:
+            parameter.smooth = 0
+        if parameter.fill_active:
+            option = 'filled'
+        else:
+            parameter.fill = None
+        if parameter.clean_active:
+            if parameter.smooth_active:
+                option = 'smooth_cleaned'
+            elif parameter.fill_active:
+                option = 'cleaned_filled'
+            else:
+                option = 'cleaned'
+        else:
+            parameter.clean = None
+        if option != 'regular':
+            suffix = f".{option.replace('_','.')}"
+
         # convert data
         numpyLabels = Helper.expandLabelToMatchInputImage(labels, input.GetDimensions())
         numpyImage = Helper.vtkToNumpy(input)
@@ -93,6 +115,9 @@ class BiomedisaLogic():
                 denoise=parameter.denoise,
                 nbrw=parameter.nbrw,
                 sorw=parameter.sorw,
+                smooth=parameter.smooth,
+                clean=parameter.clean,
+                fill=parameter.fill,
                 ignore=parameter.ignore,
                 only=parameter.only,
                 platform=parameter.platform)
@@ -105,7 +130,7 @@ class BiomedisaLogic():
             # temporary file paths
             image_path = os.path.join(temp_dir, 'biomedisa-image.tif')
             labels_path = os.path.join(temp_dir, 'biomedisa-labels.tif')
-            results_path = os.path.join(temp_dir, 'final.biomedisa-image.tif')
+            results_path = os.path.join(temp_dir, f'final.biomedisa-image{suffix}.tif')
             error_path = os.path.join(temp_dir, 'biomedisa-error.txt')
 
             # save temporary data
@@ -131,6 +156,12 @@ class BiomedisaLogic():
                 cmd += [f'--nbrw={parameter.nbrw}']
             if parameter.sorw != 4000:
                 cmd += [f'--sorw={parameter.sorw}']
+            if parameter.smooth != 0:
+                cmd += [f'--smooth={parameter.smooth}']
+            if parameter.clean != None:
+                cmd += [f'--clean={parameter.clean}']
+            if parameter.fill != None:
+                cmd += [f'--fill={parameter.fill}']
             if parameter.allaxis:
                 cmd += ['-allx']
             if parameter.denoise:
@@ -153,13 +184,13 @@ class BiomedisaLogic():
             results = None
             if os.path.exists(results_path):
                 results = {}
-                results['regular'] = imread(results_path)
+                results[option] = imread(results_path)
 
         if results is None:
             return None
 
         # restore original directions
-        regular_result = BiomedisaLogic.reverse_unify_to_identity(results['regular'], direction_matrix)
+        result = BiomedisaLogic.reverse_unify_to_identity(results[option], direction_matrix)
 
-        return regular_result#BiomedisaLogic._getBinaryLabelMaps(regular_result, direction_matrix, labels, uniqueLabels)
+        return result#BiomedisaLogic._getBinaryLabelMaps(result, direction_matrix, labels, uniqueLabels)
 
