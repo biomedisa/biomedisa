@@ -69,7 +69,7 @@ def create_pid_object(pid, remote=False, queue=None, img_id=None, path_to_model=
         image.pid = pid
         image.save()
 
-def post_processing(path_to_final, time_str, server_name, remote, queue, dice=1.0, path_to_model=None, path_to_uq=None, path_to_smooth=None, path_to_cropped_image=None, uncertainty=False, smooth=False, img_id=None, label_id=None, train=False, predict=False, separation=False):
+def post_processing(path_to_final, time_str, server_name, remote, queue, dice=1.0, path_to_model=None, path_to_uq=None, path_to_smooth=None, path_to_cropped_image=None, uncertainty=False, smooth=False, img_id=None, label_id=None, train=False, predict=False, separation=False, interpolation=False):
 
     # remote server
     if remote:
@@ -91,7 +91,7 @@ def post_processing(path_to_final, time_str, server_name, remote, queue, dice=1.
         # get object
         image = Upload.objects.get(pk=img_id)
 
-        '''if train:
+        if train:
             # create model object
             shortfilename = os.path.basename(path_to_model)
             filename = 'images/' + image.user.username + '/' + shortfilename
@@ -101,9 +101,9 @@ def post_processing(path_to_final, time_str, server_name, remote, queue, dice=1.
             for suffix in ['_acc.png', '_loss.png', '.csv']:
                 shortfilename = os.path.basename(path_to_model.replace('.h5', suffix))
                 filename = 'images/' + image.user.username + '/' + shortfilename
-                Upload.objects.create(pic=filename, user=image.user, project=image.project, imageType=6, shortfilename=shortfilename)'''
+                Upload.objects.create(pic=filename, user=image.user, project=image.project, imageType=6, shortfilename=shortfilename)
 
-        if not train:
+        if predict or interpolation:
             # create final objects
             shortfilename = os.path.basename(path_to_final)
             filename = 'images/' + image.user.username + '/' + shortfilename

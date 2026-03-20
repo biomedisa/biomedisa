@@ -1165,7 +1165,7 @@ def init_keras_3D(image, label, predict, mask=None, img_list=None, label_list=No
                     # post processing
                     post_processing(path_to_final, time_str, server_name, False, None,
                         path_to_cropped_image=path_to_cropped_image, path_to_model=path_to_model,
-                        predict=predict, train=train, separation=separation,
+                        predict=predict, train=False, separation=separation,
                         img_id=image.id, label_id=label.id)
 
                 # process reached time limit
@@ -2359,7 +2359,7 @@ def init_random_walk(image, label):
                     # post processing
                     post_processing(path_to_final, time_str, server_name, False, None,
                         dice=float(dice), path_to_uq=path_to_uq, path_to_smooth=path_to_smooth,
-                        uncertainty=uncertainty, smooth=smooth,
+                        uncertainty=uncertainty, smooth=smooth, interpolation=True,
                         img_id=image.id, label_id=label.id)
 
                 # something went wrong
