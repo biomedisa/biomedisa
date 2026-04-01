@@ -2,7 +2,7 @@ __pycache__/
 *.pyc
 config.py
 /log/*
-/media/*
+/media
 /private_storage/*
 /biomedisa_app/paraview
 paraview.zip
