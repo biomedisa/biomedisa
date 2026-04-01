@@ -83,7 +83,7 @@ def unique(arr, return_counts=False):
     if np.issubdtype(arr.dtype, np.integer) and np.all(arr >= 0):
         try:
             arr = arr.ravel()
-            counts = np.zeros(np.amax(arr)+1, dtype=int)
+            counts = np.zeros(int(np.amax(arr)+1), dtype=int)
             @numba.jit(nopython=True)
             def __unique__(arr, size, counts):
                 for k in range(size):
@@ -871,10 +871,10 @@ def predict_blocksize(bm):
     for k in range(zsh):
         y, x = np.nonzero(bm.labelData[k])
         if x.any():
-            argmin_x = min(argmin_x, np.amin(x))
-            argmax_x = max(argmax_x, np.amax(x))
-            argmin_y = min(argmin_y, np.amin(y))
-            argmax_y = max(argmax_y, np.amax(y))
+            argmin_x = min(argmin_x, int(np.amin(x)))
+            argmax_x = max(argmax_x, int(np.amax(x)))
+            argmin_y = min(argmin_y, int(np.amin(y)))
+            argmax_y = max(argmax_y, int(np.amax(y)))
             argmin_z = min(argmin_z, k)
             argmax_z = max(argmax_z, k)
     zmin, zmax = argmin_z, argmax_z

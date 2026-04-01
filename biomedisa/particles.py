@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2019-2025 Philipp Lösel. All rights reserved.         ##
+##  Copyright (c) 2019 Philipp Lösel. All rights reserved.              ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -90,7 +90,7 @@ def label_particles(boundaries_path, mask_path, result_path=None, min_particle_s
     for v,n in zip(lv, ln):
         t.append((n,v))
     t = sorted(t, key=lambda x: x[0])[::-1]
-    ref = np.zeros(np.amax(lv)+1, dtype=np.int32)
+    ref = np.zeros(int(np.amax(lv))+1, dtype=np.int32)
     for i,nv in enumerate(t):
         if nv[0]>=min_particle_size:
             ref[int(nv[1])] = i
@@ -114,10 +114,10 @@ def label_particles(boundaries_path, mask_path, result_path=None, min_particle_s
 
     # remove embeddings
     TIC = time.time()
-    total_boundary = np.zeros(np.amax(labeled_array)+1, dtype=np.uint32)
-    embedded_boundary = np.zeros(np.amax(labeled_array)+1, dtype=np.uint32)
+    total_boundary = np.zeros(int(np.amax(labeled_array))+1, dtype=np.uint32)
+    embedded_boundary = np.zeros(int(np.amax(labeled_array))+1, dtype=np.uint32)
     total_boundary, embedded_boundary = get_boundary_sizes(labeled_array, total_boundary, embedded_boundary)
-    #label_vals = np.ones(np.amax(lv)+1, dtype=np.uint32)
+    #label_vals = np.ones(int(np.amax(lv))+1, dtype=np.uint32)
     embeddings = []
     for value, total_size in enumerate(total_boundary):
         if total_size and embedded_boundary[value] > 0.5*total_size:

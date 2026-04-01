@@ -132,10 +132,10 @@ def predict_blocksize(labelData, x_puffer=25, y_puffer=25, z_puffer=25):
     for k in range(zsh):
         y, x = np.nonzero(labelData[k])
         if x.any():
-            argmin_x = min(argmin_x, np.amin(x))
-            argmax_x = max(argmax_x, np.amax(x))
-            argmin_y = min(argmin_y, np.amin(y))
-            argmax_y = max(argmax_y, np.amax(y))
+            argmin_x = min(argmin_x, int(np.amin(x)))
+            argmax_x = max(argmax_x, int(np.amax(x)))
+            argmin_y = min(argmin_y, int(np.amin(y)))
+            argmax_y = max(argmax_y, int(np.amax(y)))
             argmin_z = min(argmin_z, k)
             argmax_z = max(argmax_z, k)
     zmin, zmax = argmin_z, argmax_z

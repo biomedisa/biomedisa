@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2019-2025 Philipp Lösel. All rights reserved.         ##
+##  Copyright (c) 2019 Philipp Lösel. All rights reserved.              ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -44,10 +44,10 @@ def reduce_blocksize(data):
     for k in range(zsh):
         y, x = np.nonzero(data[k])
         if x.any():
-            argmin_x = min(argmin_x, np.amin(x))
-            argmax_x = max(argmax_x, np.amax(x))
-            argmin_y = min(argmin_y, np.amin(y))
-            argmax_y = max(argmax_y, np.amax(y))
+            argmin_x = min(argmin_x, int(np.amin(x)))
+            argmax_x = max(argmax_x, int(np.amax(x)))
+            argmin_y = min(argmin_y, int(np.amin(y)))
+            argmax_y = max(argmax_y, int(np.amax(y)))
             argmin_z = min(argmin_z, k)
             argmax_z = max(argmax_z, k)
     argmin_x = max(argmin_x - 1, 0)
