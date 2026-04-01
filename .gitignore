@@ -3,7 +3,7 @@ __pycache__/
 config.py
 /log/*
 /media
-/private_storage/*
+/private_storage
 /biomedisa_app/paraview
 paraview.zip
 !**/.gitkeep
