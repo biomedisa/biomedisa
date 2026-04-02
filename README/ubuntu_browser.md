@@ -1,6 +1,6 @@
-#  Ubuntu 22/24 LTS (browser based)
+#  Ubuntu 24.04 LTS (browser based)
 
-- [Install Python 3.10 and Pip](#install-python-and-pip)
+- [Install Python and Pip](#install-python-and-pip)
 - [Install Software Dependencies](#install-software-dependencies)
 - [Clone Biomedisa](#clone-biomedisa)
 - [Install CUDA Toolkit](#install-cuda-toolkit)
@@ -10,21 +10,15 @@
 - [Run Biomedisa](#run-biomedisa)
 - [Install Apache Server (optional)](#install-apache-server-optional)
 
-#### Install Python 3.10 and Pip
-Ubuntu 22.04:
+#### Install Python and Pip
 ```
-sudo apt-get install python3 python3-dev python3-pip
-```
-Ubuntu 24.04:
-```
-sudo add-apt-repository ppa:deadsnakes/ppa
-sudo apt-get install python3.10 python3.10-dev python3-pip
+sudo apt-get install python3 python3.12-dev python3-pip
 ```
 
 #### Install Software Dependencies
 ```
 sudo apt-get install libsm6 libxrender-dev libmysqlclient-dev pkg-config \
-    libboost-python-dev build-essential screen libssl-dev cmake unzip \
+    libboost-python-dev build-essential screen libssl-dev cmake unzip python3-rq \
     openmpi-bin openmpi-doc libopenmpi-dev redis-server git libgl1 wget
 ```
 
@@ -59,16 +53,16 @@ source ~/.bashrc
 nvcc --version
 ```
 
+#### Create a virtual Python Environment
+```
+python3 -m venv biomedisa_env
+source biomedisa_env/bin/activate
+```
+
 #### Install Pip Packages
-Add the local pip directory to the PATH variable:
-```
-echo 'export PATH=${HOME}/.local/bin:${PATH}' >> ~/.bashrc
-```
-Install pip packages. Note: If you run Biomedisa with an Apache Server (optional), you must install your packages system-wide using `sudo -H python3 -m pip install ...`.
 ```
 cd ~/git/biomedisa
-python3 -m pip install -r requirements.txt
-python3 -m pip install mysqlclient rq wget django==3.2.6
+python3 -m pip install -r requirements.txt mysqlclient rq wget django keras tensorflow[and-cuda]==2.18.0 tf-keras==2.18
 PATH=/usr/local/cuda-12.6/bin:${PATH} python3 -m pip install pycuda
 ```
 

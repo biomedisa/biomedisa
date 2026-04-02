@@ -26,17 +26,17 @@ Biomedisa (https://biomedisa.info) is a free and easy-to-use open-source applica
 + One or more NVIDIA, AMD, or Intel GPUs
 
 ## Installation (command-line based)
-+ [Ubuntu 22/24 + Smart Interpolation](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu_interpolation_cli.md)
-+ [Ubuntu 22/24 + Deep Learning](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu_deeplearning_keras3.md)
-+ [Ubuntu 22/24 + Smart Interpolation + Deep Learning](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu_cli.md)
++ [Ubuntu 24.04 + Smart Interpolation](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu_interpolation_cli.md)
++ [Ubuntu 24.04 + Deep Learning](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu_deeplearning.md)
++ [Ubuntu 24.04 + Smart Interpolation + Deep Learning](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu_cli.md)
 + [Windows 10/11 + Smart Interpolation + Deep Learning](https://github.com/biomedisa/biomedisa/blob/master/README/windows_interpolation.md)
 
 ## Installation (3D Slicer extension)
-+ [Ubuntu 22/24](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu_slicer.md)
++ [Ubuntu 24.04](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu_slicer.md)
 + [Windows 10/11](https://github.com/biomedisa/biomedisa/blob/master/README/windows_slicer.md)
 
 ## Installation (browser based)
-+ [Ubuntu 22/24](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu_browser.md)
++ [Ubuntu 24.04](https://github.com/biomedisa/biomedisa/blob/master/README/ubuntu_browser.md)
 
 ## Download Data
 + Download test data from our [gallery](https://biomedisa.info/gallery/)
