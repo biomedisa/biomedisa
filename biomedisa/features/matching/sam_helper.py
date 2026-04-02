@@ -334,8 +334,8 @@ def sam_slices(volume=None, volume_path=None, sam_checkpoint=None, mask_path=Non
                 print(f'Rank: {rank}, Axis: {axis}, Slice: {slc+1}/{sh}')
 
                 # scale data
-                data -= np.amin(data)
                 data = data.astype(np.float32)
+                data -= np.amin(data)
                 if np.amax(data)>0:
                     data /= np.amax(data)
                 data *= 255.0
