@@ -580,20 +580,19 @@ def storage(request):
 
     if request.method == "POST":
         img = StorageForm(request.POST or None, request.FILES or None)
-        if request.is_ajax():
-            if img.is_valid():
-                newimg = Upload(pic=request.FILES['pic'])
-                cd = img.cleaned_data
-                newimg.imageType = 1#cd['imageType']
-                newimg.project = 0
-                newimg.user = request.user
-                newimg.save()
-                newimg.shortfilename = os.path.basename(newimg.pic.path)
-                newimg.save()
+        if img.is_valid():
+            newimg = Upload(pic=request.FILES['pic'])
+            cd = img.cleaned_data
+            newimg.imageType = 1#cd['imageType']
+            newimg.project = 0
+            newimg.user = request.user
+            newimg.save()
+            newimg.shortfilename = os.path.basename(newimg.pic.path)
+            newimg.save()
 
-                # update size of user data
-                request.session['datasize'] = get_size(PRIVATE_STORAGE_ROOT + '/images/' + request.user.username)
-                return redirect(storage)
+            # update size of user data
+            request.session['datasize'] = get_size(PRIVATE_STORAGE_ROOT + '/images/' + request.user.username)
+            return redirect(storage)
     else:
         img = StorageForm()
 
@@ -1165,7 +1164,7 @@ def init_keras_3D(image, label, predict, mask=None, img_list=None, label_list=No
                     # post processing
                     post_processing(path_to_final, time_str, server_name, False, None,
                         path_to_cropped_image=path_to_cropped_image, path_to_model=path_to_model,
-                        predict=predict, train=train, separation=separation,
+                        predict=predict, train=False, separation=separation,
                         img_id=image.id, label_id=label.id)
 
                 # process reached time limit
@@ -2359,7 +2358,7 @@ def init_random_walk(image, label):
                     # post processing
                     post_processing(path_to_final, time_str, server_name, False, None,
                         dice=float(dice), path_to_uq=path_to_uq, path_to_smooth=path_to_smooth,
-                        uncertainty=uncertainty, smooth=smooth,
+                        uncertainty=uncertainty, smooth=smooth, interpolation=True,
                         img_id=image.id, label_id=label.id)
 
                 # something went wrong
