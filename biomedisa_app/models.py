@@ -1,6 +1,6 @@
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2019-2024 Philipp Lösel. All rights reserved.         ##
+##  Copyright (c) 2019 Philipp Lösel. All rights reserved.              ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -374,6 +374,7 @@ class Specimen(models.Model):
     family_or_other = models.CharField(null=True, max_length=255, blank=True)
     antscan_contributor = models.CharField(null=True, max_length=255, blank=True)
     parent_folder = models.CharField(null=True, max_length=255, blank=True)
+    license = models.CharField(null=True, max_length=255, blank=True)
 
 class TomographicData(models.Model):
     pic = models.FileField("", upload_to=repository_directory_path)
@@ -408,7 +409,7 @@ class SpecimenFormPublic(forms.ModelForm):
                   'family_or_other', 'subfamily', 'tribe', 'genus', 'species', 'genus_authority',
                   'located_at', 'owned_by', 'antscan_contributor', 'determined_by', 'collected_by',
                   'method', 'date_collected_start', 'country', 'adm1', 'latitude', 'longitude',
-                  'elevation')
+                  'elevation', 'license')
 
 class SpecimenFormInternal(forms.ModelForm):
     class Meta:
