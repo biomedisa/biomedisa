@@ -948,12 +948,12 @@ def custom_loss(y_true, y_pred):
     loss = loss * ignore_mask
 
     # Return mean loss over valid (non-ignored) samples
-    return tf.reduce_sum(loss) / tf.reduce_sum(ignore_mask)
+    return tf.reduce_sum(loss) / tf.reduce_sum(ignore_mask) #TODO: smoothing
 
 def custom_accuracy(y_true, y_pred):
     import tensorflow as tf
     labels = tf.cast(y_true[..., 0], tf.int32)  # Extract actual values
-    ignore_mask = y_true[..., 1]  # Extract mask (1 = include, 0 = ignore)
+    ignore_mask = tf.cast(y_true[..., 1], tf.float32)  # Extract mask (1 = include, 0 = ignore)
 
     # Convert predictions to discrete values (assuming regression: round values)
     y_pred_class = tf.argmax(y_pred, axis=-1, output_type=tf.int32)
@@ -1011,6 +1011,11 @@ def train_segmentation(bm):
                                 list_IDs_fg.append(index)
                             elif centerLabel>0 and np.any(patch!=centerLabel):
                                 list_IDs_bg.append(index)
+                        elif bm.ignore_mask:
+                            if np.any(np.logical_and(patch[...,0]>0, patch[...,1]>0)):
+                                list_IDs_fg.append(index)
+                            elif np.any(patch[...,1]>0):
+                                list_IDs_bg.append(index)
                         elif np.any(patch>0):
                             list_IDs_fg.append(index)
                         else:
@@ -1044,6 +1049,11 @@ def train_segmentation(bm):
                                 if centerLabel>0 and np.any(np.logical_and(patch!=centerLabel, patch>0)):
                                     list_IDs_val_fg.append(index)
                                 elif centerLabel>0 and np.any(patch!=centerLabel):
+                                    list_IDs_val_bg.append(index)
+                            elif bm.ignore_mask:
+                                if np.any(np.logical_and(patch[...,0]>0, patch[...,1]>0)):
+                                    list_IDs_val_fg.append(index)
+                                elif np.any(patch[...,1]>0):
                                     list_IDs_val_bg.append(index)
                             elif np.any(patch>0):
                                 list_IDs_val_fg.append(index)
@@ -1347,6 +1357,11 @@ def scale_probabilities(final):
                     final[k,l,m,n] /= scale_factor
     return final
 
+class PatchedBatchNorm(BatchNormalization):
+    def __init__(self, *args, **kwargs):
+        kwargs.pop("synchronized", None)
+        super().__init__(*args, **kwargs)
+
 def predict_segmentation(bm, region_of_interest, channels, normalization_parameters):
 
     from mpi4py import MPI
@@ -1405,7 +1420,7 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
     results['allLabels'] = bm.allLabels
 
     # custom objects
-    custom_objects = {"SyncBatchNormalization": BatchNormalization}
+    custom_objects = {"SyncBatchNormalization": BatchNormalization, "BatchNormalization": PatchedBatchNorm}
     if bm.dice_loss:
         def loss_fn(y_true, y_pred):
             dice = 0
