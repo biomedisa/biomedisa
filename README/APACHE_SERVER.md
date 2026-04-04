@@ -39,11 +39,17 @@ sudo nano /etc/apache2/sites-available/000-default.conf
         WSGIApplicationGroup %{GLOBAL}
         WSGIDaemonProcess biomedisa \
             python-path=/opt/biomedisa/biomedisa \
-            python-home=/opt/biomedisa_env
+            python-home=/opt/biomedisa_env \
+            user=www-data group=biomedisa umask=0002
         WSGIProcessGroup biomedisa
 ```
 
-### Set permissions for www-data
+### Set umask for dummy
+```
+echo 'umask 0002' >> ~/.bashrc
+```
+
+### Set permissions for www-data and dummy
 ```
 sudo addgroup biomedisa
 sudo usermod -aG biomedisa www-data

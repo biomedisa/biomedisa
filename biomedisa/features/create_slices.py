@@ -142,7 +142,6 @@ def create_slices(path_to_data, path_to_label, on_site=False):
 
                 # make directory
                 os.makedirs(path_to_slices)
-                os.chmod(path_to_slices, 0o770)
 
                 # save slices
                 for k in range(zsh):
@@ -197,7 +196,6 @@ def create_slices(path_to_data, path_to_label, on_site=False):
 
                     # make directory
                     os.makedirs(path_to_label_slices)
-                    os.chmod(path_to_label_slices, 0o770)
 
                     # determine labels
                     labels = unique(mask)
