@@ -1,6 +1,6 @@
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2019-2025 Philipp Lösel. All rights reserved.         ##
+##  Copyright (c) 2019 Philipp Lösel. All rights reserved.              ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -291,7 +291,7 @@ def recursive_file_permissions(path_to_dir):
     for file in files:
         try:
             if os.path.isdir(file):
-                os.chmod(file, 0o770)
+                os.chmod(file, 0o2770)
             else:
                 os.chmod(file, 0o660)
         except:
