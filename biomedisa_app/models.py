@@ -427,7 +427,7 @@ class SpecimenFormInternal(forms.ModelForm):
                   'disturbance_level', 'country', 'adm1', 'adm2',
                   'island_group', 'island', 'locality_name', 'latitude',
                   'longitude', 'latlong_error', 'elevation', 'elevation_error',
-                  'biogeographic_region', 'sketchfab', 'notes')
+                  'biogeographic_region', 'license', 'sketchfab', 'notes')
 
 class TomographicDataForm(forms.ModelForm):
     class Meta:
