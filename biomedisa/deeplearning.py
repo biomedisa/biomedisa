@@ -332,9 +332,10 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
                     if bm.refinement:
                         basename += '.refined'
                     bm.path_to_final = os.path.join(dirname, basename + bm.extension) if dirname else basename + bm.extension
-                    if bm.path_to_final==bm.mask and rank==0:
+                    if bm.path_to_final==bm.mask:
                         new_mask_path = os.path.join(dirname, basename.replace('final.','mask.') + bm.extension) if dirname else basename.replace('final.','mask.') + bm.extension
-                        shutil.move(bm.mask, new_mask_path)
+                        if rank==0:
+                            shutil.move(bm.mask, new_mask_path)
                         bm.mask = new_mask_path
                     comm.Barrier()
                     if bm.django_env and not bm.remote and not bm.tarfile:
