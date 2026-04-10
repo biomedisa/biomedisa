@@ -1,6 +1,6 @@
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2019-2025 Philipp Lösel. All rights reserved.         ##
+##  Copyright (c) 2019 Philipp Lösel. All rights reserved.              ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -46,7 +46,7 @@ def walk(data, slices, indices, indices_child, nbrw, sorw, name, ctx, queue):
 
     if walkmapChunk.shape[0] != len(labels):
         walkmap = np.zeros((len(labels),)+data.shape, dtype=np.float32)
-        chunk2Walkmap = np.nonzero(np.in1d(labels, labelsChunk))[0]
+        chunk2Walkmap = np.nonzero(np.isin(labels, labelsChunk))[0]
         for chunkIndex, walkmapIndex in enumerate(chunk2Walkmap):
             walkmap[walkmapIndex] += walkmapChunk[chunkIndex]
     else:
@@ -56,7 +56,7 @@ def walk(data, slices, indices, indices_child, nbrw, sorw, name, ctx, queue):
  
 def _extract_slices(slices, indices, indicesChunk):
     extracted = np.zeros((0, slices.shape[1], slices.shape[2]), dtype=np.int32)
-    slicesIndicesToExtract = np.nonzero(np.in1d(indices, indicesChunk))[0]
+    slicesIndicesToExtract = np.nonzero(np.isin(indices, indicesChunk))[0]
     for arraySliceIndex in slicesIndicesToExtract:
         extracted = np.append(extracted, [slices[arraySliceIndex]], axis=0)
     return extracted
