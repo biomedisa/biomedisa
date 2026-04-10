@@ -228,6 +228,10 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
 
     if bm.predict:
 
+        from mpi4py import MPI
+        comm = MPI.COMM_WORLD
+        rank = comm.Get_rank()
+
         # use SAM backend for particle separation
         if os.path.splitext(bm.path_to_model)[1] in ['.pth','.pt']:
             bm.separation = True
@@ -328,10 +332,11 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
                     if bm.refinement:
                         basename += '.refined'
                     bm.path_to_final = os.path.join(dirname, basename + bm.extension) if dirname else basename + bm.extension
-                    if bm.path_to_final==bm.mask:
+                    if bm.path_to_final==bm.mask and rank==0:
                         new_mask_path = os.path.join(dirname, basename.replace('final.','mask.') + bm.extension) if dirname else basename.replace('final.','mask.') + bm.extension
                         shutil.move(bm.mask, new_mask_path)
                         bm.mask = new_mask_path
+                    comm.Barrier()
                     if bm.django_env and not bm.remote and not bm.tarfile:
                         bm.path_to_final = unique_file_path(bm.path_to_final)
 
@@ -342,10 +347,6 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
                 elif crop_data:
                     import biomedisa.features.crop_helper as ch
                     region_of_interest, cropped_volume = ch.crop_data(bm)
-
-                from mpi4py import MPI
-                comm = MPI.COMM_WORLD
-                rank = comm.Get_rank()
 
                 # inference
                 if os.path.splitext(bm.path_to_model)[1] in ['.pth','.pt']:
