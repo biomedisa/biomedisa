@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2019-2025 Philipp Lösel. All rights reserved.         ##
+##  Copyright (c) 2019 Philipp Lösel. All rights reserved.              ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -446,7 +446,7 @@ def create_boundary_labels(result, mask):
     mask = mask.astype(np.uint32)
     ndimage.label(mask, structure=s, output=mask)
     lv, ln = unique(mask, return_counts=True)
-    label_vals = np.zeros(np.amax(lv)+1, dtype=np.uint32)
+    label_vals = np.zeros(int(np.amax(lv))+1, dtype=np.uint32)
     for i,l in enumerate(lv):
         if ln[i]>=100:
             label_vals[l] = 1
@@ -494,7 +494,7 @@ def remove_container(a,xs,ys,ds):
 def label_in_ascending_order(label):
     lv = unique(label)
     print('Labels:', len(lv))
-    ref = np.zeros(np.amax(lv)+1, dtype=np.int32)
+    ref = np.zeros(int(np.amax(lv))+1, dtype=np.int32)
     for i, v in enumerate(lv):
         ref[v] = i
     label = change_label_values(label, ref)
@@ -531,7 +531,7 @@ def get_boundary_sizes(arr, total_boundary, embedded_boundary):
 @numba.jit(nopython=True)
 def is_mostly_inside(arr, value):
     zsh, ysh, xsh = arr.shape
-    labels = np.zeros(np.amax(arr)+1, dtype=np.int32)
+    labels = np.zeros(int(np.amax(arr))+1, dtype=np.int32)
     for k in range(1,zsh-1):
         for l in range(1,ysh-1):
             for m in range(1,xsh-1):
@@ -719,7 +719,7 @@ if __name__ == "__main__":
                 unmatched = unmatched.astype(np.uint32)
                 ndimage.label(unmatched, structure=s, output=unmatched)
                 lv, ln = unique(unmatched, return_counts=True)
-                label_vals = np.zeros(np.amax(lv)+1, dtype=np.uint32)
+                label_vals = np.zeros(int(np.amax(lv))+1, dtype=np.uint32)
                 for i,l in enumerate(lv):
                     if ln[i]>=100:
                         label_vals[l] = 1
@@ -871,7 +871,7 @@ if __name__ == "__main__":
                 for v,n in zip(lv, ln):
                     t.append((n,v))
                 t = sorted(t, key=lambda x: x[0])[::-1]
-                ref = np.zeros(np.amax(lv)+1, dtype=np.int32)
+                ref = np.zeros(int(np.amax(lv))+1, dtype=np.int32)
                 for i,nv in enumerate(t):
                     if nv[0]>=min_particle_size:
                         ref[int(nv[1])] = i
@@ -895,10 +895,10 @@ if __name__ == "__main__":
 
                 # remove embeddings
                 TIC = time.time()
-                total_boundary = np.zeros(np.amax(labeled_array)+1, dtype=np.uint32)
-                embedded_boundary = np.zeros(np.amax(labeled_array)+1, dtype=np.uint32)
+                total_boundary = np.zeros(int(np.amax(labeled_array))+1, dtype=np.uint32)
+                embedded_boundary = np.zeros(int(np.amax(labeled_array))+1, dtype=np.uint32)
                 total_boundary, embedded_boundary = get_boundary_sizes(labeled_array, total_boundary, embedded_boundary)
-                #label_vals = np.ones(np.amax(lv)+1, dtype=np.uint32)
+                #label_vals = np.ones(int(np.amax(lv))+1, dtype=np.uint32)
                 embeddings = []
                 for value, total_size in enumerate(total_boundary):
                     if total_size and embedded_boundary[value] > 0.5*total_size:
@@ -985,7 +985,7 @@ if __name__ == "__main__":
                 for v,n in zip(lv, ln):
                     t.append((n,v))
                 t = sorted(t, key=lambda x: x[0])[::-1]
-                ref = np.zeros(np.amax(lv)+1, dtype=np.int32)
+                ref = np.zeros(int(np.amax(lv))+1, dtype=np.int32)
                 for i,nv in enumerate(t):
                     if nv[0]>=0:#min_particle_size:
                         ref[int(nv[1])] = i
@@ -1048,7 +1048,7 @@ if __name__ == "__main__":
             bounding_boxes = np.load(f'{path_to_meta}/bounding_boxes{sample_i+1}.npy')
 
             # allocate distances array
-            dists = [0]*(np.amax(labels)+1)
+            dists = [0]*(int(np.amax(labels))+1)
 
             # calculate distances
             print('Numbers:', len(labels))
@@ -1290,7 +1290,7 @@ if __name__ == "__main__":
             best_mse = np.load(f'{path_to_meta}/mse{i1}{i2}.npy')
 
             # allocate rotations array
-            rotations = np.zeros((np.amax(labels1)+1, 7))
+            rotations = np.zeros((int(np.amax(labels1))+1, 7))
 
             # load previous rotations
             pre_rotations_path = f'{path_to_meta}/rotations{i1}{i2}.npy'.replace(f'step={bm.step}', f'step={bm.step-1}')
@@ -1539,7 +1539,7 @@ if __name__ == "__main__":
             print(os.path.basename(dataset))
             print('Shape:', result.shape)
             counter = 0
-            labels_array = np.zeros(np.amax(labels)+1, np.uint64)
+            labels_array = np.zeros(int(np.amax(labels))+1, np.uint64)
             for l in labels: #1,12,13,2,23
                 if l in mappings[:,i] or (i==1 and l in mappings[:,3]) or (i==2 and l in mappings[:,4]):
                     labels_array[l]=1
@@ -1554,7 +1554,7 @@ if __name__ == "__main__":
             if n_datasets==3 and i==0: # 1->2 (3->1, 3->2)
                 counter = 0
                 result,_ = load_data(f'{path_to_dir}/result.{dataset}.nrrd')
-                labels_array = np.zeros(np.amax(labels)+1, np.uint64)
+                labels_array = np.zeros(int(np.amax(labels))+1, np.uint64)
                 for k in range(mappings.shape[0]):
                     if mappings[k,0]>0 and mappings[k,1]>0 and mappings[k,2]==0 and mappings[k,3]==0 and mappings[k,4]==0:
                         labels_array[int(mappings[k,0])]=1
@@ -1566,7 +1566,7 @@ if __name__ == "__main__":
             if n_datasets==3 and i==1: # 2->3 (1->2, 1->3)
                 counter = 0
                 result,_ = load_data(f'{path_to_dir}/result.{dataset}.nrrd')
-                labels_array = np.zeros(np.amax(labels)+1, np.uint64)
+                labels_array = np.zeros(int(np.amax(labels))+1, np.uint64)
                 for k in range(mappings.shape[0]):
                     if mappings[k,3]>0 and mappings[k,4]>0 and mappings[k,0]==0 and mappings[k,1]==0 and mappings[k,2]==0:
                         labels_array[int(mappings[k,3])]=1
@@ -1578,7 +1578,7 @@ if __name__ == "__main__":
             if n_datasets==3 and i==2: # 3->1 (2->1, 2->3)
                 counter = 0
                 result,_ = load_data(f'{path_to_dir}/result.{dataset}.nrrd')
-                labels_array = np.zeros(np.amax(labels)+1, np.uint64)
+                labels_array = np.zeros(int(np.amax(labels))+1, np.uint64)
                 for k in range(mappings.shape[0]):
                     if mappings[k,0]>0 and mappings[k,2]>0 and mappings[k,1]==0 and mappings[k,3]==0 and mappings[k,4]==0:
                         labels_array[int(mappings[k,2])]=1
@@ -1636,7 +1636,7 @@ if __name__ == "__main__":
         previous_maps_path = BASE+f'/{bm.project}/step={bm.step-1}/meta/mappings.npy'
         if os.path.exists(previous_maps_path):
             previous_mappings = np.load(previous_maps_path)
-            #m1_max = np.amax(previous_mappings[:,0])
+            #m1_max = int(np.amax(previous_mappings[:,0]))
             for k in range(previous_mappings.shape[0]):
                 if np.sum(previous_mappings[k]>0)==5:
                     m1_max = k
@@ -1959,7 +1959,7 @@ if __name__ == "__main__":
         unmatched = unmatched.astype(np.uint32)
         ndimage.label(unmatched, structure=s, output=unmatched)
         lv, ln = unique(unmatched, return_counts=True)
-        label_vals = np.zeros(np.amax(lv)+1, dtype=np.uint32)
+        label_vals = np.zeros(int(np.amax(lv))+1, dtype=np.uint32)
         for i,l in enumerate(lv):
             if ln[i]>=100:
                 label_vals[l] = 1
@@ -1973,7 +1973,7 @@ if __name__ == "__main__":
         c2,_=load_data(f'{path_to_dir}/corr.{dataset_b}.nrrd')
         m2,_=load_data(BASE+f'/mask.{dataset_b}.tif')
         labels = unique(a2)
-        labels_array = np.zeros(np.amax(c2)+1, np.uint32)
+        labels_array = np.zeros(int(np.amax(c2))+1, np.uint32)
         for l in labels[1:]:
             labels_array[l]=1
         c2 = matched_particles(c2, labels_array)

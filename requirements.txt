@@ -10,7 +10,7 @@ numba
 imagecodecs
 tifffile
 scikit-image
-opencv-python==4.8.1.78
+opencv-python
 netCDF4
 mrcfile
 Pillow

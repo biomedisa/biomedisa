@@ -1,6 +1,6 @@
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2019-2024 Philipp Lösel. All rights reserved.         ##
+##  Copyright (c) 2019 Philipp Lösel. All rights reserved.              ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -143,7 +143,7 @@ def ASSD_one_label(a, b, label):
         a_indices = nonzero(a_surface, np.zeros(np.sum(a_surface), dtype=np.int32), zsh, ysh, xsh)
         b_indices = nonzero(b_surface, np.zeros(np.sum(b_surface), dtype=np.int32), zsh, ysh, xsh)
         distances_a_to_b = min_distances(a_indices, b_indices, xsh, ysh)
-        distances_a_to_b = np.sqrt(distances_a_to_b)
+        distances_a_to_b = np.sqrt(distances_a_to_b, dtype=np.float32)
 
     # min distances from b_to_a
     b_surface[a_save==1] = 0
@@ -157,7 +157,7 @@ def ASSD_one_label(a, b, label):
         a_indices = nonzero(a_surface, np.zeros(np.sum(a_surface), dtype=np.int32), zsh, ysh, xsh)
         b_indices = nonzero(b_surface, np.zeros(np.sum(b_surface), dtype=np.int32), zsh, ysh, xsh)
         distances_b_to_a = min_distances(b_indices, a_indices, xsh, ysh)
-        distances_b_to_a = np.sqrt(distances_b_to_a)
+        distances_b_to_a = np.sqrt(distances_b_to_a, dtype=np.float32)
 
     # hausdorff
     hausdorff = max(np.amax(distances_a_to_b), np.amax(distances_b_to_a))

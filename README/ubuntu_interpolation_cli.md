@@ -1,15 +1,15 @@
-# Ubuntu 22/24 LTS + Smart Interpolation (command-line)
+# Ubuntu 24.04 LTS + Smart Interpolation (command-line)
 
 - [Install Python and Pip](#install-python-and-pip)
 - [Install Software Dependencies](#install-software-dependencies)
 - [Install CUDA Toolkit](#install-cuda-toolkit)
 - [Install Pip Packages](#install-pip-packages)
-- [Biomedisa Examples](#biomedisa-examples)
+- [Biomedisa Example](#biomedisa-example)
 - [Install Biomedisa from source (optional)](#install-biomedisa-from-source-optional)
 
 #### Install Python and Pip
 ```
-sudo apt-get install python3 python3-dev python3-pip python3-venv
+sudo apt-get install python3 python3.12-dev python3-pip python3-venv
 ```
 
 #### Install Software Dependencies
@@ -45,14 +45,17 @@ nvcc --version
 
 #### Create a virtual Python Environment
 ```
-python3 -m venv ~/biomedisa_env
-source ~/biomedisa_env/bin/activate
+python3 -m venv biomedisa_env
+source biomedisa_env/bin/activate
 ```
 
 #### Install Pip Packages
-Download the list of requirements and install pip packages:
+Download the list of requirements manually from [GitHub](https://github.com/biomedisa/biomedisa/) or as follows:
 ```
 wget https://raw.githubusercontent.com/biomedisa/biomedisa/refs/heads/master/requirements.txt
+```
+Install Pip dependencies:
+```
 python3 -m pip install -r requirements.txt
 ```
 Install PyCUDA (adjust the CUDA version if required):

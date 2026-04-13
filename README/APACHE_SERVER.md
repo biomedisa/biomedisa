@@ -60,7 +60,6 @@ sudo chmod -R 755 /opt/biomedisa_env
 sudo find /opt/biomedisa_env -type d -exec chmod g+s {} +
 
 sudo chown -R dummy:biomedisa /opt/biomedisa
-sudo chmod -R 750 /opt/biomedisa
 sudo chmod -R 770 /opt/biomedisa/private_storage \
     /opt/biomedisa/media \
     /opt/biomedisa/log
