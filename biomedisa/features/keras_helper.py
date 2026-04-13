@@ -441,9 +441,6 @@ def load_training_data(bm, img_list, label_list, channels, img_in=None, label_in
             # if header is not single data stream Amira Mesh falling back to Multi-TIFF
             if extension != '.am':
                 extension, header = '.tif', None
-            elif len(header) > 1:
-                print('Warning! Multiple data streams are not supported. Falling back to TIFF.')
-                extension, header = '.tif', None
             else:
                 header = header[0]
 
@@ -896,7 +893,7 @@ def categorical_crossentropy(true_labels, predicted_probs):
     for z in range(zsh):
         for y in range(ysh):
             for x in range(xsh):
-                l = true_labels[z,y,x,0]
+                l = int(true_labels[z,y,x,0])
                 loss += predicted_probs[z,y,x,l]
     loss = loss / float(zsh*ysh*xsh)
     return loss
