@@ -1,6 +1,6 @@
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2019-2025 Philipp Lösel. All rights reserved.         ##
+##  Copyright (c) 2019 Philipp Lösel. All rights reserved.              ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -27,6 +27,7 @@
 ##########################################################################
 
 from biomedisa.features.biomedisa_helper import welford_mean_std
+from scipy.ndimage import gaussian_filter
 import numpy as np
 import keras
 import numba
@@ -174,6 +175,105 @@ def rotate_label_patch_3d(src,trg,k,l,m,rm_xx,rm_xy,rm_xz,rm_yx,rm_yy,rm_yz,rm_z
                 trg[z-k,y-l,x-m] = src[idx_src_z,idx_src_y,idx_src_x]
     return trg
 
+@numba.njit(parallel=True)
+def trilinear_interpolate(image, dz, dy, dx):
+    zsh, ysh, xsh, _ = image.shape
+    output = np.empty_like(image)
+
+    for z in numba.prange(zsh):
+        for y in range(ysh):
+            for x in range(xsh):
+                zz = z + dz[z, y, x]
+                yy = y + dy[z, y, x]
+                xx = x + dx[z, y, x]
+
+                # Clamp to bounds TODO: test reflect
+                if zz < 0: zz = 0
+                if yy < 0: yy = 0
+                if xx < 0: xx = 0
+                if zz > zsh - 2: zz = zsh - 2
+                if yy > ysh - 2: yy = ysh - 2
+                if xx > xsh - 2: xx = xsh - 2
+
+                z0 = int(zz)
+                y0 = int(yy)
+                x0 = int(xx)
+
+                dzf = zz - z0
+                dyf = yy - y0
+                dxf = xx - x0
+
+                # 8 neighbors
+                c000 = image[z0, y0, x0]
+                c001 = image[z0, y0, x0+1]
+                c010 = image[z0, y0+1, x0]
+                c011 = image[z0, y0+1, x0+1]
+                c100 = image[z0+1, y0, x0]
+                c101 = image[z0+1, y0, x0+1]
+                c110 = image[z0+1, y0+1, x0]
+                c111 = image[z0+1, y0+1, x0+1]
+
+                c00 = c000 * (1-dxf) + c001 * dxf
+                c01 = c010 * (1-dxf) + c011 * dxf
+                c10 = c100 * (1-dxf) + c101 * dxf
+                c11 = c110 * (1-dxf) + c111 * dxf
+
+                c0 = c00 * (1-dyf) + c01 * dyf
+                c1 = c10 * (1-dyf) + c11 * dyf
+
+                output[z, y, x] = c0 * (1-dzf) + c1 * dzf
+
+    return output
+
+@numba.njit(parallel=True)
+def nearest_interpolate(image, dz, dy, dx):
+    zsh, ysh, xsh, _ = image.shape
+    output = np.empty_like(image)
+
+    for z in numba.prange(zsh):
+        for y in range(ysh):
+            for x in range(xsh):
+                zz = z + dz[z, y, x]
+                yy = y + dy[z, y, x]
+                xx = x + dx[z, y, x]
+
+                # Round to nearest integer (key difference!)
+                zi = int(round(zz))
+                yi = int(round(yy))
+                xi = int(round(xx))
+
+                # Clamp to valid bounds
+                if zi < 0:
+                    zi = 0
+                elif zi >= zsh:
+                    zi = zsh - 1
+
+                if yi < 0:
+                    yi = 0
+                elif yi >= ysh:
+                    yi = ysh - 1
+
+                if xi < 0:
+                    xi = 0
+                elif xi >= xsh:
+                    xi = xsh - 1
+
+                output[z, y, x] = image[zi, yi, xi]
+
+    return output
+
+def elastic_transform_3d(image, label=None, alpha=100, sigma=5): #sigma between 5 and 10
+    zsh, ysh, xsh, _ = image.shape
+    dx = gaussian_filter((np.random.rand(zsh, ysh, xsh) * 2 - 1) * alpha, sigma)
+    #dy = gaussian_filter((np.random.rand(zsh, ysh, xsh) * 2 - 1) * alpha, sigma)
+    #dz = gaussian_filter((np.random.rand(zsh, ysh, xsh) * 2 - 1) * alpha, sigma)
+    if np.any(label):
+        label = nearest_interpolate(label, dx, dx, dx)
+    noise_std = 0.01 * np.std(image)
+    img_out = trilinear_interpolate(image, dx, dx, dx)
+    img_out += np.random.normal(0, noise_std, size=img_out.shape)
+    return img_out, label
+
 class DataGenerator(keras.utils.PyDataset):
     'Generates data for Keras'
     def __init__(self, img, label, list_IDs_fg, list_IDs_bg, train, shuffle=True, batch_size=32, dim=(32,32,32),
@@ -266,6 +366,7 @@ class DataGenerator(keras.utils.PyDataset):
         flip_x, flip_y, flip_z, swapaxes, rotate, rotate3d = self.augment
         n_aug = np.sum([flip_z, flip_y, flip_x])
         flips =  np.where([flip_z, flip_y, flip_x])[0]
+        elastic = False
 
         # create random angles
         if rotate:
@@ -356,6 +457,12 @@ class DataGenerator(keras.utils.PyDataset):
                     elif v==3:
                         tmp_X = np.swapaxes(tmp_X,1,2)
                         tmp_y = np.swapaxes(tmp_y,1,2)
+
+                # elastic deformation
+                if elastic:
+                    sigma = np.random.randint(4,11)
+                    if sigma>4:
+                        tmp_X, tmp_y = elastic_transform_3d(tmp_X, tmp_y, sigma=sigma)
 
             # patch normalization
             if self.patch_normalization:

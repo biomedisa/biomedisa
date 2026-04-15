@@ -61,7 +61,11 @@ wget https://raw.githubusercontent.com/biomedisa/biomedisa/refs/heads/master/req
 
 TensorFlow (NVIDIA/CUDA):
 ```
-python3 -m pip install -r requirements.txt keras tensorflow[and-cuda]==2.18.0 tf-keras==2.18
+python3 -m pip install -r requirements.txt keras tensorflow[and-cuda]==2.18.0 tf-keras==2.18.0
+```
+TensorFlow Blackwell GPUs (NVIDIA/CUDA):
+```
+python3 -m pip install -r requirements.txt keras tf-nightly[and-cuda]==2.21.0.dev20260203 tf-keras==2.21.0
 ```
 PyTorch (NVIDIA/CUDA):
 ```
