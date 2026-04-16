@@ -462,6 +462,7 @@ class DataGenerator(keras.utils.PyDataset):
                 if elastic:
                     sigma = np.random.randint(4,11)
                     if sigma>4:
+                        tmp_X = tmp_X.copy().astype(np.float32)
                         tmp_X, tmp_y = elastic_transform_3d(tmp_X, tmp_y, sigma=sigma)
 
             # patch normalization
