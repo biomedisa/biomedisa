@@ -1278,6 +1278,14 @@ def load_prediction_data(bm, channels, normalization_parameters,
         InputError.message = f'Number of channels must be {channels}.'
         raise InputError()
 
+    # check for input binary mask
+    mask_provided = [False]*channels
+    if channels > 1:
+        for ch in range(channels):
+            u = unique(img[...,ch])
+            if len(u) == 2 and 0 in u and 1 in u:
+                mask_provided[ch] = True
+
     # original image shape
     z_shape, y_shape, x_shape, _ = img.shape
 
@@ -1304,6 +1312,7 @@ def load_prediction_data(bm, channels, normalization_parameters,
     if bm.normalize:
         img = img.astype(np.float32)
         for ch in range(channels):
+          if not mask_provided[ch]:
             mean, std = welford_mean_std(img[...,ch])
             img[...,ch] = (img[...,ch] - mean) / std
             img[...,ch] = img[...,ch] * normalization_parameters[1,ch] + normalization_parameters[0,ch]

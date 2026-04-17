@@ -29,7 +29,7 @@
 import os
 from biomedisa.features.keras_helper import read_img_list
 from biomedisa.features.biomedisa_helper import (img_resize,
-    load_data, save_data, set_labels_to_zero, welford_mean_std)
+    load_data, save_data, set_labels_to_zero, welford_mean_std, unique)
 from tf_keras.applications import DenseNet121
 from tf_keras.optimizers import Adam
 from tf_keras.models import Model, load_model
@@ -136,6 +136,7 @@ def load_cropping_training_data(normalize, img_list, label_list, x_scale, y_scal
                 img = img_in[0]
             else:
                 img = img_in
+
             # handle all images having channels >=1
             if len(img.shape)==3:
                 z_shape, y_shape, x_shape = img.shape
@@ -145,6 +146,16 @@ def load_cropping_training_data(normalize, img_list, label_list, x_scale, y_scal
             if img.shape[3] != channels:
                 InputError.message = f'Number of channels must be {channels} for "{os.path.basename(img_names[0])}"'
                 raise InputError()
+
+            # check for input binary mask
+            mask_provided = [False]*channels
+            if channels > 1:
+                for ch in range(channels):
+                    u = unique(img[...,ch])
+                    if len(u) == 2 and 0 in u and 1 in u:
+                        mask_provided[ch] = True
+
+            # resize image data
             img = img.astype(np.float32)
             img_z = img_resize(img, a.shape[0], y_scale, x_scale)
             img_y = np.swapaxes(img_resize(img, z_scale, a.shape[1], x_scale),0,1)
@@ -160,6 +171,7 @@ def load_cropping_training_data(normalize, img_list, label_list, x_scale, y_scal
             # normalize first validation image
             if normalize and np.any(normalization_parameters):
                 for c in range(channels):
+                  if not mask_provided[c]:
                     mean, std = welford_mean_std(img[:,:,:,c])
                     img[:,:,:,c] = (img[:,:,:,c] - mean) / std
                     img[:,:,:,c] = img[:,:,:,c] * normalization_parameters[1,c] + normalization_parameters[0,c]
@@ -169,6 +181,7 @@ def load_cropping_training_data(normalize, img_list, label_list, x_scale, y_scal
                 normalization_parameters = np.zeros((2,channels))
                 if normalize:
                     for c in range(channels):
+                      if not mask_provided[c]:
                         normalization_parameters[:,c] = welford_mean_std(img[:,:,:,c])
 
             # loop over list of images
@@ -220,7 +233,7 @@ def load_cropping_training_data(normalize, img_list, label_list, x_scale, y_scal
                     for c in range(channels):
                         next_img[:,:,:,c] -= np.amin(next_img[:,:,:,c])
                         next_img[:,:,:,c] /= np.amax(next_img[:,:,:,c])
-                        if normalize:
+                        if normalize and not mask_provided[c]:
                             mean, std = welford_mean_std(next_img[:,:,:,c])
                             next_img[:,:,:,c] = (next_img[:,:,:,c] - mean) / std
                             next_img[:,:,:,c] = next_img[:,:,:,c] * normalization_parameters[1,c] + normalization_parameters[0,c]
@@ -379,6 +392,13 @@ def load_data_to_crop(path_to_img, channels, x_scale, y_scale, z_scale,
     if img.shape[3] != channels:
         InputError.message = f'Number of channels must be {channels}.'
         raise InputError()
+    # check for input binary mask
+    mask_provided = [False]*channels
+    if channels > 1:
+        for ch in range(channels):
+            u = unique(img[...,ch])
+            if len(u) == 2 and 0 in u and 1 in u:
+                mask_provided[ch] = True
     z_shape, y_shape, x_shape, _ = img.shape
     img = img.astype(np.float32)
     img_z = img_resize(img, z_shape, y_scale, x_scale)
@@ -389,7 +409,7 @@ def load_data_to_crop(path_to_img, channels, x_scale, y_scale, z_scale,
     for c in range(channels):
         img[:,:,:,c] -= np.amin(img[:,:,:,c])
         img[:,:,:,c] /= np.amax(img[:,:,:,c])
-        if normalize:
+        if normalize and not mask_provided[c]:
             mean, std = welford_mean_std(img[:,:,:,c])
             img[:,:,:,c] = (img[:,:,:,c] - mean) / std
             img[:,:,:,c] = img[:,:,:,c] * normalization_parameters[1,c] + normalization_parameters[0,c]
