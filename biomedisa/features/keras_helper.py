@@ -471,6 +471,14 @@ def load_training_data(bm, img_list, label_list, channels, img_in=None, label_in
                 InputError.message = f'Number of channels must be {channels} for "{os.path.basename(img_names[0])}"'
                 raise InputError()
 
+            # check for input binary mask
+            mask_provided = [False]*channels
+            if channels > 1:
+                for ch in range(channels):
+                    u = unique(img[...,ch])
+                    if len(u) == 2 and 0 in u and 1 in u:
+                        mask_provided[ch] = True
+
             # crop data
             if any([bm.x_range, bm.y_range, bm.z_range]) or bm.crop_data:
                 img = img[argmin_z:argmax_z,argmin_y:argmax_y,argmin_x:argmax_x].copy()
@@ -491,6 +499,7 @@ def load_training_data(bm, img_list, label_list, channels, img_in=None, label_in
             if bm.normalize and np.any(normalization_parameters):
                 img = img.astype(np.float32)
                 for ch in range(channels):
+                  if not mask_provided[ch]:
                     mean, std = welford_mean_std(img[...,ch])
                     img[...,ch] = (img[...,ch] - mean) / std
                     img[...,ch] = img[...,ch] * normalization_parameters[1,ch] + normalization_parameters[0,ch]
@@ -500,6 +509,7 @@ def load_training_data(bm, img_list, label_list, channels, img_in=None, label_in
                 normalization_parameters = np.zeros((2,channels))
                 if bm.normalize:
                     for ch in range(channels):
+                      if not mask_provided[ch]:
                         normalization_parameters[:,ch] = welford_mean_std(img[...,ch])
 
             # pad data
@@ -580,6 +590,7 @@ def load_training_data(bm, img_list, label_list, channels, img_in=None, label_in
                     if bm.normalize:
                         a = a.astype(np.float32)
                         for ch in range(channels):
+                          if not mask_provided[ch]:
                             mean, std = welford_mean_std(a[...,ch])
                             a[...,ch] = (a[...,ch] - mean) / std
                             a[...,ch] = a[...,ch] * normalization_parameters[1,ch] + normalization_parameters[0,ch]
@@ -1267,6 +1278,14 @@ def load_prediction_data(bm, channels, normalization_parameters,
         InputError.message = f'Number of channels must be {channels}.'
         raise InputError()
 
+    # check for input binary mask
+    mask_provided = [False]*channels
+    if channels > 1:
+        for ch in range(channels):
+            u = unique(img[...,ch])
+            if len(u) == 2 and 0 in u and 1 in u:
+                mask_provided[ch] = True
+
     # original image shape
     z_shape, y_shape, x_shape, _ = img.shape
 
@@ -1293,6 +1312,7 @@ def load_prediction_data(bm, channels, normalization_parameters,
     if bm.normalize:
         img = img.astype(np.float32)
         for ch in range(channels):
+          if not mask_provided[ch]:
             mean, std = welford_mean_std(img[...,ch])
             img[...,ch] = (img[...,ch] - mean) / std
             img[...,ch] = img[...,ch] * normalization_parameters[1,ch] + normalization_parameters[0,ch]
