@@ -82,7 +82,7 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
     remote=False, queue=0, username=None, shortfilename=None, dice_loss=False,
     acwe=False, acwe_alpha=1.0, acwe_smooth=1, acwe_steps=3, clean=None, fill=None,
     separation=False, mask=None, refinement=False, ignore_mask=False, mixed_precision=False,
-    slicer=False, path_to_data=None, downsample=False):
+    slicer=False, path_to_data=None, downsample=False, unsupervised_images=None):
 
     # create biomedisa
     bm = Biomedisa()
@@ -212,10 +212,12 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
             bm.batch_size = bm.batch_size + 2*ngpus - rest
         else:
             bm.batch_size = bm.batch_size - rest
+        bm.batch_size = max(1, bm.batch_size)
 
         if not bm.django_env:
             bm.path_to_images, bm.path_to_labels = [bm.path_to_images], [bm.path_to_labels]
             bm.val_images, bm.val_labels = [bm.val_images], [bm.val_labels]
+            bm.unsupervised_images = [bm.unsupervised_images]
 
         # train automatic cropping
         bm.cropping_weights, bm.cropping_config, bm.cropping_norm = None, None, None
@@ -511,6 +513,8 @@ if __name__ == '__main__':
                         help='Location of validation image data (tarball, directory, or file)')
     parser.add_argument('-vl','--val_labels', type=str, metavar='PATH', default=None,
                         help='Location of validation label data (tarball, directory, or file)')
+    parser.add_argument('-ui','--unsupervised_images', type=str, metavar='PATH', default=None,
+                        help='Location of unsupervised image data (tarball, directory, or file)')
     parser.add_argument('-xs','--x_scale', type=int, default=256,
                         help='Images and labels are scaled at x-axis to this size before training')
     parser.add_argument('-ys','--y_scale', type=int, default=256,
@@ -591,6 +595,8 @@ if __name__ == '__main__':
         bm.path_to_labels = bm.path
         if bm.path_to_model is None:
             bm.path_to_model = bm.path_to_images + '.h5'
+        if bm.unsupervised_images:
+            bm.path_to_model = bm.path_to_model.replace('.h5','.weights.h5')
 
     # django environment
     if bm.img_id is not None:

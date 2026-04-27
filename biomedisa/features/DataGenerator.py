@@ -278,7 +278,8 @@ class DataGenerator(keras.utils.PyDataset):
     'Generates data for Keras'
     def __init__(self, img, label, list_IDs_fg, list_IDs_bg, train, shuffle=True, batch_size=32, dim=(32,32,32),
                  dim_img=(32,32,32), n_classes=10, n_channels=1, augment=(False,False,False,False,0,False),
-                 patch_normalization=False, separation=False, ignore_mask=False, downsample=False, **kwargs):
+                 patch_normalization=False, separation=False, ignore_mask=False, downsample=False,
+                 unsupervised_data=None, **kwargs):
         super().__init__(**kwargs)
         self.dim = dim
         self.dim_img = dim_img
@@ -296,6 +297,7 @@ class DataGenerator(keras.utils.PyDataset):
         self.separation = separation
         self.ignore_mask = ignore_mask
         self.downsample = downsample
+        self.unsupervised_data = unsupervised_data
         self.on_epoch_end()
 
     def __len__(self):
@@ -327,9 +329,7 @@ class DataGenerator(keras.utils.PyDataset):
             list_IDs_temp = self.list_IDs_fg[index*self.batch_size:(index+1)*self.batch_size]
 
         # Generate data
-        X, y = self.__data_generation(list_IDs_temp)
-
-        return X, y
+        return self.__data_generation(list_IDs_temp)
 
     def on_epoch_end(self):
         'Updates indexes after each epoch'
@@ -477,8 +477,29 @@ class DataGenerator(keras.utils.PyDataset):
             X[i] = tmp_X
             y[i] = tmp_y
 
+        # unsupervised data
+        if self.unsupervised_data is not None:
+            zsh_u, ysh_u, xsh_u, _ = self.unsupervised_data.shape
+            x_u = np.empty((self.batch_size*4, 9, *self.dim, self.n_channels), dtype=np.float32)
+
+            # Generate data
+            for i in range(self.batch_size*4):
+                # select random patch
+                k = np.random.randint(32, zsh_u-96)
+                l = np.random.randint(32, ysh_u-96)
+                m = np.random.randint(32, xsh_u-96)
+                # get patches
+                x_u[i,0] = self.unsupervised_data[k:k+self.dim[0],l:l+self.dim[1],m:m+self.dim[2]]
+                for j, shift in enumerate([(-1,-1,-1),(1,-1,-1),(-1,1,-1),(-1,-1,1),(-1,1,1),(1,-1,1),(1,1,-1),(1,1,1)]):
+                    z_shift = k+shift[0]*32
+                    y_shift = l+shift[1]*32
+                    x_shift = m+shift[2]*32
+                    x_u[i,j+1] = self.unsupervised_data[z_shift:z_shift+64, y_shift:y_shift+64, x_shift:x_shift+64]
+
         if self.ignore_mask:
             return X, y
+        if self.unsupervised_data is not None:
+            return {"x_l": X, "y_l": keras.utils.to_categorical(y, num_classes=self.n_classes),"x_u": x_u}
         else:
             return X, keras.utils.to_categorical(y, num_classes=self.n_classes)
 
