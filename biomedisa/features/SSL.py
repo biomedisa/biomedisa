@@ -71,7 +71,7 @@ class SemiSupervisedModel(keras.Model):
         self.model = model
         self.lambda_consistency = lambda_consistency
         self.ce = keras.losses.CategoricalCrossentropy()
-        #self.val_dice = tf.Variable(0.0, trainable=False, dtype=tf.float32)
+        self.val_dice = tf.Variable(0.0, trainable=False, dtype=tf.float32)
         self.current_epoch = tf.Variable(0.0, trainable=False, dtype=tf.float32)
 
     def call(self, x, training=False):

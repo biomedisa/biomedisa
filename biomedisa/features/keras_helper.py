@@ -697,7 +697,6 @@ class MetaData(Callback):
         self.patch_size = np.array([bm.z_patch, bm.y_patch, bm.x_patch])
 
     def on_epoch_end(self, epoch, logs={}):
-        self.model.current_epoch = epoch
         hf = h5py.File(self.path_to_model, 'r')
         if not '/meta' in hf:
             hf.close()
@@ -740,6 +739,7 @@ class Metrics(Callback):
         self.patch_normalization = bm.patch_normalization
         self.train = train
         self.train_dice = bm.train_dice
+        self.unsupervised_data = bm.unsupervised_data
 
     def on_train_begin(self, logs={}):
         self.history = {}
@@ -829,15 +829,15 @@ class Metrics(Callback):
             else:
                 # save best model only
                 if epoch == 0 or dice > max(self.history['val_dice']):
-                    if bm.unsupervised_data is not None:
+                    if self.unsupervised_data is not None:
                         self.model.save_weights(self.path_to_model)
                     else:
                         self.model.save(self.path_to_model)
 
                 # add accuracy to history
                 self.history['loss'].append(logs['loss'])
-                if bm.unsupervised_data is not None:
-                    self.history['accuracy'].append(logs['unsupervised'])
+                if self.unsupervised_data is not None:
+                    self.history['accuracy'].append(logs['unsupervised']) #TODO: calculate accuracy in SSL.py
                 else:
                     self.history['accuracy'].append(logs['accuracy'])
                 if self.train_dice:
@@ -904,6 +904,12 @@ class HistoryCallback(Callback):
         save_history(self.history, self.path_to_model, self.validation_freq)
 
 class SSLController(Callback):
+    def __init__(self):
+        super().__init__()
+
+    def on_epoch_begin(self, epoch, logs=None):
+        self.model.current_epoch.assign(epoch + 1)
+
     def on_epoch_end(self, epoch, logs=None):
         self.model.val_dice.assign(logs["val_dice"])
 
@@ -1299,6 +1305,9 @@ def train_segmentation(bm):
     # custom callback
     if bm.django_env and not bm.remote:
         callbacks.insert(-1, CustomCallback(bm.img_id, bm.epochs))
+
+    if bm.unsupervised_data is not None:
+        callbacks.insert(-1, SSLController())
 
     # train model
     model.fit(training_generator,
