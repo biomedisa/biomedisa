@@ -1260,10 +1260,14 @@ def train_segmentation(bm):
         strategy = setup_tensorflow_strategy()
         with strategy.scope():
             model = build_model()
-            optimizer = build_optimizer()
+            #optimizer = build_optimizer()
             if bm.unsupervised_data is not None:
+                import tensorflow as tf
+                optimizer = tf.keras.optimizers.SGD()
                 model = SemiSupervisedModel(model, lambda_consistency=0.1)
-                model.compile(optimizer=optimizer)
+                #model.compile(optimizer=tf.keras.optimizers.SGD())
+                optimizer = tf.keras.optimizers.SGD()
+                model.optimizer = optimizer
             else:
                 model.compile(loss=loss, optimizer=optimizer, metrics=metrics)
             #model.summary()
@@ -1306,15 +1310,150 @@ def train_segmentation(bm):
     if bm.django_env and not bm.remote:
         callbacks.insert(-1, CustomCallback(bm.img_id, bm.epochs))
 
-    if bm.unsupervised_data is not None:
-        callbacks.insert(-1, SSLController())
+    #if bm.unsupervised_data is not None:
+    #    callbacks.insert(-1, SSLController())
 
     # train model
-    model.fit(training_generator,
+    '''model.fit(training_generator,
         epochs=bm.epochs,
         validation_data=validation_generator,
         callbacks=callbacks,
-        initial_epoch=bm.initial_epoch)
+        initial_epoch=bm.initial_epoch)'''
+
+    def gen():
+        for i in range(len(training_generator)):
+            yield training_generator[i]
+
+    @tf.function
+    def distributed_step(step_fn, batch):
+        return strategy.run(
+            step_fn,
+            args=(batch,)
+        )
+
+    for cb in callbacks:
+        cb.set_model(model)
+        cb.set_params({
+            "epochs": bm.epochs,
+            "steps": len(training_generator),
+            "verbose": 1,
+        })
+
+    for cb in callbacks:
+        cb.on_train_begin()
+
+    dataset = tf.data.Dataset.from_generator(
+        gen,
+        output_signature={
+            "x_l": tf.TensorSpec(shape=(None, *(64, 64, 64,1)), dtype=tf.float32),
+            "y_l": tf.TensorSpec(shape=(None, *(64, 64, 64,3)), dtype=tf.float32),
+            "x_u": tf.TensorSpec(shape=(None, *(9, 64, 64, 64,1)), dtype=tf.float32),
+        }
+    )
+    dataset = dataset.prefetch(tf.data.AUTOTUNE)
+    dist_dataset = strategy.experimental_distribute_dataset(dataset)
+
+    for epoch in range(bm.initial_epoch, bm.epochs):
+
+        print(f"Epoch {epoch+1}/{bm.epochs}")
+
+        model.current_epoch.assign(epoch + 1)
+
+        for cb in callbacks:
+            cb.on_epoch_begin(epoch)
+
+        # choose step function
+        if epoch+1 <= 12:
+            step_fn = model.train_step_sup
+        else:
+            step_fn = model.train_step_full
+
+        # ---- metric accumulators (like fit()) ----
+        loss_sum = 0.0
+        sup_sum = 0.0
+        unsup_sum = 0.0
+        n_batches = 0
+
+        from tqdm import tqdm
+        pbar = tqdm(range(len(training_generator)))
+        it = iter(dist_dataset)
+
+        for step in pbar:
+            batch = next(it)
+
+            for cb in callbacks:
+                cb.on_train_batch_begin(step)
+
+            logs = distributed_step(step_fn, batch)
+
+            logs = {
+                k: strategy.reduce(tf.distribute.ReduceOp.MEAN, v, axis=None)
+                for k, v in logs.items()
+            }
+            logs = {k: float(v.numpy()) for k, v in logs.items()}
+            pbar.set_postfix(loss=f"{logs['loss']:.4f}")
+
+            #loss = strategy.reduce(tf.distribute.ReduceOp.MEAN, logs["loss"], axis=None)
+            #loss = float(loss.numpy())
+            #pbar.set_postfix(loss=f"{loss:.4f}")
+
+            for cb in callbacks:
+                cb.on_train_batch_end(step, logs)
+
+        # ---- tqdm progress bar ----
+        '''from tqdm import tqdm
+        pbar = tqdm(enumerate(training_generator), total=len(training_generator))
+
+        # --- TRAINING ---
+        for step, batch in pbar:
+
+            for cb in callbacks:
+                cb.on_train_batch_begin(step)
+
+            logs = distributed_step(batch)#step_fn(batch)
+            logs = {k: float(v.numpy()) for k, v in logs.items()}
+
+            # accumulate
+            loss_sum += float(logs["loss"])
+            sup_sum += float(logs["supervised"])
+            unsup_sum += float(logs["unsupervised"])
+            n_batches += 1
+
+            # running averages (fit-style)
+            pbar.set_postfix({
+                "loss": loss_sum / n_batches,
+                "sup": sup_sum / n_batches,
+                "unsup": unsup_sum / n_batches,
+            })
+
+            for cb in callbacks:
+                cb.on_train_batch_end(step, logs)'''
+
+        # ---- epoch summary ----
+        '''print({
+            "loss": loss_sum / n_batches,
+            "supervised": sup_sum / n_batches,
+            "unsupervised": unsup_sum / n_batches,
+        })'''
+
+        # --- VALIDATION ---
+        '''val_logs = {}
+        for step, batch in enumerate(validation_generator):
+            out = model.test_step(batch)
+            val_logs = {k: float(v.numpy()) for k, v in out.items()}
+
+        # prefix with val_
+        val_logs = {f"val_{k}": v for k, v in val_logs.items()}
+
+        # merge logs
+        logs.update(val_logs)'''
+
+        for cb in callbacks:
+            cb.on_epoch_end(epoch, logs)
+
+    for cb in callbacks:
+        cb.on_train_end()
+
 
 def load_prediction_data(bm, channels, normalization_parameters,
     region_of_interest, img, img_header, load_blockwise=False, z=None):

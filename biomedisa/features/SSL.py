@@ -80,10 +80,12 @@ class SemiSupervisedModel(keras.Model):
         return self.model(x, training=training)
 
     def ramp_weight(self, epoch, ramp_epochs=20):
-        epoch = ops.cast(epoch, "float32")
+        '''epoch = ops.cast(epoch, "float32")
         ramp_epochs = ops.cast(ramp_epochs, "float32")
-        alpha = (epoch-20) / (ramp_epochs + 1e-6)
-        alpha = ops.clip(alpha, 0.0, 1.0)
+        alpha = (epoch-12) / (ramp_epochs + 1e-6)
+        alpha = ops.clip(alpha, 0.0, 1.0)'''
+        alpha = (epoch-12) / (ramp_epochs)
+        alpha = tf.clip_by_value(alpha, 0.0, 1.0)
         return self.lambda_consistency * alpha
 
     def test_step(self, data):
@@ -92,7 +94,72 @@ class SemiSupervisedModel(keras.Model):
         loss = ops.mean(self.ce(y, y_pred))
         return {"val_loss": loss}
 
-    def train_step(self, data):
+    @tf.function
+    def train_step_sup(self, data):
+        x_l = data["x_l"]
+        y_l = data["y_l"]
+
+        with tf.GradientTape() as tape:
+            y_pred = self(x_l, training=True)
+            loss = tf.reduce_mean(self.ce(y_l, y_pred))
+
+        grads = tape.gradient(loss, self.trainable_variables)
+        self.optimizer.apply_gradients(zip(grads, self.trainable_variables))
+
+        return {
+            "loss": loss,
+            "supervised": loss,
+            "unsupervised": tf.constant(0.0, tf.float32),
+        }
+
+    @tf.function
+    def train_step_full(self, data):
+        x_l = data["x_l"]
+        y_l = data["y_l"]
+        x_u = data["x_u"]
+
+        with tf.GradientTape() as tape:
+
+            # supervised
+            y_pred_l = self(x_l, training=True)
+            loss_sup = tf.reduce_mean(self.ce(y_l, y_pred_l))
+
+            # --- UNSUPERVISED (heavy) ---
+            B = tf.shape(x_u)[0]
+            num_patches = 9
+
+            x_u_flat = tf.reshape(x_u, (B * num_patches, *x_u.shape[2:]))
+            y_pred_u = self(x_u_flat, training=True)
+            y_pred_u = tf.reshape(y_pred_u, (B, num_patches, *y_pred_u.shape[1:]))
+
+            cons = tf.constant(0.0, tf.float32)
+            count = 0
+
+            p1 = y_pred_u[:, 0]
+            for i, shift in enumerate([
+                (-1,-1,-1),(1,-1,-1),(-1,1,-1),(-1,-1,1),
+                (-1,1,1),(1,-1,1),(1,1,-1),(1,1,1)
+            ]):
+                p2 = y_pred_u[:, i+1]
+                p2 = tf.stop_gradient(p2)
+                o1, o2 = extract_overlap(p1, p2, shift)
+                cons += kl_loss(o2, o1)
+                count += 1
+
+            loss_unsup = cons / (count + 1e-6)
+
+            loss = loss_sup + self.ramp_weight(self.current_epoch) * loss_unsup
+
+        grads = tape.gradient(loss, self.trainable_variables)
+        self.optimizer.apply_gradients(zip(grads, self.trainable_variables))
+
+        return {
+            "loss": loss,
+            "supervised": loss_sup,
+            "unsupervised": loss_unsup,
+        }
+
+    '''def train_step(self, data):
         # unpack
         x_l = data["x_l"]
         y_l = data["y_l"]
@@ -122,7 +189,7 @@ class SemiSupervisedModel(keras.Model):
                 p2 = y_pred_u[:, i+1]
                 p2 = ops.stop_gradient(p2)
                 o1, o2 = extract_overlap(p1, p2, shift)
-                cons += kl_loss(o1, o2)
+                cons += kl_loss(o2, o1)
                 #cons += consistency_loss(o1, o2)
                 count += 1
 
@@ -141,5 +208,5 @@ class SemiSupervisedModel(keras.Model):
             "loss": loss,
             "supervised": loss_sup,
             "unsupervised": loss_unsup,
-        }
+        }'''
 
