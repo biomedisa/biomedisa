@@ -122,6 +122,7 @@ def create_slices(path_to_data, path_to_label, on_site=False):
                             raw = np.append(raw, arr, axis=0)
             else:
                 raw, _ = load_data(path_to_data, 'create_slices')
+                raw = img_to_uint8(raw)
                 zsh, ysh, xsh = raw.shape
                 if min(ysh, xsh) > 400 and not on_site:
                     scale = float(400) / float(min(ysh, xsh))

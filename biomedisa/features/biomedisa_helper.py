@@ -181,7 +181,39 @@ def ASSD(ground_truth, result):
         print('Error: no CUDA device found. ASSD is not available.')
         return None, None
 
-def img_resize(a, z_shape, y_shape, x_shape, interpolation=None, labels=False, backend='cv2'):
+def img_resize(a, *args, dim=None, interpolation=None, labels=False, backend='cv2'):
+  """
+  Supported call styles:
+  - img_resize(a, z, y, x)
+  - img_resize(a, dim=(z, y, x))
+  - img_resize(a, (z, y, x))
+  """
+
+  if dim is not None:
+    if args:
+        raise TypeError("Use either positional args OR dim=, not both.")
+    if len(dim) != 3:
+        raise ValueError("dim must be (z, y, x)")
+    z_shape, y_shape, x_shape = dim
+
+  elif args:
+    # Case: img_resize(a, (z,y,x))
+    if len(args) == 1 and isinstance(args[0], (tuple, list)):
+        if len(args[0]) != 3:
+            raise ValueError("Shape tuple must have 3 elements")
+        z_shape, y_shape, x_shape = args[0]
+
+    # Case: img_resize(a, z, y, x)
+    elif len(args) == 3:
+        z_shape, y_shape, x_shape = args
+
+    else:
+        raise TypeError(
+            "Invalid arguments. Use (z,y,x), z,y,x, or dim=(z,y,x)"
+        )
+  else:
+    raise TypeError("Missing shape information")
+
   if backend=='ndimage':
     zoom_factors = [t / s for t, s in zip((z_shape, y_shape, x_shape), a.shape)]
     data = ndimage.zoom(a, zoom_factors, order=(0 if labels else 3))
@@ -197,6 +229,9 @@ def img_resize(a, z_shape, y_shape, x_shape, interpolation=None, labels=False, b
             interpolation = cv2.INTER_CUBIC
 
     def __resize__(arr):
+        original_dtype = arr.dtype
+        if original_dtype in ['int8','int32','uint32','int64','uint64']:
+            arr = arr.astype(np.float32)
         b = np.empty((zsh, y_shape, x_shape), dtype=arr.dtype)
         for k in range(zsh):
             b[k] = cv2.resize(arr[k], (x_shape, y_shape), interpolation=interpolation)
@@ -207,6 +242,9 @@ def img_resize(a, z_shape, y_shape, x_shape, interpolation=None, labels=False, b
             c[k] = cv2.resize(b[k], (x_shape, z_shape), interpolation=interpolation)
         c = np.swapaxes(c, 1, 0)
         c = np.copy(c, order='C')
+        if original_dtype in ['int8','int32','uint32','int64','uint64']:
+            c = np.round(c)
+            c = c.astype(original_dtype)
         return c
 
     if labels:
