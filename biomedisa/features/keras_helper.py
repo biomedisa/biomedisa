@@ -39,7 +39,7 @@ from keras import backend as K
 from keras.utils import to_categorical
 from keras.callbacks import Callback, ModelCheckpoint, EarlyStopping
 from biomedisa.features.DataGenerator import DataGenerator, welford_mean_std
-from biomedisa.features.SSL import SemiSupervisedModel
+from biomedisa.features.SSL import SemiSupervisedModel, model_fit
 from biomedisa.features.PredictDataGenerator import PredictDataGenerator
 from biomedisa.features.biomedisa_helper import (unique, welford_mean_std,
     img_resize, load_data, save_data, set_labels_to_zero, id_generator, unique_file_path)
@@ -1311,101 +1311,15 @@ def train_segmentation(bm):
     #    callbacks.insert(-1, SSLController())
 
     # train model
-    model.fit(training_generator,
+    if bm.unsupervised_data is not None:
+      model_fit(model, strategy, training_generator,
+        callbacks, bm.epochs, bm.initial_epoch)
+    else:
+      model.fit(training_generator,
         epochs=bm.epochs,
         validation_data=validation_generator,
         callbacks=callbacks,
         initial_epoch=bm.initial_epoch)
-
-    import tensorflow as tf
-
-    def gen():
-        for i in range(len(training_generator)):
-            yield training_generator[i]
-
-    @tf.function
-    def distributed_step(step_fn, batch):
-        return strategy.run(
-            step_fn,
-            args=(batch,)
-        )
-
-    for cb in callbacks:
-        cb.set_model(model)
-        cb.set_params({
-            "epochs": bm.epochs,
-            "steps": len(training_generator),
-            "verbose": 1,
-        })
-
-    for cb in callbacks:
-        cb.on_train_begin()
-
-    dataset = tf.data.Dataset.from_generator(
-        gen,
-        output_signature={
-            "x_l": tf.TensorSpec(shape=(None, *(64, 64, 64,1)), dtype=tf.float32),
-            "y_l": tf.TensorSpec(shape=(None, *(64, 64, 64,3)), dtype=tf.float32),
-            "x_u": tf.TensorSpec(shape=(None, *(9, 64, 64, 64,1)), dtype=tf.float32),
-        }
-    )
-    dataset = dataset.prefetch(tf.data.AUTOTUNE)
-    dist_dataset = strategy.experimental_distribute_dataset(dataset)
-
-    for epoch in range(bm.initial_epoch, bm.epochs):
-
-        print(f"Epoch {epoch+1}/{bm.epochs}")
-
-        model.current_epoch.assign(epoch + 1)
-
-        for cb in callbacks:
-            cb.on_epoch_begin(epoch)
-
-        # choose step function
-        if epoch+1 <= 12:
-            step_fn = model.train_step_sup
-        else:
-            step_fn = model.train_step_full
-
-        # ---- metric accumulators (like fit()) ----
-        loss_sum = 0.0
-        sup_sum = 0.0
-        unsup_sum = 0.0
-        n_batches = 0
-
-        from tqdm import tqdm
-        pbar = tqdm(range(len(training_generator)))
-        it = iter(dist_dataset)
-        with strategy.scope():
-          for step in pbar:
-
-            for cb in callbacks:
-                cb.on_train_batch_begin(step)
-
-            batch = next(it)
-            logs = distributed_step(step_fn, batch)
-
-            #batch = training_generator[step]
-            #logs = step_fn(batch)
-
-            logs = {
-                k: strategy.reduce(tf.distribute.ReduceOp.MEAN, v, axis=None)
-                for k, v in logs.items()
-            }
-            logs = {k: float(v.numpy()) for k, v in logs.items()}
-            pbar.set_postfix(loss=f"{logs['loss']:.4f}")
-
-            for cb in callbacks:
-                cb.on_train_batch_end(step, logs)
-
-        for cb in callbacks:
-            cb.on_epoch_end(epoch, logs)
-
-        if hasattr(training_generator, "on_epoch_end"):
-            training_generator.on_epoch_end()
-
-    for cb in callbacks:
-        cb.on_train_end()
 
 def load_prediction_data(bm, channels, normalization_parameters,
     region_of_interest, img, img_header, load_blockwise=False, z=None):
