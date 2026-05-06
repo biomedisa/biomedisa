@@ -1260,13 +1260,10 @@ def train_segmentation(bm):
         strategy = setup_tensorflow_strategy()
         with strategy.scope():
             model = build_model()
-            #optimizer = build_optimizer()
+            optimizer = build_optimizer()
             if bm.unsupervised_data is not None:
-                import tensorflow as tf
-                optimizer = tf.keras.optimizers.SGD()
-                model = SemiSupervisedModel(model, lambda_consistency=0.1)
-                #model.compile(optimizer=tf.keras.optimizers.SGD())
-                optimizer = tf.keras.optimizers.SGD()
+                model = SemiSupervisedModel(model, lambda_consistency=0.1, batch_size=bm.batch_size)
+                #model.compile(optimizer=optimizer)
                 model.optimizer = optimizer
             else:
                 model.compile(loss=loss, optimizer=optimizer, metrics=metrics)
@@ -1314,11 +1311,13 @@ def train_segmentation(bm):
     #    callbacks.insert(-1, SSLController())
 
     # train model
-    '''model.fit(training_generator,
+    model.fit(training_generator,
         epochs=bm.epochs,
         validation_data=validation_generator,
         callbacks=callbacks,
-        initial_epoch=bm.initial_epoch)'''
+        initial_epoch=bm.initial_epoch)
+
+    import tensorflow as tf
 
     def gen():
         for i in range(len(training_generator)):
@@ -1377,14 +1376,17 @@ def train_segmentation(bm):
         from tqdm import tqdm
         pbar = tqdm(range(len(training_generator)))
         it = iter(dist_dataset)
-
-        for step in pbar:
-            batch = next(it)
+        with strategy.scope():
+          for step in pbar:
 
             for cb in callbacks:
                 cb.on_train_batch_begin(step)
 
+            batch = next(it)
             logs = distributed_step(step_fn, batch)
+
+            #batch = training_generator[step]
+            #logs = step_fn(batch)
 
             logs = {
                 k: strategy.reduce(tf.distribute.ReduceOp.MEAN, v, axis=None)
@@ -1393,67 +1395,17 @@ def train_segmentation(bm):
             logs = {k: float(v.numpy()) for k, v in logs.items()}
             pbar.set_postfix(loss=f"{logs['loss']:.4f}")
 
-            #loss = strategy.reduce(tf.distribute.ReduceOp.MEAN, logs["loss"], axis=None)
-            #loss = float(loss.numpy())
-            #pbar.set_postfix(loss=f"{loss:.4f}")
-
             for cb in callbacks:
                 cb.on_train_batch_end(step, logs)
-
-        # ---- tqdm progress bar ----
-        '''from tqdm import tqdm
-        pbar = tqdm(enumerate(training_generator), total=len(training_generator))
-
-        # --- TRAINING ---
-        for step, batch in pbar:
-
-            for cb in callbacks:
-                cb.on_train_batch_begin(step)
-
-            logs = distributed_step(batch)#step_fn(batch)
-            logs = {k: float(v.numpy()) for k, v in logs.items()}
-
-            # accumulate
-            loss_sum += float(logs["loss"])
-            sup_sum += float(logs["supervised"])
-            unsup_sum += float(logs["unsupervised"])
-            n_batches += 1
-
-            # running averages (fit-style)
-            pbar.set_postfix({
-                "loss": loss_sum / n_batches,
-                "sup": sup_sum / n_batches,
-                "unsup": unsup_sum / n_batches,
-            })
-
-            for cb in callbacks:
-                cb.on_train_batch_end(step, logs)'''
-
-        # ---- epoch summary ----
-        '''print({
-            "loss": loss_sum / n_batches,
-            "supervised": sup_sum / n_batches,
-            "unsupervised": unsup_sum / n_batches,
-        })'''
-
-        # --- VALIDATION ---
-        '''val_logs = {}
-        for step, batch in enumerate(validation_generator):
-            out = model.test_step(batch)
-            val_logs = {k: float(v.numpy()) for k, v in out.items()}
-
-        # prefix with val_
-        val_logs = {f"val_{k}": v for k, v in val_logs.items()}
-
-        # merge logs
-        logs.update(val_logs)'''
 
         for cb in callbacks:
             cb.on_epoch_end(epoch, logs)
 
+        if hasattr(training_generator, "on_epoch_end"):
+            training_generator.on_epoch_end()
+
     for cb in callbacks:
         cb.on_train_end()
-
 
 def load_prediction_data(bm, channels, normalization_parameters,
     region_of_interest, img, img_header, load_blockwise=False, z=None):

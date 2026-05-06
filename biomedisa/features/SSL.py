@@ -66,11 +66,12 @@ def extract_overlap(p1, p2, shift):
     return o1, o2
 
 class SemiSupervisedModel(keras.Model):
-    def __init__(self, model, lambda_consistency=0.05, **kwargs):
+    def __init__(self, model, lambda_consistency=0.05, batch_size=24,  **kwargs):
         super().__init__(**kwargs)
         self.model = model
         self.lambda_consistency = lambda_consistency
-        self.ce = keras.losses.CategoricalCrossentropy()
+        self.batch_size = batch_size
+        self.ce = keras.losses.CategoricalCrossentropy(reduction=tf.keras.losses.Reduction.NONE)
         self.val_dice = tf.Variable(0.0, trainable=False, dtype=tf.float32)
         self.current_epoch = tf.Variable(0.0, trainable=False, dtype=tf.float32)
 
@@ -101,7 +102,15 @@ class SemiSupervisedModel(keras.Model):
 
         with tf.GradientTape() as tape:
             y_pred = self(x_l, training=True)
-            loss = tf.reduce_mean(self.ce(y_l, y_pred))
+            per_voxel_loss = self.ce(y_l, y_pred)
+            per_example_loss = tf.reduce_mean(
+                per_voxel_loss,
+                axis=[1,2,3]  # reduce spatial dims only
+            )
+            loss = tf.nn.compute_average_loss(
+                per_example_loss,
+                global_batch_size=self.batch_size
+            )
 
         grads = tape.gradient(loss, self.trainable_variables)
         self.optimizer.apply_gradients(zip(grads, self.trainable_variables))
