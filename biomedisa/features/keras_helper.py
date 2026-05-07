@@ -1162,7 +1162,8 @@ def train_segmentation(bm):
               'separation': bm.separation,
               'ignore_mask': bm.ignore_mask,
               'downsample': bm.downsample,
-              'unsupervised_data': bm.unsupervised_data
+              'unsupervised_data': bm.unsupervised_data,
+              'workers': bm.workers
               }
 
     # data generator

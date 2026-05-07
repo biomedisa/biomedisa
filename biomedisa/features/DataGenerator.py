@@ -27,7 +27,7 @@
 ##########################################################################
 
 from biomedisa.features.biomedisa_helper import welford_mean_std
-from scipy.ndimage import gaussian_filter
+from scipy import ndimage
 import numpy as np
 import keras
 import numba
@@ -264,9 +264,9 @@ def nearest_interpolate(image, dz, dy, dx):
 
 def elastic_transform_3d(image, label=None, alpha=100, sigma=5): #sigma between 5 and 10
     zsh, ysh, xsh, _ = image.shape
-    dx = gaussian_filter((np.random.rand(zsh, ysh, xsh) * 2 - 1) * alpha, sigma)
-    #dy = gaussian_filter((np.random.rand(zsh, ysh, xsh) * 2 - 1) * alpha, sigma)
-    #dz = gaussian_filter((np.random.rand(zsh, ysh, xsh) * 2 - 1) * alpha, sigma)
+    dx = ndimage.gaussian_filter((np.random.rand(zsh, ysh, xsh) * 2 - 1) * alpha, sigma)
+    #dy = ndimage.gaussian_filter((np.random.rand(zsh, ysh, xsh) * 2 - 1) * alpha, sigma)
+    #dz = ndimage.gaussian_filter((np.random.rand(zsh, ysh, xsh) * 2 - 1) * alpha, sigma)
     if np.any(label):
         label = nearest_interpolate(label, dx, dx, dx)
     noise_std = 0.01 * np.std(image)
@@ -279,8 +279,13 @@ class DataGenerator(keras.utils.PyDataset):
     def __init__(self, img, label, list_IDs_fg, list_IDs_bg, train, shuffle=True, batch_size=32, dim=(32,32,32),
                  dim_img=(32,32,32), n_classes=10, n_channels=1, augment=(False,False,False,False,0,False),
                  patch_normalization=False, separation=False, ignore_mask=False, downsample=False,
-                 unsupervised_data=None, **kwargs):
-        super().__init__(**kwargs)
+                 unsupervised_data=None, workers=1, **kwargs):
+        super().__init__(
+            workers=workers,
+            use_multiprocessing=(True if workers>1 else False),
+            max_queue_size=max(10, 2*workers),
+            **kwargs
+        )
         self.dim = dim
         self.dim_img = dim_img
         self.list_IDs_fg = list_IDs_fg
@@ -387,8 +392,8 @@ class DataGenerator(keras.utils.PyDataset):
             m = rest % self.dim_img[2]
 
             # zoom patch in/out
-            if zoom:
-                zoom_factor = np.random.uniform(-0.2,0.2)
+            if self.train and zoom:
+                zoom_factor = np.random.uniform(-0.5,0.5)
             else:
                 zoom_factor = 0
 
@@ -397,10 +402,11 @@ class DataGenerator(keras.utils.PyDataset):
                 tmp_X = self.img[k:k+self.dim[0], l:l+self.dim[1], m:m+self.dim[2]]
                 tmp_y = self.label[k:k+self.dim[0], l:l+self.dim[1], m:m+self.dim[2]]
 
-                tmp_X = ndimage.zoom(tmp_X, 1 + zoom_factor, mode='reflect', order=3)
-                tmp_y = ndimage.zoom(tmp_y, 1 + zoom_factor, mode='nearest', order=0)
+                scale = 1 + zoom_factor
+                tmp_X = ndimage.zoom(tmp_X, (scale, scale, scale, 1), mode='reflect', order=3)
+                tmp_y = ndimage.zoom(tmp_y, (scale, scale, scale, 1), mode='nearest', order=0)
 
-                zs, xs, ys = tmp_X.shape
+                zs, xs, ys, _ = tmp_X.shape
                 zr = (zs - self.dim[0]) // 2
                 xr = (xs - self.dim[1]) // 2
                 yr = (ys - self.dim[2]) // 2
@@ -423,8 +429,9 @@ class DataGenerator(keras.utils.PyDataset):
                 tmp_X = self.img[z0:z1, y0:y1, x0:x1]
                 tmp_y = self.label[z0:z1, y0:y1, x0:x1]
 
-                tmp_X = ndimage.zoom(tmp_X, (self.dim[0], self.dim[1], self.dim[2]), mode='reflect', order=3)
-                tmp_y = ndimage.zoom(tmp_y, (self.dim[0], self.dim[1], self.dim[2]), mode='nearest', order=0)
+                zoom_factors = [t / s for t, s in zip((self.dim[0], self.dim[1], self.dim[2], tmp_X.shape[-1]), tmp_X.shape)]
+                tmp_X = ndimage.zoom(tmp_X, zoom_factors, mode='reflect', order=3)
+                tmp_y = ndimage.zoom(tmp_y, zoom_factors, mode='nearest', order=0)
 
             else:
                 tmp_X = self.img[k:k+self.dim[0],l:l+self.dim[1],m:m+self.dim[2]]

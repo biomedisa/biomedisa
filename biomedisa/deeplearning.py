@@ -82,7 +82,7 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
     remote=False, queue=0, username=None, shortfilename=None, dice_loss=False,
     acwe=False, acwe_alpha=1.0, acwe_smooth=1, acwe_steps=3, clean=None, fill=None,
     separation=False, mask=None, refinement=False, ignore_mask=False, mixed_precision=False,
-    slicer=False, path_to_data=None, downsample=False, unsupervised_images=None):
+    slicer=False, path_to_data=None, downsample=False, unsupervised_images=None, workers=1):
 
     # create biomedisa
     bm = Biomedisa()
@@ -547,6 +547,8 @@ if __name__ == '__main__':
                         help='Y-dimension of patch')
     parser.add_argument('-zp','--z_patch', type=int, default=64,
                         help='Z-dimension of patch')
+    parser.add_argument('-w','--workers', type=int, default=1,
+                        help='Number of workers for data pre-processing')
     parser.add_argument('-iid','--img_id', type=str, default=None,
                         help='Image ID within django environment/browser version')
     parser.add_argument('-lid','--label_id', type=str, default=None,
