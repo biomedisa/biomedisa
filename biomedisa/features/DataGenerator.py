@@ -367,6 +367,7 @@ class DataGenerator(keras.utils.PyDataset):
         n_aug = np.sum([flip_z, flip_y, flip_x])
         flips =  np.where([flip_z, flip_y, flip_x])[0]
         elastic = False
+        zoom = False
 
         # create random angles
         if rotate:
@@ -385,9 +386,49 @@ class DataGenerator(keras.utils.PyDataset):
             l = rest // self.dim_img[2]
             m = rest % self.dim_img[2]
 
+            # zoom patch in/out
+            if zoom:
+                zoom_factor = np.random.uniform(-0.2,0.2)
+            else:
+                zoom_factor = 0
+
             # get patch
-            tmp_X = self.img[k:k+self.dim[0],l:l+self.dim[1],m:m+self.dim[2]]
-            tmp_y = self.label[k:k+self.dim[0],l:l+self.dim[1],m:m+self.dim[2]]
+            if zoom_factor > 0:
+                tmp_X = self.img[k:k+self.dim[0], l:l+self.dim[1], m:m+self.dim[2]]
+                tmp_y = self.label[k:k+self.dim[0], l:l+self.dim[1], m:m+self.dim[2]]
+
+                tmp_X = ndimage.zoom(tmp_X, 1 + zoom_factor, mode='reflect', order=3)
+                tmp_y = ndimage.zoom(tmp_y, 1 + zoom_factor, mode='nearest', order=0)
+
+                zs, xs, ys = tmp_X.shape
+                zr = (zs - self.dim[0]) // 2
+                xr = (xs - self.dim[1]) // 2
+                yr = (ys - self.dim[2]) // 2
+
+                tmp_X = tmp_X[zr:zr+self.dim[0], xr:xr+self.dim[1], yr:yr+self.dim[2]]
+                tmp_y = tmp_y[zr:zr+self.dim[0], xr:xr+self.dim[1], yr:yr+self.dim[2]]
+
+            elif zoom_factor < 0:
+                scale = 1 + zoom_factor  # e.g. -0.2 → 0.8
+
+                # compute padding needed
+                pad_z = (self.dim[0] - round(self.dim[0]*scale)) // 2
+                pad_y = (self.dim[1] - round(self.dim[1]*scale)) // 2
+                pad_x = (self.dim[2] - round(self.dim[2]*scale)) // 2
+
+                z0, z1 = max(0, k-pad_z), min(self.dim_img[0], k+self.dim[0]+pad_z)
+                y0, y1 = max(0, l-pad_y), min(self.dim_img[1], l+self.dim[1]+pad_y)
+                x0, x1 = max(0, m-pad_x), min(self.dim_img[2], m+self.dim[2]+pad_x)
+
+                tmp_X = self.img[z0:z1, y0:y1, x0:x1]
+                tmp_y = self.label[z0:z1, y0:y1, x0:x1]
+
+                tmp_X = ndimage.zoom(tmp_X, (self.dim[0], self.dim[1], self.dim[2]), mode='reflect', order=3)
+                tmp_y = ndimage.zoom(tmp_y, (self.dim[0], self.dim[1], self.dim[2]), mode='nearest', order=0)
+
+            else:
+                tmp_X = self.img[k:k+self.dim[0],l:l+self.dim[1],m:m+self.dim[2]]
+                tmp_y = self.label[k:k+self.dim[0],l:l+self.dim[1],m:m+self.dim[2]]
 
             # center label gets value 1
             if self.separation:
