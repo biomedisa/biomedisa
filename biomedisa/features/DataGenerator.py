@@ -540,7 +540,16 @@ class DataGenerator(keras.utils.PyDataset):
         if self.ignore_mask:
             return X, y
         if self.unsupervised_data is not None:
-            return {"x_l": X, "y_l": keras.utils.to_categorical(y, num_classes=self.n_classes),"x_u": x_u}
+            import tensorflow as tf
+            #return {"x_l": X, "y_l": keras.utils.to_categorical(y, num_classes=self.n_classes),"x_u": x_u}
+            return {
+                "x_l": tf.convert_to_tensor(X, dtype=tf.float32),
+                "y_l": tf.convert_to_tensor(
+                    keras.utils.to_categorical(y, num_classes=self.n_classes),
+                    dtype=tf.float32
+                ),
+                "x_u": tf.convert_to_tensor(x_u, dtype=tf.float32),
+            }
         else:
             return X, keras.utils.to_categorical(y, num_classes=self.n_classes)
 

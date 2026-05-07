@@ -30,16 +30,113 @@ import keras
 from keras import ops
 import tensorflow as tf
 
+def model_fit(model, strategy, training_generator, callbacks, epochs, initial_epoch):
+
+    def gen():
+        for i in range(len(training_generator)):
+            yield training_generator[i]
+
+    @tf.function
+    def distributed_step(step_fn, batch):
+        return strategy.run(
+            step_fn,
+            args=(batch,)
+        )
+
+    for cb in callbacks:
+        cb.set_model(model)
+        cb.set_params({
+            "epochs": epochs,
+            "steps": len(training_generator),
+            "verbose": 1,
+        })
+
+    for cb in callbacks:
+        cb.on_train_begin()
+
+    dataset = tf.data.Dataset.from_generator(
+        gen,
+        output_signature={
+            "x_l": tf.TensorSpec(shape=(None, *(64, 64, 64,1)), dtype=tf.float32),
+            "y_l": tf.TensorSpec(shape=(None, *(64, 64, 64,3)), dtype=tf.float32),
+            "x_u": tf.TensorSpec(shape=(None, *(9, 64, 64, 64,1)), dtype=tf.float32),
+        }
+    )
+    dataset = dataset.prefetch(tf.data.AUTOTUNE)
+    dist_dataset = strategy.experimental_distribute_dataset(dataset)
+
+    for epoch in range(initial_epoch, epochs):
+
+        print(f"Epoch {epoch+1}/{epochs}")
+
+        model.current_epoch.assign(epoch + 1)
+
+        for cb in callbacks:
+            cb.on_epoch_begin(epoch)
+
+        # choose step function
+        if epoch+1 <= 12:
+            step_fn = model.train_step_sup
+        else:
+            step_fn = model.train_step_full
+
+        # ---- metric accumulators (like fit()) ----
+        loss_sum = 0.0
+        sup_sum = 0.0
+        unsup_sum = 0.0
+        n_batches = 0
+
+        from tqdm import tqdm
+        pbar = tqdm(range(len(training_generator)))
+        it = iter(dist_dataset)
+        with strategy.scope(): #TODO: probably not required
+          for step in pbar:
+
+            for cb in callbacks:
+                cb.on_train_batch_begin(step)
+
+            batch = next(it)
+            logs = distributed_step(step_fn, batch)
+
+            #batch = training_generator[step]
+            #logs = step_fn(batch)
+
+            logs = {
+                k: strategy.reduce(tf.distribute.ReduceOp.MEAN, v, axis=None)
+                for k, v in logs.items()
+            }
+            logs = {k: float(v.numpy()) for k, v in logs.items()}
+            pbar.set_postfix(loss=f"{logs['loss']:.4f}")
+
+            for cb in callbacks:
+                cb.on_train_batch_end(step, logs)
+
+        for cb in callbacks:
+            cb.on_epoch_end(epoch, logs)
+
+        if hasattr(training_generator, "on_epoch_end"):
+            training_generator.on_epoch_end()
+
+    for cb in callbacks:
+        cb.on_train_end()
+
 def consistency_loss(p1, p2):
     return ops.mean((p1 - p2) ** 2)
 
 def kl_loss(p1, p2):
     eps = 1e-6
-    conf = ops.max(p1, axis=-1, keepdims=True)
+    conf = tf.reduce_max(p1, axis=-1, keepdims=True)
     # soft weighting instead of hard mask
-    weight = ops.clip((conf - 0.9) / 0.1, 0.0, 1.0)
-    kl = p1 * ops.log((p1 + eps) / (p2 + eps))
-    return ops.sum(weight * kl) / (ops.sum(weight) + eps)
+    weight = tf.clip_by_value((conf - 0.9) / 0.1, 0.0, 1.0)
+    kl = p1 * tf.math.log((p1 + eps) / (p2 + eps))
+    #return ops.sum(weight * kl) / (ops.sum(weight) + eps)
+
+    # sum over spatial + channel dims → keep batch
+    weighted_kl = weight * kl
+    numerator = tf.reduce_sum(weighted_kl, axis=[1,2,3,4])
+    denominator = tf.reduce_sum(weight, axis=[1,2,3,4]) + eps
+
+    return numerator / denominator   # shape: (B,)
 
 def extract_overlap(p1, p2, shift):
     """
@@ -66,12 +163,13 @@ def extract_overlap(p1, p2, shift):
     return o1, o2
 
 class SemiSupervisedModel(keras.Model):
-    def __init__(self, model, lambda_consistency=0.05, **kwargs):
+    def __init__(self, model, lambda_consistency=0.05, batch_size=24,  **kwargs):
         super().__init__(**kwargs)
         self.model = model
         self.lambda_consistency = lambda_consistency
-        self.ce = keras.losses.CategoricalCrossentropy()
-        #self.val_dice = tf.Variable(0.0, trainable=False, dtype=tf.float32)
+        self.batch_size = batch_size
+        self.ce = keras.losses.CategoricalCrossentropy(reduction=tf.keras.losses.Reduction.NONE)
+        self.val_dice = tf.Variable(0.0, trainable=False, dtype=tf.float32)
         self.current_epoch = tf.Variable(0.0, trainable=False, dtype=tf.float32)
 
     def call(self, x, training=False):
@@ -80,10 +178,12 @@ class SemiSupervisedModel(keras.Model):
         return self.model(x, training=training)
 
     def ramp_weight(self, epoch, ramp_epochs=20):
-        epoch = ops.cast(epoch, "float32")
+        '''epoch = ops.cast(epoch, "float32")
         ramp_epochs = ops.cast(ramp_epochs, "float32")
-        alpha = (epoch-20) / (ramp_epochs + 1e-6)
-        alpha = ops.clip(alpha, 0.0, 1.0)
+        alpha = (epoch-12) / (ramp_epochs + 1e-6)
+        alpha = ops.clip(alpha, 0.0, 1.0)'''
+        alpha = (epoch-12) / (ramp_epochs)
+        alpha = tf.clip_by_value(alpha, 0.0, 1.0)
         return self.lambda_consistency * alpha
 
     def test_step(self, data):
@@ -92,7 +192,113 @@ class SemiSupervisedModel(keras.Model):
         loss = ops.mean(self.ce(y, y_pred))
         return {"val_loss": loss}
 
-    def train_step(self, data):
+    @tf.function
+    def train_step_sup(self, data):
+        x_l = data["x_l"]
+        y_l = data["y_l"]
+
+        with tf.GradientTape() as tape:
+            y_pred = self(x_l, training=True)
+            per_voxel_loss = self.ce(y_l, y_pred)
+            per_example_loss = tf.reduce_mean(
+                per_voxel_loss,
+                axis=[1,2,3]  # reduce spatial dims only
+            )
+            loss = tf.nn.compute_average_loss(
+                per_example_loss,
+                global_batch_size=self.batch_size
+            )
+
+        grads = tape.gradient(loss, self.trainable_variables)
+        self.optimizer.apply_gradients(zip(grads, self.trainable_variables))
+
+        return {
+            "loss": loss,
+            "supervised": loss,
+            "unsupervised": tf.constant(0.0, tf.float32),
+        }
+
+    @tf.function
+    def train_step_full(self, data):
+        x_l = data["x_l"]
+        y_l = data["y_l"]
+        x_u = data["x_u"]
+
+        with tf.GradientTape() as tape:
+
+            # supervised
+            y_pred_l = self(x_l, training=True)
+            per_voxel_loss = self.ce(y_l, y_pred_l)
+            per_example_loss = tf.reduce_mean(
+                per_voxel_loss,
+                axis=[1,2,3]  # reduce spatial dims only
+            )
+            loss_sup = tf.nn.compute_average_loss(
+                per_example_loss,
+                global_batch_size=self.batch_size
+            )
+
+            # --- UNSUPERVISED (heavy) ---
+            B = tf.shape(x_u)[0]
+            num_patches = 9
+
+            x_u_flat = tf.reshape(x_u, (B * num_patches, *x_u.shape[2:]))
+            y_pred_u = self(x_u_flat, training=True)
+            y_pred_u = tf.reshape(y_pred_u, (B, num_patches, *y_pred_u.shape[1:]))
+
+            cons = tf.zeros((B,), tf.float32)
+            count = 0
+
+            p1 = y_pred_u[:, 0]
+
+            for i, shift in enumerate([
+                (-1,-1,-1),(1,-1,-1),(-1,1,-1),(-1,-1,1),
+                (-1,1,1),(1,-1,1),(1,1,-1),(1,1,1)
+            ]):
+                p2 = y_pred_u[:, i+1]
+                p2 = tf.stop_gradient(p2)
+
+                o1, o2 = extract_overlap(p1, p2, shift)
+                kl = kl_loss(o2, o1)              # expect (B, ...)
+
+                cons += kl
+                count += 1
+
+            per_example_unsup = cons / (count + 1e-6)
+
+            loss_unsup = tf.nn.compute_average_loss(
+                per_example_unsup,
+                global_batch_size=self.batch_size
+            )
+
+            '''cons = tf.constant(0.0, tf.float32)
+            count = 0
+
+            p1 = y_pred_u[:, 0]
+            for i, shift in enumerate([
+                (-1,-1,-1),(1,-1,-1),(-1,1,-1),(-1,-1,1),
+                (-1,1,1),(1,-1,1),(1,1,-1),(1,1,1)
+            ]):
+                p2 = y_pred_u[:, i+1]
+                p2 = tf.stop_gradient(p2)
+                o1, o2 = extract_overlap(p1, p2, shift)
+                cons += kl_loss(o2, o1)
+                count += 1
+
+            loss_unsup = cons / (count + 1e-6)'''
+
+            loss = loss_sup + self.ramp_weight(self.current_epoch) * loss_unsup
+
+        grads = tape.gradient(loss, self.trainable_variables)
+        self.optimizer.apply_gradients(zip(grads, self.trainable_variables))
+
+        return {
+            "loss": loss,
+            "supervised": loss_sup,
+            "unsupervised": loss_unsup,
+        }
+
+    '''def train_step(self, data):
         # unpack
         x_l = data["x_l"]
         y_l = data["y_l"]
@@ -122,7 +328,7 @@ class SemiSupervisedModel(keras.Model):
                 p2 = y_pred_u[:, i+1]
                 p2 = ops.stop_gradient(p2)
                 o1, o2 = extract_overlap(p1, p2, shift)
-                cons += kl_loss(o1, o2)
+                cons += kl_loss(o2, o1)
                 #cons += consistency_loss(o1, o2)
                 count += 1
 
@@ -141,5 +347,5 @@ class SemiSupervisedModel(keras.Model):
             "loss": loss,
             "supervised": loss_sup,
             "unsupervised": loss_unsup,
-        }
+        }'''
 
