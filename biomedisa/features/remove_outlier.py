@@ -187,7 +187,7 @@ def main_helper(path_to_labels, img_id=None, friend_id=None, queue=6, fill_holes
 
 def post_processing(path_to_cleaned, path_to_filled, path_to_cleaned_filled, img_id=None, friend_id=None, fill_holes=False, remote=False):
     if remote:
-        with open(biomedisa.BASE_DIR + '/log/config_6', 'w') as configfile:
+        with open(biomedisa.BASE_DIR + f'/log/config_6_{img_id}', 'w') as configfile:
             print(path_to_cleaned, path_to_filled, path_to_cleaned_filled, file=configfile)
     else:
         import django
@@ -328,8 +328,15 @@ def init_remove_outlier(image_id, final_id, label_id, fill_holes=True):
                     cmd = cmd_host + cmd
 
                 # config files
-                error_path = '/log/error_6'
-                config_path = '/log/config_6'
+                error_path = f'/log/error_6_{image_id}'
+                config_path = f'/log/config_6_{image_id}'
+
+                # remove config files
+                subprocess.Popen(
+                    ['ssh', host, 'rm',
+                     host_base + error_path,
+                     host_base + config_path]
+                ).wait()
 
                 # submit job
                 if qsub or sbatch:
@@ -383,8 +390,11 @@ def init_remove_outlier(image_id, final_id, label_id, fill_holes=True):
                     post_processing(path_to_cleaned, path_to_filled, path_to_cleaned_filled, image_id, final.friend, fill_holes)
 
                 # remove config files
-                subprocess.Popen(['ssh', host, 'rm', host_base + error_path]).wait()
-                subprocess.Popen(['ssh', host, 'rm', host_base + config_path]).wait()
+                subprocess.Popen(
+                    ['ssh', host, 'rm',
+                     host_base + error_path,
+                     host_base + config_path]
+                ).wait()
 
         # local server
         else:

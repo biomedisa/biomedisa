@@ -78,8 +78,8 @@ class UserForm(forms.ModelForm):
 
 def validate_file_size(value):
     filesize= value.size
-    if filesize > 21474836480:
-        raise ValidationError("The maximum file size that can be uploaded is 20GB")
+    if filesize > 53687091200:
+        raise ValidationError("The maximum file size that can be uploaded is 50GB")
     else:
         return value
 
