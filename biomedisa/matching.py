@@ -40,6 +40,8 @@ import time
 import shutil
 import glob
 import zarr
+from zarr.storage import LocalStore
+from numcodecs import Zlib
 
 @numba.jit(nopython=True)
 def assign_labels(ref, result, labels_matrix):
@@ -250,16 +252,17 @@ def convert_to_zarr(file_path, compress=False):
     if os.path.exists(path_to_zarr):
         shutil.rmtree(path_to_zarr)
     # load data
-    data,_ = load_data(file_path)
-    # Create a Zarr array with the specified chunk size
-    zarr_array = zarr.create(
+    data, _ = load_data(file_path)
+    store = LocalStore(path_to_zarr)
+    codecs = [Zlib(level=5)] if compress else None
+    zarr_array = zarr.open(
+        store=store,
+        mode='w',
         shape=data.shape,
         chunks=(100, 100, 100),
         dtype=data.dtype,
-        store=zarr.DirectoryStore(path_to_zarr),
-        compressor=zarr.get_codec({'id': 'zlib', 'level': 5}) if compress else None
-        )
-    # Write the data into the Zarr array
+        codecs=codecs
+    )
     zarr_array[:] = data
 
 @numba.jit(nopython=True)
@@ -609,7 +612,14 @@ if __name__ == "__main__":
     #=======================================================================================
     # datasets
     #=======================================================================================
+    from mpi4py import MPI
+    comm = MPI.COMM_WORLD
+    rank = comm.Get_rank()
+
     min_particle_size = 1000
+    if rank==0 and not bm.project:
+        print('Error: define project name.')
+    print('Project:', bm.project)
 
     # datasets
     BASE = os.path.dirname(bm.datasets[0])
@@ -623,7 +633,8 @@ if __name__ == "__main__":
         liste = glob.glob(BASE+f'/{bm.project}/step=*')
         for l in liste:
             bm.step = max(bm.step, int(l.split('/')[-1].split('=')[-1]))
-    print('Step:', bm.step)
+    if rank==0:
+        print('Step:', bm.step)
 
     # sample (process all if None)
     if bm.sample!=None:
@@ -633,6 +644,8 @@ if __name__ == "__main__":
     path_to_dir = BASE+f'/{bm.project}/step={bm.step}'
     path_to_meta = f'{path_to_dir}/meta'
     Path(path_to_meta).mkdir(parents=True, exist_ok=True)
+    if rank==0:
+        print('Project path:', path_to_dir)
 
     #=======================================================================================
     # create mask
@@ -956,7 +969,6 @@ if __name__ == "__main__":
           if bm.sample==None or bm.sample==sample_i:
 
             # path to data
-            path_to_boundaries = f'{path_to_dir}/final.{dataset}.tif'
             path_to_result = f'{path_to_dir}/result.{dataset}.nrrd'
             if bm.scale_labels:
                 path_to_result = path_to_result.replace('.nrrd','_half.nrrd')
@@ -978,7 +990,7 @@ if __name__ == "__main__":
                     #labeled_array = tmp.copy()
                 print(labeled_array.shape)
 
-                # sort according to size, label in ascending order, remove small particles & save as 16bit if possible
+                # sort according to size, label in ascending order, remove small particles & convert to 16bit if possible
                 TIC = time.time()
                 lv, ln = unique(labeled_array, return_counts=True)
                 t = []
@@ -1038,7 +1050,7 @@ if __name__ == "__main__":
             if rank==0:
                 convert_to_zarr(f'{path_to_dir}/result.{dataset}.nrrd')
             comm.Barrier()
-            zarr_store = zarr.DirectoryStore(f'{path_to_dir}/result.{dataset}.nrrd.zarr')
+            zarr_store = f'{path_to_dir}/result.{dataset}.nrrd.zarr'
             particles = zarr.open(zarr_store, mode='r')
 
             # load label values
@@ -1125,10 +1137,8 @@ if __name__ == "__main__":
                     dists2 = np.load(f'{path_to_meta}/dists{i2}.npy', allow_pickle=True)
                 else:
                     # open particles
-                    zarr_store = zarr.DirectoryStore(f'{path_to_dir}/result.{bm.datasets[i1-1]}.nrrd.zarr')
-                    result1 = zarr.open(zarr_store, mode='r')
-                    zarr_store = zarr.DirectoryStore(f'{path_to_dir}/result.{bm.datasets[i2-1]}.nrrd.zarr')
-                    result2 = zarr.open(zarr_store, mode='r')
+                    result1 = zarr.open(f'{path_to_dir}/result.{bm.datasets[i1-1]}.nrrd.zarr', mode='r')
+                    result2 = zarr.open(f'{path_to_dir}/result.{bm.datasets[i2-1]}.nrrd.zarr', mode='r')
 
                 # load label values
                 l1 = np.load(f'{path_to_meta}/labels{i1}.npy')
@@ -1268,10 +1278,8 @@ if __name__ == "__main__":
         for i2 in range(i1+1,n_datasets+1):
           if bm.sample==None or bm.sample==2*i2-i1:
             # open particles
-            zarr_store = zarr.DirectoryStore(f'{path_to_dir}/result.{bm.datasets[i1-1]}.nrrd.zarr')
-            result1 = zarr.open(zarr_store, mode='r')
-            zarr_store = zarr.DirectoryStore(f'{path_to_dir}/result.{bm.datasets[i2-1]}.nrrd.zarr')
-            result2 = zarr.open(zarr_store, mode='r')
+            result1 = zarr.open(f'{path_to_dir}/result.{bm.datasets[i1-1]}.nrrd.zarr', mode='r')
+            result2 = zarr.open(f'{path_to_dir}/result.{bm.datasets[i2-1]}.nrrd.zarr', mode='r')
 
             # load label values
             labels1 = np.load(f'{path_to_meta}/labels{i1}.npy')
@@ -1320,7 +1328,7 @@ if __name__ == "__main__":
 
                     # no match detected because all volumes were too different
                     #if best_mse[arg1]==0 or np.amin(mse[arg1])==np.inf:
-                    if best_mse[arg1]<0 or sizes1[arg1]>2000000000 or sizes2[arg2]>2000000000: #TODO remove
+                    if best_mse[arg1]<0:# or sizes1[arg1]>2000000000 or sizes2[arg2]>2000000000: #TODO remove
                         rot_dice, best_alpha, best_beta, best_gamma, result_val2 = 0, 0, 0, 0, 0
                         output = np.array([result_val1, result_val2, rot_dice, 0, best_alpha, best_beta, best_gamma])
                         print(rank, f'{arg1+1}/{labels1.size}', result_val1, f'RotDice: {round(rot_dice,4)}', 'NO MATCH')
@@ -1603,12 +1611,9 @@ if __name__ == "__main__":
             for dataset in bm.datasets:
                 convert_to_zarr(f'{path_to_dir}/match.{dataset}.nrrd')
         comm.Barrier()
-        zarr_store = zarr.DirectoryStore(f'{path_to_dir}/match.{dataset1}.nrrd.zarr')
-        particles1 = zarr.open(zarr_store, mode='r')
-        zarr_store = zarr.DirectoryStore(f'{path_to_dir}/match.{dataset2}.nrrd.zarr')
-        particles2 = zarr.open(zarr_store, mode='r')
-        zarr_store = zarr.DirectoryStore(f'{path_to_dir}/match.{dataset3}.nrrd.zarr')
-        particles3 = zarr.open(zarr_store, mode='r')
+        particles1 = zarr.open(f'{path_to_dir}/match.{dataset1}.nrrd.zarr', mode='r')
+        particles2 = zarr.open(f'{path_to_dir}/match.{dataset2}.nrrd.zarr', mode='r')
+        particles3 = zarr.open(f'{path_to_dir}/match.{dataset3}.nrrd.zarr', mode='r')
 
         # load masks
         #size = '_half' if '-d=63' in sys.argv else ''
@@ -1616,12 +1621,9 @@ if __name__ == "__main__":
             for dataset in bm.datasets:
                 convert_to_zarr(BASE+f'/mask.{dataset}.tif')
         comm.Barrier()
-        zarr_store = zarr.DirectoryStore(BASE+f'/mask.{dataset1}.tif.zarr')
-        mask1 = zarr.open(zarr_store, mode='r')
-        zarr_store = zarr.DirectoryStore(BASE+f'/mask.{dataset2}.tif.zarr')
-        mask2 = zarr.open(zarr_store, mode='r')
-        zarr_store = zarr.DirectoryStore(BASE+f'/mask.{dataset3}.tif.zarr')
-        mask3 = zarr.open(zarr_store, mode='r')
+        mask1 = zarr.open(BASE+f'/mask.{dataset1}.tif.zarr', mode='r')
+        mask2 = zarr.open(BASE+f'/mask.{dataset2}.tif.zarr', mode='r')
+        mask3 = zarr.open(BASE+f'/mask.{dataset3}.tif.zarr', mode='r')
 
         # array shapes
         zsh, ysh, xsh = particles1.shape
@@ -1679,22 +1681,47 @@ if __name__ == "__main__":
                 save_data(corr3_path + '.zarr', corr3, compress=False)
                 del corr3
             else:
+                # Remove existig arrays
                 if os.path.exists(corr1_path + '.zarr'):
                     shutil.rmtree(corr1_path + '.zarr')
                 if os.path.exists(corr2_path + '.zarr'):
                     shutil.rmtree(corr2_path + '.zarr')
                 if os.path.exists(corr3_path + '.zarr'):
                     shutil.rmtree(corr3_path + '.zarr')
-                zarr.create(shape=particles1.shape, chunks=(100,100,100), dtype=particles1.dtype,
-                    store=zarr.DirectoryStore(corr1_path + '.zarr'), compressor=None)
-                zarr.create(shape=particles2.shape, chunks=(100,100,100), dtype=particles2.dtype,
-                    store=zarr.DirectoryStore(corr2_path + '.zarr'), compressor=None)
-                zarr.create(shape=particles3.shape, chunks=(100,100,100), dtype=particles3.dtype,
-                    store=zarr.DirectoryStore(corr3_path + '.zarr'), compressor=None)
+
+                # Only rank 0 creates the arrays
+                zarr.open(
+                    store=LocalStore(corr1_path + '.zarr'),
+                    mode='w',
+                    shape=particles1.shape,
+                    chunks=(100, 100, 100),
+                    dtype=particles1.dtype,
+                    zarr_format=3
+                )
+                zarr.open(
+                    store=LocalStore(corr2_path + '.zarr'),
+                    mode='w',
+                    shape=particles2.shape,
+                    chunks=(100, 100, 100),
+                    dtype=particles2.dtype,
+                    zarr_format=3
+                )
+                zarr.open(
+                    store=LocalStore(corr3_path + '.zarr'),
+                    mode='w',
+                    shape=particles3.shape,
+                    chunks=(100, 100, 100),
+                    dtype=particles3.dtype,
+                    zarr_format=3
+                )
+
+        # Synchronize all ranks
         comm.Barrier()
-        corr1 = zarr.open(zarr.DirectoryStore(corr1_path + '.zarr'), mode='r+')
-        corr2 = zarr.open(zarr.DirectoryStore(corr2_path + '.zarr'), mode='r+')
-        corr3 = zarr.open(zarr.DirectoryStore(corr3_path + '.zarr'), mode='r+')
+
+        # All ranks open for read/write
+        corr1 = zarr.open(LocalStore(corr1_path + '.zarr'), mode='r+')
+        corr2 = zarr.open(LocalStore(corr2_path + '.zarr'), mode='r+')
+        corr3 = zarr.open(LocalStore(corr3_path + '.zarr'), mode='r+')
 
         # iterate over mappings
         steps = mappings.shape[0] + (nprocs - (mappings.shape[0] % nprocs)) % nprocs
