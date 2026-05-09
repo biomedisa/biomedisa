@@ -995,9 +995,17 @@ def init_keras_3D(image, label, predict, mask=None, img_list=None, label_list=No
                     cmd = cmd_host + cmd
 
                 # config files
-                error_path = f'/log/error_{queue_id}'
-                config_path = f'/log/config_{queue_id}'
-                pid_path = f'/log/pid_{queue_id}'
+                error_path = f'/log/error_{queue_id}_{image.id}'
+                config_path = f'/log/config_{queue_id}_{image.id}'
+                pid_path = f'/log/pid_{queue_id}_{image.id}'
+
+                # remove config files
+                subprocess.Popen(
+                    ['ssh', host, 'rm',
+                     host_base + error_path,
+                     host_base + config_path,
+                     host_base + pid_path]
+                ).wait()
 
                 # submit job
                 if qsub or sbatch:
@@ -1175,9 +1183,12 @@ def init_keras_3D(image, label, predict, mask=None, img_list=None, label_list=No
                         return_error(image, 'The process has reached the time limit of 48 hours.')
 
                 # remove config files
-                subprocess.Popen(['ssh', host, 'rm', host_base + error_path]).wait()
-                subprocess.Popen(['ssh', host, 'rm', host_base + config_path]).wait()
-                subprocess.Popen(['ssh', host, 'rm', host_base + pid_path]).wait()
+                subprocess.Popen(
+                    ['ssh', host, 'rm',
+                     host_base + error_path,
+                     host_base + config_path,
+                     host_base + pid_path]
+                ).wait()
 
         # local server
         else:
@@ -2281,9 +2292,17 @@ def init_random_walk(image, label):
                     cmd = ['ssh', host] + cmd
 
                 # config files
-                error_path = f'/log/error_{queue_id}'
-                config_path = f'/log/config_{queue_id}'
-                pid_path = f'/log/pid_{queue_id}'
+                error_path = f'/log/error_{queue_id}_{image.id}'
+                config_path = f'/log/config_{queue_id}_{image.id}'
+                pid_path = f'/log/pid_{queue_id}_{image.id}'
+
+                # remove config files
+                subprocess.Popen(
+                    ['ssh', host, 'rm',
+                     host_base + error_path,
+                     host_base + config_path,
+                     host_base + pid_path]
+                ).wait()
 
                 # submit job
                 if qsub or sbatch:
@@ -2366,9 +2385,12 @@ def init_random_walk(image, label):
                     return_error(image, 'Something went wrong. Please restart.')
 
                 # remove config files
-                subprocess.Popen(['ssh', host, 'rm', host_base + error_path]).wait()
-                subprocess.Popen(['ssh', host, 'rm', host_base + pid_path]).wait()
-                subprocess.Popen(['ssh', host, 'rm', host_base + config_path]).wait()
+                subprocess.Popen(
+                    ['ssh', host, 'rm',
+                     host_base + error_path,
+                     host_base + config_path,
+                     host_base + pid_path]
+                ).wait()
 
         # local server
         else:

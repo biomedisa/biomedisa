@@ -33,7 +33,7 @@ def create_error_object(message, remote=False, queue=None, img_id=None):
 
     # remote server
     if remote:
-        with open(biomedisa.BASE_DIR + f'/log/error_{queue}', 'w') as errorfile:
+        with open(biomedisa.BASE_DIR + f'/log/error_{queue}_{img_id}', 'w') as errorfile:
             print(message, file=errorfile)
 
     # local server
@@ -56,7 +56,7 @@ def create_pid_object(pid, remote=False, queue=None, img_id=None, path_to_model=
 
     # remote server
     if remote:
-        with open(biomedisa.BASE_DIR + f'/log/pid_{queue}', 'w') as pidfile:
+        with open(biomedisa.BASE_DIR + f'/log/pid_{queue}_{img_id}', 'w') as pidfile:
             print(pid, file=pidfile)
 
     # local server
@@ -73,7 +73,7 @@ def post_processing(path_to_final, time_str, server_name, remote, queue, dice=1.
 
     # remote server
     if remote:
-        with open(biomedisa.BASE_DIR + f'/log/config_{queue}', 'w') as configfile:
+        with open(biomedisa.BASE_DIR + f'/log/config_{queue}_{img_id}', 'w') as configfile:
             print(path_to_final, path_to_uq, path_to_smooth, uncertainty, smooth, str(time_str).replace(' ','-'), server_name, path_to_model, path_to_cropped_image, dice, separation, file=configfile)
 
     # local server
