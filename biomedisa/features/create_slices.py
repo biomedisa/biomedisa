@@ -170,8 +170,11 @@ def create_slices(path_to_data, path_to_label, on_site=False):
                         img_names = sorted(img_names)
                         # load and scale label data to corresponding img data
                         mask = np.zeros((0, y_scale, x_scale), dtype=np.uint8)
+                        slicer_labels = True
                         for name in img_names:
-                            arr, _ = load_data(name, 'create_slices')
+                            arr, header = load_data(name, 'create_slices', slicer_labels=slicer_labels, return_labels=True)
+                            if isinstance(header, dict) and "labels" in header:
+                                slicer_labels = header["labels"]
                             if arr is not None:
                                 arr = color_to_gray(arr)
                                 arr = arr.astype(np.uint8)

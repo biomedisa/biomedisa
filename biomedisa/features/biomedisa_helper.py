@@ -339,7 +339,7 @@ def natural_key(string):
     # Split the string into parts of digits and non-digits
     return [int(s) if s.isdigit() else s.lower() for s in re.split(r'(\d+)', string)]
 
-def load_data(path_to_data, process='None', return_extension=False, **kwargs):
+def load_data(path_to_data, process='None', return_extension=False, slicer_labels=False, return_labels=False, **kwargs):
 
     zarr_keys = {'mode'}
     tifffile_keys = {'key'}
@@ -383,6 +383,57 @@ def load_data(path_to_data, process='None', return_extension=False, **kwargs):
         try:
             header = sitk.ReadImage(path_to_data)
             data = sitk.GetArrayViewFromImage(header).copy()
+
+            # check for slicer segmentation
+            if slicer_labels or isinstance(slicer_labels, list):
+                keys = header.GetMetaDataKeys()
+                is_slicer = False
+                # check global slicer segmentation metadata
+                for key in ["Segmentation_ContainedRepresentationNames",
+                    "Segmentation_MasterRepresentation",]:
+                    if header.HasMetaDataKey(key):
+                        is_slicer = True
+                # check per-segment metadata
+                for key in keys:
+                    if key.startswith("Segment0_"):
+                        is_slicer = True
+                if is_slicer:
+                    print("3D Slicer segmentation")
+                    out = np.zeros(data.shape[:3], data.dtype)
+                    segments = []
+                    if len(data.shape)==3:
+                        data = data.reshape(data.shape[0], data.shape[1], data.shape[2], 1)
+                    for key in keys:
+                        # match Segment0_Name, Segment1_Name, ...
+                        m = re.match(r"Segment(\d+)_ID", key)
+                        if m:
+                            idx = m.group(1)
+                            label_value = int(header.GetMetaData(f"Segment{idx}_LabelValue"))
+                            label_layer = int(header.GetMetaData(f"Segment{idx}_Layer"))
+                            label_name = header.GetMetaData(f"Segment{idx}_Name").strip().lower()
+                            if isinstance(slicer_labels, list):
+                                for value, name in enumerate(slicer_labels):
+                                    if name==label_name:
+                                        out[data[...,label_layer]==label_value]=value+1
+                            else:
+                                if label_name in segments:
+                                    value = segments.index(label_name)
+                                else:
+                                    value = len(segments)
+                                    segments.append(label_name)
+
+                                # update array information
+                                out[data[...,label_layer]==label_value]=value+1
+                    data = out
+                    if return_labels:
+                        if isinstance(slicer_labels, list):
+                            segments = slicer_labels
+                        # read raw file bytes
+                        #with open(path_to_data, "rb") as f:
+                        #    header = f.read()
+                        #header = np.frombuffer(header, dtype=np.uint8)
+                        header = {"header":header, "labels":segments}
+
         except Exception as e:
             print(e)
             data, header = None, None
@@ -635,7 +686,19 @@ def save_data(path_to_final, final, header=None, final_image_type=None, compress
     elif final_image_type in ['.hdr', '.mhd', '.mha', '.nrrd', '.nii', '.nii.gz']:
         simg = sitk.GetImageFromArray(final)
         if header is not None:
+            '''if isinstance(header, dict) and "slicer_labels" in header:
+                print("3D Slicer segmentation")
+                # Write back exact original file
+                with tempfile.TemporaryDirectory() as tmp_dir:
+                    file_path = os.path.join(tmp_dir, "restored.seg.nrrd")
+                    with open(file_path, "wb") as f:
+                        f.write(header["header"].tobytes())
+                    header = sitk.ReadImage(file_path)'''
+            # copy geometry
             simg.CopyInformation(header)
+            # copy ALL metadata
+            for key in header.GetMetaDataKeys():
+                simg.SetMetaData(key, header.GetMetaData(key))
         sitk.WriteImage(simg, path_to_final, useCompression=compress)
     elif final_image_type in ['.zip', 'directory', '']:
         with tempfile.TemporaryDirectory() as temp_dir:

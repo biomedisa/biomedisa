@@ -404,10 +404,13 @@ def load_training_data(bm, img_list, label_list, channels, img_in=None, label_in
 
             # load first label
             if any(img_list):
-                label, header, extension = load_data(label_names[0], 'first_queue', True)
+                label, header, extension = load_data(label_names[0], 'first_queue', True, slicer_labels=True, return_labels=True)
                 if label is None:
                     InputError.message = f'Invalid label data "{os.path.basename(label_names[0])}"'
                     raise InputError()
+                slicer_labels = None
+                if isinstance(header, dict) and "labels" in header:
+                    slicer_labels = header["labels"]
             elif type(label_in) is list:
                 label = label_in[0]
                 label_names = [f'label_{i}' for i in range(1, len(label_in) + 1)]
@@ -438,11 +441,11 @@ def load_training_data(bm, img_list, label_list, channels, img_in=None, label_in
             if len(label.shape)==3:
                 label = label.reshape(label.shape[0], label.shape[1], label.shape[2], 1)
 
-            # if header is not single data stream Amira Mesh falling back to Multi-TIFF
-            if extension != '.am':
-                extension, header = '.tif', None
-            else:
+            # header handling
+            if extension == '.am':
                 header = header[0]
+            else:
+                extension, header = '.tif', None
 
             # load first image
             if any(img_list):
@@ -532,7 +535,7 @@ def load_training_data(bm, img_list, label_list, channels, img_in=None, label_in
 
                     # load label data and pre-process
                     if any(label_list):
-                        a, _ = load_data(label_names[k], 'first_queue')
+                        a, _ = load_data(label_names[k], 'first_queue', slicer_labels=slicer_labels)
                         if a is None:
                             InputError.message = f'Invalid label data "{os.path.basename(label_names[k])}"'
                             raise InputError()
@@ -704,6 +707,10 @@ class MetaData(Callback):
             if self.extension == '.am':
                 group.create_dataset('extension', data=self.extension)
                 group.create_dataset('header', data=self.header)
+            '''elif isinstance(self.header, dict) and "labels" in self.header:
+                group.create_dataset('labels', data=self.header["labels"],
+                    dtype=h5py.string_dtype(encoding='utf-8'))
+                group.create_dataset('header', data=self.header["header"])'''
             if self.crop_data:
                 cm_group = hf.create_group('cropping_meta')
                 cm_group.create_dataset('configuration', data=self.cropping_config)
