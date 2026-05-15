@@ -1383,7 +1383,17 @@ def scale_probabilities(final):
 
 class PatchedBatchNorm(BatchNormalization):
     def __init__(self, *args, **kwargs):
-        kwargs.pop("synchronized", None)
+        legacy_keys = {
+            "renorm",
+            "renorm_clipping",
+            "renorm_momentum",
+            "fused",
+            "virtual_batch_size",
+            "experimental_renorm",
+            "synchronized",
+        }
+        for k in legacy_keys:
+            kwargs.pop(k, None)
         super().__init__(*args, **kwargs)
 
 def predict_segmentation(bm, region_of_interest, channels, normalization_parameters):
