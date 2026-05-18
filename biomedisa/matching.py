@@ -248,7 +248,7 @@ def nearest_neighbour(labeled_array, mask, nearest_indices):
 
 def convert_to_zarr(file_path, compress=False):
     path_to_zarr = file_path + '.zarr'
-    print(os.path.basename(file_path))
+    print("Converting to zarr:", os.path.basename(file_path))
     if os.path.exists(path_to_zarr):
         shutil.rmtree(path_to_zarr)
     # load data
@@ -372,6 +372,10 @@ def nearest_neighbour_indices(distances, mask, nearest_indices, iterations=3):
     return nearest_indices
 
 def get_data_size(path):
+    #import SimpleITK as sitk
+    #image = sitk.ReadImage("image.nrrd")
+    #size = image.GetSize()   # (x, y, z)
+    #print(size)
     suffix = '.nrrd'
     for s in ['_small.nrrd', '_half.nrrd']:
         if s in path:
@@ -605,6 +609,8 @@ if __name__ == "__main__":
                         help='patch size')
     parser.add_argument('-ss','--stride_size', type=int, default=8,
                         help='stride size')
+    parser.add_argument('-bs','--batch_size', type=int, default=24,
+                        help='batch size')
     parser.add_argument('-sl','--scale_labels', action='store_true', default=False,
                         help='Downsize full resolution data for matching process')
     bm = parser.parse_args()
@@ -617,9 +623,10 @@ if __name__ == "__main__":
     rank = comm.Get_rank()
 
     min_particle_size = 1000
-    if rank==0 and not bm.project:
-        print('Error: define project name.')
-    print('Project:', bm.project)
+    if rank==0:
+        if not bm.project:
+            print('Error: define project name.')
+        print('Project:', bm.project)
 
     # datasets
     BASE = os.path.dirname(bm.datasets[0])
@@ -637,7 +644,7 @@ if __name__ == "__main__":
         print('Step:', bm.step)
 
     # sample (process all if None)
-    if bm.sample!=None:
+    if bm.sample!=None and rank==0:
         print('Sample:', bm.sample)
 
     # make directories
@@ -655,16 +662,11 @@ if __name__ == "__main__":
         for dataset in bm.datasets:
             path_to_mask = BASE+f'/mask.{dataset}.tif'
             if not os.path.exists(path_to_mask):
-                print(os.path.basename(path_to_mask))
-                # threshold image data to create mask (does not influence separation since this is done by edge removal)
+                print("Dataset:", os.path.basename(path_to_mask))
                 path_to_img = BASE+f'/{dataset}.tif'
                 img = imread(path_to_img)
-                #img[img==np.amax(img)]=np.amin(img)
-                print(img.shape)
-                if '63microns' in dataset:
-                    img[img<10200]=0
-                else:
-                    img[img<bm.create_mask]=0
+                print("Image shape:", img.shape)
+                img[img<bm.create_mask]=0
                 img[img>0]=1
                 save_data(path_to_mask, img.astype(np.uint8))
 
@@ -776,13 +778,6 @@ if __name__ == "__main__":
     if bm.predict_boundaries:
         ngpus = get_gpu_count()
         print('Number of GPUs:', ngpus)
-
-        # batch size
-        if bm.patch_size==64:
-            batch_size = 24
-        elif bm.patch_size==16:
-            batch_size = 1024
-
         for i, dataset in enumerate(bm.datasets):
           if bm.sample==None or i==bm.sample:
             path_to_img = BASE+f'/{dataset}.tif'
@@ -791,29 +786,23 @@ if __name__ == "__main__":
             else:
                 path_to_mask = BASE+f'/mask.{dataset}.tif'
             print('Mask:', path_to_mask)
-            path_to_boundaries = f'{path_to_dir}/final.{dataset}.tif'
+            path_to_boundaries = f'{path_to_dir}/result.{dataset}.nrrd'
             if not os.path.exists(path_to_boundaries):
-                print(os.path.basename(path_to_img))
-                if bm.model == 'sam':
-                    from biomedisa.features.matching.sam_helper import sam_boundaries
-                    sam_boundaries(volume_path=path_to_img, boundaries_path=path_to_boundaries,
-                        sam_checkpoint=bm.model_path, mask_path=path_to_mask)
-                elif bm.model == 'explicit':
-                    cmd = [sys.executable, '-m', 'biomedisa.deeplearning',
-                        path_to_img, bm.model_path, '-rf', '-im', f'-m={path_to_mask}', f'-ss={bm.patch_size//2}',
-                        f'-xp={bm.patch_size}', f'-yp={bm.patch_size}', f'-zp={bm.patch_size}', f'-bs={batch_size}']
-                    if ngpus>1:
-                        cmd = ['mpirun', '-n', f'{ngpus}'] + cmd
-                    subprocess.Popen(cmd).wait()
-                    shutil.move(BASE+f'/final.{dataset}.refined.tif', path_to_boundaries)
-                elif bm.model == 'implicit':
-                    cmd = [sys.executable, '-m', 'biomedisa.deeplearning',
-                        path_to_img, bm.model_path, f'-ss={bm.patch_size//4}', '-s', f'-m={path_to_mask}',
-                        f'-xp={bm.patch_size}', f'-yp={bm.patch_size}', f'-zp={bm.patch_size}', f'-bs={batch_size}']
-                    if ngpus>1:
-                        cmd = ['mpirun', '-n', f'{ngpus}'] + cmd
-                    subprocess.Popen(cmd).wait()
-                    shutil.move(BASE+f'/final.{dataset}.tif', path_to_boundaries)
+                print('Dataset:', os.path.basename(path_to_img))
+                # base command
+                cmd = [sys.executable, '-m', 'biomedisa.deeplearning', path_to_img, bm.model_path,
+                    f'-m={path_to_mask}', f'-ss={bm.stride_size}', f'-bs={bm.batch_size}', '-ext', '.nrrd']
+                if ngpus>1:
+                    cmd = ['mpirun', '-n', f'{ngpus}'] + cmd
+                if bm.model == 'explicit':
+                    cmd += ['-rf', '-im']
+                # predict segmentation
+                subprocess.Popen(cmd, env=os.environ.copy()).wait()
+                # move result
+                if bm.model == 'explicit':
+                    shutil.move(BASE+f'/final.{dataset}.refined.nrrd', path_to_boundaries)
+                else:
+                    shutil.move(BASE+f'/final.{dataset}.nrrd', path_to_boundaries)
 
     #=======================================================================================
     # label particles
@@ -932,6 +921,8 @@ if __name__ == "__main__":
 
                 # combine with corrected particles from previous step
                 old_size, old_path = get_data_size(BASE+f'/{bm.project}/step={bm.step-1}/corr.{dataset}.nrrd')
+                if old_size is None:
+                    old_size, old_path = get_data_size(BASE+f'/{bm.project}/step={bm.step-1}/result.{dataset}.nrrd')
                 if old_size != None:
                     matched,_ = load_data(old_path)
                     m1_max = np.amax(matched)
@@ -953,7 +944,7 @@ if __name__ == "__main__":
                 save_data(path_to_result, labeled_array)
                 print('Saving done.')
 
-                # save labels, sizes and bounding boxes
+                # labels, sizes, and bounding boxes
                 bounding_boxes = get_bounding_boxes(labeled_array)
                 np.save(f'{path_to_meta}/bounding_boxes{sample_i+1}.npy', bounding_boxes)
                 lv, ln = unique(labeled_array, return_counts=True)
@@ -1046,6 +1037,7 @@ if __name__ == "__main__":
         # iterate over datasets
         for sample_i, dataset in enumerate(bm.datasets):
           if bm.sample==None or bm.sample==sample_i:
+
             # load particles
             if rank==0:
                 convert_to_zarr(f'{path_to_dir}/result.{dataset}.nrrd')
