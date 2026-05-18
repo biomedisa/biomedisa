@@ -261,7 +261,8 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
                 bm.z_patch, bm.y_patch, bm.x_patch = np.array(meta['patch_size'], dtype=int)
             if 'separation' in meta:
                 bm.separation = bool(meta['separation'][()])
-                bm.stride_size = min(bm.z_patch, bm.y_patch, bm.x_patch) // 4
+                if bm.separation:
+                    bm.stride_size = min(bm.z_patch, bm.y_patch, bm.x_patch) // 4
 
             # check if amira header is available in the network
             if bm.header is None and meta.get('header') is not None:
