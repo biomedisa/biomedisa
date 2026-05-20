@@ -1020,21 +1020,6 @@ def init_keras_3D(image, label, predict, mask=None, img_list=None, label_list=No
                     image.pid = job_id
                     image.save()
 
-                    # wait for the server to finish
-                    '''error, success, started, processing = 1, 1, 1, True
-                    while error!=0 and success!=0 and processing:
-                        time.sleep(30)
-                        error = subprocess.Popen(['scp', host + ':' + host_base + error_path, BASE_DIR + error_path]).wait()
-                        success = subprocess.Popen(['scp', host + ':' + host_base + config_path, BASE_DIR + config_path]).wait()
-                        started = subprocess.Popen(['scp', host + ':' + host_base + pid_path, BASE_DIR + pid_path]).wait()
-                        image = Upload.objects.filter(pk=image.id).first()
-                        if image and image.status==2 and image.queue==queue_id:
-                            if started==0 and image.message != 'Processing':
-                                image.message = 'Processing'
-                                image.save()
-                        else:
-                            processing = False'''
-
                     # local filename
                     if train:
                         shortfilename= os.path.splitext(image.shortfilename)[0]
@@ -1152,8 +1137,6 @@ def init_keras_3D(image, label, predict, mask=None, img_list=None, label_list=No
                         path_to_final = unique_file_path(final_on_host.replace(host_base,BASE_DIR))
                         if cropped_on_host:
                             path_to_cropped_image = unique_file_path(cropped_on_host.replace(host_base,BASE_DIR))
-                    #else:
-                    #    path_to_model = unique_file_path(model_on_host.replace(host_base,BASE_DIR))
 
                     # get results
                     if predict:
@@ -1162,17 +1145,11 @@ def init_keras_3D(image, label, predict, mask=None, img_list=None, label_list=No
                         if cropped_on_host:
                             subprocess.Popen(['scp', host+':'+cropped_on_host, path_to_cropped_image]).wait()
                             os.chmod(path_to_cropped_image, 0o664)
-                    #else:
-                    #    subprocess.Popen(['scp', host+':'+model_on_host, path_to_model]).wait()
-                    #    os.chmod(path_to_model, 0o664)
-                    #    for suffix in ['_acc.png', '_loss.png', '.csv']:
-                    #        subprocess.Popen(['scp', host+':'+model_on_host.replace('.h5', suffix), path_to_model.replace('.h5', suffix)]).wait()
-                    #        os.chmod(path_to_model.replace('.h5', suffix), 0o664)
 
                     # post processing
                     post_processing(path_to_final, time_str, server_name, False, None,
                         path_to_cropped_image=path_to_cropped_image, path_to_model=path_to_model,
-                        predict=predict, train=False, separation=separation,
+                        predict=predict, train=train, separation=separation,
                         img_id=image.id, label_id=label.id)
 
                 # process reached time limit

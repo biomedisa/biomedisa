@@ -91,7 +91,7 @@ def post_processing(path_to_final, time_str, server_name, remote, queue, dice=1.
         # get object
         image = Upload.objects.get(pk=img_id)
 
-        if train:
+        if train and path_to_model:
             # create model object
             shortfilename = os.path.basename(path_to_model)
             filename = 'images/' + image.user.username + '/' + shortfilename
