@@ -8,6 +8,11 @@ if __name__ == "__main__":
     except:
         from config_template import python_path, lib_path
 
+    if python_path is None:
+        raise ValueError('"python_path" is not specified')
+    if lib_path is None:
+        raise ValueError('"lib_path" is not specified')
+
     # Create a clean environment
     new_env = os.environ.copy()
 
@@ -44,8 +49,21 @@ if __name__ == "__main__":
     )
 
     # Check if CUDA is working
-    subprocess.run(
+    result = subprocess.run(
         [python_path, "-m", "biomedisa.features.pycuda_test"],
-        env=new_env
+        env=new_env,
+        capture_output=True,
+        text=True,
     )
+    if result.returncode == 0:
+        print(result.stdout.rstrip("\n"))
+    else:
+        if (
+            "No module named" in result.stderr
+            and "pycuda" in result.stderr
+        ):
+            print("PyCUDA is not installed.")
+        else:
+            print("CUDA test failed:")
+            print(result.stderr)
 
