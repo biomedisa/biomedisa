@@ -82,7 +82,7 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
     remote=False, queue=0, username=None, shortfilename=None, dice_loss=False,
     acwe=False, acwe_alpha=1.0, acwe_smooth=1, acwe_steps=3, clean=None, fill=None,
     separation=False, mask=None, refinement=False, ignore_mask=False, mixed_precision=False,
-    slicer=False, path_to_data=None, downsample=False):
+    slicer=False, path_to_data=None, downsample=False, return_boundaries=False):
 
     # create biomedisa
     bm = Biomedisa()
@@ -365,7 +365,7 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
                     return 0
 
                 # particle separation
-                if bm.separation:
+                if bm.separation and not bm.return_boundaries:
                     from biomedisa.particles import label_particles
                     label_particles(bm.path_to_final, bm.mask)
 
@@ -556,6 +556,8 @@ if __name__ == '__main__':
                         help='Location of header file')
     parser.add_argument('-s','--separation', action='store_true', default=False,
                         help='Instance segmentation of objects such as cells or rock particles')
+    parser.add_argument('-rb','--return_boundaries', action='store_true', default=False,
+                        help='Return predicted boundaries in separation process instead of separated particles')
     parser.add_argument('-m','--mask', type=str, metavar='PATH', default=None,
                         help='Location of mask')
     parser.add_argument('-rf','--refinement', action='store_true', default=False,
