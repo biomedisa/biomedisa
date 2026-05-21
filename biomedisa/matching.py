@@ -617,6 +617,8 @@ if __name__ == "__main__":
                         help='epochs the network is trained')
     parser.add_argument('-sp','--scale_particles', type=int, default=0,
                         help='for reducing particle size by this factor before matching (e.g. 2)')
+    parser.add_argument('-mps','--min_particle_size', type=int, default=1000,
+                        help='Minimum size (in pixels) for connected components. Objects smaller than this threshold are removed.')
     bm = parser.parse_args()
 
     #=======================================================================================
@@ -627,7 +629,7 @@ if __name__ == "__main__":
         comm = MPI.COMM_WORLD
         rank = comm.Get_rank()
 
-        min_particle_size = 1000
+        # project base
         BASE = os.path.dirname(bm.datasets[0])
 
         # project
@@ -678,60 +680,23 @@ if __name__ == "__main__":
                 save_data(path_to_mask, img.astype(np.uint8))
 
     #=======================================================================================
-    # remove container
-    #=======================================================================================
-    if bm.remove_container:
-        from mpi4py import MPI
-        comm = MPI.COMM_WORLD
-        rank = comm.Get_rank()
-        size = comm.Get_size()
-
-        if bm.sample==0:
-            path = BASE+f'/mask.Quartz_sphere_15_25_110mins_2_greaterthan63microns_uint16_half.tif'
-            xs,ys,ds=1370/2,1371/2,2088/2
-        if bm.sample==1:
-            path = BASE+f'/mask.Quartz_sphere_15_25_110mins_2_greaterthan63microns_rescan_A_uint16_half.tif'
-            xs,ys,ds=1372/2,1360/2,2090/2
-        if bm.sample==2:
-            path = BASE+f'/mask.Quartz_sphere_15_25_110mins_2_morethan63microns_rescan_3_uint16_half.tif'
-            xs,ys,ds=1370/2,1364/2,2090/2
-
-        zsh,ysh,xsh = TiffInfo(path).shape
-        print(zsh,ysh,xsh)
-
-        if rank==0:
-            result = np.zeros((zsh, ysh, xsh), dtype=np.uint8)
-        for k in range(rank,zsh,size):
-            a = imread(path, key=range(k,k+1))
-            a,xs,ys,ds = remove_container(a,xs,ys,ds)
-            print(rank, k, round(xs,2),round(ys,2),round(ds,2))
-            # gather results
-            if rank==0:
-                result[k] = a
-                for source in range(1, size):
-                    if k+source < zsh:
-                        comm.Recv([result[k+source], MPI.SIGNED_CHAR], source=source, tag=k+source)
-            else:
-                comm.Send([a.copy(), MPI.SIGNED_CHAR], dest=0, tag=k)
-        if rank==0:
-            save_data(path.replace('.tif','_clean.tif'), result)
-
-    #=======================================================================================
-    # use unmatched areas to create a new positive mask for prediction
+    # create positive mask of unmatched areas
     #=======================================================================================
     if bm.positive_mask:
         for i, dataset in enumerate(bm.datasets):
           if bm.sample==None or i==bm.sample:
             new_mask_path = f'{path_to_dir}/mask.{dataset}.tif'
             if not os.path.exists(new_mask_path):
-                print(os.path.basename(new_mask_path))
+                print("Mask:", os.path.basename(new_mask_path))
 
                 # get previous data
-                _, old_path = get_data_size(BASE+f'/{bm.project}/step={bm.step-1}/corr.{dataset}.nrrd')
-                if not old_path:
+                old_path = get_data_size(BASE+f'/{bm.project}/step={bm.step-1}/corr.{dataset}.nrrd')[1]
+                if old_path is None:
+                    old_path = get_data_size(BASE+f'/{bm.project}/step={bm.step-1}/match.{dataset}.nrrd')[1]
+                if old_path is None:
                     raise RuntimeError("No previous result available.")
                 matched,_ = load_data(old_path)
-                mask = imread(BASE +'/'+ os.path.basename(old_path).replace('corr.','mask.').replace('.nrrd','.tif'))
+                mask = imread(BASE +'/'+ os.path.basename(old_path).replace('corr.','mask.').replace('match.','mask.').replace('.nrrd','.tif'))
 
                 # unmatched areas
                 unmatched = (mask > matched).astype(np.uint8)
@@ -743,7 +708,7 @@ if __name__ == "__main__":
                 lv, ln = unique(unmatched, return_counts=True)
                 label_vals = np.zeros(int(np.amax(lv))+1, dtype=np.uint32)
                 for i,l in enumerate(lv):
-                    if ln[i]>=100:
+                    if ln[i]>=bm.min_particle_size:
                         label_vals[l] = 1
                 unmatched = remove_small_particles2(unmatched, label_vals)
                 unmatched[unmatched>0]=1
@@ -829,14 +794,14 @@ if __name__ == "__main__":
                 from biomedisa.particles import label_particles
                 labeled_array = label_particles(path_to_boundaries, path_to_mask,
                     result_path=path_to_result,
-                    min_particle_size=min_particle_size,
+                    min_particle_size=bm.min_particle_size,
                     scale_particles=bm.scale_particles,
                     label_path=label_path)
 
                 # combine with corrected particles from previous step
                 old_size, old_path = get_data_size(BASE+f'/{bm.project}/step={bm.step-1}/corr.{dataset}.nrrd')
                 if old_size is None:
-                    old_size, old_path = get_data_size(BASE+f'/{bm.project}/step={bm.step-1}/result.{dataset}.nrrd')
+                    old_size, old_path = get_data_size(BASE+f'/{bm.project}/step={bm.step-1}/match.{dataset}.nrrd')
                 if old_size != None:
                     matched,_ = load_data(old_path)
                     m1_max = np.amax(matched)
