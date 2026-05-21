@@ -577,7 +577,7 @@ if __name__ == "__main__":
                         help='If not given, calculate all')
     parser.add_argument('-s','--step', type=int, default=None,
                         help='If not given, use last available')
-    parser.add_argument('-mp','--model_path', type=str, metavar='PATH', default=None,
+    parser.add_argument('-ptm','--path_to_model', type=str, metavar='PATH', default=None,
                         help='Location of model (.h5)')
     parser.add_argument('-pm','--pretrained_model', type=str, metavar='PATH', default=None,
                         help='Location of pretrained model (.h5)')
@@ -585,7 +585,7 @@ if __name__ == "__main__":
                         help='binarize volume using a threshold')
     parser.add_argument('-rc','--remove_container', action='store_true', default=False,
                         help='remove_container')
-    parser.add_argument('-pm','--positive_mask', action='store_true', default=False,
+    parser.add_argument('-pom','--positive_mask', action='store_true', default=False,
                         help='use unmatched areas to create a new positive mask for prediction')
     parser.add_argument('-l','--label_particles', action='store_true', default=False,
                         help='label particles individually')
@@ -809,7 +809,7 @@ if __name__ == "__main__":
                 if not os.path.exists(path_to_boundaries) and not label_path:
 
                     # base command
-                    cmd = [sys.executable, '-m', 'biomedisa.deeplearning', path_to_img, bm.model_path,
+                    cmd = [sys.executable, '-m', 'biomedisa.deeplearning', path_to_img, bm.path_to_model,
                         f'-m={path_to_mask}', f'-ss={bm.stride_size}', f'-bs={bm.batch_size}', '-rb']
                     if ngpus>1:
                         cmd = ['mpirun', '-n', f'{ngpus}'] + cmd
@@ -1925,7 +1925,7 @@ if __name__ == "__main__":
 
         # train network
         deep_learning(images, labels, train=True, patch_normalization=True,
-            path_to_model=model_path, scaling=False, val_dice=False,
+            path_to_model=path_to_model, scaling=False, val_dice=False,
             pretrained_model=bm.pretrained_model,
             flip_x=True, flip_y=True, flip_z=True, swapaxes=True,
             val_img_data=val_img, val_label_data=val_label, epochs=bm.epochs,
