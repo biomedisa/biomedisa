@@ -54,5 +54,9 @@ If the automatic setup does not work because the location of your Python environ
 cd git/biomedisa/biomedisa_slicer_extension/biomedisa_extension
 xcopy config_template.py config.py
 ```
-Edit the `config.py` file to update the following paths based on your Biomedisa installation: **python_path**, **lib_path**, **wsl_path** (examples are provided in the `config_template.py` file).
-
+Edit the `config.py` file to update the following paths based on your Biomedisa installation: **python_path**, **lib_path**, **wsl_path** (examples are provided in the `config_template.py` file) and test the environment:
+```
+cd "AppData\Local\slicer.org\Slicer <VERSION>\bin"
+PythonSlicer.exe git/biomedisa/biomedisa_slicer_extension/biomedisa_extension/slicer_env_test.py
+```
+You shou see something like: `Platforms: [<pyopencl.Platform 'NVIDIA CUDA' at 0x2124bfa2f20>]`.
