@@ -1328,7 +1328,6 @@ def load_prediction_data(bm, channels, normalization_parameters,
     # read image data
     if img is None:
         if load_blockwise:
-            img_header = None
             tif = TiffFile(bm.path_to_image)
             img = imread(bm.path_to_image, key=range(z,min(len(tif.pages),z+bm.z_patch)))
             if len(img.shape)==2:
@@ -1457,10 +1456,20 @@ def scale_probabilities(final):
 
 class PatchedBatchNorm(BatchNormalization):
     def __init__(self, *args, **kwargs):
-        kwargs.pop("synchronized", None)
+        legacy_keys = {
+            "renorm",
+            "renorm_clipping",
+            "renorm_momentum",
+            "fused",
+            "virtual_batch_size",
+            "experimental_renorm",
+            "synchronized",
+        }
+        for k in legacy_keys:
+            kwargs.pop(k, None)
         super().__init__(*args, **kwargs)
 
-def predict_segmentation(bm, region_of_interest, channels, normalization_parameters):
+def predict_segmentation(bm, region_of_interest, channels, normalization_parameters, temp_dir):
 
     from mpi4py import MPI
     comm = MPI.COMM_WORLD
@@ -1539,8 +1548,15 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
 
     # check if data can be loaded blockwise to save host memory
     load_blockwise = False
-    if not bm.scaling and not bm.normalize and bm.path_to_image and not np.any(region_of_interest) and \
-      os.path.splitext(bm.path_to_image)[1] in ['.tif', '.tiff'] and not bm.acwe:
+    img_path = bm.path_to_image
+    if not bm.scaling and not bm.normalize and bm.path_to_image and not np.any(region_of_interest) and not bm.acwe:
+
+        # convert image to TIFF
+        if not os.path.splitext(bm.path_to_image)[1] in ['.tif','.tiff','.TIF','.TIFF']:
+            tmp, bm.img_header = load_data(bm.path_to_image)
+            bm.path_to_image = os.path.join(temp_dir, 'tmp_image.tif')
+            imwrite(bm.path_to_image, tmp)
+            del tmp
 
         # get image shape
         tif = TiffFile(bm.path_to_image)
@@ -1824,6 +1840,7 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
                     for i in range(bm.z_patch):
                         comm.Send([block_probs[i].copy(), MPI.FLOAT], dest=0, tag=i)
     if rank==0:
+        bm.path_to_image = img_path
 
         # remove ghost areas
         if bm.return_probs and not load_blockwise:

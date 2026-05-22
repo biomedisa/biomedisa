@@ -498,7 +498,9 @@ def label_in_ascending_order(label):
     for i, v in enumerate(lv):
         ref[v] = i
     label = change_label_values(label, ref)
-    if np.amax(label) <= 65535:
+    if np.amax(label) <= 255:
+        label = label.astype(np.uint8)
+    elif np.amax(label) <= 65535:
         label = label.astype(np.uint16)
     return label
 
@@ -604,13 +606,13 @@ if __name__ == "__main__":
                         help='stride size')
     parser.add_argument('-sl','--scale_labels', action='store_true', default=False,
                         help='Downsize full resolution data for matching process')
+    parser.add_argument('-mps','--min_particle_size', type=int, default=1000,
+                        help='Minimum size (in pixels) for connected components. Objects smaller than this threshold are removed.')
     bm = parser.parse_args()
 
     #=======================================================================================
     # datasets
     #=======================================================================================
-    min_particle_size = 1000
-
     # datasets
     BASE = os.path.dirname(bm.datasets[0])
     for k, dataset in enumerate(bm.datasets):
@@ -873,7 +875,7 @@ if __name__ == "__main__":
                 t = sorted(t, key=lambda x: x[0])[::-1]
                 ref = np.zeros(int(np.amax(lv))+1, dtype=np.int32)
                 for i,nv in enumerate(t):
-                    if nv[0]>=min_particle_size:
+                    if nv[0]>=bm.min_particle_size:
                         ref[int(nv[1])] = i
                 labeled_array = change_label_values(labeled_array, ref)
                 if np.amax(labeled_array) <= 65535:
@@ -987,7 +989,7 @@ if __name__ == "__main__":
                 t = sorted(t, key=lambda x: x[0])[::-1]
                 ref = np.zeros(int(np.amax(lv))+1, dtype=np.int32)
                 for i,nv in enumerate(t):
-                    if nv[0]>=0:#min_particle_size:
+                    if nv[0]>=bm.min_particle_size:
                         ref[int(nv[1])] = i
                 labeled_array = change_label_values(labeled_array, ref)
                 if np.amax(labeled_array) <= 65535:

@@ -82,7 +82,8 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
     remote=False, queue=0, username=None, shortfilename=None, dice_loss=False,
     acwe=False, acwe_alpha=1.0, acwe_smooth=1, acwe_steps=3, clean=None, fill=None,
     separation=False, mask=None, refinement=False, ignore_mask=False, mixed_precision=False,
-    slicer=False, path_to_data=None, downsample=False, unsupervised_images=None, workers=1):
+    slicer=False, path_to_data=None, downsample=False, unsupervised_images=None, workers=1,
+    min_particle_size=1000):
 
     # create biomedisa
     bm = Biomedisa()
@@ -263,7 +264,8 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
                 bm.z_patch, bm.y_patch, bm.x_patch = np.array(meta['patch_size'], dtype=int)
             if 'separation' in meta:
                 bm.separation = bool(meta['separation'][()])
-                bm.stride_size = min(bm.z_patch, bm.y_patch, bm.x_patch) // 4
+                if bm.separation:
+                    bm.stride_size = min(bm.z_patch, bm.y_patch, bm.x_patch) // 4
 
             # check if amira header is available in the network
             if bm.header is None and meta.get('header') is not None:
@@ -275,10 +277,10 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
             hf.close()
 
         # separation and refinement require binary mask as TIFF file
-        if bm.separation and not (bm.mask and os.path.splitext(bm.mask)[1] in ['.tif','.tiff','.TIF','.TIFF']):
-            raise RuntimeError("Separation requires a binary mask of instances provided as a Multipage-TIFF (.tif) file.")
-        if bm.refinement and not (bm.mask and os.path.splitext(bm.mask)[1] in ['.tif','.tiff','.TIF','.TIFF']):
-            raise RuntimeError("Refinement requires a binary mask of the target area provided as a Multipage-TIFF (.tif) file.")
+        if bm.separation and not bm.mask:
+            raise RuntimeError("Separation requires a binary mask of instances.")
+        if bm.refinement and not bm.mask:
+            raise RuntimeError("Refinement requires a binary mask of the target area.")
 
         # make temporary directory
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -351,6 +353,13 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
                     import biomedisa.features.crop_helper as ch
                     region_of_interest, cropped_volume = ch.crop_data(bm)
 
+                # convert mask to TIFF
+                if bm.mask and not os.path.splitext(bm.mask)[1] in ['.tif','.tiff','.TIF','.TIFF']::
+                    tmp = load_data(bm.mask)[0]
+                    bm.mask = os.path.join(temp_dir, 'tmp_mask.tif')
+                    imwrite(bm.mask, tmp)
+                    del tmp
+
                 # inference
                 if os.path.splitext(bm.path_to_model)[1] in ['.pth','.pt']:
                     # use SAM backend for particle separation
@@ -360,7 +369,7 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
                 else:
                     # use U-Net for prediction
                     results, bm = predict_segmentation(bm, region_of_interest,
-                        channels, normalization_parameters)
+                        channels, normalization_parameters, temp_dir)
 
                 if rank>0:
                     return 0
@@ -368,7 +377,8 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
                 # particle separation
                 if bm.separation:
                     from biomedisa.particles import label_particles
-                    label_particles(bm.path_to_final, bm.mask)
+                    label_particles(bm.path_to_final, bm.mask, header=bm.header,
+                        min_particle_size=bm.min_particle_size)
 
                 # results
                 if cropped_volume is not None:
@@ -561,6 +571,8 @@ if __name__ == '__main__':
                         help='Location of header file')
     parser.add_argument('-s','--separation', action='store_true', default=False,
                         help='Instance segmentation of objects such as cells or rock particles')
+    parser.add_argument('-mps','--min_particle_size', type=int, default=1000,
+                        help='Minimum size (in pixels) for connected components. Objects smaller than this threshold are removed.')
     parser.add_argument('-m','--mask', type=str, metavar='PATH', default=None,
                         help='Location of mask')
     parser.add_argument('-rf','--refinement', action='store_true', default=False,

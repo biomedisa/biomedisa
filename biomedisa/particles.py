@@ -33,7 +33,7 @@ from scipy import ndimage
 import numpy as np
 import time
 
-def label_particles(boundaries_path, mask_path, result_path=None, min_particle_size=1000):
+def label_particles(boundaries_path, mask_path, header=None, result_path=None, min_particle_size=1000):
     """
     Removes boundary pixels from a binary mask and labels the remaining connected
     components with unique integer values.
@@ -59,9 +59,9 @@ def label_particles(boundaries_path, mask_path, result_path=None, min_particle_s
 
     # remove boundary
     labeled_array = mask.copy()
-    boundaries,_ = load_data(boundaries_path)
+    boundaries = load_data(boundaries_path)[0]
     labeled_array[boundaries>0]=0
-    print(boundaries.shape)
+    print('Shape:', boundaries.shape)
     del boundaries
     print('Data loaded:', time.time() - TIC)
 
@@ -83,7 +83,7 @@ def label_particles(boundaries_path, mask_path, result_path=None, min_particle_s
     labeled_array = nearest_neighbour(labeled_array, mask, nearest_indices)
     print('Segments refilled:', time.time() - TIC)
 
-    # sort according to size, label in ascending order, remove small particles & save as 16bit if possible
+    # sort according to size, label in ascending order, remove small particles
     TIC = time.time()
     lv, ln = unique(labeled_array, return_counts=True)
     t = []
@@ -95,8 +95,6 @@ def label_particles(boundaries_path, mask_path, result_path=None, min_particle_s
         if nv[0]>=min_particle_size:
             ref[int(nv[1])] = i
     labeled_array = change_label_values(labeled_array, ref)
-    if np.amax(labeled_array) <= 65535:
-        labeled_array = labeled_array.astype(np.uint16)
     print('Sorting and removing of small particles done:', time.time() - TIC)
 
     # fill inclusions and pores
@@ -139,6 +137,6 @@ def label_particles(boundaries_path, mask_path, result_path=None, min_particle_s
     # save results
     if not result_path:
         result_path = boundaries_path
-    save_data(result_path, labeled_array)
+    save_data(result_path, labeled_array, header=header)
     print('Saving done.')
 
