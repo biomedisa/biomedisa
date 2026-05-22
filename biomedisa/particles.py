@@ -33,7 +33,8 @@ from scipy import ndimage
 import numpy as np
 import time
 
-def label_particles(boundaries_path, mask_path, header=None, result_path=None, min_particle_size=1000):
+def label_particles(boundaries_path, mask_path, header=None, result_path=None,
+    min_particle_size=1000, scale_particles=0, label_path=None):
     """
     Removes boundary pixels from a binary mask and labels the remaining connected
     components with unique integer values.
@@ -49,39 +50,60 @@ def label_particles(boundaries_path, mask_path, header=None, result_path=None, m
     min_particle_size : int, optional
         Minimum allowed size (in pixels) for connected components. Objects smaller
         than this threshold are removed.
+    scale_particles : int, optional
+        For reducing particle size by this factor (e.g. 2).
+    label_path : str, optional
+        Path to the pre-segmented particles.
     """
 
-    # load mask
-    TIC = time.time()
-    print('Mask:', mask_path)
-    mask,_ = load_data(mask_path)
-    mask = mask.astype(np.uint8)
+    if label_path:
+        labeled_array = load_data(label_path)[0]
+    else:
+        # load mask
+        TIC = time.time()
+        print('Mask:', mask_path)
+        mask = load_data(mask_path)[0]
+        mask = mask.astype(np.uint8)
 
-    # remove boundary
-    labeled_array = mask.copy()
-    boundaries = load_data(boundaries_path)[0]
-    labeled_array[boundaries>0]=0
-    print('Shape:', boundaries.shape)
-    del boundaries
-    print('Data loaded:', time.time() - TIC)
+        # remove boundary
+        labeled_array = mask.copy()
+        boundaries = load_data(boundaries_path)[0]
+        labeled_array[boundaries>0]=0
+        print('Shape:', boundaries.shape)
+        del boundaries
+        print('Data loaded:', time.time() - TIC)
 
-    # label particles individually
-    TIC = time.time()
-    s = [[[0,0,0], [0,1,0], [0,0,0]], [[0,1,0], [1,1,1], [0,1,0]], [[0,0,0], [0,1,0], [0,0,0]]]
-    labeled_array = labeled_array.astype(np.uint32)
-    ndimage.label(labeled_array, structure=s, output=labeled_array)
-    print('Label particles:', time.time() - TIC)
+        # downsize mask
+        if scale_particles:
+            zsh, ysh, xsh = mask.shape
+            zoom_factors = [t / s for t, s in zip((zsh//scale_particles,ysh//scale_particles,xsh//scale_particles), mask.shape)]
+            mask = ndimage.zoom(mask, zoom_factors, order=0)
+
+        # label particles individually
+        TIC = time.time()
+        s = [[[0,0,0], [0,1,0], [0,0,0]], [[0,1,0], [1,1,1], [0,1,0]], [[0,0,0], [0,1,0], [0,0,0]]]
+        labeled_array = labeled_array.astype(np.uint32)
+        ndimage.label(labeled_array, structure=s, output=labeled_array)
+        print('Label particles:', time.time() - TIC)
+
+    # downsize labels
+    if scale_particles:
+        zsh, ysh, xsh = labeled_array.shape
+        zoom_factors = [t / s for t, s in zip((zsh//scale_particles,ysh//scale_particles,xsh//scale_particles), labeled_array.shape)]
+        labeled_array = ndimage.zoom(labeled_array, zoom_factors, order=0)
+    print('Label shape:', labeled_array.shape)
 
     # fill segments up to mask
-    TIC = time.time()
-    nearest_indices = np.zeros(((3,) + labeled_array.shape), dtype=np.uint16)
-    #ndimage.distance_transform_edt(labeled_array==0, return_distances=False, return_indices=True, indices=nearest_indices)
-    distances = np.zeros(labeled_array.shape, dtype=np.float32)
-    distances[labeled_array==0] = np.inf
-    nearest_indices = init_indices(nearest_indices) # TODO: use global index and calculate z,y,x on the fly
-    nearest_indices = nearest_neighbour_indices(distances, mask, nearest_indices)
-    labeled_array = nearest_neighbour(labeled_array, mask, nearest_indices)
-    print('Segments refilled:', time.time() - TIC)
+    if not label_path:
+        TIC = time.time()
+        nearest_indices = np.zeros(((3,) + labeled_array.shape), dtype=np.uint16)
+        #ndimage.distance_transform_edt(labeled_array==0, return_distances=False, return_indices=True, indices=nearest_indices)
+        distances = np.zeros(labeled_array.shape, dtype=np.float32)
+        distances[labeled_array==0] = np.inf
+        nearest_indices = init_indices(nearest_indices) # TODO: use global index and calculate z,y,x on the fly
+        nearest_indices = nearest_neighbour_indices(distances, mask, nearest_indices)
+        labeled_array = nearest_neighbour(labeled_array, mask, nearest_indices)
+        print('Segments refilled:', time.time() - TIC)
 
     # sort according to size, label in ascending order, remove small particles
     TIC = time.time()
@@ -139,4 +161,5 @@ def label_particles(boundaries_path, mask_path, header=None, result_path=None, m
         result_path = boundaries_path
     save_data(result_path, labeled_array, header=header)
     print('Saving done.')
+    return labeled_array
 

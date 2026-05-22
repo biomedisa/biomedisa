@@ -226,7 +226,7 @@ def refinement(bm):
 
 def post_processing(path_to_acwe, image_id=None, friend_id=None, simple=False, remote=False):
     if remote:
-        with open(biomedisa.BASE_DIR + '/log/config_4', 'w') as configfile:
+        with open(biomedisa.BASE_DIR + f'/log/config_4_{image_id}', 'w') as configfile:
             print(path_to_acwe, 'phantom', file=configfile)
     else:
         import django
@@ -357,8 +357,15 @@ def init_active_contour(image_id, friend_id, label_id, simple=False):
                     cmd = cmd_host + cmd
 
                 # config files
-                error_path = '/log/error_4'
-                config_path = '/log/config_4'
+                error_path = f'/log/error_4_{image.id}'
+                config_path = f'/log/config_4_{image.id}'
+
+                # remove config files
+                subprocess.Popen(
+                    ['ssh', host, 'rm',
+                     host_base + error_path,
+                     host_base + config_path]
+                ).wait()
 
                 # submit job
                 if qsub or sbatch:
@@ -403,8 +410,11 @@ def init_active_contour(image_id, friend_id, label_id, simple=False):
                     post_processing(path_to_acwe, image_id=image_id, friend_id=friend_id, simple=simple)
 
                 # remove config files
-                subprocess.Popen(['ssh', host, 'rm', host_base + error_path]).wait()
-                subprocess.Popen(['ssh', host, 'rm', host_base + config_path]).wait()
+                subprocess.Popen(
+                    ['ssh', host, 'rm',
+                     host_base + error_path,
+                     host_base + config_path]
+                ).wait()
 
         # local server
         else:

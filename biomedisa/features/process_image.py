@@ -141,8 +141,15 @@ def init_process_image(id, process=None):
                         cmd = cmd_host + cmd
 
                     # config files
-                    error_path = '/log/error_5'
-                    pid_path = '/log/pid_5'
+                    error_path = f'/log/error_5_{img.id}'
+                    pid_path = f'/log/pid_5_{img.id}'
+
+                    # remove config files
+                    subprocess.Popen(
+                        ['ssh', host, 'rm',
+                         host_base + error_path,
+                         host_base + pid_path]
+                    ).wait()
 
                     # result path on host
                     result_on_host = img.pic.path.replace(biomedisa.BASE_DIR,host_base)
@@ -203,8 +210,11 @@ def init_process_image(id, process=None):
                             imageType=img.imageType, shortfilename=new_short_name, active=active)
 
                     # remove config files
-                    subprocess.Popen(['ssh', host, 'rm', host_base + error_path]).wait()
-                    subprocess.Popen(['ssh', host, 'rm', host_base + pid_path]).wait()
+                    subprocess.Popen(
+                        ['ssh', host, 'rm',
+                         host_base + error_path,
+                         host_base + pid_path]
+                    ).wait()
 
             # local server
             else:

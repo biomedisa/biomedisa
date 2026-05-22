@@ -166,6 +166,9 @@ class Helper():
                 if os.path.exists(os.path.expanduser("~")+"/anaconda3/envs/biomedisa/python.exe"):
                     python_path = os.path.expanduser("~")+"/anaconda3/envs/biomedisa/python.exe"
                     lib_path = os.path.expanduser("~")+"/anaconda3/envs/biomedisa/lib/site-packages"
+                elif os.path.exists(os.path.expanduser("~")+"/AppData/Local/anaconda3/envs/biomedisa/python.exe"):
+                    python_path = os.path.expanduser("~")+"/AppData/Local/anaconda3/envs/biomedisa/python.exe"
+                    lib_path = os.path.expanduser("~")+"/AppData/Local/anaconda3/envs/biomedisa/lib/site-packages"
                 # Biomedisa environment
                 elif os.path.exists(os.path.expanduser("~")+"/biomedisa_env/bin/python"):
                     python_path = os.path.expanduser("~")+"/biomedisa_env/bin/python"

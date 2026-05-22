@@ -83,7 +83,7 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
     acwe=False, acwe_alpha=1.0, acwe_smooth=1, acwe_steps=3, clean=None, fill=None,
     separation=False, mask=None, refinement=False, ignore_mask=False, mixed_precision=False,
     slicer=False, path_to_data=None, downsample=False, unsupervised_images=None, workers=1,
-    min_particle_size=1000):
+    min_particle_size=1000, return_boundaries=False):
 
     # create biomedisa
     bm = Biomedisa()
@@ -375,7 +375,7 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
                     return 0
 
                 # particle separation
-                if bm.separation:
+                if bm.separation and not bm.return_boundaries:
                     from biomedisa.particles import label_particles
                     label_particles(bm.path_to_final, bm.mask, header=bm.header,
                         min_particle_size=bm.min_particle_size)
@@ -573,6 +573,8 @@ if __name__ == '__main__':
                         help='Instance segmentation of objects such as cells or rock particles')
     parser.add_argument('-mps','--min_particle_size', type=int, default=1000,
                         help='Minimum size (in pixels) for connected components. Objects smaller than this threshold are removed.')
+    parser.add_argument('-rb','--return_boundaries', action='store_true', default=False,
+                        help='Return predicted boundaries in separation process instead of separated particles')
     parser.add_argument('-m','--mask', type=str, metavar='PATH', default=None,
                         help='Location of mask')
     parser.add_argument('-rf','--refinement', action='store_true', default=False,
