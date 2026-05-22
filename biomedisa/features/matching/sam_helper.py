@@ -85,13 +85,13 @@ def sam_boundaries(volume=None, volume_path=None, sam_checkpoint=None, boundarie
 
     # load mask data
     if mask_path:
-        mask = imread(mask_path)
+        mask = load_data(mask_path)[0]
         argmin_z, argmax_z, argmin_y, argmax_y, argmin_x, argmax_x = reduce_blocksize(mask)
         del mask
 
     # load data
     if volume is None:
-        volume = imread(volume_path)
+        volume = load_data(volume_path)[0]
 
     # crop volume to mask
     if mask_path:

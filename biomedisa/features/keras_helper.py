@@ -27,6 +27,8 @@
 ##########################################################################
 
 import os
+import keras
+from keras import ops
 from keras.optimizers import SGD, Adam
 from keras.models import Model, load_model
 from keras.layers import (
@@ -37,6 +39,7 @@ from keras import backend as K
 from keras.utils import to_categorical
 from keras.callbacks import Callback, ModelCheckpoint, EarlyStopping
 from biomedisa.features.DataGenerator import DataGenerator, welford_mean_std
+from biomedisa.features.SSL import SemiSupervisedModel, model_fit
 from biomedisa.features.PredictDataGenerator import PredictDataGenerator
 from biomedisa.features.biomedisa_helper import (unique, welford_mean_std,
     img_resize, load_data, save_data, set_labels_to_zero, id_generator, unique_file_path)
@@ -392,7 +395,7 @@ def read_img_list(img_list, label_list, temp_img_dir, temp_label_dir):
 
 def load_training_data(bm, img_list, label_list, channels, img_in=None, label_in=None,
         normalization_parameters=None, allLabels=None, header=None, extension='.tif',
-        x_puffer=25, y_puffer=25, z_puffer=25):
+        x_puffer=25, y_puffer=25, z_puffer=25, unsupervised=False):
 
     # make temporary directories
     with tempfile.TemporaryDirectory() as temp_img_dir:
@@ -401,7 +404,6 @@ def load_training_data(bm, img_list, label_list, channels, img_in=None, label_in
             # read image lists
             if any(img_list):
                 img_names, label_names = read_img_list(img_list, label_list, temp_img_dir, temp_label_dir)
-
             # load first label
             if any(img_list):
                 label, header, extension = load_data(label_names[0], 'first_queue', True, slicer_labels=True, return_labels=True)
@@ -417,6 +419,9 @@ def load_training_data(bm, img_list, label_list, channels, img_in=None, label_in
             else:
                 label = label_in
                 label_names = ['label_1']
+            if unsupervised:
+                label = label.copy()
+                label.fill(0)
             label_dim = label.shape
             label = set_labels_to_zero(label, bm.only, bm.ignore)
             if any([bm.x_range, bm.y_range, bm.z_range]):
@@ -541,6 +546,9 @@ def load_training_data(bm, img_list, label_list, channels, img_in=None, label_in
                             raise InputError()
                     else:
                         a = label_in[k]
+                    if unsupervised:
+                        a = a.copy()
+                        a.fill(0)
                     label_dim = a.shape
                     a = set_labels_to_zero(a, bm.only, bm.ignore)
                     if bm.crop_data:
@@ -738,6 +746,7 @@ class Metrics(Callback):
         self.patch_normalization = bm.patch_normalization
         self.train = train
         self.train_dice = bm.train_dice
+        self.unsupervised_data = bm.unsupervised_data
 
     def on_train_begin(self, logs={}):
         self.history = {}
@@ -827,16 +836,23 @@ class Metrics(Callback):
             else:
                 # save best model only
                 if epoch == 0 or dice > max(self.history['val_dice']):
-                    self.model.save(str(self.path_to_model))
+                    if self.unsupervised_data is not None:
+                        self.model.save_weights(self.path_to_model)
+                    else:
+                        self.model.save(self.path_to_model)
 
                 # add accuracy to history
                 self.history['loss'].append(logs['loss'])
-                self.history['accuracy'].append(logs['accuracy'])
+                if self.unsupervised_data is not None:
+                    self.history['accuracy'].append(logs['unsupervised']) #TODO: calculate accuracy in SSL.py
+                else:
+                    self.history['accuracy'].append(logs['accuracy'])
                 if self.train_dice:
                     self.history['dice'].append(logs['dice'])
                 self.history['val_accuracy'].append(accuracy)
                 self.history['val_dice'].append(dice)
                 self.history['val_loss'].append(val_loss)
+                #self.model.val_dice.assign(dice)
 
                 # monitoring variables
                 logs['val_loss'] = val_loss
@@ -894,6 +910,16 @@ class HistoryCallback(Callback):
         # plot history in figure and save as numpy array
         save_history(self.history, self.path_to_model, self.validation_freq)
 
+class SSLController(Callback):
+    def __init__(self):
+        super().__init__()
+
+    def on_epoch_begin(self, epoch, logs=None):
+        self.model.current_epoch.assign(epoch + 1)
+
+    def on_epoch_end(self, epoch, logs=None):
+        self.model.val_dice.assign(logs["val_dice"])
+
 def softmax(x):
     # Avoiding numerical instability by subtracting the maximum value
     exp_values = np.exp(x - np.max(x, axis=-1, keepdims=True))
@@ -915,6 +941,38 @@ def categorical_crossentropy(true_labels, predicted_probs):
                 loss += predicted_probs[z,y,x,l]
     loss = loss / float(zsh*ysh*xsh)
     return loss
+
+def dice_loss_multiclass(y_true, y_pred, smooth=1e-6, ignore_background=False): #TODO: combine in validation
+    """
+    Multi-class Dice loss (softmax output), backend-agnostic.
+
+    Args:
+        y_true: one-hot encoded, shape (B, ..., C)
+        y_pred: softmax probs, same shape
+    """
+
+    # flatten spatial dims but keep batch + channel
+    # shape -> (B, N, C)
+    y_true = ops.reshape(y_true, (ops.shape(y_true)[0], -1, ops.shape(y_true)[-1]))
+    y_pred = ops.reshape(y_pred, (ops.shape(y_pred)[0], -1, ops.shape(y_pred)[-1]))
+
+    # compute per-class Dice
+    intersection = ops.sum(y_true * y_pred, axis=1)   # (B, C)
+    denominator = ops.sum(y_true, axis=1) + ops.sum(y_pred, axis=1)
+
+    dice = (2.0 * intersection + smooth) / (denominator + smooth)
+
+    # optionally drop background channel (index 0)
+    if ignore_background:
+        dice = dice[:, 1:]
+
+    # average over classes and batch
+    return 1.0 - ops.mean(dice)
+
+def combined_loss(y_true, y_pred):
+    ce = keras.losses.categorical_crossentropy(y_true, y_pred)
+    d = dice_loss_multiclass(y_true, y_pred, ignore_background=True)
+    return ce + d
 
 def dice_coef(y_true, y_pred, smooth=1e-5):
     intersection = K.sum(Multiply()([y_true, y_pred]))
@@ -1008,6 +1066,12 @@ def train_segmentation(bm):
         bm.img_data = bm.img_data[:split].copy()
         bm.label_data = bm.label_data[:split].copy()
         zsh, ysh, xsh, _ = bm.img_data.shape
+
+    # unsupervised data
+    bm.unsupervised_data = None
+    if any(bm.unsupervised_images) or bm.unsupervised_data is not None:
+        bm.unsupervised_data, _, _, _, _, _, _ = load_training_data(bm, bm.unsupervised_images, bm.unsupervised_images,
+            bm.channels, normalization_parameters=normalization_parameters, allLabels=allLabels, unsupervised=True)
 
     # list of IDs
     list_IDs_fg, list_IDs_bg = [], []
@@ -1104,7 +1168,9 @@ def train_segmentation(bm):
               'patch_normalization': bm.patch_normalization,
               'separation': bm.separation,
               'ignore_mask': bm.ignore_mask,
-              'downsample': bm.downsample
+              'downsample': bm.downsample,
+              'unsupervised_data': bm.unsupervised_data,
+              'workers': bm.workers
               }
 
     # data generator
@@ -1118,6 +1184,7 @@ def train_segmentation(bm):
             params['augment'] = (False, False, False, False, 0, False)
             if len(list_IDs_val_bg) == 0:
                 params['shuffle'] = False
+            params['unsupervised_data'] = None
             validation_generator = DataGenerator(bm.val_img_data, bm.val_label_data, list_IDs_val_fg, list_IDs_val_bg, False, **params)
 
     # monitor dice score on training data
@@ -1126,7 +1193,8 @@ def train_segmentation(bm):
 
     # custom objects
     if bm.dice_loss:
-        custom_objects = {'dice_coef_loss': dice_coef_loss,'loss_fn': loss_fn}
+        #custom_objects = {'dice_coef_loss': dice_coef_loss,'loss_fn': loss_fn}
+        custom_objects = {'combined_loss': combined_loss}
     elif bm.ignore_mask:
         custom_objects={'custom_loss': custom_loss}
     else:
@@ -1141,7 +1209,8 @@ def train_segmentation(bm):
 
     # loss function
     if bm.dice_loss:
-        loss=dice_coef_loss(nb_labels)
+        #loss=dice_coef_loss(nb_labels)
+        loss = combined_loss
     elif bm.ignore_mask:
         loss=custom_loss
     else:
@@ -1199,9 +1268,14 @@ def train_segmentation(bm):
         strategy = setup_tensorflow_strategy()
         with strategy.scope():
             model = build_model()
-            #model.summary()
             optimizer = build_optimizer()
-            model.compile(loss=loss, optimizer=optimizer, metrics=metrics)
+            if bm.unsupervised_data is not None:
+                model = SemiSupervisedModel(model, lambda_consistency=0.1, batch_size=bm.batch_size)
+                #model.compile(optimizer=optimizer)
+                model.optimizer = optimizer
+            else:
+                model.compile(loss=loss, optimizer=optimizer, metrics=metrics)
+            #model.summary()
     elif backend_name == 'torch':
         model = build_model()
         #model.summary()
@@ -1241,8 +1315,15 @@ def train_segmentation(bm):
     if bm.django_env and not bm.remote:
         callbacks.insert(-1, CustomCallback(bm.img_id, bm.epochs))
 
+    #if bm.unsupervised_data is not None:
+    #    callbacks.insert(-1, SSLController())
+
     # train model
-    model.fit(training_generator,
+    if bm.unsupervised_data is not None:
+      model_fit(model, strategy, training_generator,
+        callbacks, bm.epochs, bm.initial_epoch)
+    else:
+      model.fit(training_generator,
         epochs=bm.epochs,
         validation_data=validation_generator,
         callbacks=callbacks,
@@ -1254,7 +1335,6 @@ def load_prediction_data(bm, channels, normalization_parameters,
     # read image data
     if img is None:
         if load_blockwise:
-            img_header = None
             tif = TiffFile(bm.path_to_image)
             img = imread(bm.path_to_image, key=range(z,min(len(tif.pages),z+bm.z_patch)))
             if len(img.shape)==2:
@@ -1396,7 +1476,7 @@ class PatchedBatchNorm(BatchNormalization):
             kwargs.pop(k, None)
         super().__init__(*args, **kwargs)
 
-def predict_segmentation(bm, region_of_interest, channels, normalization_parameters):
+def predict_segmentation(bm, region_of_interest, channels, normalization_parameters, temp_dir):
 
     from mpi4py import MPI
     comm = MPI.COMM_WORLD
@@ -1475,8 +1555,15 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
 
     # check if data can be loaded blockwise to save host memory
     load_blockwise = False
-    if not bm.scaling and not bm.normalize and bm.path_to_image and not np.any(region_of_interest) and \
-      os.path.splitext(bm.path_to_image)[1] in ['.tif', '.tiff'] and not bm.acwe:
+    img_path = bm.path_to_image
+    if not bm.scaling and not bm.normalize and bm.path_to_image and not np.any(region_of_interest) and not bm.acwe:
+
+        # convert image to TIFF
+        if not os.path.splitext(bm.path_to_image)[1] in ['.tif','.tiff','.TIF','.TIFF']:
+            tmp, bm.img_header = load_data(bm.path_to_image)
+            bm.path_to_image = os.path.join(temp_dir, 'tmp_image.tif')
+            imwrite(bm.path_to_image, tmp)
+            del tmp
 
         # get image shape
         tif = TiffFile(bm.path_to_image)
@@ -1760,6 +1847,7 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
                     for i in range(bm.z_patch):
                         comm.Send([block_probs[i].copy(), MPI.FLOAT], dest=0, tag=i)
     if rank==0:
+        bm.path_to_image = img_path
 
         # remove ghost areas
         if bm.return_probs and not load_blockwise:

@@ -82,7 +82,8 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
     remote=False, queue=0, username=None, shortfilename=None, dice_loss=False,
     acwe=False, acwe_alpha=1.0, acwe_smooth=1, acwe_steps=3, clean=None, fill=None,
     separation=False, mask=None, refinement=False, ignore_mask=False, mixed_precision=False,
-    slicer=False, path_to_data=None, downsample=False, return_boundaries=False):
+    slicer=False, path_to_data=None, downsample=False, unsupervised_images=None, workers=1,
+    min_particle_size=1000, return_boundaries=False):
 
     # create biomedisa
     bm = Biomedisa()
@@ -212,10 +213,12 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
             bm.batch_size = bm.batch_size + 2*ngpus - rest
         else:
             bm.batch_size = bm.batch_size - rest
+        bm.batch_size = max(1, bm.batch_size)
 
         if not bm.django_env:
             bm.path_to_images, bm.path_to_labels = [bm.path_to_images], [bm.path_to_labels]
             bm.val_images, bm.val_labels = [bm.val_images], [bm.val_labels]
+            bm.unsupervised_images = [bm.unsupervised_images]
 
         # train automatic cropping
         bm.cropping_weights, bm.cropping_config, bm.cropping_norm = None, None, None
@@ -274,10 +277,10 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
             hf.close()
 
         # separation and refinement require binary mask as TIFF file
-        if bm.separation and not (bm.mask and os.path.splitext(bm.mask)[1] in ['.tif','.tiff','.TIF','.TIFF']):
-            raise RuntimeError("Separation requires a binary mask of instances provided as a Multipage-TIFF (.tif) file.")
-        if bm.refinement and not (bm.mask and os.path.splitext(bm.mask)[1] in ['.tif','.tiff','.TIF','.TIFF']):
-            raise RuntimeError("Refinement requires a binary mask of the target area provided as a Multipage-TIFF (.tif) file.")
+        if bm.separation and not bm.mask:
+            raise RuntimeError("Separation requires a binary mask of instances.")
+        if bm.refinement and not bm.mask:
+            raise RuntimeError("Refinement requires a binary mask of the target area.")
 
         # make temporary directory
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -350,6 +353,13 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
                     import biomedisa.features.crop_helper as ch
                     region_of_interest, cropped_volume = ch.crop_data(bm)
 
+                # convert mask to TIFF
+                if bm.mask and not os.path.splitext(bm.mask)[1] in ['.tif','.tiff','.TIF','.TIFF']::
+                    tmp = load_data(bm.mask)[0]
+                    bm.mask = os.path.join(temp_dir, 'tmp_mask.tif')
+                    imwrite(bm.mask, tmp)
+                    del tmp
+
                 # inference
                 if os.path.splitext(bm.path_to_model)[1] in ['.pth','.pt']:
                     # use SAM backend for particle separation
@@ -359,7 +369,7 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
                 else:
                     # use U-Net for prediction
                     results, bm = predict_segmentation(bm, region_of_interest,
-                        channels, normalization_parameters)
+                        channels, normalization_parameters, temp_dir)
 
                 if rank>0:
                     return 0
@@ -367,7 +377,8 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
                 # particle separation
                 if bm.separation and not bm.return_boundaries:
                     from biomedisa.particles import label_particles
-                    label_particles(bm.path_to_final, bm.mask)
+                    label_particles(bm.path_to_final, bm.mask, header=bm.header,
+                        min_particle_size=bm.min_particle_size)
 
                 # results
                 if cropped_volume is not None:
@@ -512,6 +523,8 @@ if __name__ == '__main__':
                         help='Location of validation image data (tarball, directory, or file)')
     parser.add_argument('-vl','--val_labels', type=str, metavar='PATH', default=None,
                         help='Location of validation label data (tarball, directory, or file)')
+    parser.add_argument('-ui','--unsupervised_images', type=str, metavar='PATH', default=None,
+                        help='Location of unsupervised image data (tarball, directory, or file)')
     parser.add_argument('-xs','--x_scale', type=int, default=256,
                         help='Images and labels are scaled at x-axis to this size before training')
     parser.add_argument('-ys','--y_scale', type=int, default=256,
@@ -544,6 +557,8 @@ if __name__ == '__main__':
                         help='Y-dimension of patch')
     parser.add_argument('-zp','--z_patch', type=int, default=64,
                         help='Z-dimension of patch')
+    parser.add_argument('-w','--workers', type=int, default=1,
+                        help='Number of workers for data pre-processing')
     parser.add_argument('-iid','--img_id', type=str, default=None,
                         help='Image ID within django environment/browser version')
     parser.add_argument('-lid','--label_id', type=str, default=None,
@@ -556,6 +571,8 @@ if __name__ == '__main__':
                         help='Location of header file')
     parser.add_argument('-s','--separation', action='store_true', default=False,
                         help='Instance segmentation of objects such as cells or rock particles')
+    parser.add_argument('-mps','--min_particle_size', type=int, default=1000,
+                        help='Minimum size (in pixels) for connected components. Objects smaller than this threshold are removed.')
     parser.add_argument('-rb','--return_boundaries', action='store_true', default=False,
                         help='Return predicted boundaries in separation process instead of separated particles')
     parser.add_argument('-m','--mask', type=str, metavar='PATH', default=None,
@@ -594,6 +611,8 @@ if __name__ == '__main__':
         bm.path_to_labels = bm.path
         if bm.path_to_model is None:
             bm.path_to_model = bm.path_to_images + '.h5'
+        if bm.unsupervised_images:
+            bm.path_to_model = bm.path_to_model.replace('.h5','.weights.h5')
 
     # django environment
     if bm.img_id is not None:

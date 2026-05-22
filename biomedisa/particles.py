@@ -69,7 +69,7 @@ def label_particles(boundaries_path, mask_path, header=None, result_path=None,
         labeled_array = mask.copy()
         boundaries = load_data(boundaries_path)[0]
         labeled_array[boundaries>0]=0
-        print(boundaries.shape)
+        print('Shape:', boundaries.shape)
         del boundaries
         print('Data loaded:', time.time() - TIC)
 
@@ -105,7 +105,7 @@ def label_particles(boundaries_path, mask_path, header=None, result_path=None,
         labeled_array = nearest_neighbour(labeled_array, mask, nearest_indices)
         print('Segments refilled:', time.time() - TIC)
 
-    # sort according to size, label in ascending order, remove small particles & save as 16bit if possible
+    # sort according to size, label in ascending order, remove small particles
     TIC = time.time()
     lv, ln = unique(labeled_array, return_counts=True)
     t = []

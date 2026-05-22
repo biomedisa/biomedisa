@@ -27,7 +27,7 @@
 ##########################################################################
 
 from biomedisa.features.biomedisa_helper import welford_mean_std
-from scipy.ndimage import gaussian_filter
+from scipy import ndimage
 import numpy as np
 import keras
 import numba
@@ -264,9 +264,9 @@ def nearest_interpolate(image, dz, dy, dx):
 
 def elastic_transform_3d(image, label=None, alpha=100, sigma=5): #sigma between 5 and 10
     zsh, ysh, xsh, _ = image.shape
-    dx = gaussian_filter((np.random.rand(zsh, ysh, xsh) * 2 - 1) * alpha, sigma)
-    #dy = gaussian_filter((np.random.rand(zsh, ysh, xsh) * 2 - 1) * alpha, sigma)
-    #dz = gaussian_filter((np.random.rand(zsh, ysh, xsh) * 2 - 1) * alpha, sigma)
+    dx = ndimage.gaussian_filter((np.random.rand(zsh, ysh, xsh) * 2 - 1) * alpha, sigma)
+    #dy = ndimage.gaussian_filter((np.random.rand(zsh, ysh, xsh) * 2 - 1) * alpha, sigma)
+    #dz = ndimage.gaussian_filter((np.random.rand(zsh, ysh, xsh) * 2 - 1) * alpha, sigma)
     if np.any(label):
         label = nearest_interpolate(label, dx, dx, dx)
     noise_std = 0.01 * np.std(image)
@@ -278,8 +278,14 @@ class DataGenerator(keras.utils.PyDataset):
     'Generates data for Keras'
     def __init__(self, img, label, list_IDs_fg, list_IDs_bg, train, shuffle=True, batch_size=32, dim=(32,32,32),
                  dim_img=(32,32,32), n_classes=10, n_channels=1, augment=(False,False,False,False,0,False),
-                 patch_normalization=False, separation=False, ignore_mask=False, downsample=False, **kwargs):
-        super().__init__(**kwargs)
+                 patch_normalization=False, separation=False, ignore_mask=False, downsample=False,
+                 unsupervised_data=None, workers=1, **kwargs):
+        super().__init__(
+            workers=workers,
+            use_multiprocessing=(True if workers>1 else False),
+            max_queue_size=max(10, 2*workers),
+            **kwargs
+        )
         self.dim = dim
         self.dim_img = dim_img
         self.list_IDs_fg = list_IDs_fg
@@ -296,6 +302,7 @@ class DataGenerator(keras.utils.PyDataset):
         self.separation = separation
         self.ignore_mask = ignore_mask
         self.downsample = downsample
+        self.unsupervised_data = unsupervised_data
         self.on_epoch_end()
 
     def __len__(self):
@@ -327,9 +334,7 @@ class DataGenerator(keras.utils.PyDataset):
             list_IDs_temp = self.list_IDs_fg[index*self.batch_size:(index+1)*self.batch_size]
 
         # Generate data
-        X, y = self.__data_generation(list_IDs_temp)
-
-        return X, y
+        return self.__data_generation(list_IDs_temp)
 
     def on_epoch_end(self):
         'Updates indexes after each epoch'
@@ -367,6 +372,7 @@ class DataGenerator(keras.utils.PyDataset):
         n_aug = np.sum([flip_z, flip_y, flip_x])
         flips =  np.where([flip_z, flip_y, flip_x])[0]
         elastic = False
+        zoom = False
 
         # create random angles
         if rotate:
@@ -385,9 +391,51 @@ class DataGenerator(keras.utils.PyDataset):
             l = rest // self.dim_img[2]
             m = rest % self.dim_img[2]
 
+            # zoom patch in/out
+            if self.train and zoom:
+                zoom_factor = np.random.uniform(-0.5,0.5)
+            else:
+                zoom_factor = 0
+
             # get patch
-            tmp_X = self.img[k:k+self.dim[0],l:l+self.dim[1],m:m+self.dim[2]]
-            tmp_y = self.label[k:k+self.dim[0],l:l+self.dim[1],m:m+self.dim[2]]
+            if zoom_factor > 0:
+                tmp_X = self.img[k:k+self.dim[0], l:l+self.dim[1], m:m+self.dim[2]]
+                tmp_y = self.label[k:k+self.dim[0], l:l+self.dim[1], m:m+self.dim[2]]
+
+                scale = 1 + zoom_factor
+                tmp_X = ndimage.zoom(tmp_X, (scale, scale, scale, 1), mode='reflect', order=3)
+                tmp_y = ndimage.zoom(tmp_y, (scale, scale, scale, 1), mode='nearest', order=0)
+
+                zs, xs, ys, _ = tmp_X.shape
+                zr = (zs - self.dim[0]) // 2
+                xr = (xs - self.dim[1]) // 2
+                yr = (ys - self.dim[2]) // 2
+
+                tmp_X = tmp_X[zr:zr+self.dim[0], xr:xr+self.dim[1], yr:yr+self.dim[2]]
+                tmp_y = tmp_y[zr:zr+self.dim[0], xr:xr+self.dim[1], yr:yr+self.dim[2]]
+
+            elif zoom_factor < 0:
+                scale = 1 + zoom_factor  # e.g. -0.2 → 0.8
+
+                # compute padding needed
+                pad_z = (self.dim[0] - round(self.dim[0]*scale)) // 2
+                pad_y = (self.dim[1] - round(self.dim[1]*scale)) // 2
+                pad_x = (self.dim[2] - round(self.dim[2]*scale)) // 2
+
+                z0, z1 = max(0, k-pad_z), min(self.dim_img[0], k+self.dim[0]+pad_z)
+                y0, y1 = max(0, l-pad_y), min(self.dim_img[1], l+self.dim[1]+pad_y)
+                x0, x1 = max(0, m-pad_x), min(self.dim_img[2], m+self.dim[2]+pad_x)
+
+                tmp_X = self.img[z0:z1, y0:y1, x0:x1]
+                tmp_y = self.label[z0:z1, y0:y1, x0:x1]
+
+                zoom_factors = [t / s for t, s in zip((self.dim[0], self.dim[1], self.dim[2], tmp_X.shape[-1]), tmp_X.shape)]
+                tmp_X = ndimage.zoom(tmp_X, zoom_factors, mode='reflect', order=3)
+                tmp_y = ndimage.zoom(tmp_y, zoom_factors, mode='nearest', order=0)
+
+            else:
+                tmp_X = self.img[k:k+self.dim[0],l:l+self.dim[1],m:m+self.dim[2]]
+                tmp_y = self.label[k:k+self.dim[0],l:l+self.dim[1],m:m+self.dim[2]]
 
             # center label gets value 1
             if self.separation:
@@ -477,8 +525,38 @@ class DataGenerator(keras.utils.PyDataset):
             X[i] = tmp_X
             y[i] = tmp_y
 
+        # unsupervised data
+        if self.unsupervised_data is not None:
+            zsh_u, ysh_u, xsh_u, _ = self.unsupervised_data.shape
+            x_u = np.empty((self.batch_size*4, 9, *self.dim, self.n_channels), dtype=np.float32)
+
+            # Generate data
+            for i in range(self.batch_size*4):
+                # select random patch
+                k = np.random.randint(32, zsh_u-96)
+                l = np.random.randint(32, ysh_u-96)
+                m = np.random.randint(32, xsh_u-96)
+                # get patches
+                x_u[i,0] = self.unsupervised_data[k:k+self.dim[0],l:l+self.dim[1],m:m+self.dim[2]]
+                for j, shift in enumerate([(-1,-1,-1),(1,-1,-1),(-1,1,-1),(-1,-1,1),(-1,1,1),(1,-1,1),(1,1,-1),(1,1,1)]):
+                    z_shift = k+shift[0]*32
+                    y_shift = l+shift[1]*32
+                    x_shift = m+shift[2]*32
+                    x_u[i,j+1] = self.unsupervised_data[z_shift:z_shift+64, y_shift:y_shift+64, x_shift:x_shift+64]
+
         if self.ignore_mask:
             return X, y
+        if self.unsupervised_data is not None:
+            import tensorflow as tf
+            #return {"x_l": X, "y_l": keras.utils.to_categorical(y, num_classes=self.n_classes),"x_u": x_u}
+            return {
+                "x_l": tf.convert_to_tensor(X, dtype=tf.float32),
+                "y_l": tf.convert_to_tensor(
+                    keras.utils.to_categorical(y, num_classes=self.n_classes),
+                    dtype=tf.float32
+                ),
+                "x_u": tf.convert_to_tensor(x_u, dtype=tf.float32),
+            }
         else:
             return X, keras.utils.to_categorical(y, num_classes=self.n_classes)
 

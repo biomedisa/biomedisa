@@ -831,7 +831,6 @@ if __name__ == "__main__":
                 else:
                     print('No previous result merged.')
 
-                # labels, sizes, and bounding boxes
                 bounding_boxes = get_bounding_boxes(labeled_array)
                 np.save(f'{path_to_meta}/bounding_boxes{i+1}.npy', bounding_boxes)
                 lv, ln = unique(labeled_array, return_counts=True)
