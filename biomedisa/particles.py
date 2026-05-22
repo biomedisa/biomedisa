@@ -117,8 +117,6 @@ def label_particles(boundaries_path, mask_path, header=None, result_path=None,
         if nv[0]>=min_particle_size:
             ref[int(nv[1])] = i
     labeled_array = change_label_values(labeled_array, ref)
-    if np.amax(labeled_array) <= 65535:
-        labeled_array = labeled_array.astype(np.uint16)
     print('Sorting and removing of small particles done:', time.time() - TIC)
 
     # fill inclusions and pores

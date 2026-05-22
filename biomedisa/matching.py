@@ -505,7 +505,9 @@ def label_in_ascending_order(label):
     for i, v in enumerate(lv):
         ref[v] = i
     label = change_label_values(label, ref)
-    if np.amax(label) <= 65535:
+    if np.amax(label) <= 255:
+        label = label.astype(np.uint8)
+    elif np.amax(label) <= 65535:
         label = label.astype(np.uint16)
     return label
 
@@ -752,22 +754,27 @@ if __name__ == "__main__":
         print('Number of GPUs:', ngpus)
         for i, dataset in enumerate(bm.datasets):
           if bm.sample==None or i==bm.sample:
+
             # path to image
             path_to_img = BASE+f'/{dataset}.tif'
+
             # path to mask
             if os.path.exists(f'{path_to_dir}/mask.{dataset}.tif'):
                 path_to_mask = f'{path_to_dir}/mask.{dataset}.tif'
             else:
                 path_to_mask = BASE+f'/mask.{dataset}.tif'
             print('Mask:', path_to_mask)
+
             # path to results
             path_to_boundaries = f'{path_to_dir}/final.{dataset}.tif'
             path_to_result = f'{path_to_dir}/result.{dataset}.nrrd'
+
             # path to pre-segmentation
+            label_path = None
             if bm.labelDatasets:
                 label_path = bm.labelDatasets[i]
-            else:
-                label_path = None
+
+            # label particles
             if not os.path.exists(path_to_result):
                 print('Dataset:', os.path.basename(path_to_img))
 
@@ -810,7 +817,11 @@ if __name__ == "__main__":
                     if matched.shape != labeled_array.shape:
                         zoom_factors = [t / s for t, s in zip(labeled_array.shape, matched.shape)]
                         matched = ndimage.zoom(matched, zoom_factors, order=0)
-                    if int(m1_max) + int(m2_max) > 65535:
+                    if 255 < int(m1_max) + int(m2_max) <= 65535:
+                        matched = matched.astype(np.uint16)
+                        labeled_array = labeled_array.astype(np.uint16)
+                        m1_max = np.uint16(m1_max)
+                    elif 65535 < int(m1_max) + int(m2_max):
                         matched = matched.astype(np.uint32)
                         labeled_array = labeled_array.astype(np.uint32)
                         m1_max = np.uint32(m1_max)
@@ -822,10 +833,10 @@ if __name__ == "__main__":
 
                 # labels, sizes, and bounding boxes
                 bounding_boxes = get_bounding_boxes(labeled_array)
-                np.save(f'{path_to_meta}/bounding_boxes{sample_i+1}.npy', bounding_boxes)
+                np.save(f'{path_to_meta}/bounding_boxes{i+1}.npy', bounding_boxes)
                 lv, ln = unique(labeled_array, return_counts=True)
-                np.save(f'{path_to_meta}/labels{sample_i+1}.npy', lv[1:])
-                np.save( f'{path_to_meta}/sizes{sample_i+1}.npy', ln[1:])
+                np.save(f'{path_to_meta}/labels{i+1}.npy', lv[1:])
+                np.save( f'{path_to_meta}/sizes{i+1}.npy', ln[1:])
                 print('Labels and sizes done.')
 
     #=======================================================================================
