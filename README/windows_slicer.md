@@ -59,4 +59,5 @@ Edit the `config.py` file to update the following paths based on your Biomedisa 
 cd "AppData\Local\slicer.org\Slicer <VERSION>\bin"
 PythonSlicer.exe "C:\Users\%username%\git\biomedisa\biomedisa_slicer_extension\biomedisa_extension\slicer_env_test.py"
 ```
-You should see a line similar to the following among the output: `Platforms: [<pyopencl.Platform 'NVIDIA CUDA' at 0x2124bfa2f20>]`.
+You should see a line similar to the following among the output: `Platforms: [<pyopencl.Platform 'NVIDIA CUDA' at 0x2124bfa2f20>]`. PyCUDA is not required.
+

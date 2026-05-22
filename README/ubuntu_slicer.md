@@ -49,5 +49,10 @@ If the automatic setup does not work because the location of your Python environ
 cd git/biomedisa/biomedisa_slicer_extension/biomedisa_extension
 cp config_template.py config.py
 ```
-Edit the `config.py` file to update the following paths based on your Biomedisa installation: **python_path**, **lib_path**, **wsl_path** (examples are provided in the `config_template.py` file).
+Edit the `config.py` file to update the following paths based on your Biomedisa installation: **python_path**, **lib_path**, **wsl_path** (examples are provided in the `config_template.py` file) and test the environment:
+```
+cd Slicer-<VERSION>-linux-amd64/bin
+./PythonSlicer ~/git/biomedisa/biomedisa_slicer_extension/biomedisa_extension/slicer_env_test.py
+```
+The last line should be `PyCUDA test okay!`. PyOpenCL is not required.
 
