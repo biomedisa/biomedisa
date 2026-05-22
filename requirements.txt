@@ -24,3 +24,4 @@ matplotlib
 biomedisa>=25.8.4
 importlib_metadata
 zarr
+tqdm

@@ -40,6 +40,8 @@ import time
 import shutil
 import glob
 import zarr
+from zarr.storage import LocalStore
+from numcodecs import Zlib
 
 @numba.jit(nopython=True)
 def assign_labels(ref, result, labels_matrix):
@@ -246,20 +248,21 @@ def nearest_neighbour(labeled_array, mask, nearest_indices):
 
 def convert_to_zarr(file_path, compress=False):
     path_to_zarr = file_path + '.zarr'
-    print(os.path.basename(file_path))
+    print("Converting to zarr:", os.path.basename(file_path))
     if os.path.exists(path_to_zarr):
         shutil.rmtree(path_to_zarr)
     # load data
-    data,_ = load_data(file_path)
-    # Create a Zarr array with the specified chunk size
-    zarr_array = zarr.create(
+    data, _ = load_data(file_path)
+    store = LocalStore(path_to_zarr)
+    codecs = [Zlib(level=5)] if compress else None
+    zarr_array = zarr.open(
+        store=store,
+        mode='w',
         shape=data.shape,
         chunks=(100, 100, 100),
         dtype=data.dtype,
-        store=zarr.DirectoryStore(path_to_zarr),
-        compressor=zarr.get_codec({'id': 'zlib', 'level': 5}) if compress else None
-        )
-    # Write the data into the Zarr array
+        codecs=codecs
+    )
     zarr_array[:] = data
 
 @numba.jit(nopython=True)
@@ -369,6 +372,10 @@ def nearest_neighbour_indices(distances, mask, nearest_indices, iterations=3):
     return nearest_indices
 
 def get_data_size(path):
+    #import SimpleITK as sitk
+    #image = sitk.ReadImage("image.nrrd")
+    #size = image.GetSize()   # (x, y, z)
+    #print(size)
     suffix = '.nrrd'
     for s in ['_small.nrrd', '_half.nrrd']:
         if s in path:
@@ -498,7 +505,9 @@ def label_in_ascending_order(label):
     for i, v in enumerate(lv):
         ref[v] = i
     label = change_label_values(label, ref)
-    if np.amax(label) <= 65535:
+    if np.amax(label) <= 255:
+        label = label.astype(np.uint8)
+    elif np.amax(label) <= 65535:
         label = label.astype(np.uint16)
     return label
 
@@ -570,16 +579,16 @@ if __name__ == "__main__":
                         help='If not given, calculate all')
     parser.add_argument('-s','--step', type=int, default=None,
                         help='If not given, use last available')
-    parser.add_argument('-mp','--model_path', type=str, metavar='PATH', default=None,
-                        help='Location of model for prediction (.h5)')
+    parser.add_argument('-ptm','--path_to_model', type=str, metavar='PATH', default=None,
+                        help='Location of model (.h5)')
+    parser.add_argument('-pm','--pretrained_model', type=str, metavar='PATH', default=None,
+                        help='Location of pretrained model (.h5)')
     parser.add_argument('-cm','--create_mask', nargs='?', type=int, const=13000, default=None,
                         help='binarize volume using a threshold')
     parser.add_argument('-rc','--remove_container', action='store_true', default=False,
                         help='remove_container')
-    parser.add_argument('-pm','--positive_mask', action='store_true', default=False,
+    parser.add_argument('-pom','--positive_mask', action='store_true', default=False,
                         help='use unmatched areas to create a new positive mask for prediction')
-    parser.add_argument('-p','--predict_boundaries', action='store_true', default=False,
-                        help='predict boundaries')
     parser.add_argument('-l','--label_particles', action='store_true', default=False,
                         help='label particles individually')
     parser.add_argument('-dc','--distances', action='store_true', default=False,
@@ -596,43 +605,65 @@ if __name__ == "__main__":
                         help='determine size of matched area')
     parser.add_argument('-f','--fill_labels', action='store_true', default=False,
                         help='fill labels')
+    parser.add_argument('-td','--training_data', action='store_true', default=False,
+                        help='create training data')
     parser.add_argument('-t','--train', action='store_true', default=False,
                         help='train boundary detection')
     parser.add_argument('-ps','--patch_size', type=int, default=16,
                         help='patch size')
     parser.add_argument('-ss','--stride_size', type=int, default=8,
                         help='stride size')
-    parser.add_argument('-sl','--scale_labels', action='store_true', default=False,
-                        help='Downsize full resolution data for matching process')
+    parser.add_argument('-bs','--batch_size', type=int, default=24,
+                        help='batch size')
+    parser.add_argument('-e','--epochs', type=int, default=100,
+                        help='epochs the network is trained')
+    parser.add_argument('-sp','--scale_particles', type=int, default=0,
+                        help='for reducing particle size by this factor before matching (e.g. 2)')
+    parser.add_argument('-mps','--min_particle_size', type=int, default=1000,
+                        help='Minimum size (in pixels) for connected components. Objects smaller than this threshold are removed.')
     bm = parser.parse_args()
 
     #=======================================================================================
     # datasets
     #=======================================================================================
-    min_particle_size = 1000
+    if not (bm.training_data or bm.train):
+        from mpi4py import MPI
+        comm = MPI.COMM_WORLD
+        rank = comm.Get_rank()
 
-    # datasets
-    BASE = os.path.dirname(bm.datasets[0])
-    for k, dataset in enumerate(bm.datasets):
-        bm.datasets[k] = os.path.basename(dataset).replace('.tif','')
-    n_datasets = len(bm.datasets)
+        # project base
+        BASE = os.path.dirname(bm.datasets[0])
 
-    # step (define step manually or use maximum existing)
-    if bm.step==None:
-        bm.step = 0
-        liste = glob.glob(BASE+f'/{bm.project}/step=*')
-        for l in liste:
-            bm.step = max(bm.step, int(l.split('/')[-1].split('=')[-1]))
-    print('Step:', bm.step)
+        # project
+        if rank==0:
+            if not bm.project:
+                print('Error: define project name.')
+            print('Project:', bm.project)
 
-    # sample (process all if None)
-    if bm.sample!=None:
-        print('Sample:', bm.sample)
+        # datasets
+        for k, dataset in enumerate(bm.datasets):
+            bm.datasets[k] = os.path.basename(dataset).replace('.tif','')
+        n_datasets = len(bm.datasets)
 
-    # make directories
-    path_to_dir = BASE+f'/{bm.project}/step={bm.step}'
-    path_to_meta = f'{path_to_dir}/meta'
-    Path(path_to_meta).mkdir(parents=True, exist_ok=True)
+        # step (define step manually or use maximum existing)
+        if bm.step==None:
+            bm.step = 0
+            liste = glob.glob(BASE+f'/{bm.project}/step=*')
+            for l in liste:
+                bm.step = max(bm.step, int(l.split('/')[-1].split('=')[-1]))
+        if rank==0:
+            print('Step:', bm.step)
+
+        # sample (process all if None)
+        if bm.sample!=None and rank==0:
+            print('Sample:', bm.sample)
+
+        # make directories
+        path_to_dir = BASE+f'/{bm.project}/step={bm.step}'
+        path_to_meta = f'{path_to_dir}/meta'
+        Path(path_to_meta).mkdir(parents=True, exist_ok=True)
+        if rank==0:
+            print('Project path:', path_to_dir)
 
     #=======================================================================================
     # create mask
@@ -642,74 +673,32 @@ if __name__ == "__main__":
         for dataset in bm.datasets:
             path_to_mask = BASE+f'/mask.{dataset}.tif'
             if not os.path.exists(path_to_mask):
-                print(os.path.basename(path_to_mask))
-                # threshold image data to create mask (does not influence separation since this is done by edge removal)
+                print("Dataset:", os.path.basename(path_to_mask))
                 path_to_img = BASE+f'/{dataset}.tif'
                 img = imread(path_to_img)
-                #img[img==np.amax(img)]=np.amin(img)
-                print(img.shape)
-                if '63microns' in dataset:
-                    img[img<10200]=0
-                else:
-                    img[img<bm.create_mask]=0
+                print("Image shape:", img.shape)
+                img[img<bm.create_mask]=0
                 img[img>0]=1
                 save_data(path_to_mask, img.astype(np.uint8))
 
     #=======================================================================================
-    # remove container
-    #=======================================================================================
-    if bm.remove_container:
-        from mpi4py import MPI
-        comm = MPI.COMM_WORLD
-        rank = comm.Get_rank()
-        size = comm.Get_size()
-
-        if bm.sample==0:
-            path = BASE+f'/mask.Quartz_sphere_15_25_110mins_2_greaterthan63microns_uint16_half.tif'
-            xs,ys,ds=1370/2,1371/2,2088/2
-        if bm.sample==1:
-            path = BASE+f'/mask.Quartz_sphere_15_25_110mins_2_greaterthan63microns_rescan_A_uint16_half.tif'
-            xs,ys,ds=1372/2,1360/2,2090/2
-        if bm.sample==2:
-            path = BASE+f'/mask.Quartz_sphere_15_25_110mins_2_morethan63microns_rescan_3_uint16_half.tif'
-            xs,ys,ds=1370/2,1364/2,2090/2
-
-        zsh,ysh,xsh = TiffInfo(path).shape
-        print(zsh,ysh,xsh)
-
-        if rank==0:
-            result = np.zeros((zsh, ysh, xsh), dtype=np.uint8)
-        for k in range(rank,zsh,size):
-            a = imread(path, key=range(k,k+1))
-            a,xs,ys,ds = remove_container(a,xs,ys,ds)
-            print(rank, k, round(xs,2),round(ys,2),round(ds,2))
-            # gather results
-            if rank==0:
-                result[k] = a
-                for source in range(1, size):
-                    if k+source < zsh:
-                        comm.Recv([result[k+source], MPI.SIGNED_CHAR], source=source, tag=k+source)
-            else:
-                comm.Send([a.copy(), MPI.SIGNED_CHAR], dest=0, tag=k)
-        if rank==0:
-            save_data(path.replace('.tif','_clean.tif'), result)
-
-    #=======================================================================================
-    # use unmatched areas to create a new positive mask for prediction
+    # create positive mask of unmatched areas
     #=======================================================================================
     if bm.positive_mask:
         for i, dataset in enumerate(bm.datasets):
           if bm.sample==None or i==bm.sample:
             new_mask_path = f'{path_to_dir}/mask.{dataset}.tif'
             if not os.path.exists(new_mask_path):
-                print(os.path.basename(new_mask_path))
+                print("Mask:", os.path.basename(new_mask_path))
 
                 # get previous data
-                _, old_path = get_data_size(BASE+f'/{bm.project}/step={bm.step-1}/corr.{dataset}.nrrd')
-                if not old_path:
+                old_path = get_data_size(BASE+f'/{bm.project}/step={bm.step-1}/corr.{dataset}.nrrd')[1]
+                if old_path is None:
+                    old_path = get_data_size(BASE+f'/{bm.project}/step={bm.step-1}/match.{dataset}.nrrd')[1]
+                if old_path is None:
                     raise RuntimeError("No previous result available.")
                 matched,_ = load_data(old_path)
-                mask = imread(BASE +'/'+ os.path.basename(old_path).replace('corr.','mask.').replace('.nrrd','.tif'))
+                mask = imread(BASE +'/'+ os.path.basename(old_path).replace('corr.','mask.').replace('match.','mask.').replace('.nrrd','.tif'))
 
                 # unmatched areas
                 unmatched = (mask > matched).astype(np.uint8)
@@ -721,7 +710,7 @@ if __name__ == "__main__":
                 lv, ln = unique(unmatched, return_counts=True)
                 label_vals = np.zeros(int(np.amax(lv))+1, dtype=np.uint32)
                 for i,l in enumerate(lv):
-                    if ln[i]>=100:
+                    if ln[i]>=bm.min_particle_size:
                         label_vals[l] = 1
                 unmatched = remove_small_particles2(unmatched, label_vals)
                 unmatched[unmatched>0]=1
@@ -758,167 +747,68 @@ if __name__ == "__main__":
                     save_data(new_mask_path, unmatched)
 
     #=======================================================================================
-    # predict boundaries
+    # label particles
     #=======================================================================================
-    if bm.predict_boundaries:
+    if bm.label_particles:
         ngpus = get_gpu_count()
         print('Number of GPUs:', ngpus)
-
-        # batch size
-        if bm.patch_size==64:
-            batch_size = 24
-        elif bm.patch_size==16:
-            batch_size = 1024
-
         for i, dataset in enumerate(bm.datasets):
           if bm.sample==None or i==bm.sample:
+
+            # path to image
             path_to_img = BASE+f'/{dataset}.tif'
+
+            # path to mask
             if os.path.exists(f'{path_to_dir}/mask.{dataset}.tif'):
                 path_to_mask = f'{path_to_dir}/mask.{dataset}.tif'
             else:
                 path_to_mask = BASE+f'/mask.{dataset}.tif'
             print('Mask:', path_to_mask)
-            path_to_boundaries = f'{path_to_dir}/final.{dataset}.tif'
-            if not os.path.exists(path_to_boundaries):
-                print(os.path.basename(path_to_img))
-                if bm.model == 'sam':
-                    from biomedisa.features.matching.sam_helper import sam_boundaries
-                    sam_boundaries(volume_path=path_to_img, boundaries_path=path_to_boundaries,
-                        sam_checkpoint=bm.model_path, mask_path=path_to_mask)
-                elif bm.model == 'explicit':
-                    cmd = [sys.executable, '-m', 'biomedisa.deeplearning',
-                        path_to_img, bm.model_path, '-rf', '-im', f'-m={path_to_mask}', f'-ss={bm.patch_size//2}',
-                        f'-xp={bm.patch_size}', f'-yp={bm.patch_size}', f'-zp={bm.patch_size}', f'-bs={batch_size}']
-                    if ngpus>1:
-                        cmd = ['mpirun', '-n', f'{ngpus}'] + cmd
-                    subprocess.Popen(cmd).wait()
-                    shutil.move(BASE+f'/final.{dataset}.refined.tif', path_to_boundaries)
-                elif bm.model == 'implicit':
-                    cmd = [sys.executable, '-m', 'biomedisa.deeplearning',
-                        path_to_img, bm.model_path, f'-ss={bm.patch_size//4}', '-s', f'-m={path_to_mask}',
-                        f'-xp={bm.patch_size}', f'-yp={bm.patch_size}', f'-zp={bm.patch_size}', f'-bs={batch_size}']
-                    if ngpus>1:
-                        cmd = ['mpirun', '-n', f'{ngpus}'] + cmd
-                    subprocess.Popen(cmd).wait()
-                    shutil.move(BASE+f'/final.{dataset}.tif', path_to_boundaries)
 
-    #=======================================================================================
-    # label particles
-    #=======================================================================================
-    if bm.label_particles and not bm.labelDatasets:
-        for sample_i, dataset in enumerate(bm.datasets):
-          if bm.sample==None or bm.sample==sample_i:
-
-            # path to data
+            # path to results
             path_to_boundaries = f'{path_to_dir}/final.{dataset}.tif'
             path_to_result = f'{path_to_dir}/result.{dataset}.nrrd'
-            if bm.scale_labels:
-                path_to_result = path_to_result.replace('.nrrd','_half.nrrd')
 
+            # path to pre-segmentation
+            label_path = None
+            if bm.labelDatasets:
+                label_path = bm.labelDatasets[i]
+
+            # label particles
             if not os.path.exists(path_to_result):
-                print(os.path.basename(path_to_result))
+                print('Dataset:', os.path.basename(path_to_img))
 
-                # load mask
-                TIC = time.time()
-                if os.path.exists(f'{path_to_dir}/mask.{dataset}.tif'):
-                    path_to_mask = f'{path_to_dir}/mask.{dataset}.tif'
-                else:
-                    path_to_mask = BASE+f'/mask.{dataset}.tif'
-                print('Mask:', path_to_mask)
-                mask = imread(path_to_mask).astype(np.uint8)
+                if not os.path.exists(path_to_boundaries) and not label_path:
 
-                # remove boundary
-                labeled_array = mask.copy()
-                edge = imread(path_to_boundaries)
-                labeled_array[edge>0]=0
-                print(edge.shape)
-                del edge
-                print('Data loaded:', time.time() - TIC)
+                    # base command
+                    cmd = [sys.executable, '-m', 'biomedisa.deeplearning', path_to_img, bm.path_to_model,
+                        f'-m={path_to_mask}', f'-ss={bm.stride_size}', f'-bs={bm.batch_size}', '-rb']
+                    if ngpus>1:
+                        cmd = ['mpirun', '-n', f'{ngpus}'] + cmd
+                    if bm.model == 'explicit':
+                        cmd += ['-rf', '-im']
 
-                # downsize mask
-                if bm.scale_labels:
-                    zsh, ysh, xsh = mask.shape
-                    zoom_factors = [t / s for t, s in zip((zsh//2,ysh//2,xsh//2), mask.shape)]
-                    mask = ndimage.zoom(mask, zoom_factors, order=0)
+                    # predict segmentation
+                    subprocess.Popen(cmd, env=os.environ.copy()).wait()
 
-                # label particles individually
-                TIC = time.time()
-                s = [[[0,0,0], [0,1,0], [0,0,0]], [[0,1,0], [1,1,1], [0,1,0]], [[0,0,0], [0,1,0], [0,0,0]]]
-                labeled_array = labeled_array.astype(np.uint32)
-                ndimage.label(labeled_array, structure=s, output=labeled_array)
-                print('Label particles:', time.time() - TIC)
+                    # move result
+                    if bm.model == 'explicit':
+                        shutil.move(BASE+f'/final.{dataset}.refined.tif', path_to_boundaries)
+                    else:
+                        shutil.move(BASE+f'/final.{dataset}.tif', path_to_boundaries)
 
-                # downsize labels
-                if bm.scale_labels:
-                    labeled_array = ndimage.zoom(labeled_array, zoom_factors, order=0)
-                print(labeled_array.shape)
-
-                # fill segments up to mask
-                TIC = time.time()
-                nearest_indices = np.zeros(((3,) + labeled_array.shape), dtype=np.uint16)
-                #ndimage.distance_transform_edt(labeled_array==0, return_distances=False, return_indices=True, indices=nearest_indices)
-                distances = np.zeros(labeled_array.shape, dtype=np.float32)
-                distances[labeled_array==0] = np.inf
-                nearest_indices = init_indices(nearest_indices) # TODO: use global index and calculate z,y,x on the fly
-                nearest_indices = nearest_neighbour_indices(distances, mask, nearest_indices)
-                labeled_array = nearest_neighbour(labeled_array, mask, nearest_indices)
-                print('Segments refilled:', time.time() - TIC)
-
-                # sort according to size, label in ascending order, remove small particles & save as 16bit if possible
-                TIC = time.time()
-                lv, ln = unique(labeled_array, return_counts=True)
-                t = []
-                for v,n in zip(lv, ln):
-                    t.append((n,v))
-                t = sorted(t, key=lambda x: x[0])[::-1]
-                ref = np.zeros(int(np.amax(lv))+1, dtype=np.int32)
-                for i,nv in enumerate(t):
-                    if nv[0]>=min_particle_size:
-                        ref[int(nv[1])] = i
-                labeled_array = change_label_values(labeled_array, ref)
-                if np.amax(labeled_array) <= 65535:
-                    labeled_array = labeled_array.astype(np.uint16)
-                print('Sorting and removing of small particles done:', time.time() - TIC)
-
-                # fill inclusions and pores
-                TIC = time.time()
-                bounding_boxes = get_bounding_boxes(labeled_array)
-                lv, ln = unique(labeled_array, return_counts=True)
-                for value in lv[1:]:
-                    argmin_z, argmax_z, argmin_y, argmax_y, argmin_x, argmax_x = bounding_boxes[value-1]
-                    p1 = np.zeros((argmax_z-argmin_z,argmax_y-argmin_y,argmax_x-argmin_x), dtype=np.uint8)
-                    p1[labeled_array[argmin_z:argmax_z, argmin_y:argmax_y, argmin_x:argmax_x]==value]=1
-                    if np.any(p1):
-                        p1 = fill_fast(p1)
-                        labeled_array[argmin_z:argmax_z, argmin_y:argmax_y, argmin_x:argmax_x][p1==1] = value
-                print('Inclusions filled:', time.time() - TIC)
-
-                # remove embeddings
-                TIC = time.time()
-                total_boundary = np.zeros(int(np.amax(labeled_array))+1, dtype=np.uint32)
-                embedded_boundary = np.zeros(int(np.amax(labeled_array))+1, dtype=np.uint32)
-                total_boundary, embedded_boundary = get_boundary_sizes(labeled_array, total_boundary, embedded_boundary)
-                #label_vals = np.ones(int(np.amax(lv))+1, dtype=np.uint32)
-                embeddings = []
-                for value, total_size in enumerate(total_boundary):
-                    if total_size and embedded_boundary[value] > 0.5*total_size:
-                        print(value, total_size, embedded_boundary[value] / total_size)
-                        #label_vals[value] = 0
-                        embeddings.append(value)
-                for value in embeddings:
-                    argmin_z, argmax_z, argmin_y, argmax_y, argmin_x, argmax_x = bounding_boxes[value-1]
-                    p1 = labeled_array[argmin_z:argmax_z, argmin_y:argmax_y, argmin_x:argmax_x]
-                    new_labels = is_mostly_inside(p1, value)
-                    if np.argmax(new_labels)>0 and np.amax(new_labels) > 0.5*total_size:
-                        labeled_array[argmin_z:argmax_z, argmin_y:argmax_y, argmin_x:argmax_x][p1==value]=np.argmax(new_labels)
-                #labeled_array = remove_small_particles2(labeled_array, label_vals)
-                print('Embeddings removed:', time.time() - TIC)
-
-                # label in ascending order
-                labeled_array = label_in_ascending_order(labeled_array)
+                # particle separation
+                from biomedisa.particles import label_particles
+                labeled_array = label_particles(path_to_boundaries, path_to_mask,
+                    result_path=path_to_result,
+                    min_particle_size=bm.min_particle_size,
+                    scale_particles=bm.scale_particles,
+                    label_path=label_path)
 
                 # combine with corrected particles from previous step
                 old_size, old_path = get_data_size(BASE+f'/{bm.project}/step={bm.step-1}/corr.{dataset}.nrrd')
+                if old_size is None:
+                    old_size, old_path = get_data_size(BASE+f'/{bm.project}/step={bm.step-1}/match.{dataset}.nrrd')
                 if old_size != None:
                     matched,_ = load_data(old_path)
                     m1_max = np.amax(matched)
@@ -927,99 +817,25 @@ if __name__ == "__main__":
                     if matched.shape != labeled_array.shape:
                         zoom_factors = [t / s for t, s in zip(labeled_array.shape, matched.shape)]
                         matched = ndimage.zoom(matched, zoom_factors, order=0)
-                    if int(m1_max) + int(m2_max) > 65535:
+                    if 255 < int(m1_max) + int(m2_max) <= 65535:
+                        matched = matched.astype(np.uint16)
+                        labeled_array = labeled_array.astype(np.uint16)
+                        m1_max = np.uint16(m1_max)
+                    elif 65535 < int(m1_max) + int(m2_max):
                         matched = matched.astype(np.uint32)
                         labeled_array = labeled_array.astype(np.uint32)
                         m1_max = np.uint32(m1_max)
                     labeled_array[labeled_array>0] += m1_max
                     labeled_array[matched>0] = matched[matched>0]
+                    save_data(path_to_result, labeled_array)
                 else:
                     print('No previous result merged.')
 
-                # save results
-                save_data(path_to_result, labeled_array)
-                print('Saving done.')
-
-                # save labels, sizes and bounding boxes
                 bounding_boxes = get_bounding_boxes(labeled_array)
-                np.save(f'{path_to_meta}/bounding_boxes{sample_i+1}.npy', bounding_boxes)
+                np.save(f'{path_to_meta}/bounding_boxes{i+1}.npy', bounding_boxes)
                 lv, ln = unique(labeled_array, return_counts=True)
-                np.save(f'{path_to_meta}/labels{sample_i+1}.npy', lv[1:])
-                np.save( f'{path_to_meta}/sizes{sample_i+1}.npy', ln[1:])
-                print('Labels and sizes done.')
-
-    #=======================================================================================
-    # pre-calculated particles
-    #=======================================================================================
-    if bm.label_particles and bm.labelDatasets:
-        for sample_i, dataset in enumerate(bm.datasets):
-          if bm.sample==None or bm.sample==sample_i:
-
-            # path to data
-            path_to_boundaries = f'{path_to_dir}/final.{dataset}.tif'
-            path_to_result = f'{path_to_dir}/result.{dataset}.nrrd'
-            if bm.scale_labels:
-                path_to_result = path_to_result.replace('.nrrd','_half.nrrd')
-
-            if not os.path.exists(path_to_result):
-                print(os.path.basename(path_to_result))
-
-                # load pre-calculated labels
-                labeled_array,_ = load_data(bm.labelDatasets[sample_i])
-
-                # downsize labels
-                if bm.scale_labels:
-                    zsh, ysh, xsh = TiffInfo(BASE+f'/{dataset}.tif').shape
-                    zoom_factors = [t / s for t, s in zip((zsh//2,ysh//2,xsh//2), labeled_array.shape)]
-                    labeled_array = ndimage.zoom(labeled_array, zoom_factors, order=0)
-                    #tmp = np.zeros_like(labeled_array)
-                    #max_z, max_y, max_x = 0, 70, 112
-                    #tmp[:, max_y:, max_x:]=labeled_array[:,:-max_y,:-max_x]
-                    #labeled_array = tmp.copy()
-                print(labeled_array.shape)
-
-                # sort according to size, label in ascending order, remove small particles & save as 16bit if possible
-                TIC = time.time()
-                lv, ln = unique(labeled_array, return_counts=True)
-                t = []
-                for v,n in zip(lv, ln):
-                    t.append((n,v))
-                t = sorted(t, key=lambda x: x[0])[::-1]
-                ref = np.zeros(int(np.amax(lv))+1, dtype=np.int32)
-                for i,nv in enumerate(t):
-                    if nv[0]>=0:#min_particle_size:
-                        ref[int(nv[1])] = i
-                labeled_array = change_label_values(labeled_array, ref)
-                if np.amax(labeled_array) <= 65535:
-                    labeled_array = labeled_array.astype(np.uint16)
-                print('Sorting and removing of small particles done:', time.time() - TIC)
-
-                # fill inclusions and pores
-                TIC = time.time()
-                bounding_boxes = get_bounding_boxes(labeled_array)
-                lv, ln = unique(labeled_array, return_counts=True)
-                for value in lv[1:]:
-                    argmin_z, argmax_z, argmin_y, argmax_y, argmin_x, argmax_x = bounding_boxes[value-1]
-                    p1 = np.zeros((argmax_z-argmin_z,argmax_y-argmin_y,argmax_x-argmin_x), dtype=np.uint8)
-                    p1[labeled_array[argmin_z:argmax_z, argmin_y:argmax_y, argmin_x:argmax_x]==value]=1
-                    if np.any(p1):
-                        p1 = fill_fast(p1)
-                        labeled_array[argmin_z:argmax_z, argmin_y:argmax_y, argmin_x:argmax_x][p1==1] = value
-                print('Inclusions filled:', time.time() - TIC)
-
-                # label in ascending order TODO: merge with sorting above
-                labeled_array = label_in_ascending_order(labeled_array)
-
-                # save results
-                save_data(path_to_result, labeled_array)
-                print('Saving done.')
-
-                # save labels, sizes and bounding boxes
-                bounding_boxes = get_bounding_boxes(labeled_array)
-                np.save(f'{path_to_meta}/bounding_boxes{sample_i+1}.npy', bounding_boxes)
-                lv, ln = unique(labeled_array, return_counts=True)
-                np.save(f'{path_to_meta}/labels{sample_i+1}.npy', lv[1:])
-                np.save( f'{path_to_meta}/sizes{sample_i+1}.npy', ln[1:])
+                np.save(f'{path_to_meta}/labels{i+1}.npy', lv[1:])
+                np.save( f'{path_to_meta}/sizes{i+1}.npy', ln[1:])
                 print('Labels and sizes done.')
 
     #=======================================================================================
@@ -1034,11 +850,12 @@ if __name__ == "__main__":
         # iterate over datasets
         for sample_i, dataset in enumerate(bm.datasets):
           if bm.sample==None or bm.sample==sample_i:
+
             # load particles
             if rank==0:
                 convert_to_zarr(f'{path_to_dir}/result.{dataset}.nrrd')
             comm.Barrier()
-            zarr_store = zarr.DirectoryStore(f'{path_to_dir}/result.{dataset}.nrrd.zarr')
+            zarr_store = f'{path_to_dir}/result.{dataset}.nrrd.zarr'
             particles = zarr.open(zarr_store, mode='r')
 
             # load label values
@@ -1125,10 +942,8 @@ if __name__ == "__main__":
                     dists2 = np.load(f'{path_to_meta}/dists{i2}.npy', allow_pickle=True)
                 else:
                     # open particles
-                    zarr_store = zarr.DirectoryStore(f'{path_to_dir}/result.{bm.datasets[i1-1]}.nrrd.zarr')
-                    result1 = zarr.open(zarr_store, mode='r')
-                    zarr_store = zarr.DirectoryStore(f'{path_to_dir}/result.{bm.datasets[i2-1]}.nrrd.zarr')
-                    result2 = zarr.open(zarr_store, mode='r')
+                    result1 = zarr.open(f'{path_to_dir}/result.{bm.datasets[i1-1]}.nrrd.zarr', mode='r')
+                    result2 = zarr.open(f'{path_to_dir}/result.{bm.datasets[i2-1]}.nrrd.zarr', mode='r')
 
                 # load label values
                 l1 = np.load(f'{path_to_meta}/labels{i1}.npy')
@@ -1268,10 +1083,8 @@ if __name__ == "__main__":
         for i2 in range(i1+1,n_datasets+1):
           if bm.sample==None or bm.sample==2*i2-i1:
             # open particles
-            zarr_store = zarr.DirectoryStore(f'{path_to_dir}/result.{bm.datasets[i1-1]}.nrrd.zarr')
-            result1 = zarr.open(zarr_store, mode='r')
-            zarr_store = zarr.DirectoryStore(f'{path_to_dir}/result.{bm.datasets[i2-1]}.nrrd.zarr')
-            result2 = zarr.open(zarr_store, mode='r')
+            result1 = zarr.open(f'{path_to_dir}/result.{bm.datasets[i1-1]}.nrrd.zarr', mode='r')
+            result2 = zarr.open(f'{path_to_dir}/result.{bm.datasets[i2-1]}.nrrd.zarr', mode='r')
 
             # load label values
             labels1 = np.load(f'{path_to_meta}/labels{i1}.npy')
@@ -1320,7 +1133,7 @@ if __name__ == "__main__":
 
                     # no match detected because all volumes were too different
                     #if best_mse[arg1]==0 or np.amin(mse[arg1])==np.inf:
-                    if best_mse[arg1]<0 or sizes1[arg1]>2000000000 or sizes2[arg2]>2000000000: #TODO remove
+                    if best_mse[arg1]<0:# or sizes1[arg1]>2000000000 or sizes2[arg2]>2000000000: #TODO remove
                         rot_dice, best_alpha, best_beta, best_gamma, result_val2 = 0, 0, 0, 0, 0
                         output = np.array([result_val1, result_val2, rot_dice, 0, best_alpha, best_beta, best_gamma])
                         print(rank, f'{arg1+1}/{labels1.size}', result_val1, f'RotDice: {round(rot_dice,4)}', 'NO MATCH')
@@ -1603,12 +1416,9 @@ if __name__ == "__main__":
             for dataset in bm.datasets:
                 convert_to_zarr(f'{path_to_dir}/match.{dataset}.nrrd')
         comm.Barrier()
-        zarr_store = zarr.DirectoryStore(f'{path_to_dir}/match.{dataset1}.nrrd.zarr')
-        particles1 = zarr.open(zarr_store, mode='r')
-        zarr_store = zarr.DirectoryStore(f'{path_to_dir}/match.{dataset2}.nrrd.zarr')
-        particles2 = zarr.open(zarr_store, mode='r')
-        zarr_store = zarr.DirectoryStore(f'{path_to_dir}/match.{dataset3}.nrrd.zarr')
-        particles3 = zarr.open(zarr_store, mode='r')
+        particles1 = zarr.open(f'{path_to_dir}/match.{dataset1}.nrrd.zarr', mode='r')
+        particles2 = zarr.open(f'{path_to_dir}/match.{dataset2}.nrrd.zarr', mode='r')
+        particles3 = zarr.open(f'{path_to_dir}/match.{dataset3}.nrrd.zarr', mode='r')
 
         # load masks
         #size = '_half' if '-d=63' in sys.argv else ''
@@ -1616,12 +1426,9 @@ if __name__ == "__main__":
             for dataset in bm.datasets:
                 convert_to_zarr(BASE+f'/mask.{dataset}.tif')
         comm.Barrier()
-        zarr_store = zarr.DirectoryStore(BASE+f'/mask.{dataset1}.tif.zarr')
-        mask1 = zarr.open(zarr_store, mode='r')
-        zarr_store = zarr.DirectoryStore(BASE+f'/mask.{dataset2}.tif.zarr')
-        mask2 = zarr.open(zarr_store, mode='r')
-        zarr_store = zarr.DirectoryStore(BASE+f'/mask.{dataset3}.tif.zarr')
-        mask3 = zarr.open(zarr_store, mode='r')
+        mask1 = zarr.open(BASE+f'/mask.{dataset1}.tif.zarr', mode='r')
+        mask2 = zarr.open(BASE+f'/mask.{dataset2}.tif.zarr', mode='r')
+        mask3 = zarr.open(BASE+f'/mask.{dataset3}.tif.zarr', mode='r')
 
         # array shapes
         zsh, ysh, xsh = particles1.shape
@@ -1679,22 +1486,47 @@ if __name__ == "__main__":
                 save_data(corr3_path + '.zarr', corr3, compress=False)
                 del corr3
             else:
+                # Remove existig arrays
                 if os.path.exists(corr1_path + '.zarr'):
                     shutil.rmtree(corr1_path + '.zarr')
                 if os.path.exists(corr2_path + '.zarr'):
                     shutil.rmtree(corr2_path + '.zarr')
                 if os.path.exists(corr3_path + '.zarr'):
                     shutil.rmtree(corr3_path + '.zarr')
-                zarr.create(shape=particles1.shape, chunks=(100,100,100), dtype=particles1.dtype,
-                    store=zarr.DirectoryStore(corr1_path + '.zarr'), compressor=None)
-                zarr.create(shape=particles2.shape, chunks=(100,100,100), dtype=particles2.dtype,
-                    store=zarr.DirectoryStore(corr2_path + '.zarr'), compressor=None)
-                zarr.create(shape=particles3.shape, chunks=(100,100,100), dtype=particles3.dtype,
-                    store=zarr.DirectoryStore(corr3_path + '.zarr'), compressor=None)
+
+                # Only rank 0 creates the arrays
+                zarr.open(
+                    store=LocalStore(corr1_path + '.zarr'),
+                    mode='w',
+                    shape=particles1.shape,
+                    chunks=(100, 100, 100),
+                    dtype=particles1.dtype,
+                    zarr_format=3
+                )
+                zarr.open(
+                    store=LocalStore(corr2_path + '.zarr'),
+                    mode='w',
+                    shape=particles2.shape,
+                    chunks=(100, 100, 100),
+                    dtype=particles2.dtype,
+                    zarr_format=3
+                )
+                zarr.open(
+                    store=LocalStore(corr3_path + '.zarr'),
+                    mode='w',
+                    shape=particles3.shape,
+                    chunks=(100, 100, 100),
+                    dtype=particles3.dtype,
+                    zarr_format=3
+                )
+
+        # Synchronize all ranks
         comm.Barrier()
-        corr1 = zarr.open(zarr.DirectoryStore(corr1_path + '.zarr'), mode='r+')
-        corr2 = zarr.open(zarr.DirectoryStore(corr2_path + '.zarr'), mode='r+')
-        corr3 = zarr.open(zarr.DirectoryStore(corr3_path + '.zarr'), mode='r+')
+
+        # All ranks open for read/write
+        corr1 = zarr.open(LocalStore(corr1_path + '.zarr'), mode='r+')
+        corr2 = zarr.open(LocalStore(corr2_path + '.zarr'), mode='r+')
+        corr3 = zarr.open(LocalStore(corr3_path + '.zarr'), mode='r+')
 
         # iterate over mappings
         steps = mappings.shape[0] + (nprocs - (mappings.shape[0] % nprocs)) % nprocs
@@ -1993,11 +1825,58 @@ if __name__ == "__main__":
         #print('Missing particles:', int(round((total_area - matched_area) / np.mean(ln[1:]))))
 
     #=======================================================================================
+    # create training data
+    #=======================================================================================
+    if bm.training_data:
+        # determine largest plane
+        max_y, max_x = 0, 0
+        for path in bm.datasets:
+            print(TiffInfo(path).shape, TiffInfo(path).dtype)
+            _, ysh, xsh = TiffInfo(path).shape
+            max_y, max_x = max(ysh, max_y), max(xsh, max_x)
+
+        # training image
+        img = np.zeros((0, max_y, max_x), np.uint16)
+        val_img = np.zeros((0, max_y, max_x), np.uint16)
+        for path in bm.datasets:
+            zsh, ysh, xsh = TiffInfo(path).shape
+            tmp = np.zeros((zsh, max_y, max_x), np.uint16)
+            tmp[:,:ysh,:xsh] = imread(path)
+            min_z, max_z = int(zsh*0.2), int(zsh*0.4)
+            img = np.append(img, tmp[:min_z], axis=0)
+            img = np.append(img, tmp[max_z:], axis=0)
+            val_img = np.append(val_img, tmp[min_z:max_z], axis=0)
+
+        # save training image
+        imwrite(BASE+'/training_img.tif',img)
+        imwrite(BASE+'/validation_img.tif',val_img)
+
+        # create training labels
+        labels = np.zeros((0, max_y, max_x), np.uint16)
+        val_labels = np.zeros((0, max_y, max_x), np.uint16)
+
+        for labels_path in bm.labelDatasets:
+            print('Label:', labels_path)
+            label,_=load_data(labels_path)
+            print(label.shape, label.dtype)
+            print('Max label value:', label.max())
+            zsh, ysh, xsh = label.shape
+            tmp = np.zeros((zsh, max_y, max_x), np.uint16)
+            tmp[:,:ysh,:xsh] = label
+            min_z, max_z = int(zsh*0.2), int(zsh*0.4)
+            labels = np.append(labels, tmp[:min_z], axis=0)
+            labels = np.append(labels, tmp[max_z:], axis=0)
+            val_labels = np.append(val_labels, tmp[min_z:max_z], axis=0)
+
+        # save training label
+        save_data(BASE+'/training_labels.nrrd',labels)
+        save_data(BASE+'/validation_labels.nrrd',val_labels)
+
+    #=======================================================================================
     # train
     #=======================================================================================
     if bm.train:
         from biomedisa.deeplearning import deep_learning
-        epochs=15
 
         # hyper parameters
         if bm.patch_size==64:
@@ -2006,43 +1885,26 @@ if __name__ == "__main__":
             batch_size = 48
 
         # load image data
-        images = imread(BASE+'/training_img.tif')
-        val_img = imread(BASE+'/validation_img.tif')
+        images = load_data(bm.datasets[0])[0]
+        val_img = load_data(bm.datasets[1])[0]
 
-        if bm.model == 'explicit':
-            # load labels (explicit)
-            labels = np.load(BASE+'/training_labels_explicit.npy')
-            val_label = np.load(BASE+'/validation_labels_explicit.npy')
+        # load label data
+        labels = load_data(bm.labelDatasets[0])[0]
+        val_label = load_data(bm.labelDatasets[1])[0]
 
-            # model path
-            path_to_model = BASE+'/model_explicit.h5'
-            pretrained_model = None
-
-            # train explicit boundary prediction
-            deep_learning(images, labels, train=True, patch_normalization=True,
-                path_to_model=path_to_model, scaling=False, val_dice=False,
-                pretrained_model=pretrained_model,
-                flip_x=True, flip_y=True, flip_z=True, swapaxes=True,
-                val_img_data=val_img, val_label_data=val_label, epochs=epochs,
-                x_patch=bm.patch_size, y_patch=bm.patch_size, z_patch=bm.patch_size,
-                batch_size=batch_size, stride_size=bm.stride_size,
-                validation_stride_size=bm.patch_size, ignore_mask=True)
-
+        # implicit or explicit boundary detection
         if bm.model == 'implicit':
-            # load labels (implicit)
-            labels,_ = load_data(BASE+'/training_labels_implicit.nrrd')
-            val_label,_ = load_data(BASE+'/validation_labels_implicit.nrrd')
+            separation, ignore_mask = True, False
+        else:
+            separation, ignore_mask = False, True
 
-            # model path
-            path_to_model = BASE+'/model_implicit.h5'
-            pretrained_model = None
-
-            # train network
-            deep_learning(images, labels, train=True, patch_normalization=True,
-                path_to_model=path_to_model, scaling=False, val_dice=False,
-                pretrained_model=pretrained_model,
-                flip_x=True, flip_y=True, flip_z=True, swapaxes=True,
-                val_img_data=val_img, val_label_data=val_label, epochs=epochs,
-                x_patch=bm.patch_size, y_patch=bm.patch_size, z_patch=bm.patch_size, batch_size=batch_size,
-                stride_size=bm.stride_size, validation_stride_size=bm.patch_size, separation=True)
+        # train network
+        deep_learning(images, labels, train=True, patch_normalization=True,
+            path_to_model=path_to_model, scaling=False, val_dice=False,
+            pretrained_model=bm.pretrained_model,
+            flip_x=True, flip_y=True, flip_z=True, swapaxes=True,
+            val_img_data=val_img, val_label_data=val_label, epochs=bm.epochs,
+            x_patch=bm.patch_size, y_patch=bm.patch_size, z_patch=bm.patch_size, batch_size=batch_size,
+            stride_size=bm.stride_size, validation_stride_size=bm.patch_size,
+            separation=separation, ignore_mask=ignore_mask)
 

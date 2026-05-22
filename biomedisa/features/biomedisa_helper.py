@@ -181,7 +181,39 @@ def ASSD(ground_truth, result):
         print('Error: no CUDA device found. ASSD is not available.')
         return None, None
 
-def img_resize(a, z_shape, y_shape, x_shape, interpolation=None, labels=False, backend='cv2'):
+def img_resize(a, *args, dim=None, interpolation=None, labels=False, backend='cv2'):
+  """
+  Supported call styles:
+  - img_resize(a, z, y, x)
+  - img_resize(a, dim=(z, y, x))
+  - img_resize(a, (z, y, x))
+  """
+
+  if dim is not None:
+    if args:
+        raise TypeError("Use either positional args OR dim=, not both.")
+    if len(dim) != 3:
+        raise ValueError("dim must be (z, y, x)")
+    z_shape, y_shape, x_shape = dim
+
+  elif args:
+    # Case: img_resize(a, (z,y,x))
+    if len(args) == 1 and isinstance(args[0], (tuple, list)):
+        if len(args[0]) != 3:
+            raise ValueError("Shape tuple must have 3 elements")
+        z_shape, y_shape, x_shape = args[0]
+
+    # Case: img_resize(a, z, y, x)
+    elif len(args) == 3:
+        z_shape, y_shape, x_shape = args
+
+    else:
+        raise TypeError(
+            "Invalid arguments. Use (z,y,x), z,y,x, or dim=(z,y,x)"
+        )
+  else:
+    raise TypeError("Missing shape information")
+
   if backend=='ndimage':
     zoom_factors = [t / s for t, s in zip((z_shape, y_shape, x_shape), a.shape)]
     data = ndimage.zoom(a, zoom_factors, order=(0 if labels else 3))
@@ -197,6 +229,9 @@ def img_resize(a, z_shape, y_shape, x_shape, interpolation=None, labels=False, b
             interpolation = cv2.INTER_CUBIC
 
     def __resize__(arr):
+        original_dtype = arr.dtype
+        if original_dtype in ['int8','int32','uint32','int64','uint64']:
+            arr = arr.astype(np.float32)
         b = np.empty((zsh, y_shape, x_shape), dtype=arr.dtype)
         for k in range(zsh):
             b[k] = cv2.resize(arr[k], (x_shape, y_shape), interpolation=interpolation)
@@ -207,6 +242,9 @@ def img_resize(a, z_shape, y_shape, x_shape, interpolation=None, labels=False, b
             c[k] = cv2.resize(b[k], (x_shape, z_shape), interpolation=interpolation)
         c = np.swapaxes(c, 1, 0)
         c = np.copy(c, order='C')
+        if original_dtype in ['int8','int32','uint32','int64','uint64']:
+            c = np.round(c)
+            c = c.astype(original_dtype)
         return c
 
     if labels:
@@ -301,7 +339,7 @@ def natural_key(string):
     # Split the string into parts of digits and non-digits
     return [int(s) if s.isdigit() else s.lower() for s in re.split(r'(\d+)', string)]
 
-def load_data(path_to_data, process='None', return_extension=False, **kwargs):
+def load_data(path_to_data, process='None', return_extension=False, slicer_labels=False, return_labels=False, **kwargs):
 
     zarr_keys = {'mode'}
     tifffile_keys = {'key'}
@@ -345,6 +383,57 @@ def load_data(path_to_data, process='None', return_extension=False, **kwargs):
         try:
             header = sitk.ReadImage(path_to_data)
             data = sitk.GetArrayViewFromImage(header).copy()
+
+            # check for slicer segmentation
+            if slicer_labels or isinstance(slicer_labels, list):
+                keys = header.GetMetaDataKeys()
+                is_slicer = False
+                # check global slicer segmentation metadata
+                for key in ["Segmentation_ContainedRepresentationNames",
+                    "Segmentation_MasterRepresentation",]:
+                    if header.HasMetaDataKey(key):
+                        is_slicer = True
+                # check per-segment metadata
+                for key in keys:
+                    if key.startswith("Segment0_"):
+                        is_slicer = True
+                if is_slicer:
+                    print("3D Slicer segmentation")
+                    out = np.zeros(data.shape[:3], data.dtype)
+                    segments = []
+                    if len(data.shape)==3:
+                        data = data.reshape(data.shape[0], data.shape[1], data.shape[2], 1)
+                    for key in keys:
+                        # match Segment0_Name, Segment1_Name, ...
+                        m = re.match(r"Segment(\d+)_ID", key)
+                        if m:
+                            idx = m.group(1)
+                            label_value = int(header.GetMetaData(f"Segment{idx}_LabelValue"))
+                            label_layer = int(header.GetMetaData(f"Segment{idx}_Layer"))
+                            label_name = header.GetMetaData(f"Segment{idx}_Name").strip().lower()
+                            if isinstance(slicer_labels, list):
+                                for value, name in enumerate(slicer_labels):
+                                    if name==label_name:
+                                        out[data[...,label_layer]==label_value]=value+1
+                            else:
+                                if label_name in segments:
+                                    value = segments.index(label_name)
+                                else:
+                                    value = len(segments)
+                                    segments.append(label_name)
+
+                                # update array information
+                                out[data[...,label_layer]==label_value]=value+1
+                    data = out
+                    if return_labels:
+                        if isinstance(slicer_labels, list):
+                            segments = slicer_labels
+                        # read raw file bytes
+                        #with open(path_to_data, "rb") as f:
+                        #    header = f.read()
+                        #header = np.frombuffer(header, dtype=np.uint8)
+                        header = {"header":header, "labels":segments}
+
         except Exception as e:
             print(e)
             data, header = None, None
@@ -597,7 +686,19 @@ def save_data(path_to_final, final, header=None, final_image_type=None, compress
     elif final_image_type in ['.hdr', '.mhd', '.mha', '.nrrd', '.nii', '.nii.gz']:
         simg = sitk.GetImageFromArray(final)
         if header is not None:
+            '''if isinstance(header, dict) and "slicer_labels" in header:
+                print("3D Slicer segmentation")
+                # Write back exact original file
+                with tempfile.TemporaryDirectory() as tmp_dir:
+                    file_path = os.path.join(tmp_dir, "restored.seg.nrrd")
+                    with open(file_path, "wb") as f:
+                        f.write(header["header"].tobytes())
+                    header = sitk.ReadImage(file_path)'''
+            # copy geometry
             simg.CopyInformation(header)
+            # copy ALL metadata
+            for key in header.GetMetaDataKeys():
+                simg.SetMetaData(key, header.GetMetaData(key))
         sitk.WriteImage(simg, path_to_final, useCompression=compress)
     elif final_image_type in ['.zip', 'directory', '']:
         with tempfile.TemporaryDirectory() as temp_dir:
