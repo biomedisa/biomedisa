@@ -626,24 +626,27 @@ if __name__ == "__main__":
     #=======================================================================================
     # datasets
     #=======================================================================================
-    if not (bm.training_data or bm.train):
-        from mpi4py import MPI
-        comm = MPI.COMM_WORLD
-        rank = comm.Get_rank()
+    from mpi4py import MPI
+    comm = MPI.COMM_WORLD
+    rank = comm.Get_rank()
+    nprocs = comm.Get_size()
 
-        # project base
-        BASE = os.path.dirname(bm.datasets[0])
+    # project base
+    BASE = os.path.dirname(bm.datasets[0])
 
-        # project
+    # datasets
+    for k, dataset in enumerate(bm.datasets):
+        bm.datasets[k] = os.path.basename(dataset).replace('.tif','')
+    n_datasets = len(bm.datasets)
+
+    # project
+    if not (bm.training_data or bm.train or bm.create_mask):
+
+        # project name
         if rank==0:
             if not bm.project:
                 print('Error: define project name.')
             print('Project:', bm.project)
-
-        # datasets
-        for k, dataset in enumerate(bm.datasets):
-            bm.datasets[k] = os.path.basename(dataset).replace('.tif','')
-        n_datasets = len(bm.datasets)
 
         # step (define step manually or use maximum existing)
         if bm.step==None:
@@ -661,9 +664,10 @@ if __name__ == "__main__":
         # make directories
         path_to_dir = BASE+f'/{bm.project}/step={bm.step}'
         path_to_meta = f'{path_to_dir}/meta'
-        Path(path_to_meta).mkdir(parents=True, exist_ok=True)
         if rank==0:
-            print('Project path:', path_to_dir)
+            Path(path_to_meta).mkdir(parents=True, exist_ok=True)
+            print('Working directory:', path_to_dir)
+        comm.Barrier()
 
     #=======================================================================================
     # create mask
@@ -759,15 +763,15 @@ if __name__ == "__main__":
             path_to_img = BASE+f'/{dataset}.tif'
 
             # path to mask
-            if os.path.exists(f'{path_to_dir}/mask.{dataset}.tif'):
-                path_to_mask = f'{path_to_dir}/mask.{dataset}.tif'
+            if os.path.exists(f'{path_to_dir}/mask{i+1}.tif'):
+                path_to_mask = f'{path_to_dir}/mask{i+1}.tif'
             else:
                 path_to_mask = BASE+f'/mask.{dataset}.tif'
             print('Mask:', path_to_mask)
 
             # path to results
-            path_to_boundaries = f'{path_to_dir}/final.{dataset}.tif'
-            path_to_result = f'{path_to_dir}/result.{dataset}.nrrd'
+            path_to_boundaries = f'{path_to_dir}/final{i+1}.tif'
+            path_to_result = f'{path_to_dir}/result{i+1}.nrrd'
 
             # path to pre-segmentation
             label_path = None
@@ -788,7 +792,7 @@ if __name__ == "__main__":
                     if bm.model == 'explicit':
                         cmd += ['-rf', '-im']
 
-                    # predict segmentation
+                    # predict boundaries
                     subprocess.Popen(cmd, env=os.environ.copy()).wait()
 
                     # move result
@@ -806,9 +810,9 @@ if __name__ == "__main__":
                     label_path=label_path)
 
                 # combine with corrected particles from previous step
-                old_size, old_path = get_data_size(BASE+f'/{bm.project}/step={bm.step-1}/corr.{dataset}.nrrd')
+                old_size, old_path = get_data_size(BASE+f'/{bm.project}/step={bm.step-1}/corr{i+1}.nrrd')
                 if old_size is None:
-                    old_size, old_path = get_data_size(BASE+f'/{bm.project}/step={bm.step-1}/match.{dataset}.nrrd')
+                    old_size, old_path = get_data_size(BASE+f'/{bm.project}/step={bm.step-1}/match{i+1}.nrrd')
                 if old_size != None:
                     matched,_ = load_data(old_path)
                     m1_max = np.amax(matched)
@@ -831,6 +835,7 @@ if __name__ == "__main__":
                 else:
                     print('No previous result merged.')
 
+                # meta data
                 bounding_boxes = get_bounding_boxes(labeled_array)
                 np.save(f'{path_to_meta}/bounding_boxes{i+1}.npy', bounding_boxes)
                 lv, ln = unique(labeled_array, return_counts=True)
@@ -842,10 +847,6 @@ if __name__ == "__main__":
     # calculate distances to centroid
     #=======================================================================================
     if bm.distances:
-        from mpi4py import MPI
-        comm = MPI.COMM_WORLD
-        rank = comm.Get_rank()
-        nprocs = comm.Get_size()
 
         # iterate over datasets
         for sample_i, dataset in enumerate(bm.datasets):
@@ -915,10 +916,6 @@ if __name__ == "__main__":
     #=======================================================================================
     if bm.match_particles:
         TIC = time.time()
-        from mpi4py import MPI
-        comm = MPI.COMM_WORLD
-        rank = comm.Get_rank()
-        nprocs = comm.Get_size()
 
         # check if pre-computed distances exist
         if os.path.exists(f'{path_to_meta}/dists1.npy'):
@@ -1061,11 +1058,7 @@ if __name__ == "__main__":
     #=======================================================================================
     if bm.rot_dice:
       TIC = time.time()
-
-      from mpi4py import MPI
-      comm = MPI.COMM_WORLD
-      rank = comm.Get_rank()
-      nprocs = comm.Get_size()
+      # number of GPUs
       npgus = get_gpu_count()
 
       # refine all rotations (for example when using larger label data in second run)
@@ -1405,10 +1398,6 @@ if __name__ == "__main__":
     #=======================================================================================
     if bm.correct_particles:
         TIC = time.time()
-        from mpi4py import MPI
-        comm = MPI.COMM_WORLD
-        rank = comm.Get_rank()
-        nprocs = comm.Get_size()
 
         # load matching particles
         dataset1, dataset2, dataset3 = bm.datasets

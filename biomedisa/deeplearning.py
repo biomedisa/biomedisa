@@ -354,7 +354,7 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
                     region_of_interest, cropped_volume = ch.crop_data(bm)
 
                 # convert mask to TIFF
-                if bm.mask and not os.path.splitext(bm.mask)[1] in ['.tif','.tiff','.TIF','.TIFF']::
+                if bm.mask and not os.path.splitext(bm.mask)[1] in ['.tif','.tiff','.TIF','.TIFF']:
                     tmp = load_data(bm.mask)[0]
                     bm.mask = os.path.join(temp_dir, 'tmp_mask.tif')
                     imwrite(bm.mask, tmp)
