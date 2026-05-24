@@ -39,7 +39,6 @@ from keras import backend as K
 from keras.utils import to_categorical
 from keras.callbacks import Callback, ModelCheckpoint, EarlyStopping
 from biomedisa.features.DataGenerator import DataGenerator, welford_mean_std
-from biomedisa.features.SSL import SemiSupervisedModel, model_fit
 from biomedisa.features.PredictDataGenerator import PredictDataGenerator
 from biomedisa.features.biomedisa_helper import (unique, welford_mean_std,
     img_resize, load_data, save_data, set_labels_to_zero, id_generator, unique_file_path)
@@ -1270,7 +1269,8 @@ def train_segmentation(bm):
             model = build_model()
             optimizer = build_optimizer()
             if bm.unsupervised_data is not None:
-                model = SemiSupervisedModel(model, lambda_consistency=0.1, batch_size=bm.batch_size)
+                from biomedisa.features.SSL import SemiSupervisedModel, model_fit
+                model = SemiSupervisedModel(model, lambda_consistency=0.01, batch_size=bm.batch_size)
                 #model.compile(optimizer=optimizer)
                 model.optimizer = optimizer
             else:
@@ -1321,7 +1321,7 @@ def train_segmentation(bm):
     # train model
     if bm.unsupervised_data is not None:
       model_fit(model, strategy, training_generator,
-        callbacks, bm.epochs, bm.initial_epoch)
+        callbacks, bm.epochs, bm.initial_epoch, nb_labels, bm.channels)
     else:
       model.fit(training_generator,
         epochs=bm.epochs,

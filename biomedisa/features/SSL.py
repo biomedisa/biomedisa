@@ -30,7 +30,7 @@ import keras
 from keras import ops
 import tensorflow as tf
 
-def model_fit(model, strategy, training_generator, callbacks, epochs, initial_epoch):
+def model_fit(model, strategy, training_generator, callbacks, epochs, initial_epoch, nb_labels, channels):
 
     def gen():
         for i in range(len(training_generator)):
@@ -57,9 +57,9 @@ def model_fit(model, strategy, training_generator, callbacks, epochs, initial_ep
     dataset = tf.data.Dataset.from_generator(
         gen,
         output_signature={
-            "x_l": tf.TensorSpec(shape=(None, *(64, 64, 64,1)), dtype=tf.float32),
-            "y_l": tf.TensorSpec(shape=(None, *(64, 64, 64,3)), dtype=tf.float32),
-            "x_u": tf.TensorSpec(shape=(None, *(9, 64, 64, 64,1)), dtype=tf.float32),
+            "x_l": tf.TensorSpec(shape=(None, *(64, 64, 64, channels)), dtype=tf.float32),
+            "y_l": tf.TensorSpec(shape=(None, *(64, 64, 64, nb_labels)), dtype=tf.float32),
+            "x_u": tf.TensorSpec(shape=(None, *(9, 64, 64, 64, channels)), dtype=tf.float32),
         }
     )
     dataset = dataset.prefetch(tf.data.AUTOTUNE)
@@ -163,7 +163,7 @@ def extract_overlap(p1, p2, shift):
     return o1, o2
 
 class SemiSupervisedModel(keras.Model):
-    def __init__(self, model, lambda_consistency=0.05, batch_size=24,  **kwargs):
+    def __init__(self, model, lambda_consistency=0.01, batch_size=24,  **kwargs):
         super().__init__(**kwargs)
         self.model = model
         self.lambda_consistency = lambda_consistency
