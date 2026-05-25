@@ -34,7 +34,7 @@ import numpy as np
 import time
 
 def label_particles(boundaries_path, mask_path, header=None, result_path=None,
-    min_particle_size=1000, scale_particles=0, label_path=None):
+    min_particle_size=1000, zoom_factor=None, label_path=None):
     """
     Removes boundary pixels from a binary mask and labels the remaining connected
     components with unique integer values.
@@ -50,8 +50,8 @@ def label_particles(boundaries_path, mask_path, header=None, result_path=None,
     min_particle_size : int, optional
         Minimum allowed size (in pixels) for connected components. Objects smaller
         than this threshold are removed.
-    scale_particles : int, optional
-        For reducing particle size by this factor (e.g. 2).
+    zoom_factor : float, optional
+        For scaling particle size by this factor (e.g. 0.5).
     label_path : str, optional
         Path to the pre-segmented particles.
     """
@@ -74,10 +74,8 @@ def label_particles(boundaries_path, mask_path, header=None, result_path=None,
         print('Data loaded:', time.time() - TIC)
 
         # downsize mask
-        if scale_particles:
-            zsh, ysh, xsh = mask.shape
-            zoom_factors = [t / s for t, s in zip((zsh//scale_particles,ysh//scale_particles,xsh//scale_particles), mask.shape)]
-            mask = ndimage.zoom(mask, zoom_factors, order=0)
+        if zoom_factor and zoom_factor!=1:
+            mask = ndimage.zoom(mask, zoom_factor, order=0)
 
         # label particles individually
         TIC = time.time()
@@ -87,10 +85,8 @@ def label_particles(boundaries_path, mask_path, header=None, result_path=None,
         print('Label particles:', time.time() - TIC)
 
     # downsize labels
-    if scale_particles:
-        zsh, ysh, xsh = labeled_array.shape
-        zoom_factors = [t / s for t, s in zip((zsh//scale_particles,ysh//scale_particles,xsh//scale_particles), labeled_array.shape)]
-        labeled_array = ndimage.zoom(labeled_array, zoom_factors, order=0)
+    if zoom_factor and zoom_factor!=1:
+        labeled_array = ndimage.zoom(labeled_array, zoom_factor, order=0)
     print('Label shape:', labeled_array.shape)
 
     # fill segments up to mask

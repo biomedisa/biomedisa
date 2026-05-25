@@ -500,7 +500,7 @@ def remove_container(a,xs,ys,ds):
 
 def label_in_ascending_order(label):
     lv = unique(label)
-    print('Labels:', len(lv))
+    print('Labels:', len(lv)-1)
     ref = np.zeros(int(np.amax(lv))+1, dtype=np.int32)
     for i, v in enumerate(lv):
         ref[v] = i
@@ -570,11 +570,11 @@ if __name__ == "__main__":
     parser.add_argument('-m','--model', type=str, default='implicit',
                         help='Model used (sam, explicit, implicit)')
     parser.add_argument('-pr','--project', type=str,
-                        help='Project name')
-    parser.add_argument('-d','--datasets', type=str, nargs='+',
-                        help='List of dataset paths')
+                        help='Absolute project path or project name relative to working directory')
+    parser.add_argument('-d','--datasets', type=str, nargs='+', default=None,
+                        help='List ofabsolute dataset paths')
     parser.add_argument('-ld','--labelDatasets', type=str, nargs='+', default=None,
-                        help='List of pre-calculated label dataset paths')
+                        help='List of pre-calculated absolute label paths')
     parser.add_argument('--sample', type=int, default=None,
                         help='If not given, calculate all')
     parser.add_argument('-s','--step', type=int, default=None,
@@ -617,10 +617,10 @@ if __name__ == "__main__":
                         help='batch size')
     parser.add_argument('-e','--epochs', type=int, default=100,
                         help='epochs the network is trained')
-    parser.add_argument('-sp','--scale_particles', type=int, default=0,
-                        help='for reducing particle size by this factor before matching (e.g. 2)')
+    parser.add_argument('-z','--zoom_factors', type=float, nargs='+', default=None,
+                       help='if provided it must include all datasets (e.g. 0.5 1.0 1.0 for three samples)')
     parser.add_argument('-mps','--min_particle_size', type=int, default=1000,
-                        help='Minimum size (in pixels) for connected components. Objects smaller than this threshold are removed.')
+                        help='minimum size (in pixels) for connected components. Objects smaller than this threshold are removed')
     bm = parser.parse_args()
 
     #=======================================================================================
@@ -632,37 +632,39 @@ if __name__ == "__main__":
     nprocs = comm.Get_size()
 
     # project base
-    BASE = os.path.dirname(bm.datasets[0])
+    if Path(bm.project).is_absolute():
+        BASE = bm.project
+    else:
+        BASE = os.path.join(Path.cwd(), bm.project)
 
     # datasets
-    for k, dataset in enumerate(bm.datasets):
-        bm.datasets[k] = os.path.basename(dataset).replace('.tif','')
-    n_datasets = len(bm.datasets)
+    if bm.datasets:
+        n_datasets = len(bm.datasets)
+    elif bm.labelDatasets:
+        n_datasets = len(bm.labelDatasets)
+    else:
+        raise ValueError("no datasets given")
 
     # project
-    if not (bm.training_data or bm.train or bm.create_mask):
+    if not (bm.training_data or bm.train):
 
-        # project name
+        # project base
         if rank==0:
-            if not bm.project:
-                print('Error: define project name.')
-            print('Project:', bm.project)
+            print('Project base:', BASE)
 
         # step (define step manually or use maximum existing)
         if bm.step==None:
             bm.step = 0
-            liste = glob.glob(BASE+f'/{bm.project}/step=*')
+            liste = glob.glob(BASE+'/step=*')
             for l in liste:
                 bm.step = max(bm.step, int(l.split('/')[-1].split('=')[-1]))
-        if rank==0:
-            print('Step:', bm.step)
 
         # sample (process all if None)
         if bm.sample!=None and rank==0:
             print('Sample:', bm.sample)
 
         # make directories
-        path_to_dir = BASE+f'/{bm.project}/step={bm.step}'
+        path_to_dir = BASE+f'/step={bm.step}'
         path_to_meta = f'{path_to_dir}/meta'
         if rank==0:
             Path(path_to_meta).mkdir(parents=True, exist_ok=True)
@@ -674,11 +676,11 @@ if __name__ == "__main__":
     #=======================================================================================
     if bm.create_mask:
         print(f'Binarize image data using {bm.create_mask}. Please use "--create_mask=" to specify.')
-        for dataset in bm.datasets:
-            path_to_mask = BASE+f'/mask.{dataset}.tif'
+        for i in range(n_datasets):
+            path_to_mask = BASE+f'/mask{i+1}.tif'
             if not os.path.exists(path_to_mask):
                 print("Dataset:", os.path.basename(path_to_mask))
-                path_to_img = BASE+f'/{dataset}.tif'
+                path_to_img = bm.datasets[i]
                 img = imread(path_to_img)
                 print("Image shape:", img.shape)
                 img[img<bm.create_mask]=0
@@ -696,9 +698,9 @@ if __name__ == "__main__":
                 print("Mask:", os.path.basename(new_mask_path))
 
                 # get previous data
-                old_path = get_data_size(BASE+f'/{bm.project}/step={bm.step-1}/corr.{dataset}.nrrd')[1]
+                old_path = get_data_size(BASE+f'/step={bm.step-1}/corr.{dataset}.nrrd')[1]
                 if old_path is None:
-                    old_path = get_data_size(BASE+f'/{bm.project}/step={bm.step-1}/match.{dataset}.nrrd')[1]
+                    old_path = get_data_size(BASE+f'/step={bm.step-1}/match.{dataset}.nrrd')[1]
                 if old_path is None:
                     raise RuntimeError("No previous result available.")
                 matched,_ = load_data(old_path)
@@ -756,17 +758,23 @@ if __name__ == "__main__":
     if bm.label_particles:
         ngpus = get_gpu_count()
         print('Number of GPUs:', ngpus)
-        for i, dataset in enumerate(bm.datasets):
+        for i in range(n_datasets):
           if bm.sample==None or i==bm.sample:
 
             # path to image
-            path_to_img = BASE+f'/{dataset}.tif'
+            img_path = bm.datasets[i]
+            dirname = os.path.dirname(img_path)
+            basename, extension = os.path.splitext(os.path.basename(img_path))
+            if bm.model == 'explicit':
+                tmp_path = os.path.join(dirname,'final.'+basename+'.refined'+extension)
+            else:
+                tmp_path = os.path.join(dirname,'final.'+basename+extension)
 
             # path to mask
             if os.path.exists(f'{path_to_dir}/mask{i+1}.tif'):
                 path_to_mask = f'{path_to_dir}/mask{i+1}.tif'
             else:
-                path_to_mask = BASE+f'/mask.{dataset}.tif'
+                path_to_mask = BASE+f'/mask{i+1}.tif'
             print('Mask:', path_to_mask)
 
             # path to results
@@ -780,12 +788,13 @@ if __name__ == "__main__":
 
             # label particles
             if not os.path.exists(path_to_result):
-                print('Dataset:', os.path.basename(path_to_img))
-
+                print('Dataset:', os.path.basename(img_path))
+                if bm.zoom_factors:
+                    print("Zoom factor:", bm.zoom_factors[i])
                 if not os.path.exists(path_to_boundaries) and not label_path:
 
                     # base command
-                    cmd = [sys.executable, '-m', 'biomedisa.deeplearning', path_to_img, bm.path_to_model,
+                    cmd = [sys.executable, '-m', 'biomedisa.deeplearning', img_path, bm.path_to_model,
                         f'-m={path_to_mask}', f'-ss={bm.stride_size}', f'-bs={bm.batch_size}', '-rb']
                     if ngpus>1:
                         cmd = ['mpirun', '-n', f'{ngpus}'] + cmd
@@ -796,23 +805,20 @@ if __name__ == "__main__":
                     subprocess.Popen(cmd, env=os.environ.copy()).wait()
 
                     # move result
-                    if bm.model == 'explicit':
-                        shutil.move(BASE+f'/final.{dataset}.refined.tif', path_to_boundaries)
-                    else:
-                        shutil.move(BASE+f'/final.{dataset}.tif', path_to_boundaries)
+                    shutil.move(tmp_path, path_to_boundaries)
 
                 # particle separation
                 from biomedisa.particles import label_particles
                 labeled_array = label_particles(path_to_boundaries, path_to_mask,
                     result_path=path_to_result,
                     min_particle_size=bm.min_particle_size,
-                    scale_particles=bm.scale_particles,
+                    zoom_factor=(bm.zoom_factors[i] if bm.zoom_factors else None),
                     label_path=label_path)
 
                 # combine with corrected particles from previous step
-                old_size, old_path = get_data_size(BASE+f'/{bm.project}/step={bm.step-1}/corr{i+1}.nrrd')
+                old_size, old_path = get_data_size(BASE+f'/step={bm.step-1}/corr{i+1}.nrrd')
                 if old_size is None:
-                    old_size, old_path = get_data_size(BASE+f'/{bm.project}/step={bm.step-1}/match{i+1}.nrrd')
+                    old_size, old_path = get_data_size(BASE+f'/step={bm.step-1}/match{i+1}.nrrd')
                 if old_size != None:
                     matched,_ = load_data(old_path)
                     m1_max = np.amax(matched)
@@ -849,14 +855,14 @@ if __name__ == "__main__":
     if bm.distances:
 
         # iterate over datasets
-        for sample_i, dataset in enumerate(bm.datasets):
+        for sample_i in range(n_datasets):
           if bm.sample==None or bm.sample==sample_i:
 
             # load particles
             if rank==0:
-                convert_to_zarr(f'{path_to_dir}/result.{dataset}.nrrd')
+                convert_to_zarr(f'{path_to_dir}/result{sample_i+1}.nrrd')
             comm.Barrier()
-            zarr_store = f'{path_to_dir}/result.{dataset}.nrrd.zarr'
+            zarr_store = f'{path_to_dir}/result{sample_i+1}.nrrd.zarr'
             particles = zarr.open(zarr_store, mode='r')
 
             # load label values
@@ -879,7 +885,6 @@ if __name__ == "__main__":
                     argmin_z, argmax_z, argmin_y, argmax_y, argmin_x, argmax_x = bounding_boxes[value-1]
                     p1 = np.zeros((argmax_z-argmin_z,argmax_y-argmin_y,argmax_x-argmin_x), dtype=np.uint8)
                     p1[particles[argmin_z:argmax_z, argmin_y:argmax_y, argmin_x:argmax_x]==value]=1
-                    #p1 = fill_fast(p1)
 
                     # distances to centroid
                     centroid = get_centroid(p1)
@@ -906,7 +911,7 @@ if __name__ == "__main__":
             # remove zarr files
             comm.Barrier()
             if rank==0:
-                shutil.rmtree(f'{path_to_dir}/result.{dataset}.nrrd.zarr')
+                shutil.rmtree(f'{path_to_dir}/result{sample_i+1}.nrrd.zarr')
 
             # print calculation time
             print('Distances:', int(time.time() - TIC), 'sec')
@@ -1067,8 +1072,8 @@ if __name__ == "__main__":
 
       # create zarr files
       if rank==0:
-          for dataset in bm.datasets:
-              convert_to_zarr(f'{path_to_dir}/result.{dataset}.nrrd')
+          for i in range(n_datasets):
+              convert_to_zarr(f'{path_to_dir}/result{i+1}.nrrd')
       comm.Barrier()
 
       # datasets
@@ -1076,8 +1081,8 @@ if __name__ == "__main__":
         for i2 in range(i1+1,n_datasets+1):
           if bm.sample==None or bm.sample==2*i2-i1:
             # open particles
-            result1 = zarr.open(f'{path_to_dir}/result.{bm.datasets[i1-1]}.nrrd.zarr', mode='r')
-            result2 = zarr.open(f'{path_to_dir}/result.{bm.datasets[i2-1]}.nrrd.zarr', mode='r')
+            result1 = zarr.open(f'{path_to_dir}/result{i1}.nrrd.zarr', mode='r')
+            result2 = zarr.open(f'{path_to_dir}/result{i2}.nrrd.zarr', mode='r')
 
             # load label values
             labels1 = np.load(f'{path_to_meta}/labels{i1}.npy')
@@ -1220,8 +1225,8 @@ if __name__ == "__main__":
       # remove zarr files
       comm.Barrier()
       if rank==0:
-          for dataset in bm.datasets:
-              shutil.rmtree(f'{path_to_dir}/result.{dataset}.nrrd.zarr')
+          for i in range(n_datasets):
+              shutil.rmtree(f'{path_to_dir}/result{i+1}.nrrd.zarr')
 
       # calculation time
       print(int(round(time.time() - TIC)), 'sec')
@@ -1309,7 +1314,7 @@ if __name__ == "__main__":
                                     mappings[j,4]=result_val23
 
             # additional particles
-            print('Additional particles 23:', counter)
+            print('Additional 1 (only 2->3):', counter)
             print('Additional area:', int(np.sum(matchedAreas2)))
 
         # monitor results
@@ -1339,10 +1344,10 @@ if __name__ == "__main__":
         np.save(f'{path_to_meta}/mappings.npy', mappings)
 
         # label matched particles
-        for i, dataset in enumerate(bm.datasets):
+        for i in range(n_datasets):
             labels = np.load(f'{path_to_meta}/labels{i+1}.npy')
-            result,_ = load_data(f'{path_to_dir}/result.{dataset}.nrrd')
-            print(os.path.basename(dataset))
+            result,_ = load_data(f'{path_to_dir}/result{i+1}.nrrd')
+            print('Sample:', i+1)
             print('Shape:', result.shape)
             counter = 0
             labels_array = np.zeros(int(np.amax(labels))+1, np.uint64)
@@ -1354,44 +1359,44 @@ if __name__ == "__main__":
             print('Matched particles:', counter)
             print('Unmatched labels:', labels.size - counter)
             result = matched_particles(result, labels_array)
-            save_data(f'{path_to_dir}/match.{dataset}.nrrd', result)
+            save_data(f'{path_to_dir}/match{i+1}.nrrd', result)
 
             # additional matches
             if n_datasets==3 and i==0: # 1->2 (3->1, 3->2)
                 counter = 0
-                result,_ = load_data(f'{path_to_dir}/result.{dataset}.nrrd')
+                result,_ = load_data(f'{path_to_dir}/result{i+1}.nrrd')
                 labels_array = np.zeros(int(np.amax(labels))+1, np.uint64)
                 for k in range(mappings.shape[0]):
                     if mappings[k,0]>0 and mappings[k,1]>0 and mappings[k,2]==0 and mappings[k,3]==0 and mappings[k,4]==0:
                         labels_array[int(mappings[k,0])]=1
                         counter += 1
-                print('Additional particles 12:', counter)
+                print('Additional 3 (only 1->2):', counter)
                 result = matched_particles(result, labels_array)
-                save_data(f'{path_to_dir}/additional12.{dataset}.nrrd', result)
+                save_data(f'{path_to_dir}/additional3.nrrd', result)
 
             if n_datasets==3 and i==1: # 2->3 (1->2, 1->3)
                 counter = 0
-                result,_ = load_data(f'{path_to_dir}/result.{dataset}.nrrd')
+                result,_ = load_data(f'{path_to_dir}/result{i+1}.nrrd')
                 labels_array = np.zeros(int(np.amax(labels))+1, np.uint64)
                 for k in range(mappings.shape[0]):
                     if mappings[k,3]>0 and mappings[k,4]>0 and mappings[k,0]==0 and mappings[k,1]==0 and mappings[k,2]==0:
                         labels_array[int(mappings[k,3])]=1
                         counter += 1
-                print('Additional particles 23:', counter)
+                print('Additional 1 (only 2->3):', counter)
                 result = matched_particles(result, labels_array)
-                save_data(f'{path_to_dir}/additional23.{dataset}.nrrd', result)
+                save_data(f'{path_to_dir}/additional1.nrrd', result)
 
             if n_datasets==3 and i==2: # 3->1 (2->1, 2->3)
                 counter = 0
-                result,_ = load_data(f'{path_to_dir}/result.{dataset}.nrrd')
+                result,_ = load_data(f'{path_to_dir}/result{i+1}.nrrd')
                 labels_array = np.zeros(int(np.amax(labels))+1, np.uint64)
                 for k in range(mappings.shape[0]):
                     if mappings[k,0]>0 and mappings[k,2]>0 and mappings[k,1]==0 and mappings[k,3]==0 and mappings[k,4]==0:
                         labels_array[int(mappings[k,2])]=1
                         counter += 1
-                print('Additional particles 31:', counter)
+                print('Additional 2 (only 3->1):', counter)
                 result = matched_particles(result, labels_array)
-                save_data(f'{path_to_dir}/additional31.{dataset}.nrrd', result)
+                save_data(f'{path_to_dir}/additional2.nrrd', result)
 
     #=======================================================================================
     # correct particles
