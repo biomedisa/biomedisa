@@ -40,7 +40,7 @@ from keras.utils import to_categorical
 from keras.callbacks import Callback, ModelCheckpoint, EarlyStopping
 from biomedisa.features.DataGenerator import DataGenerator, welford_mean_std
 from biomedisa.features.PredictDataGenerator import PredictDataGenerator
-from biomedisa.features.biomedisa_helper import (unique, welford_mean_std,
+from biomedisa.features.biomedisa_helper import (unique, welford_mean_std, TiffInfo,
     img_resize, load_data, save_data, set_labels_to_zero, id_generator, unique_file_path)
 from biomedisa.features.remove_outlier import clean, fill
 from biomedisa.features.active_contour import activeContour
@@ -1569,6 +1569,8 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
         tif = TiffFile(bm.path_to_image)
         zsh = len(tif.pages)
         ysh, xsh = tif.pages[0].shape
+        if bm.mask and TiffInfo(bm.path_to_image).shape != TiffInfo(bm.mask).shape:
+            raise ValueError('mask and image must have the same x,y,z dimensions')
 
         # load mask
         '''if bm.separation or bm.refinement:

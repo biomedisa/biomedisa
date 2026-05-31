@@ -138,6 +138,9 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
                 bm.val_images = [None]
                 bm.val_labels = [None]
 
+            # unsupervised files
+            bm.unsupervised_images = [None]
+
             # project name
             project = os.path.splitext(bm.shortfilename)[0]
 

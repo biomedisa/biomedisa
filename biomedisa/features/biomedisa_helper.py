@@ -181,39 +181,78 @@ def ASSD(ground_truth, result):
         print('Error: no CUDA device found. ASSD is not available.')
         return None, None
 
-def img_resize(a, *args, dim=None, interpolation=None, labels=False, backend='cv2'):
+def img_resize(a, *args, dim=None, factor=None,
+               interpolation=None, labels=False,
+               backend='cv2'):
   """
   Supported call styles:
-  - img_resize(a, z, y, x)
-  - img_resize(a, dim=(z, y, x))
-  - img_resize(a, (z, y, x))
-  """
+  ----------------------
 
-  if dim is not None:
+  Explicit dimensions:
+  - img_resize(a, z, y, x)
+  - img_resize(a, (z, y, x))
+  - img_resize(a, dim=(z, y, x))
+
+  Scale factor:
+  - img_resize(a, factor=2)
+  - img_resize(a, factor=0.5)
+  - img_resize(a, factor=(1, 0.5, 0.5))
+  """
+  # --------------------------------------------
+  # Validate mutually exclusive arguments
+  # --------------------------------------------
+  if dim is not None and factor is not None:
+    raise TypeError("Use either dim= OR factor=, not both.")
+
+  # --------------------------------------------
+  # Case 1: factor provided
+  # --------------------------------------------
+  if factor is not None:
+    # scalar factor
+    if isinstance(factor, (int, float)):
+        fz = fy = fx = factor
+    # tuple/list factor
+    elif isinstance(factor, (tuple, list)):
+        if len(factor) != 3:
+            raise ValueError("factor tuple must be (fz, fy, fx)")
+        fz, fy, fx = factor
+    else:
+        raise TypeError("factor must be a number or tuple/list")
+    z_shape = int(round(a.shape[0] * fz))
+    y_shape = int(round(a.shape[1] * fy))
+    x_shape = int(round(a.shape[2] * fx))
+
+  # --------------------------------------------
+  # Case 2: dim keyword
+  # --------------------------------------------
+  elif dim is not None:
     if args:
         raise TypeError("Use either positional args OR dim=, not both.")
     if len(dim) != 3:
         raise ValueError("dim must be (z, y, x)")
     z_shape, y_shape, x_shape = dim
 
+  # --------------------------------------------
+  # Case 3: positional args
+  # --------------------------------------------
   elif args:
-    # Case: img_resize(a, (z,y,x))
+    # img_resize(a, (z,y,x))
     if len(args) == 1 and isinstance(args[0], (tuple, list)):
         if len(args[0]) != 3:
             raise ValueError("Shape tuple must have 3 elements")
         z_shape, y_shape, x_shape = args[0]
-
-    # Case: img_resize(a, z, y, x)
+    # img_resize(a, z, y, x)
     elif len(args) == 3:
         z_shape, y_shape, x_shape = args
-
     else:
         raise TypeError(
-            "Invalid arguments. Use (z,y,x), z,y,x, or dim=(z,y,x)"
+            "Invalid arguments. Use (z,y,x), z,y,x, dim=(...), or factor=..."
         )
   else:
     raise TypeError("Missing shape information")
+  print("Target shape:", (z_shape, y_shape, x_shape))
 
+  # resize logic
   if backend=='ndimage':
     zoom_factors = [t / s for t, s in zip((z_shape, y_shape, x_shape), a.shape)]
     data = ndimage.zoom(a, zoom_factors, order=(0 if labels else 3))
@@ -441,8 +480,9 @@ def load_data(path_to_data, process='None', return_extension=False, slicer_label
     elif extension == '.zarr':
         try:
             import zarr
-            zarr_store = zarr.DirectoryStore(path_to_data)
-            data = zarr.open(zarr_store, **zarr_args)
+            from zarr.storage import LocalStore
+            store = LocalStore(path_to_data)
+            data = zarr.open(store=store, **zarr_args)[:]
             header = None
         except Exception as e:
             print(e)

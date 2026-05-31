@@ -637,14 +637,6 @@ if __name__ == "__main__":
     else:
         BASE = os.path.join(Path.cwd(), bm.project)
 
-    # datasets
-    if bm.datasets:
-        n_datasets = len(bm.datasets)
-    elif bm.labelDatasets:
-        n_datasets = len(bm.labelDatasets)
-    else:
-        raise ValueError("no datasets given")
-
     # project
     if not (bm.training_data or bm.train):
 
@@ -659,6 +651,16 @@ if __name__ == "__main__":
             for l in liste:
                 bm.step = max(bm.step, int(l.split('/')[-1].split('=')[-1]))
 
+        # number of datasets
+        if bm.datasets:
+            n_datasets = len(bm.datasets)
+        elif bm.labelDatasets:
+            n_datasets = len(bm.labelDatasets)
+        elif len(glob.glob(BASE+f'/step={bm.step}/result*.nrrd'))>0:
+            n_datasets = len(glob.glob(BASE+f'/step={bm.step}/result*.nrrd'))
+        else:
+            raise ValueError("no datasets given")
+
         # sample (process all if None)
         if bm.sample!=None and rank==0:
             print('Sample:', bm.sample)
@@ -672,16 +674,16 @@ if __name__ == "__main__":
         comm.Barrier()
 
     #=======================================================================================
-    # create mask
+    # create global mask
     #=======================================================================================
     if bm.create_mask:
-        print(f'Binarize image data using {bm.create_mask}. Please use "--create_mask=" to specify.')
-        for i in range(n_datasets):
+        print(f'Binarize image data using threshold {bm.create_mask}')
+        for i, img_path in enumerate(bm.datasets):
+          if bm.sample==None or i==bm.sample:
             path_to_mask = BASE+f'/mask{i+1}.tif'
             if not os.path.exists(path_to_mask):
-                print("Dataset:", os.path.basename(path_to_mask))
-                path_to_img = bm.datasets[i]
-                img = imread(path_to_img)
+                print("Mask:", os.path.basename(path_to_mask))
+                img = imread(img_path)
                 print("Image shape:", img.shape)
                 img[img<bm.create_mask]=0
                 img[img>0]=1
@@ -691,24 +693,27 @@ if __name__ == "__main__":
     # create positive mask of unmatched areas
     #=======================================================================================
     if bm.positive_mask:
-        for i, dataset in enumerate(bm.datasets):
+        for i, img_path in enumerate(bm.datasets):
           if bm.sample==None or i==bm.sample:
-            new_mask_path = f'{path_to_dir}/mask.{dataset}.tif'
+            new_mask_path = f'{path_to_dir}/mask{i+1}.tif'
             if not os.path.exists(new_mask_path):
                 print("Mask:", os.path.basename(new_mask_path))
 
-                # get previous data
-                old_path = get_data_size(BASE+f'/step={bm.step-1}/corr.{dataset}.nrrd')[1]
-                if old_path is None:
-                    old_path = get_data_size(BASE+f'/step={bm.step-1}/match.{dataset}.nrrd')[1]
-                if old_path is None:
+                # previous data path
+                if os.path.exists(BASE+f'/step={bm.step-1}/corr{i+1}.nrrd'):
+                    old_path = BASE+f'/step={bm.step-1}/corr{i+1}.nrrd'
+                elif os.path.exists(BASE+f'/step={bm.step-1}/match{i+1}.nrrd'):
+                    old_path = BASE+f'/step={bm.step-1}/match{i+1}.nrrd'
+                else:
                     raise RuntimeError("No previous result available.")
+
+                # load previous data
                 matched,_ = load_data(old_path)
-                mask = imread(BASE +'/'+ os.path.basename(old_path).replace('corr.','mask.').replace('match.','mask.').replace('.nrrd','.tif'))
 
                 # unmatched areas
+                mask = imread(BASE+f'/mask{i+1}.tif')
                 unmatched = (mask > matched).astype(np.uint8)
-
+                print(matched.shape, mask.shape)
                 # remove outliers
                 s = [[[0,0,0], [0,1,0], [0,0,0]], [[0,1,0], [1,1,1], [0,1,0]], [[0,0,0], [0,1,0], [0,0,0]]]
                 unmatched = unmatched.astype(np.uint32)
@@ -724,28 +729,30 @@ if __name__ == "__main__":
 
                 # scale data
                 upscale, downscale = False, False
-                new_shape = TiffInfo(BASE+f'/mask.{dataset}.tif').shape
+                new_shape = TiffInfo(img_path).shape
                 if unmatched.shape != new_shape:
                     if all(a > b for a, b in zip(unmatched.shape, new_shape)):
                         downscale = True
                     elif all(a < b for a, b in zip(unmatched.shape, new_shape)):
                         upscale = True
+                    else:
+                        print('undecided zoom, using ndimage.zoom')
+                        downscale = True
                 print(f'Upscale: {upscale}, Downscale: {downscale}')
 
                 if upscale:
                     # Initialize the mapped highres mask with zeros
-                    original_mask = imread(BASE+f'/mask.{dataset}.tif')
-                    mapped_mask = np.zeros_like(original_mask)
+                    mapped_mask = np.zeros(new_shape, dtype=np.uint8)
 
                     # Map the region in the original mask corresponding to this pixel
                     mapped_mask = upscale_label(unmatched, mapped_mask)
 
                     # Filter the original mask using the mapped mask
-                    filtered_mask = original_mask * mapped_mask
-                    save_data(new_mask_path, filtered_mask.astype(np.uint8))
+                    #filtered_mask = original_mask * mapped_mask
+                    save_data(new_mask_path, mapped_mask.astype(np.uint8))
 
                 elif downscale:
-                    zoom_factors = [t / s for t, s in zip(TiffInfo(BASE+f'/mask.{dataset}.tif').shape, unmatched.shape)]
+                    zoom_factors = [t / s for t, s in zip(new_shape, unmatched.shape)]
                     unmatched = ndimage.zoom(unmatched, zoom_factors, order=0)
                     save_data(new_mask_path, unmatched.astype(np.uint8))
 
@@ -756,13 +763,10 @@ if __name__ == "__main__":
     # label particles
     #=======================================================================================
     if bm.label_particles:
-        ngpus = get_gpu_count()
-        print('Number of GPUs:', ngpus)
-        for i in range(n_datasets):
+        for i, img_path in enumerate(bm.datasets or bm.labelDatasets):
           if bm.sample==None or i==bm.sample:
 
-            # path to image
-            img_path = bm.datasets[i]
+            # tmp path
             dirname = os.path.dirname(img_path)
             basename, extension = os.path.splitext(os.path.basename(img_path))
             if bm.model == 'explicit':
@@ -789,9 +793,15 @@ if __name__ == "__main__":
             # label particles
             if not os.path.exists(path_to_result):
                 print('Dataset:', os.path.basename(img_path))
+
                 if bm.zoom_factors:
                     print("Zoom factor:", bm.zoom_factors[i])
+
                 if not os.path.exists(path_to_boundaries) and not label_path:
+
+                    # determin number of available GPUs
+                    ngpus = get_gpu_count()
+                    print('Number of GPUs:', ngpus)
 
                     # base command
                     cmd = [sys.executable, '-m', 'biomedisa.deeplearning', img_path, bm.path_to_model,
@@ -816,10 +826,12 @@ if __name__ == "__main__":
                     label_path=label_path)
 
                 # combine with corrected particles from previous step
-                old_size, old_path = get_data_size(BASE+f'/step={bm.step-1}/corr{i+1}.nrrd')
-                if old_size is None:
-                    old_size, old_path = get_data_size(BASE+f'/step={bm.step-1}/match{i+1}.nrrd')
-                if old_size != None:
+                old_path = None
+                if os.path.exists(BASE+f'/step={bm.step-1}/corr{i+1}.nrrd'):
+                    old_path = BASE+f'/step={bm.step-1}/corr{i+1}.nrrd'
+                elif os.path.exists(BASE+f'/step={bm.step-1}/match{i+1}.nrrd'):
+                    old_path = BASE+f'/step={bm.step-1}/match{i+1}.nrrd'
+                if old_path:
                     matched,_ = load_data(old_path)
                     m1_max = np.amax(matched)
                     m2_max = np.amax(labeled_array)
@@ -875,7 +887,8 @@ if __name__ == "__main__":
             dists = [0]*(int(np.amax(labels))+1)
 
             # calculate distances
-            print('Numbers:', len(labels))
+            if rank==0:
+                print('Numbers:', len(labels))
             TIC = time.time()
             for i in range(labels.size):
                 if i % nprocs == rank:
@@ -914,7 +927,8 @@ if __name__ == "__main__":
                 shutil.rmtree(f'{path_to_dir}/result{sample_i+1}.nrrd.zarr')
 
             # print calculation time
-            print('Distances:', int(time.time() - TIC), 'sec')
+            if rank==0:
+                print('Distances:', int(time.time() - TIC), 'sec')
 
     #=======================================================================================
     # match particles using distances to centroid
@@ -934,9 +948,9 @@ if __name__ == "__main__":
                 convert_to_zarr(f'{path_to_dir}/result.{dataset}.nrrd')
         comm.Barrier()
 
-        for i1 in range(1,n_datasets):
+        for i1 in range(1,n_datasets+1):
             for i2 in range(i1+1,n_datasets+1):
-              if bm.sample==None or bm.sample==2*i2-i1:
+              if bm.sample==None or bm.sample==int(f'{i1}{i2}'):
 
                 # load histograms
                 if dists:
@@ -960,8 +974,6 @@ if __name__ == "__main__":
                 bb2 = np.load(f'{path_to_meta}/bounding_boxes{i2}.npy')
 
                 # distance matrix
-                #mse = np.zeros((len(l1),len(l2)), dtype=np.float32)
-                #mse.fill(np.inf)
                 best_mse = -np.ones(len(l1), dtype=np.int32)
 
                 # loop over particles
@@ -985,12 +997,14 @@ if __name__ == "__main__":
                     eps = 1e-6
                     num_bins = int(round(dist1.max() - dist1.min())) // 2
                     r_bins = np.linspace(dist1.min(), dist1.max()+eps, num_bins)
+
                     r_digitized = np.digitize(dist1, r_bins)
                     bins1, counts1 = np.unique(r_digitized, return_counts=True)
                     nbins1 = np.arange(r_bins.size + 1)
                     ncounts1 = np.zeros_like(nbins1)
                     for i in range(len(bins1)):
                         ncounts1[bins1[i]] = counts1[i]
+                    #ncounts1, _ = np.histogram(dist1, bins=r_bins)
 
                     min_error = np.inf
                     for l in range(l2.size):
@@ -1024,7 +1038,6 @@ if __name__ == "__main__":
 
                             # mean squared error
                             error = (ncounts1 - ncounts2)**2
-                            #mse[k,l] = np.mean(error)
 
                             if np.mean(error) < min_error:
                                 min_ncounts2 = ncounts2
@@ -1037,12 +1050,10 @@ if __name__ == "__main__":
                     for source in range(1, nprocs):
                         for k in range(len(l1)):
                             if k % nprocs == source:
-                                #comm.Recv([mse[k], MPI.FLOAT], source=source, tag=k)
                                 best_mse[k] = comm.recv(source=source, tag=k)
                 else:
                     for k in range(len(l1)):
                         if k % nprocs == rank:
-                            #comm.Send([mse[k].copy(), MPI.FLOAT], dest=0, tag=k)
                             comm.send(best_mse[k], dest=0, tag=k)
 
                 # save errors
@@ -1056,7 +1067,8 @@ if __name__ == "__main__":
               shutil.rmtree(f'{path_to_dir}/result.{dataset}.nrrd.zarr')
 
         # print calculation time
-        print(int(time.time() - TIC), 'sec')
+        if rank==0:
+            print(int(time.time() - TIC), 'sec')
 
     #=======================================================================================
     # find rotation of matching particles
@@ -1077,9 +1089,9 @@ if __name__ == "__main__":
       comm.Barrier()
 
       # datasets
-      for i1 in range(1,n_datasets):
+      for i1 in range(1,n_datasets+1):
         for i2 in range(i1+1,n_datasets+1):
-          if bm.sample==None or bm.sample==2*i2-i1:
+          if bm.sample==None or bm.sample==int(f'{i1}{i2}'):
             # open particles
             result1 = zarr.open(f'{path_to_dir}/result{i1}.nrrd.zarr', mode='r')
             result2 = zarr.open(f'{path_to_dir}/result{i2}.nrrd.zarr', mode='r')
@@ -1097,7 +1109,6 @@ if __name__ == "__main__":
             bounding_boxes2 = np.load(f'{path_to_meta}/bounding_boxes{i2}.npy')
 
             # load errors
-            #mse = np.load(f'{path_to_meta}/mse{i1}{i2}.npy')
             best_mse = np.load(f'{path_to_meta}/mse{i1}{i2}.npy')
 
             # allocate rotations array
@@ -1118,7 +1129,6 @@ if __name__ == "__main__":
                   #arg1 = np.argwhere(labels1==result_val1)[0][0]
 
                   # get best matching particle based on best squared error
-                  #arg2 = np.argmin(mse[arg1])
                   arg2 = best_mse[arg1]
                   result_val2 = labels2[arg2]
 
@@ -1130,7 +1140,6 @@ if __name__ == "__main__":
                   else: #if refine:
 
                     # no match detected because all volumes were too different
-                    #if best_mse[arg1]==0 or np.amin(mse[arg1])==np.inf:
                     if best_mse[arg1]<0:# or sizes1[arg1]>2000000000 or sizes2[arg2]>2000000000: #TODO remove
                         rot_dice, best_alpha, best_beta, best_gamma, result_val2 = 0, 0, 0, 0, 0
                         output = np.array([result_val1, result_val2, rot_dice, 0, best_alpha, best_beta, best_gamma])
