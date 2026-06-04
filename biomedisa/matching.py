@@ -599,6 +599,8 @@ if __name__ == "__main__":
                         help='determine best rotation dice for matched particles')
     parser.add_argument('-lmp','--label_matched_particles', action='store_true', default=False,
                         help='determine best particle based on distances to centroid')
+    parser.add_argument('-lmp2','--label_matched_particles2', action='store_true', default=False,
+                        help='determine best particle based on distances to centroid')
     parser.add_argument('-cp','--correct_particles', action='store_true', default=False,
                         help='determine best particle based on distances to centroid')
     parser.add_argument('-ma','--matched_area', action='store_true', default=False,
@@ -636,13 +638,11 @@ if __name__ == "__main__":
         BASE = bm.project
     else:
         BASE = os.path.join(Path.cwd(), bm.project)
+    if rank==0:
+        print('Project base:', BASE)
 
     # project
     if not (bm.training_data or bm.train):
-
-        # project base
-        if rank==0:
-            print('Project base:', BASE)
 
         # step (define step manually or use maximum existing)
         if bm.step==None:
@@ -948,7 +948,7 @@ if __name__ == "__main__":
                 convert_to_zarr(f'{path_to_dir}/result.{dataset}.nrrd')
         comm.Barrier()
 
-        for i1 in range(1,n_datasets+1):
+        for i1 in range(1,n_datasets):
             for i2 in range(i1+1,n_datasets+1):
               if bm.sample==None or bm.sample==int(f'{i1}{i2}'):
 
@@ -1004,7 +1004,6 @@ if __name__ == "__main__":
                     ncounts1 = np.zeros_like(nbins1)
                     for i in range(len(bins1)):
                         ncounts1[bins1[i]] = counts1[i]
-                    #ncounts1, _ = np.histogram(dist1, bins=r_bins)
 
                     min_error = np.inf
                     for l in range(l2.size):
@@ -1037,11 +1036,10 @@ if __name__ == "__main__":
                                 ncounts2[bins2[i]] = counts2[i]
 
                             # mean squared error
-                            error = (ncounts1 - ncounts2)**2
+                            error = np.mean((ncounts1 - ncounts2)**2)
 
-                            if np.mean(error) < min_error:
-                                min_ncounts2 = ncounts2
-                                min_error = np.mean(error)
+                            if error < min_error:
+                                min_error = error
                                 best_mse[k] = l
 
                 # gather results
@@ -1089,7 +1087,7 @@ if __name__ == "__main__":
       comm.Barrier()
 
       # datasets
-      for i1 in range(1,n_datasets+1):
+      for i1 in range(1,n_datasets):
         for i2 in range(i1+1,n_datasets+1):
           if bm.sample==None or bm.sample==int(f'{i1}{i2}'):
             # open particles
@@ -1119,6 +1117,9 @@ if __name__ == "__main__":
             if os.path.exists(pre_rotations_path):
                 pre_rotations = np.load(pre_rotations_path)
                 m1_max = np.amax(pre_rotations[:,0])
+                if rank==0:
+                    print("Using previous rotations:", pre_rotations_path)
+                    print("Previous max value:", int(m1_max))
 
             # loop over particles
             for arg1 in range(labels1.size):
@@ -1406,6 +1407,96 @@ if __name__ == "__main__":
                 print('Additional 2 (only 3->1):', counter)
                 result = matched_particles(result, labels_array)
                 save_data(f'{path_to_dir}/additional2.nrrd', result)
+
+    #=======================================================================================
+    # label matched particles II
+    #=======================================================================================
+    if bm.label_matched_particles2:
+
+        # load rotations
+        rotations = {}
+        for i in range(1, n_datasets):
+            for j in range(i+1, n_datasets+1):
+                fname = f'{path_to_meta}/rotations{i}{j}.npy'
+                rotations[(i, j)] = np.load(fname)
+
+        # load labels
+        labels = {}
+        for i in range(1, n_datasets+1):
+            labels[i] = np.load(f'{path_to_meta}/labels{i}.npy')
+
+        # Collect accepted pairwise matches
+        threshold = 0.90
+        edges = []
+        matched_area = 0
+        for (i, j), rot in rotations.items():
+            for label_i in labels[i]:
+                _, label_j, dice, size_i, *_ = rot[label_i]
+                if dice >= threshold:
+                    edges.append(
+                        ((i, int(label_i)),
+                         (j, int(label_j)))
+                    )
+                    if i == 1:
+                        matched_area += size_i
+
+        # Build connected components
+        parent = {}
+
+        def find(x):
+            if parent[x] != x:
+                parent[x] = find(parent[x])
+            return parent[x]
+
+        def union(a, b):
+            ra = find(a)
+            rb = find(b)
+            if ra != rb:
+                parent[rb] = ra
+
+        # initialize
+        for edge in edges:
+            for node in edge:
+                parent.setdefault(node, node)
+
+        for a, b in edges:
+            union(a, b)
+
+        # Extract components
+        # Each component now contains all labels believed to represent the same particle.
+        from collections import defaultdict
+        components = defaultdict(list)
+        for node in parent:
+            components[find(node)].append(node)
+
+        # Check consistency
+        # A component should contain at most one particle from each dataset.
+        valid_components = []
+        inconsistent_matches = 0
+        for comp in components.values():
+            datasets_present = [d for d, _ in comp]
+            if len(datasets_present) != len(set(datasets_present)):
+                print("Inconsistent component:", comp)
+                inconsistent_matches += 1
+                continue
+            valid_components.append(comp)
+
+        # Create mapping matrix
+        mappings = np.zeros(
+            (len(valid_components), n_datasets),
+            dtype=np.int32
+        )
+        for row, comp in enumerate(valid_components):
+            for dataset_id, label in comp:
+                mappings[row, dataset_id - 1] = label
+
+        # Sort by number of detections
+        counts = np.sum(mappings > 0, axis=1)
+        order = np.argsort(-counts)
+        mappings = mappings[order]
+
+        # save mappings
+        np.save(f'{path_to_meta}/mappings2.npy', mappings)
 
     #=======================================================================================
     # correct particles
@@ -1903,7 +1994,7 @@ if __name__ == "__main__":
 
         # train network
         deep_learning(images, labels, train=True, patch_normalization=True,
-            path_to_model=path_to_model, scaling=False, val_dice=False,
+            path_to_model=bm.path_to_model, scaling=False, val_dice=False,
             pretrained_model=bm.pretrained_model,
             flip_x=True, flip_y=True, flip_z=True, swapaxes=True,
             val_img_data=val_img, val_label_data=val_label, epochs=bm.epochs,
