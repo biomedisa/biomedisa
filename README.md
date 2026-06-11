@@ -155,7 +155,7 @@ wget https://biomedisa.info/media/Quartz/model_svl_step=2.h5
 ```
 Instance segmentation of individual particles using implicit boundary detection:
 ```
-python -m biomedisa.deeplearning large_particles_rescan_0_x4.tif model_svl_step=2.h5 --mask mask.large_particles_rescan_0_x4.tif
+python -m biomedisa.deeplearning large_particles_rescan_0_x4.tif model_svl_step=2.h5 --mask mask.large_particles_rescan_0_x4.tif -bs 512 -ext .nrrd
 ```
 ### Using SAM backend (requires Biomedisa installation with PyTorch):
 Install SAM:
@@ -168,7 +168,7 @@ wget https://dl.fbaipublicfiles.com/segment_anything/sam_vit_l_0b3195.pth
 ```
 Instance segmentation of individual particles:
 ```
-python -m biomedisa.deeplearning large_particles_rescan_0_x4.tif sam_vit_l_0b3195.pth --mask mask.large_particles_rescan_0_x4.tif
+python -m biomedisa.deeplearning large_particles_rescan_0_x4.tif sam_vit_l_0b3195.pth --mask mask.large_particles_rescan_0_x4.tif -ext .nrrd
 ```
 
 ## Mesh Generator
