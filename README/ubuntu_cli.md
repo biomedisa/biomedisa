@@ -79,7 +79,8 @@ PyTorch (AMD/ROCm):
 ```
 python3 -m pip install -r requirements.txt keras torch torchvision --extra-index-url https://download.pytorch.org/whl/rocm6.4
 ```
-Optional (requires PyTorch): Install Segment Anything Model (SAM) for instance segmentation:
+
+#### Optional: Install Segment Anything Model (SAM) for instance segmentation (requires PyTorch):
 ```
 python3 -m pip install git+https://github.com/facebookresearch/segment-anything.git
 ```
