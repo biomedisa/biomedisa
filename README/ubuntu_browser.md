@@ -12,7 +12,7 @@
 
 #### Install Python and Pip
 ```
-sudo apt-get install python3 python3.12-dev python3-pip
+sudo apt-get install python3 python3.12-dev python3-pip python3-venv
 ```
 
 #### Install Software Dependencies
@@ -30,9 +30,9 @@ git clone https://github.com/biomedisa/biomedisa.git
 ```
 
 #### Install CUDA Toolkit
-Download and install [CUDA Toolkit](https://developer.nvidia.com/cuda-downloads) or via command-line as follows. You may choose any CUDA version compatible with your NVIDIA GPU architecture as outlined in the [NVIDIA Documentation](https://docs.nvidia.com/deeplearning/cudnn/latest/reference/support-matrix.html). If you select a version other than CUDA 12.6 for Ubuntu 22.04, you will need to adjust the following steps accordingly:
+Download and install [CUDA Toolkit](https://developer.nvidia.com/cuda-downloads) or via command-line as follows. You may choose any CUDA version compatible with your NVIDIA GPU architecture as outlined in the [NVIDIA Documentation](https://docs.nvidia.com/deeplearning/cudnn/latest/reference/support-matrix.html). If you select a version other than **CUDA 12.6** for **Ubuntu 24.04**, you will need to adjust the following steps accordingly:
 ```
-wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb
+wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
 sudo dpkg -i cuda-keyring_1.1-1_all.deb
 sudo apt-get update
 sudo apt-get -y install cuda-toolkit-12-6
@@ -62,7 +62,7 @@ source biomedisa_env/bin/activate
 #### Install Pip Packages
 ```
 cd ~/git/biomedisa
-python3 -m pip install -r requirements.txt mysqlclient rq wget django keras tensorflow[and-cuda]==2.18.0 tf-keras==2.18
+python3 -m pip install -r requirements.txt mysqlclient rq wget django keras tensorflow[and-cuda]==2.18.0 tf-keras==2.18.0
 PATH=/usr/local/cuda-12.6/bin:${PATH} python3 -m pip install pycuda
 ```
 
