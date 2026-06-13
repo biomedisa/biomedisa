@@ -44,6 +44,10 @@ Install Keras 3:
 ```
 conda install conda-forge::keras
 ```
+Optional: Install Segment Anything Model (SAM) for instance segmentation:
+```
+python -m pip install git+https://github.com/facebookresearch/segment-anything.git
+```
 
 #### Download Test Files
 Download test files from [Gallery](https://biomedisa.info/gallery/) or via command-line:
