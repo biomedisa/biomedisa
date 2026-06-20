@@ -107,7 +107,7 @@ if __name__ == "__main__":
             result = imread(BASE+f'final.EM30-{sample}-im_400-500.tif')
             test_label = imread(BASE+f'EM30-{sample}-labels.tif', key=range(400,500))
             test_label[test_label>0]=1
-            print(sample, model, dice_score_(result, test_label, 1, 1))
+            print(sample, dice_score_(result, test_label, 1, 1))
 
     #=======================================================================================
     # separate mitochondria
