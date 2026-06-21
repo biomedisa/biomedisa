@@ -17,7 +17,7 @@ function visualizationFunction(id, repository_name) {
 {% endblock %}
 
 {% block menubar %}
-{% include 'menu_bar.html' with activate="repository" user=user %}
+{% include 'menu_bar.html' with activate=repository.name user=user %}
 {% endblock %}
 
 {% block slideshow %}
