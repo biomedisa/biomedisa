@@ -47,9 +47,14 @@ def dice_score_numba(ref, result, ref_val, result_val):
     return 2.0 * intersection / denom
 
 if __name__ == "__main__":
-    # R: 1000 img slices; 500 labelled slices => 300 training; 100 validation; 100 test
+    # download the data:
+    # https://huggingface.co/datasets/pytc/EM30/resolve/main/EM30-H-im-pad.zip
+    # https://huggingface.co/datasets/pytc/EM30/resolve/main/EM30-R-im.zip
+    # https://huggingface.co/datasets/pytc/MitoEM/blob/main/EM30-H-mito-train-val-v2.zip
+    # https://huggingface.co/datasets/pytc/MitoEM/blob/main/EM30-R-mito-train-val-v2.zip
     # H: 1040 img slices; 500 labelled slices => 300 training; 100 validation; 100 test
-    BASE = ''
+    # R: 1000 img slices; 500 labelled slices => 300 training; 100 validation; 100 test
+    BASE = os.path.join(os.path.expanduser("~"), "Downloads")
     #=======================================================================================
     # train
     #=======================================================================================
@@ -57,27 +62,27 @@ if __name__ == "__main__":
         from biomedisa.deeplearning import deep_learning
 
         # image data
-        img = imread(BASE+'EM30-R-im.tif',key=range(0,300))
-        img_val = imread(BASE+'EM30-R-im.tif',key=range(300,400))
+        img = imread(os.path.join(BASE, 'EM30-R-im.tif'), key=range(0,300))
+        img_val = imread(os.path.join(BASE, 'EM30-R-im.tif'), key=range(300,400))
 
         # label data
-        label = imread(BASE+'EM30-R-labels.tif',key=range(0,300))
-        label_val = imread(BASE+'EM30-R-labels.tif',key=range(300,400))
+        label = imread(os.path.join(BASE, 'EM30-R-labels.tif'), key=range(0,300))
+        label_val = imread(os.path.join(BASE, 'EM30-R-labels.tif'), key=range(300,400))
 
         # image data
-        img = np.append(img, imread(BASE+'EM30-H-im.tif',key=range(0,300)), axis=0)
-        img_val = np.append(img_val, imread(BASE+'EM30-H-im.tif',key=range(300,400)), axis=0)
+        img = np.append(img, imread(os.path.join(BASE, 'EM30-H-im.tif'), key=range(0,300)), axis=0)
+        img_val = np.append(img_val, imread(os.path.join(BASE, 'EM30-H-im.tif'), key=range(300,400)), axis=0)
 
         # label data
-        label = np.append(label, imread(BASE+'EM30-H-labels.tif',key=range(0,300)), axis=0)
-        label_val = np.append(label_val, imread(BASE+'EM30-H-labels.tif',key=range(300,400)), axis=0)
+        label = np.append(label, imread(os.path.join(BASE, 'EM30-H-labels.tif'), key=range(0,300)), axis=0)
+        label_val = np.append(label_val, imread(os.path.join(BASE, 'EM30-H-labels.tif'), key=range(300,400)), axis=0)
 
         print(img.shape, img_val.shape)
         print(label.shape, label_val.shape)
 
         # train separation model
         deep_learning(img, label, train=True, scaling=False, val_dice=False,
-            path_to_model=BASE+'EM30-HR-separation-balance.h5', balance=True,
+            path_to_model=os.path.join(BASE, 'EM30-HR-separation-balance.h5'), balance=True,
             flip_x=True, flip_y=True, flip_z=True, swapaxes=True,
             val_img_data=img_val, val_label_data=label_val,
             x_patch=16, y_patch=16, z_patch=16, batch_size=48,
@@ -87,7 +92,7 @@ if __name__ == "__main__":
         label[label>0]=1
         label_val[label_val>0]=1
         deep_learning(img, label, train=True, scaling=False, val_dice=True,
-            path_to_model=BASE+'EM30-HR-mask.h5', balance=True,
+            path_to_model=os.path.join(BASE, 'EM30-HR-mask.h5'), balance=True,
             flip_x=True, flip_y=True, flip_z=True, swapaxes=True,
             val_img_data=img_val, val_label_data=label_val,
             validation_stride_size=64)
@@ -97,15 +102,15 @@ if __name__ == "__main__":
     #=======================================================================================
     if '-m' in sys.argv:
         for sample in ['R','H']:
-            path_to_img = BASE+f'EM30-{sample}-im_400-500.tif'
+            path_to_img = os.path.join(BASE, f'EM30-{sample}-im_400-500.tif')
             if not os.path.exist(path_to_img):
-                img = imread((BASE+'EM30-R-im.tif', key=range(400,500))
+                img = imread(os.path.join(BASE, 'EM30-R-im.tif'), key=range(400,500))
                 imwrite(path_to_img, img)
-            path_to_model = BASE+'EM30-HR-mask.h5'
+            path_to_model = os.path.join(BASE, 'EM30-HR-mask.h5')
             subprocess.Popen([sys.executable, '-m', 'biomedisa.deeplearning',
                 path_to_img, path_to_model]).wait()
-            result = imread(BASE+f'final.EM30-{sample}-im_400-500.tif')
-            test_label = imread(BASE+f'EM30-{sample}-labels.tif', key=range(400,500))
+            result = imread(os.path.join(BASE, f'final.EM30-{sample}-im_400-500.tif')
+            test_label = imread(os.path.join(BASE, f'EM30-{sample}-labels.tif', key=range(400,500))
             test_label[test_label>0]=1
             print(sample, model, dice_score_(result, test_label, 1, 1))
 
@@ -114,12 +119,12 @@ if __name__ == "__main__":
     #=======================================================================================
     if '-s' in sys.argv:
         for sample in ['R','H']:
-            path_to_img = BASE+f'EM30-{sample}-im_400-500.tif'
+            path_to_img = os.path.join(BASE, f'EM30-{sample}-im_400-500.tif')
             if not os.path.exist(path_to_img):
-                img = imread((BASE+'EM30-R-im.tif', key=range(400,500))
+                img = imread(os.path.join(BASE, 'EM30-R-im.tif'), key=range(400,500))
                 imwrite(path_to_img, img)
-            path_to_mask = BASE+f'final.EM30-{sample}-im_400-500.tif'
-            path_to_model = BASE+'EM30-HR-separation-balance.h5'
+            path_to_mask = os.path.join(BASE, f'final.EM30-{sample}-im_400-500.tif')
+            path_to_model = os.path.join(BASE, 'EM30-HR-separation-balance.h5')
             subprocess.Popen([sys.executable, '-m', 'biomedisa.deeplearning',
                 path_to_img, path_to_model, f'-m={path_to_mask}',
                 '-ext=.nrrd', '--min_particle_size=100', '-bs=512']).wait()
@@ -131,8 +136,8 @@ if __name__ == "__main__":
         for sample in ['R','H']:
 
             # path to data
-            path_to_ref = BASE+f'EM30-{sample}-labels.tif'
-            path_to_result = BASE+f'final.EM30-{sample}-im_400-500.nrrd'
+            path_to_ref = os.path.join(BASE, f'EM30-{sample}-labels.tif')
+            path_to_result = os.path.join(BASE, f'final.EM30-{sample}-im_400-500.nrrd')
 
             # load reference
             ref = imread(path_to_ref, key=range(400,500))
