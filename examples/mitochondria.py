@@ -56,6 +56,14 @@ if __name__ == "__main__":
     # R: 1000 img slices; 500 labelled slices => 300 training; 100 validation; 100 test
     BASE = os.path.join(os.path.expanduser("~"), "Downloads")
     #=======================================================================================
+    # preprocess
+    #=======================================================================================
+    # load slices and save as multipage TIFF, such as:
+    if '-p' in sys.argv:
+        img = load_data(os.path.join(BASE, 'im_pad'))[0]
+        save_data(os.path.join(BASE, 'EM30-H-im.tif'), img[:,:4096,:4096], compress=False)
+
+    #=======================================================================================
     # train
     #=======================================================================================
     if '-t' in sys.argv:

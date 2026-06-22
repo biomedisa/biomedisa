@@ -48,11 +48,14 @@ python3 -m pip install -r requirements.txt keras torch torchvision --extra-index
 ```
 TensorFlow (AMD/ROCm):
 ```
-python3 -m pip install -r requirements.txt keras tf-keras==2.16 tensorflow-rocm==2.16.2 -f https://repo.radeon.com/rocm/manylinux/rocm-rel-6.4.2/ --upgrade
+python3 -m pip install -r requirements.txt
+python3 -m pip install tensorflow-rocm==2.18.1 -f https://repo.radeon.com/rocm/manylinux/rocm-rel-7.2.4/ --upgrade
+python3 -m pip install keras
+python3 -m pip install tf-keras==2.18.0 --no-deps
 ```
 PyTorch (AMD/ROCm):
 ```
-python3 -m pip install -r requirements.txt keras torch torchvision --extra-index-url https://download.pytorch.org/whl/rocm6.4
+python3 -m pip install -r requirements.txt keras torch torchvision --extra-index-url https://download.pytorch.org/whl/rocm7.2
 ```
 
 #### Optional: Install Segment Anything Model (SAM) for instance segmentation (requires PyTorch)
