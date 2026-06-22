@@ -1512,7 +1512,7 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
                 print(e)
     elif backend_name == 'torch':
         import torch
-        if  torch.cuda.is_available() and torch.cuda.device_count() > 0:
+        if torch.cuda.is_available() and torch.cuda.device_count() > 0:
             # Assign GPU based on MPI rank
             gpu_id = rank % torch.cuda.device_count()
             # Set the current CUDA device
@@ -1697,6 +1697,7 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
 
         # predict segmentation block by block
         z_indices = range(0, zsh-bm.z_patch+1, bm.stride_size)
+
         for j, z in enumerate(z_indices):
           # handle len(z_indices) % ngpus != 0
           if len(z_indices)-1-j < ngpus:
