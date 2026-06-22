@@ -57,7 +57,7 @@ wget https://raw.githubusercontent.com/biomedisa/biomedisa/refs/heads/master/req
 ```
 
 #### Install TensorFlow or PyTorch
-- Choose one of the following frameworks:
+- Choose one of the following frameworks. PyTorch currently lacks support for auto-cropping and multi-GPU training:
 
 TensorFlow (NVIDIA/CUDA):
 ```
@@ -73,13 +73,20 @@ python3 -m pip install -r requirements.txt keras torch torchvision --extra-index
 ```
 TensorFlow (AMD/ROCm):
 ```
-python3 -m pip install -r requirements.txt keras tf-keras==2.16 tensorflow-rocm==2.16.2 -f https://repo.radeon.com/rocm/manylinux/rocm-rel-6.4.2/ --upgrade
+python3 -m pip install -r requirements.txt
+python3 -m pip install tensorflow-rocm==2.18.1 -f https://repo.radeon.com/rocm/manylinux/rocm-rel-7.2.4/ --upgrade
+python3 -m pip install keras
+python3 -m pip install tf-keras==2.18.0 --no-deps
 ```
 PyTorch (AMD/ROCm):
 ```
-python3 -m pip install -r requirements.txt keras torch torchvision --extra-index-url https://download.pytorch.org/whl/rocm6.4
+python3 -m pip install -r requirements.txt keras torch torchvision --extra-index-url https://download.pytorch.org/whl/rocm7.2
 ```
-If you use PyTorch, you need to change the backend entry in `~/.keras/keras.json` to `torch`. PyTorch currently lacks support for auto-cropping and multi-GPU training.
+
+#### Optional: Install Segment Anything Model (SAM) for instance segmentation (requires PyTorch)
+```
+python3 -m pip install git+https://github.com/facebookresearch/segment-anything.git
+```
 
 #### Install PyCUDA
 Adjust the CUDA version if required:

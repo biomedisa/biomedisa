@@ -40,8 +40,11 @@ import time
 import shutil
 import glob
 import zarr
-from zarr.storage import LocalStore
 from numcodecs import Zlib
+try:
+    from zarr.storage import LocalStore
+except:
+    pass
 
 @numba.jit(nopython=True)
 def assign_labels(ref, result, labels_matrix):

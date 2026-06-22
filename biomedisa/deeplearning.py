@@ -52,13 +52,40 @@ class Biomedisa(object):
      pass
 
 def get_gpu_memory():
+    # NVIDIA
     try:
-        result = subprocess.check_output(['nvidia-smi', '--query-gpu=memory.free', '--format=csv,nounits,noheader'], encoding='utf-8')
-        # Convert lines to list
-        gpu_memory = [int(x) for x in result.strip().split('\n')]
-        return gpu_memory
-    except:
-        return None
+        result = subprocess.check_output(
+            [
+                "nvidia-smi",
+                "--query-gpu=memory.free",
+                "--format=csv,nounits,noheader",
+            ],
+            encoding="utf-8",
+        )
+        return [int(x) for x in result.strip().splitlines()]
+    except Exception:
+        pass
+
+    # AMD (ROCm)
+    try:
+        result = subprocess.check_output(
+            ["rocm-smi", "--showmeminfo", "vram"],
+            encoding="utf-8",
+        )
+
+        gpu_memory = []
+
+        for line in result.splitlines():
+            if "VRAM Total Memory (B):" in line:
+                total = int(line.split(":")[-1].strip()) // (1024 * 1024)
+                gpu_memory.append(total)
+
+        return gpu_memory if gpu_memory else None
+
+    except Exception:
+        pass
+
+    return None
 
 def number_of_slices(file_path):
     with tifffile.TiffFile(file_path) as tiff:
