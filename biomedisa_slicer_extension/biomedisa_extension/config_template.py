@@ -50,11 +50,11 @@ wsl_path = None
 
 '''Virtual Python Environment'''
 #python_path = f"/home/{username}/biomedisa_env/bin/python"
-#lib_path = f"{biomedisa_path}:/home/{username}/biomedisa_env/lib/python3.10/site-packages"
+#lib_path = f"{biomedisa_path}:/home/{username}/biomedisa_env/lib/python3.12/site-packages"
 #wsl_path = None
 
 '''System Python'''
 #python_path = "/usr/bin/python3"
-#lib_path = f"{biomedisa_path}:/home/{username}/.local/lib/python3.10/site-packages"
+#lib_path = f"{biomedisa_path}:/home/{username}/.local/lib/python3.12/site-packages"
 #wsl_path = None
 

@@ -30,11 +30,24 @@ import numpy as np
 import pyopencl as cl
 import os
 
-def walk(data, slices, indices, indices_child, nbrw, sorw, name, ctx, queue):
-
-    labels = np.unique(slices)
-    slicesChunk = _extract_slices(slices, indices, indices_child)
-    labelsChunk = np.unique(slicesChunk)
+def walk(data, slices, indices, indices_child, nbrw, sorw, name, ctx, queue, allx):
+    if allx:
+        labels = np.zeros(0)
+        for k in range(3):
+            labels = np.append(labels, np.unique(slices[k]))
+        labels = np.unique(labels)
+        slicesChunk, indicesChunk = [], []
+        labelsChunk = np.zeros(0)
+        for k in range(3):
+            slices_tmp, indices_tmp = _extract_slices(slices[k], indices, indices_child, allx, k)
+            slicesChunk.append(slices_tmp)
+            indicesChunk.append(indices_tmp)
+            labelsChunk = np.append(labelsChunk, np.unique(slices_tmp))
+        labelsChunk = np.unique(labelsChunk)
+    else:
+        labels = np.unique(slices)
+        slicesChunk, indicesChunk = _extract_slices(slices, indices, indices_child, allx, 0)
+        labelsChunk = np.unique(slicesChunk)
 
     # remove negative labels from list
     index = np.argwhere(labels<0)
@@ -42,7 +55,7 @@ def walk(data, slices, indices, indices_child, nbrw, sorw, name, ctx, queue):
     index = np.argwhere(labelsChunk<0)
     labelsChunk = np.delete(labelsChunk, index)
 
-    walkmapChunk = _walk_on_current_gpu(data, slicesChunk, labelsChunk, indices_child, nbrw, sorw, name, ctx, queue)
+    walkmapChunk = _walk_on_current_gpu(data, slicesChunk, labelsChunk, indicesChunk, nbrw, sorw, name, ctx, queue, allx)
 
     if walkmapChunk.shape[0] != len(labels):
         walkmap = np.zeros((len(labels),)+data.shape, dtype=np.float32)
@@ -53,65 +66,58 @@ def walk(data, slices, indices, indices_child, nbrw, sorw, name, ctx, queue):
         walkmap = walkmapChunk
 
     return walkmap
- 
-def _extract_slices(slices, indices, indicesChunk):
+
+def _extract_slices(slices, indices, indicesChunk, allx, k):
+    if allx:
+        indices = [x for (x, y) in indices if y == k]
+        indicesChunk = [x for (x, y) in indicesChunk if y == k]
     extracted = np.zeros((0, slices.shape[1], slices.shape[2]), dtype=np.int32)
     slicesIndicesToExtract = np.nonzero(np.isin(indices, indicesChunk))[0]
     for arraySliceIndex in slicesIndicesToExtract:
         extracted = np.append(extracted, [slices[arraySliceIndex]], axis=0)
-    return extracted
+    return extracted, indicesChunk
 
-def _walk_on_current_gpu(raw, slices, allLabels, indices, nbrw, sorw, name, ctx, queue):
+def _walk_on_current_gpu(raw, extracted_slices, allLabels, indices, nbrw, sorw, name, ctx, queue, allx):
 
     # build kernels
     if raw.dtype == 'uint8':
-        src = _build_kernel_int8()
+        kernel = cl.Program(ctx, _build_kernel_int8()).build().randomWalk
         raw = (raw-128).astype('int8')
     else:
-        src = _build_kernel_float32()
+        kernel = cl.Program(ctx, _build_kernel_float32()).build().randomWalk
         raw = raw.astype(np.float32)
 
-    indices = np.array(indices, dtype=np.int32)
-    slices = np.array(slices, dtype=np.int32)
     walkmap = np.zeros((len(allLabels),)+raw.shape, dtype=np.float32)
     a = np.empty(raw.shape, dtype=np.int32)
 
     # image size
     zsh, ysh, xsh = raw.shape
-    slshape = slices.shape[0]
 
-    # kernel function instantiation
-    mf = cl.mem_flags
-    prg = cl.Program(ctx, src).build()
+    # rebuild slices
+    slices = np.zeros(raw.shape, dtype=np.int32) - 1
+    if allx:
+        slices[indices[0]] = extracted_slices[0]
+        slices[:,indices[1]] = extracted_slices[1].transpose(1, 0, 2)
+        slices[:,:,indices[2]] = extracted_slices[2].transpose(1, 2, 0)
+    else:
+        slices[indices] = extracted_slices
 
     # allocate memory for variables on the device
-    indices_cl = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=indices)
+    mf = cl.mem_flags
     slices_cl = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=slices)
     raw_cl = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=raw)
     a_cl = cl.Buffer(ctx, mf.WRITE_ONLY | mf.COPY_HOST_PTR, hostbuf=a)
 
-    xsh_cl = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=np.int32(xsh))
-    ysh_cl = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=np.int32(ysh))
-    zsh_cl = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=np.int32(zsh))
-    sorw_cl = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=np.int32(sorw))
-    nbrw_cl = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=np.int32(nbrw))
-    segment_cl = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=np.int32(0))
-
     # block and grid size
-    #block = (1, 16, 16)
-    #x_grid = ((xsh // 16) + 1)*16
-    #y_grid = ((ysh // 16) + 1)*16
-    #grid = (slshape, y_grid, x_grid)
-
     block = None
-    grid = (slshape, ysh, xsh)
+    grid = (zsh, ysh, xsh)
 
     # call Kernel
     for label_counter, segment in enumerate(allLabels):
         print('%s:' %(name) + ' ' + str(label_counter+1) + '/' + str(len(allLabels)))
         cl.enqueue_fill_buffer(queue, a_cl, np.int32(0), offset=0, size=a.nbytes)
-        cl.enqueue_fill_buffer(queue, segment_cl, np.int32(segment), offset=0, size=4, wait_for=None)
-        prg.randomWalk(queue, grid, block, segment_cl, raw_cl, slices_cl, a_cl, xsh_cl, ysh_cl, zsh_cl, indices_cl, sorw_cl, nbrw_cl)
+        kernel(queue, grid, block, np.int32(segment), raw_cl, slices_cl, a_cl,
+            np.int32(xsh), np.int32(ysh), np.int32(zsh), np.int32(sorw), np.int32(nbrw))
         cl.enqueue_copy(queue, a, a_cl)
         walkmap[label_counter] += a
     return walkmap
@@ -119,18 +125,20 @@ def _walk_on_current_gpu(raw, slices, allLabels, indices, nbrw, sorw, name, ctx,
 def _build_kernel_int8():
     src = '''
 
-    float _calc_var(int position, int index, int B, __global char *raw, int segment, __global int *labels, int xsh) {
+    float _calc_var(int index, int B, __global char *raw, const int segment, __global int *labels, const int xsh, const int ysh) {
         float dev = 0;
         float summe = 0;
-        for (int n = -1; n < 2; n++) {
+        for (int m = -1; m < 2; m++) {
+          for (int n = -1; n < 2; n++) {
             for (int o = -1; o < 2; o++) {
-                if (labels[index + n*xsh + o] == segment) {
-                    float tmp = B - raw[position + n*xsh + o];
+                if (labels[index + m*xsh*ysh + n*xsh + o] == segment) {
+                    float tmp = B - raw[index + m*xsh*ysh + n*xsh + o];
                     dev += tmp * tmp;
                     summe += 1;
                     }
                 }
             }
+          }
         float var = dev / summe;
         if (var < 1.0) {
             var = 1.0;
@@ -143,14 +151,7 @@ def _build_kernel_int8():
         return exp( - tmp * tmp * div1 );
         }
 
-    __kernel void randomWalk(__global int *Segment, __global char *raw, __global int *slices, __global int *a, __global int *Xsh, __global int *Ysh, __global int *Zsh, __global int *indices, __global int *Sorw, __global int *Nbrw) {
-
-        int sorw = *Sorw;
-        int nbrw = *Nbrw;
-        int xsh = *Xsh;
-        int ysh = *Ysh;
-        int zsh = *Zsh;
-        int segment = *Segment;
+    __kernel void randomWalk(const int segment, __global char *raw, __global int *slices, __global int *a, const int xsh, const int ysh, const int zsh, const int sorw, const int nbrw) {
 
         // get_global_id(0)         // blockIdx.z * blockDim.z + threadIdx.z
         // get_local_id(0)          // threadIdx.z
@@ -160,10 +161,8 @@ def _build_kernel_int8():
         int flat   = xsh * ysh;
         int column = get_global_id(2);
         int row    = get_global_id(1);
-        int slice  = get_global_id(0);
-        int plane  = indices[slice];
-        int index  = slice * flat + row * xsh + column;
-        int position = plane*flat + row*xsh + column;
+        int plane  = get_global_id(0);
+        int index  = plane * flat + row * xsh + column;
 
         if (index < get_global_size(0)*flat && plane>0 && row>0 && column>0 && plane<zsh-1 && row<ysh-1 && column<xsh-1) {
 
@@ -186,8 +185,8 @@ def _build_kernel_int8():
                 float s10 = index, s11 = index, s12 = index, s20 = index, s21 = index, s22 = index;
 
                 /* Compute standard deviation */
-                int B = raw[position];
-                float var = _calc_var(position, index, B, raw, segment, slices, xsh);
+                int B = raw[index];
+                float var = _calc_var(index, B, raw, segment, slices, xsh, ysh);
                 float div1 = 1 / (2 * var);
 
                 int k = plane;
@@ -201,12 +200,12 @@ def _build_kernel_int8():
                 while (n_rw < nbrw) {
 
                     /* Compute weights */
-                    W0 = weight(B, raw[position + flat], div1);
-                    W1 = weight(B, raw[position - flat], div1);
-                    W2 = weight(B, raw[position + xsh], div1);
-                    W3 = weight(B, raw[position - xsh], div1);
-                    W4 = weight(B, raw[position + 1], div1);
-                    W5 = weight(B, raw[position - 1], div1);
+                    W0 = weight(B, raw[index + flat], div1);
+                    W1 = weight(B, raw[index - flat], div1);
+                    W2 = weight(B, raw[index + xsh], div1);
+                    W3 = weight(B, raw[index - xsh], div1);
+                    W4 = weight(B, raw[index + 1], div1);
+                    W5 = weight(B, raw[index - 1], div1);
 
                     W1 += W0;
                     W2 += W1;
@@ -257,8 +256,8 @@ def _build_kernel_int8():
                         k += n;
                         l += o;
                         m += p;
-                        position = k*flat + l*xsh + m;
-                        atomic_add(&a[position], 1);
+                        index = k*flat + l*xsh + m;
+                        atomic_add(&a[index], 1);
                         }
 
                     step += 1;
@@ -267,7 +266,7 @@ def _build_kernel_int8():
                         k = plane;
                         l = row;
                         m = column;
-                        position = k*flat + l*xsh + m;
+                        index = k*flat + l*xsh + m;
                         n_rw += 1;
                         step = 0;
                         }
@@ -281,18 +280,20 @@ def _build_kernel_int8():
 def _build_kernel_float32():
     src = '''
 
-    float _calc_var(int position, int index, float B, __global float *raw, int segment, __global int *labels, int xsh) {
+    float _calc_var(int index, float B, __global float *raw, const int segment, __global int *labels, const int xsh, const int ysh) {
         float dev = 0;
         float summe = 0;
-        for (int n = -1; n < 2; n++) {
+        for (int m = -1; m < 2; m++) {
+          for (int n = -1; n < 2; n++) {
             for (int o = -1; o < 2; o++) {
-                if (labels[index + n*xsh + o] == segment) {
-                    float tmp = B - raw[position + n*xsh + o];
+                if (labels[index + m*ysh*xsh + n*xsh + o] == segment) {
+                    float tmp = B - raw[index + m*ysh*xsh + n*xsh + o];
                     dev += tmp * tmp;
                     summe += 1;
                     }
                 }
             }
+          }
         float var = dev / summe;
         if (var < 1.0) {
             var = 1.0;
@@ -305,14 +306,8 @@ def _build_kernel_float32():
         return exp( - tmp * tmp * div1 );
         }
 
-    __kernel void randomWalk(__global int *Segment, __global float *raw, __global int *slices, __global int *a, __global int *Xsh, __global int *Ysh, __global int *Zsh, __global int *indices, __global int *Sorw, __global int *Nbrw)
+    __kernel void randomWalk(const int segment, __global float *raw, __global int *slices, __global int *a, const int xsh, const int ysh, const int zsh, const int sorw, const int nbrw)
     {
-        int sorw = *Sorw;
-        int nbrw = *Nbrw;
-        int xsh = *Xsh;
-        int ysh = *Ysh;
-        int zsh = *Zsh;
-        int segment = *Segment;
 
         // get_global_id(0)         // blockIdx.z * blockDim.z + threadIdx.z
         // get_local_id(0)          // threadIdx.z
@@ -322,10 +317,8 @@ def _build_kernel_float32():
         int flat   = xsh * ysh;
         int column = get_global_id(2);
         int row    = get_global_id(1);
-        int slice  = get_global_id(0);
-        int plane  = indices[slice];
-        int index  = slice * flat + row * xsh + column;
-        int position = plane*flat + row*xsh + column;
+        int plane  = get_global_id(0);
+        int index  = plane * flat + row * xsh + column;
 
         if (index < get_global_size(0)*flat && plane>0 && row>0 && column>0 && plane<zsh-1 && row<ysh-1 && column<xsh-1) {
 
@@ -348,8 +341,8 @@ def _build_kernel_float32():
                 float s10 = index, s11 = index, s12 = index, s20 = index, s21 = index, s22 = index;
 
                 /* Compute standard deviation */
-                float B = raw[position];
-                float var = _calc_var(position, index, B, raw, segment, slices, xsh);
+                float B = raw[index];
+                float var = _calc_var(index, B, raw, segment, slices, xsh, ysh);
                 float div1 = 1 / (2 * var);
 
                 int k = plane;
@@ -362,12 +355,12 @@ def _build_kernel_float32():
                 /* Compute random walks */
                 while (n_rw < nbrw) {
 
-                    W0 = weight(B, raw[position + flat], div1);
-                    W1 = weight(B, raw[position - flat], div1);
-                    W2 = weight(B, raw[position + xsh], div1);
-                    W3 = weight(B, raw[position - xsh], div1);
-                    W4 = weight(B, raw[position + 1], div1);
-                    W5 = weight(B, raw[position - 1], div1);
+                    W0 = weight(B, raw[index + flat], div1);
+                    W1 = weight(B, raw[index - flat], div1);
+                    W2 = weight(B, raw[index + xsh], div1);
+                    W3 = weight(B, raw[index - xsh], div1);
+                    W4 = weight(B, raw[index + 1], div1);
+                    W5 = weight(B, raw[index - 1], div1);
 
                     W1 += W0;
                     W2 += W1;
@@ -418,8 +411,8 @@ def _build_kernel_float32():
                         k += n;
                         l += o;
                         m += p;
-                        position = k*flat + l*xsh + m;
-                        atomic_add(&a[position], 1);
+                        index = k*flat + l*xsh + m;
+                        atomic_add(&a[index], 1);
                         }
 
                     step += 1;
@@ -428,7 +421,7 @@ def _build_kernel_float32():
                         k = plane;
                         l = row;
                         m = column;
-                        position = k*flat + l*xsh + m;
+                        index = k*flat + l*xsh + m;
                         n_rw += 1;
                         step = 0;
                         }

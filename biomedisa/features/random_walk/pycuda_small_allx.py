@@ -33,7 +33,7 @@ from pycuda.compiler import SourceModule
 from biomedisa.features.random_walk.gpu_kernels import _build_kernel_fill
 import numba
 
-def walk(data, slices, indices_all, indices_child, nbrw, sorw, name, ctx, queue):
+def walk(data, slices, indices_all, indices_child, nbrw, sorw, name, ctx, queue, allx):
 
     labels = np.zeros(0)
     for k in range(3):

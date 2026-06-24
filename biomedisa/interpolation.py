@@ -103,17 +103,6 @@ def smart_interpolation(data, labelData, nbrw=10, sorw=4000, acwe=False, acwe_al
                 if bm.success == False:
                     bm = _error_(bm, f'No {bm.platform} device found.')
 
-        # smooth, uncertainty and allx are not supported for opencl
-        if bm.success and bm.platform.split('_')[0] == 'opencl':
-            if bm.smooth:
-                bm.smooth = 0
-                print('Warning: Smoothing is not yet supported for opencl. Process starts without smoothing.')
-            if bm.uncertainty:
-                bm.uncertainty = False
-                print('Warning: Uncertainty is not yet supported for opencl. Process starts without uncertainty.')
-            #if bm.allaxis:
-            #    bm = _error_(bm, 'Allx is not yet supported for opencl.')
-
         if not bm.success:
 
             # send not executable

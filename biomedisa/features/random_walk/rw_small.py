@@ -1,6 +1,6 @@
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2019-2025 Philipp Lösel. All rights reserved.         ##
+##  Copyright (c) 2019 Philipp Lösel. All rights reserved.              ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -36,48 +36,6 @@ import time
 import socket
 import os
 
-def _extract_indices(indicesChunk, k):
-    return [x for (x, y) in indicesChunk if y == k]
-
-def walk_allaxis(data, labels, indices, indices_split, nbrw, sorw, name, platform, rank):
-    from biomedisa.features.random_walk.pyopencl_small import walk
-    walkmap = None
-    all_indices_axis = _extract_indices(indices, 0)
-    indices_axis = _extract_indices(indices_split, 0)
-    if np.any(indices_axis):
-        print(f'Start axis 0 device {rank}')
-        ctx, queue = _get_device(platform, rank)
-        walkmap = walk(data, labels[0], all_indices_axis, indices_axis, nbrw, sorw, name, ctx, queue)
-
-    data = np.swapaxes(data, 0, 1).copy(order='C')
-    all_indices_axis = _extract_indices(indices, 1)
-    indices_axis = _extract_indices(indices_split, 1)
-
-    if np.any(indices_axis):
-        print(f'Start axis 1 device {rank}')
-        ctx, queue = _get_device(platform, rank)
-        walkmap_axis = walk(data, labels[1], all_indices_axis, indices_axis, nbrw, sorw, name, ctx, queue)
-        if np.any(walkmap):
-            walkmap += np.swapaxes(walkmap_axis, 2, 1).copy(order='C')
-        else:
-            walkmap = np.swapaxes(walkmap_axis, 2, 1).copy(order='C')
-
-    data = np.swapaxes(data, 0, 2).copy(order='C')
-    all_indices_axis = _extract_indices(indices, 2)
-    indices_axis = _extract_indices(indices_split, 2)
-
-    if np.any(indices_axis):
-        print(f'Start axis 2 device {rank}')
-        ctx, queue = _get_device(platform, rank)
-        walkmap_axis = walk(data, labels[2], all_indices_axis, indices_axis, nbrw, sorw, name, ctx, queue)
-        if np.any(walkmap):
-            walkmap += np.swapaxes(np.swapaxes(walkmap_axis, 3, 1), 2, 1).copy(order='C')
-        else:
-            walkmap = np.swapaxes(np.swapaxes(walkmap_axis, 3, 1), 2, 1).copy(order='C')
-
-    data = np.swapaxes(np.swapaxes(data, 2, 0), 1, 0).copy(order='C')
-    return walkmap, data
-
 def _diffusion_child(comm, bm=None):
 
     rank = comm.Get_rank()
@@ -106,7 +64,7 @@ def _diffusion_child(comm, bm=None):
             import pycuda.driver as cuda
             import pycuda.gpuarray as gpuarray
             from biomedisa.features.random_walk.gpu_kernels import (_build_kernel_uncertainty, 
-                        _build_kernel_max, _build_update_gpu, _build_curvature_gpu)
+                _build_kernel_max, _build_update_gpu, _build_curvature_gpu)
             cuda.init()
             dev = cuda.Device(rank)
             ctx, queue = dev.make_context(), None
@@ -115,16 +73,15 @@ def _diffusion_child(comm, bm=None):
             else:
                 from biomedisa.features.random_walk.pycuda_small import walk
         else:
+            import pyopencl.array as cl_array
+            from biomedisa.features.random_walk.opencl_kernels import (_build_kernel_uncertainty, 
+                _build_kernel_max, _build_update_gpu, _build_curvature_gpu)
             ctx, queue = _get_device(bm.platform, rank)
             from biomedisa.features.random_walk.pyopencl_small import walk
 
         # run random walks
         tic = time.time()
-        if bm.allaxis and 'opencl' in bm.platform:
-            walkmap, bm.data = walk_allaxis(bm.data, bm.labels, bm.indices,
-                indices_split[0], bm.nbrw, bm.sorw, name, bm.platform, rank)
-        else:
-            walkmap = walk(bm.data, bm.labels, bm.indices, indices_split[0], bm.nbrw, bm.sorw, name, ctx, queue)
+        walkmap = walk(bm.data, bm.labels, bm.indices, indices_split[0], bm.nbrw, bm.sorw, name, ctx, queue, bm.allaxis)
         tac = time.time()
         print('Walktime_%s: ' %(name) + str(int(tac - tic)) + ' ' + 'seconds')
 
@@ -144,27 +101,39 @@ def _diffusion_child(comm, bm=None):
             final_zero = walkmap
 
         # block and grid size
-        block = (32, 32, 1)
-        x_grid = (xsh_tmp // 32) + 1
-        y_grid = (ysh_tmp // 32) + 1
-        grid = (int(x_grid), int(y_grid), int(zsh_tmp))
-        xsh_gpu = np.int32(xsh_tmp)
-        ysh_gpu = np.int32(ysh_tmp)
+        if bm.platform == 'cuda':
+            block = (32, 32, 1)
+            x_grid = (xsh_tmp // 32) + 1
+            y_grid = (ysh_tmp // 32) + 1
+            grid = (int(x_grid), int(y_grid), int(zsh_tmp))
+        else:
+            global_size = (xsh_tmp, ysh_tmp, zsh_tmp)
+            local_size = None
 
         # smooth
         if bm.smooth:
             try:
-                update_gpu = _build_update_gpu()
-                curvature_gpu = _build_curvature_gpu()
-                a_gpu = gpuarray.empty((zsh_tmp, ysh_tmp, xsh_tmp), dtype=np.float32)
-                b_gpu = gpuarray.zeros((zsh_tmp, ysh_tmp, xsh_tmp), dtype=np.float32)
-                final_smooth = np.copy(final_zero, order='C')
-                for k in range(bm.nol):
-                    a_gpu = gpuarray.to_gpu(final_smooth[k])
-                    for l in range(bm.smooth):
-                        curvature_gpu(a_gpu, b_gpu, xsh_gpu, ysh_gpu, block=block, grid=grid)
-                        update_gpu(a_gpu, b_gpu, xsh_gpu, ysh_gpu, block=block, grid=grid)
-                    final_smooth[k] = a_gpu.get()
+                final_smooth = final_zero.copy()
+                if bm.platform == 'cuda':
+                    update_gpu = _build_update_gpu()
+                    curvature_gpu = _build_curvature_gpu()
+                    b_gpu = gpuarray.zeros((zsh_tmp, ysh_tmp, xsh_tmp), dtype=np.float32)
+                    for k in range(bm.nol):
+                        a_gpu = gpuarray.to_gpu(final_smooth[k])
+                        for _ in range(bm.smooth):
+                          curvature_gpu(a_gpu, b_gpu, np.int32(xsh_tmp), np.int32(ysh_tmp), block=block, grid=grid)
+                          update_gpu(a_gpu, b_gpu, np.int32(xsh_tmp), np.int32(ysh_tmp), block=block, grid=grid)
+                        final_smooth[k] = a_gpu.get()
+                else:
+                    update_gpu = _build_update_gpu(ctx)
+                    curvature_gpu = _build_curvature_gpu(ctx)
+                    b_gpu = cl_array.zeros(queue, (zsh_tmp, ysh_tmp, xsh_tmp), np.float32)
+                    for k in range(bm.nol):
+                        a_gpu = cl_array.to_device(queue, final_smooth[k])
+                        for _ in range(bm.smooth):
+                          curvature_gpu(queue, global_size, local_size, a_gpu.data, b_gpu.data, np.int32(xsh_tmp), np.int32(ysh_tmp))
+                          update_gpu(queue, global_size, local_size, a_gpu.data, b_gpu.data, np.int32(xsh_tmp), np.int32(ysh_tmp))
+                        final_smooth[k] = a_gpu.get(queue=queue)
                 final_smooth = np.argmax(final_smooth, axis=0).astype(np.uint8)
                 final_smooth = get_labels(final_smooth, bm.allLabels)
                 smooth_result = np.zeros((bm.zsh, bm.ysh, bm.xsh), dtype=np.uint8)
@@ -176,23 +145,31 @@ def _diffusion_child(comm, bm=None):
                 if bm.path_to_data:
                     save_data(bm.path_to_smooth, smooth_result, bm.header, bm.final_image_type, bm.compression)
             except Exception as e:
-                print('Warning: GPU out of memory to allocate smooth array. Process starts without smoothing.')
+                print('Warning: GPU out of memory to allocate smooth array. Process continues without smoothing.')
                 bm.smooth = 0
 
         # uncertainty
         if bm.uncertainty:
             try:
-                max_gpu = gpuarray.zeros((3, zsh_tmp, ysh_tmp, xsh_tmp), dtype=np.float32)
-                a_gpu = gpuarray.zeros((zsh_tmp, ysh_tmp, xsh_tmp), dtype=np.float32)
-                kernel_uncertainty = _build_kernel_uncertainty()
-                kernel_max = _build_kernel_max()
-                for k in range(bm.nol):
-                    a_gpu = gpuarray.to_gpu(final_zero[k])
-                    kernel_max(max_gpu, a_gpu, xsh_gpu, ysh_gpu, block=block, grid=grid)
-                kernel_uncertainty(max_gpu, a_gpu, xsh_gpu, ysh_gpu, block=block, grid=grid)
-                uq = a_gpu.get()
-                uq *= 255
-                uq = uq.astype(np.uint8)
+                if bm.platform == 'cuda':
+                    max_gpu = gpuarray.zeros((3, zsh_tmp, ysh_tmp, xsh_tmp), dtype=np.float32)
+                    kernel_uncertainty = _build_kernel_uncertainty()
+                    kernel_max = _build_kernel_max()
+                    for k in range(bm.nol):
+                        a_gpu = gpuarray.to_gpu(final_zero[k])
+                        kernel_max(max_gpu, a_gpu, np.int32(xsh_tmp), np.int32(ysh_tmp), block=block, grid=grid)
+                    kernel_uncertainty(max_gpu, a_gpu, np.int32(xsh_tmp), np.int32(ysh_tmp), block=block, grid=grid)
+                    uq = a_gpu.get()
+                else:
+                    max_gpu = cl_array.zeros(queue, (3, zsh_tmp, ysh_tmp, xsh_tmp), np.float32)
+                    kernel_uncertainty = _build_kernel_uncertainty(ctx)
+                    kernel_max = _build_kernel_max(ctx)
+                    for k in range(bm.nol):
+                        a_gpu = cl_array.to_device(queue, final_zero[k])
+                        kernel_max(queue, global_size, local_size, max_gpu.data, a_gpu.data, np.int32(xsh_tmp), np.int32(ysh_tmp))
+                    kernel_uncertainty(queue, global_size, local_size, max_gpu.data, a_gpu.data, np.int32(xsh_tmp), np.int32(ysh_tmp))
+                    uq = a_gpu.get(queue=queue)
+                uq = (uq * 255.0).astype(np.uint8)
                 uncertainty_result = np.zeros((bm.zsh, bm.ysh, bm.xsh), dtype=np.uint8)
                 uncertainty_result[bm.argmin_z:bm.argmax_z, bm.argmin_y:bm.argmax_y, bm.argmin_x:bm.argmax_x] = uq
                 uncertainty_result = uncertainty_result[1:-1, 1:-1, 1:-1]
@@ -202,13 +179,15 @@ def _diffusion_child(comm, bm=None):
                 if bm.path_to_data:
                     save_data(bm.path_to_uq, uncertainty_result, compress=bm.compression)
             except Exception as e:
-                print('Warning: GPU out of memory to allocate uncertainty array. Process starts without uncertainty.')
+                print('Warning: GPU out of memory to allocate uncertainty array. Process continues without uncertainty.')
                 bm.uncertainty = False
 
         # free device
         if bm.platform == 'cuda':
             ctx.pop()
             del ctx
+        else:
+            queue.finish()
 
         # return hits
         if bm.return_hits:
@@ -340,11 +319,7 @@ def _diffusion_child(comm, bm=None):
 
         # run random walks
         tic = time.time()
-        if allx and 'opencl' in platform:
-            walkmap, bm.data = walk_allaxis(data, labels, indices,
-                indices_child, nbrw, sorw, name, platform, rank)
-        else:
-            walkmap = walk(data, labels, indices, indices_child, nbrw, sorw, name, ctx, queue)
+        walkmap = walk(data, labels, indices, indices_child, nbrw, sorw, name, ctx, queue, allx)
         tac = time.time()
         print('Walktime_%s: ' %(name) + str(int(tac - tic)) + ' ' + 'seconds')
 

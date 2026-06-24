@@ -217,7 +217,7 @@ def max_to_label(a, walkmap, final, blockmin, blockmax, segment):
     return walkmap, final
 
 def walk(comm, raw, slices, indices, nbrw, sorw, blockmin, blockmax, name,
-         allLabels, smooth, uncertainty, ctx, queue, platform):
+         allLabels, smooth, uncertainty, ctx, queue, platform, allx):
 
     # get rank and size of mpi process
     rank = comm.Get_rank()
@@ -294,7 +294,7 @@ def walk(comm, raw, slices, indices, nbrw, sorw, blockmin, blockmax, name,
 
     # disable smoothing and uncertainty for subdomains
     if recvbuf > 0:
-        smooth, uncertainty = 0, 0
+        smooth, uncertainty = 0, False
 
     if smooth:
         try:
@@ -412,13 +412,11 @@ def walk(comm, raw, slices, indices, nbrw, sorw, blockmin, blockmax, name,
         if memory_error:
             sendbuf = np.zeros(1, dtype=np.int32) + 1
             recvbuf = np.zeros(1, dtype=np.int32)
-            comm.Barrier()
-            comm.Allreduce([sendbuf, MPI.INT], [recvbuf, MPI.INT], op=MPI.MAX)
         else:
             sendbuf = np.zeros(1, dtype=np.int32)
             recvbuf = np.zeros(1, dtype=np.int32)
-            comm.Barrier()
-            comm.Allreduce([sendbuf, MPI.INT], [recvbuf, MPI.INT], op=MPI.MAX)
+        comm.Barrier()
+        comm.Allreduce([sendbuf, MPI.INT], [recvbuf, MPI.INT], op=MPI.MAX)
         if recvbuf > 0:
             memory_error = True
             try:

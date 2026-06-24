@@ -31,6 +31,8 @@ import numba
 import numpy as np
 import pyopencl as cl
 import pyopencl.array
+from biomedisa.features.random_walk.opencl_kernels import (_build_kernel_uncertainty, 
+    _build_kernel_max, _build_update_gpu, _build_curvature_gpu)
 
 def reduceBlocksize(slices):
     zsh, ysh, xsh = slices.shape
@@ -203,15 +205,12 @@ def sendrecv(a, blockmin, blockmax, comm, rank, size):
     return a
 
 @numba.jit(nopython=True)
-def max_to_label(a, walkmap, final, blockmin, blockmax, segment, axis):
+def max_to_label(a, walkmap, final, blockmin, blockmax, segment):
     zsh, ysh, xsh = a.shape
     zmin, zmax = 0, zsh
     ymin, ymax = 0, ysh
     xmin, xmax = 0, xsh
-    if axis==0:
-        zmin, zmax = blockmin, blockmax
-    else:
-        ymin, ymax = blockmin, blockmax
+    zmin, zmax = blockmin, blockmax
     for k in range(zmin, zmax):
         for l in range(ymin, ymax):
             for m in range(xmin, xmax):
@@ -220,11 +219,8 @@ def max_to_label(a, walkmap, final, blockmin, blockmax, segment, axis):
                     final[k-zmin,l-ymin,m-xmin] = segment
     return walkmap, final
 
-def walk(comm, raw, slices, indices, nbrw, sorw, blockmin, blockmax,
-         name, allLabels, smooth, uncertainty, ctx, queue, platform, final=None, walkmap=None, axis=0):
-
-    # disable smoothing and uncertainty
-    smooth, uncertainty = 0, 0
+def walk(comm, raw, extracted_slices, indices, nbrw, sorw, blockmin, blockmax,
+         name, allLabels, smooth, uncertainty, ctx, queue, platform, allx):
 
     # get rank and size of mpi process
     rank = comm.Get_rank()
@@ -232,64 +228,52 @@ def walk(comm, raw, slices, indices, nbrw, sorw, blockmin, blockmax,
 
     # build kernels
     if raw.dtype == 'uint8':
-        src = _build_kernel_int8()
+        kernel = cl.Program(ctx, _build_kernel_int8()).build().randomWalk
         raw = (raw-128).astype('int8')
     else:   
-        src = _build_kernel_float32()
+        kernel = cl.Program(ctx, _build_kernel_float32()).build().randomWalk
         raw = raw.astype(np.float32)
 
     # image size
     zsh, ysh, xsh = raw.shape
 
+    # block and grid size
+    global_size = (xsh, ysh, zsh)
+    local_size = None
+
+    # rebuild slices
+    slices = np.zeros(raw.shape, dtype=np.int32) - 1
+    if allx:
+        slices[indices[0]] = extracted_slices[0]
+        slices[:,indices[1]] = extracted_slices[1].transpose(1, 0, 2)
+        slices[:,:,indices[2]] = extracted_slices[2].transpose(1, 2, 0)
+    else:
+        slices[indices] = extracted_slices
+
     # crop to region of interest
-    slices = slices.astype(np.int32)
     slices = reduceBlocksize(slices)
 
     # allocate host memory
     hits = np.empty(raw.shape, dtype=np.int32)
-    if final is None:
-        final = np.zeros((blockmax-blockmin, ysh, xsh), dtype=np.uint8)
+    final = np.zeros((blockmax-blockmin, ysh, xsh), dtype=np.uint8)
 
-    # kernel function instantiation
+    # allocate memory on the device
     mf = cl.mem_flags
-    prg = cl.Program(ctx, src).build()
-
-    # allocate memory for variables on the device
-    xsh_cl = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=np.int32(xsh))
-    ysh_cl = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=np.int32(ysh))
-    zsh_cl = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=np.int32(zsh))
-    sorw_cl = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=np.int32(sorw))
-    nbrw_cl = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=np.int32(nbrw))
-    segment_cl = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=np.int32(0))
-    #gpu_mat = cl.array.to_device(queue, mat)
-    #gpu_grad = cl.array.empty(queue, mat.shape, dtype=np.float32, order="C")
 
     # allocate device memory or use subdomains
     memory_error = False
     subdomains = False
-    if zsh * ysh * xsh > 42e8:# or platform.split('_')[-1] == 'GPU':
-        if axis==0:
-            print('Warning: Volume indexes exceed unsigned long int range. The volume is splitted into subdomains.')
-            subdomains = True
-        else:
-            print('Error: Volume indexes exceed unsigned long int range.')
-            memory_error = True
+    if zsh * ysh * xsh > 42e8:
+        print('Warning: Volume indexes exceed unsigned long int range. The volume is splitted into subdomains.')
+        subdomains = True
     else:
         try:
-            if np.any(indices):
-                slshape = slices.shape[0]
-                indices = np.array(indices, dtype=np.int32)
-                indices_cl = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=indices)
-                slices_cl = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=slices)
+            slices_cl = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=slices)
             raw_cl = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=raw)
-            hits_cl = cl.Buffer(ctx, mf.WRITE_ONLY | mf.COPY_HOST_PTR, hostbuf=hits)
+            hits_cl = cl.Buffer(ctx, mf.READ_WRITE | mf.COPY_HOST_PTR, hostbuf=hits)
         except Exception as e:
-            if axis==0:
-                print('Warning: Device ran out of memory. The volume is splitted into subdomains.')
-                subdomains = True
-            else:
-                print('Error: Device out of memory. Data too large.')
-                memory_error = True
+            print('Warning: Device ran out of memory. The volume is splitted into subdomains.')
+            subdomains = True
             try:
                 raw_cl.release()
                 hits_cl.release()
@@ -297,8 +281,8 @@ def walk(comm, raw, slices, indices, nbrw, sorw, blockmin, blockmax,
             except:
                 pass
 
-    # memory error
-    if memory_error:
+    # disable smoothing and uncertainty for subdomains
+    if subdomains:
         sendbuf = np.zeros(1, dtype=np.int32) + 1
         recvbuf = np.zeros(1, dtype=np.int32)
     else:
@@ -307,8 +291,54 @@ def walk(comm, raw, slices, indices, nbrw, sorw, blockmin, blockmax,
     comm.Barrier()
     comm.Allreduce([sendbuf, MPI.INT], [recvbuf, MPI.INT], op=MPI.MAX)
     if recvbuf > 0:
-        memory_error = True
-        return memory_error, None, None, None, None
+        smooth, uncertainty = 0, False
+
+    if smooth:
+        try:
+            update_gpu = _build_update_gpu(ctx)
+            curvature_gpu = _build_curvature_gpu(ctx)
+            b_npy = np.zeros(raw.shape, dtype=np.float32)
+            b_cl = cl.Buffer(ctx, mf.READ_WRITE | mf.COPY_HOST_PTR, hostbuf=b_npy)
+            final_smooth = np.zeros((blockmax-blockmin, ysh, xsh), dtype=np.uint8)
+            sendbuf_smooth = np.zeros(1, dtype=np.int32)
+            recvbuf_smooth = np.zeros(1, dtype=np.int32)
+            comm.Barrier()
+            comm.Allreduce([sendbuf_smooth, MPI.INT], [recvbuf_smooth, MPI.INT], op=MPI.MAX)
+        except Exception as e:
+            print('Warning: GPU out of memory to allocate smooth array. Process starts without smoothing.')
+            sendbuf_smooth = np.zeros(1, dtype=np.int32) + 1
+            recvbuf_smooth = np.zeros(1, dtype=np.int32)
+            comm.Barrier()
+            comm.Allreduce([sendbuf_smooth, MPI.INT], [recvbuf_smooth, MPI.INT], op=MPI.MAX)
+        if recvbuf_smooth > 0:
+            smooth = 0
+            try:
+                b_cl.release()
+            except:
+                pass
+
+    if uncertainty:
+        try:
+            kernel_uncertainty = _build_kernel_uncertainty(ctx)
+            kernel_max = _build_kernel_max(ctx)
+            max_npy = np.zeros((3,)+raw.shape, dtype=np.float32)
+            max_cl = cl.Buffer(ctx, mf.READ_WRITE | mf.COPY_HOST_PTR, hostbuf=max_npy)
+            sendbuf_uq = np.zeros(1, dtype=np.int32)
+            recvbuf_uq = np.zeros(1, dtype=np.int32)
+            comm.Barrier()
+            comm.Allreduce([sendbuf_uq, MPI.INT], [recvbuf_uq, MPI.INT], op=MPI.MAX)
+        except Exception as e:
+            print('Warning: GPU out of memory to allocate uncertainty array. Process starts without uncertainty.')
+            sendbuf_uq = np.zeros(1, dtype=np.int32) + 1
+            recvbuf_uq = np.zeros(1, dtype=np.int32)
+            comm.Barrier()
+            comm.Allreduce([sendbuf_uq, MPI.INT], [recvbuf_uq, MPI.INT], op=MPI.MAX)
+        if recvbuf_uq > 0:
+            uncertainty = False
+            try:
+                max_cl.release()
+            except:
+                pass
 
     for label_counter, segment in enumerate(allLabels):
         print('%s:' %(name) + ' ' + str(label_counter+1) + '/' + str(len(allLabels)))
@@ -324,52 +354,49 @@ def walk(comm, raw, slices, indices, nbrw, sorw, blockmin, blockmax,
                     data_block_min = max(sub_block_min-100,0)
                     data_block_max = min(sub_block_max+100,zsh)
 
-                    # get subindices
-                    sub_indices = []
-                    sub_slices = np.empty((0, ysh, xsh), dtype=slices.dtype)
-                    for k, sub_i in enumerate(indices):
-                        if sub_block_min <= sub_i < sub_block_max and np.any(slices[k]==segment):
-                            sub_indices.append(sub_i)
-                            sub_slices = np.append(sub_slices, [slices[k]], axis=0)
-
                     # allocate memory and compute random walks on subdomain
-                    if np.any(sub_indices):
-                        sub_slshape = sub_slices.shape[0]
-                        sub_indices = np.array(sub_indices, dtype=np.int32) - data_block_min
-                        sub_indices_cl = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=sub_indices)
-                        sub_slices_cl = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=sub_slices)
-                        sub_zsh = data_block_max - data_block_min
-                        sub_zsh_cl = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=np.int32(sub_zsh))
-                        sub_raw = np.copy(raw[data_block_min:data_block_max], order='C')
-                        sub_raw_cl = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=sub_raw)
-                        sub_hits = np.empty(sub_raw.shape, dtype=np.int32)
-                        sub_hits_cl = cl.Buffer(ctx, mf.WRITE_ONLY | mf.COPY_HOST_PTR, hostbuf=sub_hits)
-                        cl.enqueue_fill_buffer(queue, sub_hits_cl, np.int32(0), offset=0, size=sub_hits.nbytes)
-                        cl.enqueue_fill_buffer(queue, segment_cl, np.int32(segment), offset=0, size=4, wait_for=None)
-                        block = None
-                        grid = (sub_slshape, ysh, xsh)
-                        prg.randomWalk(queue, grid, block, segment_cl, sub_raw_cl, sub_slices_cl, sub_hits_cl, xsh_cl, ysh_cl, sub_zsh_cl, sub_indices_cl, sorw_cl, nbrw_cl)
-                        cl.enqueue_copy(queue, sub_hits, sub_hits_cl)
-                        hits[data_block_min:data_block_max] += sub_hits
-                        sub_hits_cl.release()
+                    sub_slices = slices[data_block_min:data_block_max].copy()
+
+                    sub_slices[:sub_block_min-data_block_min] = -1
+                    sub_slices[sub_block_max-data_block_min:] = -1
+                    sub_slices_cl = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=sub_slices)
+
+                    sub_zsh = data_block_max - data_block_min
+
+                    sub_raw = raw[data_block_min:data_block_max].copy()
+                    sub_raw_cl = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=sub_raw)
+
+                    sub_hits = np.empty(sub_raw.shape, dtype=np.int32)
+                    sub_hits_cl = cl.Buffer(ctx, mf.WRITE_ONLY | mf.COPY_HOST_PTR, hostbuf=sub_hits)
+                    cl.enqueue_fill_buffer(queue, sub_hits_cl, np.int32(0), offset=0, size=sub_hits.nbytes)
+
+                    block = None
+                    grid = (sub_zsh, ysh, xsh)
+                    kernel(queue, grid, block, np.int32(segment), sub_raw_cl, sub_slices_cl, sub_hits_cl,
+                        np.int32(xsh), np.int32(ysh), np.int32(sub_zsh), np.int32(sorw), np.int32(nbrw))
+                    cl.enqueue_copy(queue, sub_hits, sub_hits_cl)
+                    hits[data_block_min:data_block_max] += sub_hits
+
+                    sub_slices_cl.release()
+                    sub_hits_cl.release()
+                    sub_raw_cl.release()
             except Exception as e:
                 print('Error: Device out of memory. Data too large.')
                 memory_error = True
                 try:
+                    sub_slices_cl.release()
                     sub_hits_cl.release()
                     sub_raw_cl.release()
                 except:
                     pass
 
-        # computation of random walks on the entire volume
         else:
-            # compute random walks
+            # compute random walks on the entire volume
             block = None
-            grid = (slshape, ysh, xsh)
+            grid = (zsh, ysh, xsh)
             cl.enqueue_fill_buffer(queue, hits_cl, np.int32(0), offset=0, size=hits.nbytes)
-            cl.enqueue_fill_buffer(queue, segment_cl, np.int32(segment), offset=0, size=4, wait_for=None)
-            if np.any(indices):
-                prg.randomWalk(queue, grid, block, segment_cl, raw_cl, slices_cl, hits_cl, xsh_cl, ysh_cl, zsh_cl, indices_cl, sorw_cl, nbrw_cl)
+            kernel(queue, grid, block, np.int32(segment), raw_cl, slices_cl, hits_cl,
+                np.int32(xsh), np.int32(ysh), np.int32(zsh), np.int32(sorw), np.int32(nbrw))
             cl.enqueue_copy(queue, hits, hits_cl)
 
         # memory error
@@ -383,45 +410,84 @@ def walk(comm, raw, slices, indices, nbrw, sorw, blockmin, blockmax,
         comm.Allreduce([sendbuf, MPI.INT], [recvbuf, MPI.INT], op=MPI.MAX)
         if recvbuf > 0:
             memory_error = True
+            try:
+                slices_cl.release()
+                hits_cl.release()
+                raw_cl.release()
+            except:
+                pass
             return memory_error, None, None, None, None
 
         # communicate hits
         if size > 1:
-            if axis>0:
-                hits = np.swapaxes(hits, 1, 0).copy(order='C')
             hits = sendrecv(hits, blockmin, blockmax, comm, rank, size)
-            if axis>0:
-                hits = np.swapaxes(hits, 0, 1).copy(order='C')
+
+        # convert hits buffer to float32 and back to int32
+        if uncertainty or smooth:
+            hits = hits.astype(np.float32)
+            cl.enqueue_copy(queue, hits_cl, hits)
+            hits = hits.astype(np.int32)
+
+        # save the three most occuring hits
+        if uncertainty:
+            kernel_max(queue, global_size, local_size, max_cl, hits_cl, np.int32(xsh), np.int32(ysh))
+
+        # smooth manifold
+        if smooth:
+            for _ in range(smooth):
+              curvature_gpu(queue, global_size, local_size, hits_cl, b_cl, np.int32(xsh), np.int32(ysh))
+              update_gpu(queue, global_size, local_size, hits_cl, b_cl, np.int32(xsh), np.int32(ysh))
+            hits_smooth =  np.empty((zsh, ysh, xsh), dtype=np.float32)
+            cl.enqueue_copy(queue, hits_smooth, hits_cl)
+            if label_counter == 0:
+                hits_smooth[hits_smooth<0] = 0
+                walkmap_smooth = hits_smooth.copy()
+            else:
+                walkmap_smooth, final_smooth = max_to_label(hits_smooth, walkmap_smooth, final_smooth, blockmin, blockmax, segment)
 
         # get the label with the most hits
-        if label_counter==0 and walkmap is None:
-            walkmap = np.copy(hits, order='C')
+        if label_counter == 0:
+            walkmap = hits.copy()
         else:
-            walkmap, final = max_to_label(hits, walkmap, final, blockmin, blockmax, segment, axis)
-            #update = hits[blockmin:blockmax] > walkmap[blockmin:blockmax]
-            #walkmap[blockmin:blockmax][update] = hits[blockmin:blockmax][update]
-            #final[update] = segment
+            walkmap, final = max_to_label(hits, walkmap, final, blockmin, blockmax, segment)
 
-    # uncertainty and smooth are disabled
-    final_uncertainty = None
-    final_smooth = None
+    # compute uncertainty
+    if uncertainty:
+        kernel_uncertainty(queue, global_size, local_size, max_cl, hits_cl, np.int32(xsh), np.int32(ysh))
+        final_uncertainty =  np.empty((zsh, ysh, xsh), dtype=np.float32)
+        cl.enqueue_copy(queue, final_uncertainty, hits_cl)
+        final_uncertainty = final_uncertainty[blockmin:blockmax]
+    else:
+        final_uncertainty = None
 
-    return memory_error, final, final_uncertainty, final_smooth, walkmap
+    if not smooth:
+        final_smooth = None
+
+    try:
+        slices_cl.release()
+        hits_cl.release()
+        raw_cl.release()
+    except:
+        pass
+
+    return memory_error, final, final_uncertainty, final_smooth, None
 
 def _build_kernel_int8():
     src = '''
 
-    float _calc_var(unsigned int position, unsigned int index, int B, __global char *raw, int segment, __global int *labels, int xsh) {
+    float _calc_var(unsigned int index, int B, __global char *raw, const int segment, __global int *labels, const int xsh, const int ysh) {
         float dev = 0;
         float summe = 0;
-        for (int n = -1; n < 2; n++) {
+        for (int m = -1; m < 2; m++) {
+          for (int n = -1; n < 2; n++) {
             for (int o = -1; o < 2; o++) {
-                if (labels[index + n*xsh + o] == segment) {
-                    float tmp = B - raw[position + n*xsh + o];
+                if (labels[index + m*xsh*ysh + n*xsh + o] == segment) {
+                    float tmp = B - raw[index + m*xsh*ysh + n*xsh + o];
                     dev += tmp * tmp;
                     summe += 1;
                     }
                 }
+              }
             }
         float var = dev / summe;
         if (var < 1.0) {
@@ -435,14 +501,7 @@ def _build_kernel_int8():
         return exp( - tmp * tmp * div1 );
         }
 
-    __kernel void randomWalk(__global int *Segment, __global char *raw, __global int *slices, __global int *hits, __global int *Xsh, __global int *Ysh, __global int *Zsh, __global int *indices, __global int *Sorw, __global int *Nbrw) {
-
-        int sorw = *Sorw;
-        int nbrw = *Nbrw;
-        int xsh = *Xsh;
-        int ysh = *Ysh;
-        int zsh = *Zsh;
-        int segment = *Segment;
+    __kernel void randomWalk(const int segment, __global char *raw, __global int *slices, __global int *hits, const int xsh, const int ysh, const int zsh, const int sorw, const int nbrw) {
 
         // get_global_id(0)         // blockIdx.z * blockDim.z + threadIdx.z
         // get_local_id(0)          // threadIdx.z
@@ -452,10 +511,8 @@ def _build_kernel_int8():
         int flat   = xsh * ysh;
         int column = get_global_id(2);
         int row    = get_global_id(1);
-        int slice  = get_global_id(0);
-        int plane  = indices[slice];
-        unsigned int index  = slice * flat + row * xsh + column;
-        unsigned int position = plane*flat + row*xsh + column;
+        int plane  = get_global_id(0);
+        unsigned int index  = plane * flat + row * xsh + column;
 
         if (index < get_global_size(0)*flat && plane>0 && row>0 && column>0 && plane<zsh-1 && row<ysh-1 && column<xsh-1) {
 
@@ -463,20 +520,22 @@ def _build_kernel_int8():
 
                 /* Adaptive random walks */
                 int found = 0;
-                if ((column + row) % 4 == 0) {
+                if ((column + plane) % 2 == 0 && (row + plane) % 2 == 0) {
                     found = 1;
                     }
                 else {
-                    for (int y = -100; y < 101; y++) {
-                        for (int x = -100; x < 101; x++) {
-                            if (row+y > 0 && column+x > 0 && row+y < ysh-1 && column+x < xsh-1) {
-                                unsigned int tmp = slice * flat + (row+y) * xsh + column+x;
-                                if (slices[tmp] != segment && slices[tmp] != -1) {
+                  for (int z = -100; z < 101; z=z+5) {
+                    for (int y = -100; y < 101; y=y+5) {
+                        for (int x = -100; x < 101; x=x+5) {
+                            if (plane+z>0 && row+y>0 && column+x>0 && plane+z<zsh-1 && row+y<ysh-1 && column+x<xsh-1) {
+                                unsigned int tmp_idx = (plane+z) * flat + (row+y) * xsh + column+x;
+                                if (slices[tmp_idx] != segment && slices[tmp_idx] != -1) {
                                     found = 1;
                                     }
                                 }
                             }
                         }
+                      }
                     }
 
                 if (found == 1) {
@@ -498,8 +557,8 @@ def _build_kernel_int8():
                     float s10 = index, s11 = index, s12 = index, s20 = index, s21 = index, s22 = index;
 
                     /* Compute standard deviation */
-                    int B = raw[position];
-                    float var = _calc_var(position, index, B, raw, segment, slices, xsh);
+                    int B = raw[index];
+                    float var = _calc_var(index, B, raw, segment, slices, xsh, ysh);
                     float div1 = 1 / (2 * var);
 
                     int k = plane;
@@ -513,12 +572,12 @@ def _build_kernel_int8():
                     while (n_rw < nbrw) {
 
                         /* Compute weights */
-                        W0 = weight(B, raw[position + flat], div1);
-                        W1 = weight(B, raw[position - flat], div1);
-                        W2 = weight(B, raw[position + xsh], div1);
-                        W3 = weight(B, raw[position - xsh], div1);
-                        W4 = weight(B, raw[position + 1], div1);
-                        W5 = weight(B, raw[position - 1], div1);
+                        W0 = weight(B, raw[index + flat], div1);
+                        W1 = weight(B, raw[index - flat], div1);
+                        W2 = weight(B, raw[index + xsh], div1);
+                        W3 = weight(B, raw[index - xsh], div1);
+                        W4 = weight(B, raw[index + 1], div1);
+                        W5 = weight(B, raw[index - 1], div1);
 
                         W1 += W0;
                         W2 += W1;
@@ -569,8 +628,8 @@ def _build_kernel_int8():
                             k += n;
                             l += o;
                             m += p;
-                            position = k*flat + l*xsh + m;
-                            atomic_add(&hits[position], 1);
+                            index = k*flat + l*xsh + m;
+                            atomic_add(&hits[index], 1);
                             }
 
                         step += 1;
@@ -579,7 +638,7 @@ def _build_kernel_int8():
                             k = plane;
                             l = row;
                             m = column;
-                            position = k*flat + l*xsh + m;
+                            index = k*flat + l*xsh + m;
                             n_rw += 1;
                             step = 0;
                             }
@@ -594,17 +653,19 @@ def _build_kernel_int8():
 def _build_kernel_float32():
     src = '''
 
-    float _calc_var(unsigned int position, unsigned int index, float B, __global float *raw, int segment, __global int *labels, int xsh) {
+    float _calc_var(unsigned int index, float B, __global float *raw, const int segment, __global int *labels, const int xsh, const int ysh) {
         float dev = 0;
         float summe = 0;
-        for (int n = -1; n < 2; n++) {
+        for (int m = -1; m < 2; m++) {
+          for (int n = -1; n < 2; n++) {
             for (int o = -1; o < 2; o++) {
-                if (labels[index + n*xsh + o] == segment) {
-                    float tmp = B - raw[position + n*xsh + o];
+                if (labels[index + m*ysh*xsh + n*xsh + o] == segment) {
+                    float tmp = B - raw[index + m*ysh*xsh + n*xsh + o];
                     dev += tmp * tmp;
                     summe += 1;
                     }
                 }
+              }
             }
         float var = dev / summe;
         if (var < 1.0) {
@@ -618,14 +679,7 @@ def _build_kernel_float32():
         return exp( - tmp * tmp * div1 );
         }
 
-    __kernel void randomWalk(__global int *Segment, __global float *raw, __global int *slices, __global int *hits, __global int *Xsh, __global int *Ysh, __global int *Zsh, __global int *indices, __global int *Sorw, __global int *Nbrw) {
-
-        int sorw = *Sorw;
-        int nbrw = *Nbrw;
-        int xsh = *Xsh;
-        int ysh = *Ysh;
-        int zsh = *Zsh;
-        int segment = *Segment;
+    __kernel void randomWalk(const int segment, __global float *raw, __global int *slices, __global int *hits, const int xsh, const int ysh, const int zsh, const int sorw, const int nbrw) {
 
         // get_global_id(0)         // blockIdx.z * blockDim.z + threadIdx.z
         // get_local_id(0)          // threadIdx.z
@@ -635,10 +689,8 @@ def _build_kernel_float32():
         int flat   = xsh * ysh;
         int column = get_global_id(2);
         int row    = get_global_id(1);
-        int slice  = get_global_id(0);
-        int plane  = indices[slice];
-        unsigned int index  = slice * flat + row * xsh + column;
-        unsigned int position = plane*flat + row*xsh + column;
+        int plane  = get_global_id(0);
+        unsigned int index  = plane * flat + row * xsh + column;
 
         if (index < get_global_size(0)*flat && plane>0 && row>0 && column>0 && plane<zsh-1 && row<ysh-1 && column<xsh-1) {
 
@@ -646,20 +698,22 @@ def _build_kernel_float32():
 
                 /* Adaptive random walks */
                 int found = 0;
-                if ((column + row) % 4 == 0) {
+                if ((column + plane) % 2 == 0 && (row + plane) % 2 == 0) {
                     found = 1;
                     }
                 else {
-                    for (int y = -100; y < 101; y++) {
-                        for (int x = -100; x < 101; x++) {
-                            if (row+y > 0 && column+x > 0 && row+y < ysh-1 && column+x < xsh-1) {
-                                unsigned int tmp = slice * flat + (row+y) * xsh + column+x;
-                                if (slices[tmp] != segment && slices[tmp] != -1) {
+                  for (int z = -100; z < 101; z=z+5) {
+                    for (int y = -100; y < 101; y=y+5) {
+                        for (int x = -100; x < 101; x=x+5) {
+                            if (plane+z>0 && row+y>0 && column+x>0 && plane+z<zsh-1 && row+y<ysh-1 && column+x<xsh-1) {
+                                unsigned int tmp_idx = (plane+z) * flat + (row+y) * xsh + column+x;
+                                if (slices[tmp_idx] != segment && slices[tmp_idx] != -1) {
                                     found = 1;
                                     }
                                 }
                             }
                         }
+                      }
                     }
 
                 if (found == 1) {
@@ -681,8 +735,8 @@ def _build_kernel_float32():
                     float s10 = index, s11 = index, s12 = index, s20 = index, s21 = index, s22 = index;
 
                     /* Compute standard deviation */
-                    float B = raw[position];
-                    float var = _calc_var(position, index, B, raw, segment, slices, xsh);
+                    float B = raw[index];
+                    float var = _calc_var(index, B, raw, segment, slices, xsh, ysh);
                     float div1 = 1 / (2 * var);
 
                     int k = plane;
@@ -696,12 +750,12 @@ def _build_kernel_float32():
                     while (n_rw < nbrw) {
 
                         /* Compute weights */
-                        W0 = weight(B, raw[position + flat], div1);
-                        W1 = weight(B, raw[position - flat], div1);
-                        W2 = weight(B, raw[position + xsh], div1);
-                        W3 = weight(B, raw[position - xsh], div1);
-                        W4 = weight(B, raw[position + 1], div1);
-                        W5 = weight(B, raw[position - 1], div1);
+                        W0 = weight(B, raw[index + flat], div1);
+                        W1 = weight(B, raw[index - flat], div1);
+                        W2 = weight(B, raw[index + xsh], div1);
+                        W3 = weight(B, raw[index - xsh], div1);
+                        W4 = weight(B, raw[index + 1], div1);
+                        W5 = weight(B, raw[index - 1], div1);
 
                         W1 += W0;
                         W2 += W1;
@@ -752,8 +806,8 @@ def _build_kernel_float32():
                             k += n;
                             l += o;
                             m += p;
-                            position = k*flat + l*xsh + m;
-                            atomic_add(&hits[position], 1);
+                            index = k*flat + l*xsh + m;
+                            atomic_add(&hits[index], 1);
                             }
 
                         step += 1;
@@ -762,7 +816,7 @@ def _build_kernel_float32():
                             k = plane;
                             l = row;
                             m = column;
-                            position = k*flat + l*xsh + m;
+                            index = k*flat + l*xsh + m;
                             n_rw += 1;
                             step = 0;
                             }

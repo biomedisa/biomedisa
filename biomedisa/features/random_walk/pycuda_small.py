@@ -32,7 +32,7 @@ import pycuda.gpuarray as gpuarray
 from pycuda.compiler import SourceModule
 from biomedisa.features.random_walk.gpu_kernels import _build_kernel_fill
 
-def walk(data, slices, indices, indices_child, nbrw, sorw, name, ctx, queue):
+def walk(data, slices, indices, indices_child, nbrw, sorw, name, ctx, queue, allx):
 
     labels = np.unique(slices)
     slicesChunk = _extract_slices(slices, indices, indices_child)
