@@ -79,28 +79,40 @@ def _extract_slices(slices, indices, indicesChunk, allx, k):
 
 def _walk_on_current_gpu(raw, extracted_slices, allLabels, indices, nbrw, sorw, name, ctx, queue, allx):
 
-    # build kernels
-    if raw.dtype == 'uint8':
-        kernel = cl.Program(ctx, _build_kernel_int8()).build().randomWalk
-        raw = (raw-128).astype('int8')
-    else:
-        kernel = cl.Program(ctx, _build_kernel_float32()).build().randomWalk
-        raw = raw.astype(np.float32)
-
+    # allocate host memory
     walkmap = np.zeros((len(allLabels),)+raw.shape, dtype=np.float32)
     a = np.empty(raw.shape, dtype=np.int32)
 
     # image size
     zsh, ysh, xsh = raw.shape
 
+    # determine label dtype
+    if len(allLabels) < 256:
+        labels_dtype = [np.uint8, 'uchar']
+        ignore_value = next((i for i in range(256) if i not in set(allLabels)), None)
+    else:
+        labels_dtype = [np.int16, 'short']
+        ignore_value = -1
+
     # rebuild slices
-    slices = np.zeros(raw.shape, dtype=np.int32) - 1
+    slices = np.zeros(raw.shape, dtype=labels_dtype[0]) + ignore_value
     if allx:
+        for x in range(3):
+            extracted_slices[x][extracted_slices[x]<0] = ignore_value
         slices[indices[0]] = extracted_slices[0]
         slices[:,indices[1]] = extracted_slices[1].transpose(1, 0, 2)
         slices[:,:,indices[2]] = extracted_slices[2].transpose(1, 2, 0)
     else:
+        extracted_slices[extracted_slices<0] = ignore_value
         slices[indices] = extracted_slices
+
+    # build kernels
+    if raw.dtype == 'uint8':
+        kernel = cl.Program(ctx, _build_kernel('char', labels_dtype[1])).build().randomWalk
+        raw = (raw-128).astype('int8')
+    else:
+        kernel = cl.Program(ctx, _build_kernel('float', labels_dtype[1])).build().randomWalk
+        raw = raw.astype(np.float32)
 
     # allocate memory for variables on the device
     mf = cl.mem_flags
@@ -122,10 +134,10 @@ def _walk_on_current_gpu(raw, extracted_slices, allLabels, indices, nbrw, sorw, 
         walkmap[label_counter] += a
     return walkmap
 
-def _build_kernel_int8():
+def _build_kernel(data_dtype, labels_dtype):
     src = '''
 
-    float _calc_var(int index, int B, __global char *raw, const int segment, __global int *labels, const int xsh, const int ysh) {
+    float _calc_var(int index, float B, __global DATA_DTYPE *raw, const int segment, __global LABELS_DTYPE *labels, const int xsh, const int ysh) {
         float dev = 0;
         float summe = 0;
         for (int m = -1; m < 2; m++) {
@@ -146,12 +158,12 @@ def _build_kernel_int8():
         return var;
         }
 
-    float weight(int B, int A, float div1) {
-        int tmp = B - A;
+    float weight(float B, float A, float div1) {
+        float tmp = B - A;
         return exp( - tmp * tmp * div1 );
         }
 
-    __kernel void randomWalk(const int segment, __global char *raw, __global int *slices, __global int *a, const int xsh, const int ysh, const int zsh, const int sorw, const int nbrw) {
+    __kernel void randomWalk(const int segment, __global DATA_DTYPE *raw, __global LABELS_DTYPE *slices, __global int *a, const int xsh, const int ysh, const int zsh, const int sorw, const int nbrw) {
 
         // get_global_id(0)         // blockIdx.z * blockDim.z + threadIdx.z
         // get_local_id(0)          // threadIdx.z
@@ -185,7 +197,7 @@ def _build_kernel_int8():
                 float s10 = index, s11 = index, s12 = index, s20 = index, s21 = index, s22 = index;
 
                 /* Compute standard deviation */
-                int B = raw[index];
+                float B = raw[index];
                 float var = _calc_var(index, B, raw, segment, slices, xsh, ysh);
                 float div1 = 1 / (2 * var);
 
@@ -275,7 +287,7 @@ def _build_kernel_int8():
             }
         }
     '''
-    return src
+    return src.replace("DATA_DTYPE", data_dtype).replace("LABELS_DTYPE", labels_dtype)
 
 def _build_kernel_float32():
     src = '''

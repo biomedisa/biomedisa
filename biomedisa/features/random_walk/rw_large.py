@@ -144,7 +144,7 @@ def _diffusion_child(comm, bm=None):
 
                 # run random walks
                 tic = time.time()
-                memory_error, final, final_uncertainty, final_smooth, _ = walk(comm, datablock,
+                memory_error, final, final_uncertainty, final_smooth = walk(comm, datablock,
                         labels_child, indices_child, bm.nbrw, bm.sorw,
                         blockmin-datablockmin, blockmax-datablockmin, name,
                         bm.allLabels, bm.smooth, bm.uncertainty,
@@ -354,7 +354,7 @@ def _diffusion_child(comm, bm=None):
 
         # run random walks
         tic = time.time()
-        memory_error, final, final_uncertainty, final_smooth, _ = walk(comm, data, labels, indices, nbrw, sorw,
+        memory_error, final, final_uncertainty, final_smooth = walk(comm, data, labels, indices, nbrw, sorw,
                 blockmin, blockmax, name, allLabels, smooth, uncertainty, ctx, queue, platform, allx)
         tac = time.time()
         print('Walktime_%s: ' %(name) + str(int(tac - tic)) + ' ' + 'seconds')

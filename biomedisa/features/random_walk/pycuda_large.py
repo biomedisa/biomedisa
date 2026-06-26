@@ -27,6 +27,7 @@
 ##########################################################################
 
 from mpi4py import MPI
+import math
 import numba
 import numpy as np
 import pycuda.driver as cuda
@@ -217,7 +218,7 @@ def max_to_label(a, walkmap, final, blockmin, blockmax, segment):
     return walkmap, final
 
 def walk(comm, raw, slices, indices, nbrw, sorw, blockmin, blockmax, name,
-         allLabels, smooth, uncertainty, ctx, queue, platform, allx):
+         allLabels, smooth, uncertainty, ctx, queue, platform, allx, sub_block_size=100):
 
     # get rank and size of mpi process
     rank = comm.Get_rank()
@@ -227,7 +228,7 @@ def walk(comm, raw, slices, indices, nbrw, sorw, blockmin, blockmax, name,
     if raw.dtype == 'uint8':
         kernel = _build_kernel_int8()
         raw = (raw-128).astype('int8')
-    else:   
+    else:
         kernel = _build_kernel_float32()
         raw = raw.astype(np.float32)
     fill_gpu = _build_kernel_fill()
@@ -355,12 +356,12 @@ def walk(comm, raw, slices, indices, nbrw, sorw, blockmin, blockmax, name,
         if subdomains:
             try:
                 hits.fill(0)
-                sub_n = (blockmax-blockmin) // 100 + 1
+                sub_n = math.ceil((blockmax - blockmin) / sub_block_size)
                 for sub_k in range(sub_n):
-                    sub_block_min = sub_k*100+blockmin
-                    sub_block_max = (sub_k+1)*100+blockmin
-                    data_block_min = max(sub_block_min-100,0)
-                    data_block_max = min(sub_block_max+100,zsh)
+                    sub_block_min = sub_k * sub_block_size + blockmin
+                    sub_block_max = (sub_k+1) * sub_block_size + blockmin
+                    data_block_min = max(sub_block_min - sub_block_size, 0)
+                    data_block_max = min(sub_block_max + sub_block_size, zsh)
 
                     # get subindices
                     sub_indices = []
@@ -419,10 +420,6 @@ def walk(comm, raw, slices, indices, nbrw, sorw, blockmin, blockmax, name,
         comm.Allreduce([sendbuf, MPI.INT], [recvbuf, MPI.INT], op=MPI.MAX)
         if recvbuf > 0:
             memory_error = True
-            try:
-                hits_gpu.free()
-            except:
-                pass
             return memory_error, None, None, None, None
 
         # communicate hits
@@ -474,7 +471,7 @@ def walk(comm, raw, slices, indices, nbrw, sorw, blockmin, blockmax, name,
     except:
         pass
 
-    return memory_error, final, final_uncertainty, final_smooth, None
+    return memory_error, final, final_uncertainty, final_smooth
 
 def _build_kernel_int8():
     code = """

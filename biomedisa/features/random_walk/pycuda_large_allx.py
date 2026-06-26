@@ -444,7 +444,7 @@ def walk(comm, raw, slices, indices, nbrw, sorw, blockmin, blockmax, name,
     except:
         pass
 
-    return memory_error, final, final_uncertainty, final_smooth, None
+    return memory_error, final, final_uncertainty, final_smooth
 
 def _build_kernel_int8():
     code = """

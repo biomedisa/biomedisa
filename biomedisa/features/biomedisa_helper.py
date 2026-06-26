@@ -655,18 +655,25 @@ def pre_processing(bm):
 
     # get labels
     bm.allLabels = unique(bm.labelData)
-    index = np.argwhere(bm.allLabels<0)
-    bm.allLabels = np.delete(bm.allLabels, index)
+
+    # negative labels
+    if np.any(bm.allLabels < 0):
+        if bm.django_env:
+            return _error_(bm, 'No negative labels supported.')
+        else:
+            index = np.argwhere(bm.allLabels<0)
+            bm.allLabels = np.delete(bm.allLabels, index)
+            print('Warning: Negative labels indicate ignored regions.')
 
     # labels greater than 255
     if np.any(bm.allLabels > 255):
         if bm.django_env:
-            return _error_(bm, 'No labels greater than 255 allowed.')
+            return _error_(bm, 'No label values greater than 255 allowed.')
         else:
             bm.labelData[bm.labelData > 255] = 0
             index = np.argwhere(bm.allLabels > 255)
             bm.allLabels = np.delete(bm.allLabels, index)
-            print('Warning: Only labels <=255 are allowed. Labels greater than 255 will be removed.')
+            print('Warning: Only label values <=255 are allowed. Label values greater than 255 will be removed.')
 
     # add background label if not existing
     if not np.any(bm.allLabels==0):

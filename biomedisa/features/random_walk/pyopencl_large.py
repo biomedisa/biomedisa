@@ -27,6 +27,7 @@
 ##########################################################################
 
 from mpi4py import MPI
+import math
 import numba
 import numpy as np
 import pyopencl as cl
@@ -34,24 +35,48 @@ import pyopencl.array
 from biomedisa.features.random_walk.opencl_kernels import (_build_kernel_uncertainty, 
     _build_kernel_max, _build_update_gpu, _build_curvature_gpu)
 
-def reduceBlocksize(slices):
+@numba.jit(nopython=True)
+def reduceBlocksize(slices, ignore_value, pad=100):
     zsh, ysh, xsh = slices.shape
-    argmin_x, argmax_x, argmin_y, argmax_y = xsh, 0, ysh, 0
-    for k in range(zsh):
-        y, x = np.nonzero(slices[k])
-        if x.any():
-            argmin_x = min(argmin_x, int(np.amin(x)))
-            argmax_x = max(argmax_x, int(np.amax(x)))
-            argmin_y = min(argmin_y, int(np.amin(y)))
-            argmax_y = max(argmax_y, int(np.amax(y)))
-    argmin_x = argmin_x - 100 if argmin_x - 100 > 0 else 0
-    argmax_x = argmax_x + 100 if argmax_x + 100 < xsh else xsh
-    argmin_y = argmin_y - 100 if argmin_y - 100 > 0 else 0
-    argmax_y = argmax_y + 100 if argmax_y + 100 < ysh else ysh
-    slices[:, :argmin_y] = -1
-    slices[:, argmax_y:] = -1
-    slices[:, :, :argmin_x] = -1
-    slices[:, :, argmax_x:] = -1
+    argmin_x, argmax_x, argmin_y, argmax_y, argmin_z, argmax_z = xsh, 0, ysh, 0, zsh, 0
+    found = False
+    # scan full volume once
+    for z in range(zsh):
+        for y in range(ysh):
+            for x in range(xsh):
+                v = slices[z, y, x]
+                if v == ignore_value or v == 0:
+                    continue
+                found = True
+                if x < argmin_x:
+                    argmin_x = x
+                if x > argmax_x:
+                    argmax_x = x
+                if y < argmin_y:
+                    argmin_y = y
+                if y > argmax_y:
+                    argmax_y = y
+                if z < argmin_z:
+                    argmin_z = z
+                if z > argmax_z:
+                    argmax_z = z
+    if not found:
+        return slices
+    # padding (clamped)
+    argmin_x = max(argmin_x - pad, 0)
+    argmax_x = min(argmax_x + pad, xsh)
+    argmin_y = max(argmin_y - pad, 0)
+    argmax_y = min(argmax_y + pad, ysh)
+    argmin_z = max(argmin_z - pad, 0)
+    argmax_z = min(argmax_z + pad, zsh)
+    # apply masking (3D!)
+    for z in range(zsh):
+        for y in range(ysh):
+            for x in range(xsh):
+                if (z < argmin_z or z > argmax_z or
+                    y < argmin_y or y > argmax_y or
+                    x < argmin_x or x > argmax_x):
+                    slices[z, y, x] = ignore_value
     return slices
 
 def sendrecv(a, blockmin, blockmax, comm, rank, size):
@@ -207,32 +232,20 @@ def sendrecv(a, blockmin, blockmax, comm, rank, size):
 @numba.jit(nopython=True)
 def max_to_label(a, walkmap, final, blockmin, blockmax, segment):
     zsh, ysh, xsh = a.shape
-    zmin, zmax = 0, zsh
-    ymin, ymax = 0, ysh
-    xmin, xmax = 0, xsh
-    zmin, zmax = blockmin, blockmax
-    for k in range(zmin, zmax):
-        for l in range(ymin, ymax):
-            for m in range(xmin, xmax):
+    for k in range(blockmin, blockmax):
+        for l in range(ysh):
+            for m in range(xsh):
                 if a[k,l,m] > walkmap[k,l,m]:
                     walkmap[k,l,m] = a[k,l,m]
-                    final[k-zmin,l-ymin,m-xmin] = segment
+                    final[k-blockmin,l,m] = segment
     return walkmap, final
 
 def walk(comm, raw, extracted_slices, indices, nbrw, sorw, blockmin, blockmax,
-         name, allLabels, smooth, uncertainty, ctx, queue, platform, allx):
+         name, allLabels, smooth, uncertainty, ctx, queue, platform, allx, sub_block_size=100):
 
     # get rank and size of mpi process
     rank = comm.Get_rank()
     size = comm.Get_size()
-
-    # build kernels
-    if raw.dtype == 'uint8':
-        kernel = cl.Program(ctx, _build_kernel_int8()).build().randomWalk
-        raw = (raw-128).astype('int8')
-    else:   
-        kernel = cl.Program(ctx, _build_kernel_float32()).build().randomWalk
-        raw = raw.astype(np.float32)
 
     # image size
     zsh, ysh, xsh = raw.shape
@@ -241,17 +254,36 @@ def walk(comm, raw, extracted_slices, indices, nbrw, sorw, blockmin, blockmax,
     global_size = (xsh, ysh, zsh)
     local_size = None
 
+    # determine label dtype
+    if len(allLabels) < 256:
+        labels_dtype = [np.uint8, 'uchar']
+        ignore_value = next((i for i in range(256) if i not in set(allLabels)), None)
+    else:
+        labels_dtype = [np.int16, 'short']
+        ignore_value = -1
+
     # rebuild slices
-    slices = np.zeros(raw.shape, dtype=np.int32) - 1
+    slices = np.zeros(raw.shape, dtype=labels_dtype[0]) + ignore_value
     if allx:
+        for x in range(3):
+            extracted_slices[x][extracted_slices[x]<0] = ignore_value
         slices[indices[0]] = extracted_slices[0]
         slices[:,indices[1]] = extracted_slices[1].transpose(1, 0, 2)
         slices[:,:,indices[2]] = extracted_slices[2].transpose(1, 2, 0)
     else:
+        extracted_slices[extracted_slices<0] = ignore_value
         slices[indices] = extracted_slices
 
     # crop to region of interest
-    slices = reduceBlocksize(slices)
+    slices = reduceBlocksize(slices, ignore_value)
+
+    # build kernels
+    if raw.dtype == 'uint8':
+        kernel = cl.Program(ctx, _build_kernel('char', labels_dtype[1])).build().randomWalk
+        raw = (raw-128).astype('int8')
+    else:
+        kernel = cl.Program(ctx, _build_kernel('float', labels_dtype[1])).build().randomWalk
+        raw = raw.astype(np.float32)
 
     # allocate host memory
     hits = np.empty(raw.shape, dtype=np.int32)
@@ -347,18 +379,18 @@ def walk(comm, raw, extracted_slices, indices, nbrw, sorw, blockmin, blockmax,
         if subdomains:
             try:
                 hits.fill(0)
-                sub_n = (blockmax-blockmin) // 100 + 1
+                sub_n = math.ceil((blockmax - blockmin) / sub_block_size)
                 for sub_k in range(sub_n):
-                    sub_block_min = sub_k*100+blockmin
-                    sub_block_max = (sub_k+1)*100+blockmin
-                    data_block_min = max(sub_block_min-100,0)
-                    data_block_max = min(sub_block_max+100,zsh)
+                    sub_block_min = sub_k * sub_block_size + blockmin
+                    sub_block_max = (sub_k+1) * sub_block_size + blockmin
+                    data_block_min = max(sub_block_min - sub_block_size, 0)
+                    data_block_max = min(sub_block_max + sub_block_size, zsh)
 
                     # allocate memory and compute random walks on subdomain
                     sub_slices = slices[data_block_min:data_block_max].copy()
 
-                    sub_slices[:sub_block_min-data_block_min] = -1
-                    sub_slices[sub_block_max-data_block_min:] = -1
+                    sub_slices[:sub_block_min-data_block_min] = ignore_value
+                    sub_slices[sub_block_max-data_block_min:] = ignore_value
                     sub_slices_cl = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=sub_slices)
 
                     sub_zsh = data_block_max - data_block_min
@@ -373,7 +405,7 @@ def walk(comm, raw, extracted_slices, indices, nbrw, sorw, blockmin, blockmax,
                     block = None
                     grid = (sub_zsh, ysh, xsh)
                     kernel(queue, grid, block, np.int32(segment), sub_raw_cl, sub_slices_cl, sub_hits_cl,
-                        np.int32(xsh), np.int32(ysh), np.int32(sub_zsh), np.int32(sorw), np.int32(nbrw))
+                        np.int32(xsh), np.int32(ysh), np.int32(sub_zsh), np.int32(sorw), np.int32(nbrw), np.int32(ignore_value))
                     cl.enqueue_copy(queue, sub_hits, sub_hits_cl)
                     hits[data_block_min:data_block_max] += sub_hits
 
@@ -396,7 +428,7 @@ def walk(comm, raw, extracted_slices, indices, nbrw, sorw, blockmin, blockmax,
             grid = (zsh, ysh, xsh)
             cl.enqueue_fill_buffer(queue, hits_cl, np.int32(0), offset=0, size=hits.nbytes)
             kernel(queue, grid, block, np.int32(segment), raw_cl, slices_cl, hits_cl,
-                np.int32(xsh), np.int32(ysh), np.int32(zsh), np.int32(sorw), np.int32(nbrw))
+                np.int32(xsh), np.int32(ysh), np.int32(zsh), np.int32(sorw), np.int32(nbrw), np.int32(ignore_value))
             cl.enqueue_copy(queue, hits, hits_cl)
 
         # memory error
@@ -410,12 +442,6 @@ def walk(comm, raw, extracted_slices, indices, nbrw, sorw, blockmin, blockmax,
         comm.Allreduce([sendbuf, MPI.INT], [recvbuf, MPI.INT], op=MPI.MAX)
         if recvbuf > 0:
             memory_error = True
-            try:
-                slices_cl.release()
-                hits_cl.release()
-                raw_cl.release()
-            except:
-                pass
             return memory_error, None, None, None, None
 
         # communicate hits
@@ -454,7 +480,7 @@ def walk(comm, raw, extracted_slices, indices, nbrw, sorw, blockmin, blockmax,
     # compute uncertainty
     if uncertainty:
         kernel_uncertainty(queue, global_size, local_size, max_cl, hits_cl, np.int32(xsh), np.int32(ysh))
-        final_uncertainty =  np.empty((zsh, ysh, xsh), dtype=np.float32)
+        final_uncertainty = np.empty((zsh, ysh, xsh), dtype=np.float32)
         cl.enqueue_copy(queue, final_uncertainty, hits_cl)
         final_uncertainty = final_uncertainty[blockmin:blockmax]
     else:
@@ -470,12 +496,12 @@ def walk(comm, raw, extracted_slices, indices, nbrw, sorw, blockmin, blockmax,
     except:
         pass
 
-    return memory_error, final, final_uncertainty, final_smooth, None
+    return memory_error, final, final_uncertainty, final_smooth
 
-def _build_kernel_int8():
+def _build_kernel(data_dtype, labels_dtype):
     src = '''
 
-    float _calc_var(unsigned int index, int B, __global char *raw, const int segment, __global int *labels, const int xsh, const int ysh) {
+    float _calc_var(unsigned int index, float B, __global DATA_DTYPE *raw, const int segment, __global LABELS_DTYPE *labels, const int xsh, const int ysh) {
         float dev = 0;
         float summe = 0;
         for (int m = -1; m < 2; m++) {
@@ -496,12 +522,12 @@ def _build_kernel_int8():
         return var;
         }
 
-    float weight(int B, int A, float div1) {
-        int tmp = B - A;
+    float weight(float B, float A, float div1) {
+        float tmp = B - A;
         return exp( - tmp * tmp * div1 );
         }
 
-    __kernel void randomWalk(const int segment, __global char *raw, __global int *slices, __global int *hits, const int xsh, const int ysh, const int zsh, const int sorw, const int nbrw) {
+    __kernel void randomWalk(const int segment, __global DATA_DTYPE *raw, __global LABELS_DTYPE *slices, __global int *hits, const int xsh, const int ysh, const int zsh, const int sorw, const int nbrw, const int ignore_value) {
 
         // get_global_id(0)         // blockIdx.z * blockDim.z + threadIdx.z
         // get_local_id(0)          // threadIdx.z
@@ -529,7 +555,7 @@ def _build_kernel_int8():
                         for (int x = -100; x < 101; x=x+5) {
                             if (plane+z>0 && row+y>0 && column+x>0 && plane+z<zsh-1 && row+y<ysh-1 && column+x<xsh-1) {
                                 unsigned int tmp_idx = (plane+z) * flat + (row+y) * xsh + column+x;
-                                if (slices[tmp_idx] != segment && slices[tmp_idx] != -1) {
+                                if (slices[tmp_idx] != segment && slices[tmp_idx] != ignore_value) {
                                     found = 1;
                                     }
                                 }
@@ -557,7 +583,7 @@ def _build_kernel_int8():
                     float s10 = index, s11 = index, s12 = index, s20 = index, s21 = index, s22 = index;
 
                     /* Compute standard deviation */
-                    int B = raw[index];
+                    float B = raw[index];
                     float var = _calc_var(index, B, raw, segment, slices, xsh, ysh);
                     float div1 = 1 / (2 * var);
 
@@ -648,7 +674,7 @@ def _build_kernel_int8():
             }
         }
     '''
-    return src
+    return src.replace("DATA_DTYPE", data_dtype).replace("LABELS_DTYPE", labels_dtype)
 
 def _build_kernel_float32():
     src = '''
