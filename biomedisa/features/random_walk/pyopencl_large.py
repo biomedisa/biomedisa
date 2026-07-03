@@ -296,7 +296,10 @@ def walk(comm, raw, extracted_slices, indices, nbrw, sorw, blockmin, blockmax,
     memory_error = False
     subdomains = False
     if zsh * ysh * xsh > 42e8:
-        print('Warning: Volume indexes exceed unsigned long int range. The volume is splitted into subdomains.')
+        print('Warning: Volume indexes exceed unsigned long int range. Splitting the volume into subdomains.')
+        subdomains = True
+    elif zsh * ysh * xsh > 2420 * 812 * 923:
+        print('Warning: Volume exceeds OpenCL NDRange limits. Automatically splitting into subdomains to prevent clEnqueueNDRangeKernel OUT_OF_RESOURCES error.')
         subdomains = True
     else:
         try:
@@ -304,7 +307,7 @@ def walk(comm, raw, extracted_slices, indices, nbrw, sorw, blockmin, blockmax,
             raw_cl = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=raw)
             hits_cl = cl.Buffer(ctx, mf.READ_WRITE | mf.COPY_HOST_PTR, hostbuf=hits)
         except Exception as e:
-            print('Warning: Device ran out of memory. The volume is splitted into subdomains.')
+            print('Warning: Device ran out of memory. Splitting the volume into subdomains.')
             subdomains = True
             try:
                 raw_cl.release()

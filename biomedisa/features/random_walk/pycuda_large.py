@@ -261,7 +261,7 @@ def walk(comm, raw, slices, indices, nbrw, sorw, blockmin, blockmax, name,
     memory_error = False
     subdomains = False
     if zsh * ysh * xsh > 42e8:
-        print('Warning: Volume indexes exceed unsigned long int range. The volume is splitted into subdomains.')
+        print('Warning: Volume indexes exceed unsigned long int range. Splitting the volume into subdomains.')
         subdomains = True
         sendbuf = np.zeros(1, dtype=np.int32) + 1
         recvbuf = np.zeros(1, dtype=np.int32)
@@ -282,7 +282,7 @@ def walk(comm, raw, slices, indices, nbrw, sorw, blockmin, blockmax, name,
             comm.Barrier()
             comm.Allreduce([sendbuf, MPI.INT], [recvbuf, MPI.INT], op=MPI.MAX)
         except Exception as e:
-            print('Warning: GPU ran out of memory. The volume is splitted into subdomains.')
+            print('Warning: GPU ran out of memory. Splitting the volume into subdomains.')
             subdomains = True
             sendbuf = np.zeros(1, dtype=np.int32) + 1
             recvbuf = np.zeros(1, dtype=np.int32)
