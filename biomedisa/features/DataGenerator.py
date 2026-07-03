@@ -373,6 +373,7 @@ class DataGenerator(keras.utils.PyDataset):
         flips =  np.where([flip_z, flip_y, flip_x])[0]
         elastic = False
         zoom = False
+        pseudo_labels = False
 
         # create random angles
         if rotate:
@@ -528,10 +529,17 @@ class DataGenerator(keras.utils.PyDataset):
         # unsupervised data
         if self.unsupervised_data is not None:
             zsh_u, ysh_u, xsh_u, _ = self.unsupervised_data.shape
-            x_u = np.empty((self.batch_size*4, 9, *self.dim, self.n_channels), dtype=np.float32)
-
-            # Generate data
-            for i in range(self.batch_size*4):
+            if pseudo_labels:
+              x_u = np.empty((self.batch_size*4, *self.dim, self.n_channels), dtype=np.float32)
+              for i in range(self.batch_size*4):
+                # select random patch
+                k = np.random.randint(32, zsh_u-64)
+                l = np.random.randint(32, ysh_u-64)
+                m = np.random.randint(32, xsh_u-64)
+                x_u[i] = self.unsupervised_data[k:k+self.dim[0],l:l+self.dim[1],m:m+self.dim[2]]
+            else:
+              x_u = np.empty((self.batch_size*4, 9, *self.dim, self.n_channels), dtype=np.float32)
+              for i in range(self.batch_size*4):
                 # select random patch
                 k = np.random.randint(32, zsh_u-96)
                 l = np.random.randint(32, ysh_u-96)

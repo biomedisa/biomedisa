@@ -30,7 +30,7 @@ import keras
 from keras import ops
 import tensorflow as tf
 
-def model_fit(model, strategy, training_generator, callbacks, epochs, initial_epoch, nb_labels, channels):
+def model_fit(model, strategy, training_generator, callbacks, epochs, initial_epoch, nb_labels, channels, pseudo_labels=False):
 
     def gen():
         for i in range(len(training_generator)):
@@ -54,14 +54,25 @@ def model_fit(model, strategy, training_generator, callbacks, epochs, initial_ep
     for cb in callbacks:
         cb.on_train_begin()
 
-    dataset = tf.data.Dataset.from_generator(
-        gen,
-        output_signature={
-            "x_l": tf.TensorSpec(shape=(None, *(64, 64, 64, channels)), dtype=tf.float32),
-            "y_l": tf.TensorSpec(shape=(None, *(64, 64, 64, nb_labels)), dtype=tf.float32),
-            "x_u": tf.TensorSpec(shape=(None, *(9, 64, 64, 64, channels)), dtype=tf.float32),
-        }
-    )
+    if pseudo_labels:
+        dataset = tf.data.Dataset.from_generator(
+            gen,
+            output_signature={
+                "x_l": tf.TensorSpec(shape=(None, *(64, 64, 64, channels)), dtype=tf.float32),
+                "y_l": tf.TensorSpec(shape=(None, *(64, 64, 64, nb_labels)), dtype=tf.float32),
+                "x_u": tf.TensorSpec(shape=(None, *(64, 64, 64, channels)), dtype=tf.float32),
+            }
+        )
+    else:
+        dataset = tf.data.Dataset.from_generator(
+            gen,
+            output_signature={
+                "x_l": tf.TensorSpec(shape=(None, *(64, 64, 64, channels)), dtype=tf.float32),
+                "y_l": tf.TensorSpec(shape=(None, *(64, 64, 64, nb_labels)), dtype=tf.float32),
+                "x_u": tf.TensorSpec(shape=(None, *(9, 64, 64, 64, channels)), dtype=tf.float32),
+            }
+        )
+
     dataset = dataset.prefetch(tf.data.AUTOTUNE)
     dist_dataset = strategy.experimental_distribute_dataset(dataset)
 
@@ -77,6 +88,8 @@ def model_fit(model, strategy, training_generator, callbacks, epochs, initial_ep
         # choose step function
         if epoch+1 <= 12:
             step_fn = model.train_step_sup
+        elif pseudo_labels:
+            step_fn = model.train_step_pseudo
         else:
             step_fn = model.train_step_full
 
@@ -89,8 +102,8 @@ def model_fit(model, strategy, training_generator, callbacks, epochs, initial_ep
         from tqdm import tqdm
         pbar = tqdm(range(len(training_generator)))
         it = iter(dist_dataset)
-        with strategy.scope(): #TODO: probably not required
-          for step in pbar:
+        #with strategy.scope(): #TODO: probably not required
+        for step in pbar:
 
             for cb in callbacks:
                 cb.on_train_batch_begin(step)
@@ -163,9 +176,11 @@ def extract_overlap(p1, p2, shift):
     return o1, o2
 
 class SemiSupervisedModel(keras.Model):
-    def __init__(self, model, lambda_consistency=0.01, batch_size=24,  **kwargs):
+    def __init__(self, student, teacher, lambda_consistency=0.01, batch_size=24,  **kwargs):
         super().__init__(**kwargs)
-        self.model = model
+        self.student = student
+        self.teacher = teacher
+        self.teacher.trainable = False
         self.lambda_consistency = lambda_consistency
         self.batch_size = batch_size
         self.ce = keras.losses.CategoricalCrossentropy(reduction=tf.keras.losses.Reduction.NONE)
@@ -175,7 +190,7 @@ class SemiSupervisedModel(keras.Model):
     def call(self, x, training=False):
         if isinstance(x, dict):
             x = x["x_l"]
-        return self.model(x, training=training)
+        return self.student(x, training=training)
 
     def ramp_weight(self, epoch, ramp_epochs=20):
         '''epoch = ops.cast(epoch, "float32")
@@ -188,7 +203,7 @@ class SemiSupervisedModel(keras.Model):
 
     def test_step(self, data):
         x, y = data
-        y_pred = self(x, training=False)
+        y_pred = self.student(x, training=False)
         loss = ops.mean(self.ce(y, y_pred))
         return {"val_loss": loss}
 
@@ -198,7 +213,7 @@ class SemiSupervisedModel(keras.Model):
         y_l = data["y_l"]
 
         with tf.GradientTape() as tape:
-            y_pred = self(x_l, training=True)
+            y_pred = self.student(x_l, training=True)
             per_voxel_loss = self.ce(y_l, y_pred)
             per_example_loss = tf.reduce_mean(
                 per_voxel_loss,
@@ -209,8 +224,8 @@ class SemiSupervisedModel(keras.Model):
                 global_batch_size=self.batch_size
             )
 
-        grads = tape.gradient(loss, self.trainable_variables)
-        self.optimizer.apply_gradients(zip(grads, self.trainable_variables))
+        grads = tape.gradient(loss, self.student.trainable_variables)
+        self.optimizer.apply_gradients(zip(grads, self.student.trainable_variables))
 
         return {
             "loss": loss,
@@ -227,7 +242,7 @@ class SemiSupervisedModel(keras.Model):
         with tf.GradientTape() as tape:
 
             # supervised
-            y_pred_l = self(x_l, training=True)
+            y_pred_l = self.student(x_l, training=True)
             per_voxel_loss = self.ce(y_l, y_pred_l)
             per_example_loss = tf.reduce_mean(
                 per_voxel_loss,
@@ -243,7 +258,7 @@ class SemiSupervisedModel(keras.Model):
             num_patches = 9
 
             x_u_flat = tf.reshape(x_u, (B * num_patches, *x_u.shape[2:]))
-            y_pred_u = self(x_u_flat, training=True)
+            y_pred_u = self.student(x_u_flat, training=True)
             y_pred_u = tf.reshape(y_pred_u, (B, num_patches, *y_pred_u.shape[1:]))
 
             cons = tf.zeros((B,), tf.float32)
@@ -268,7 +283,7 @@ class SemiSupervisedModel(keras.Model):
 
             loss_unsup = tf.nn.compute_average_loss(
                 per_example_unsup,
-                global_batch_size=self.batch_size
+                global_batch_size=self.batch_size #TODO: batch_size*4?
             )
 
             '''cons = tf.constant(0.0, tf.float32)
@@ -289,8 +304,8 @@ class SemiSupervisedModel(keras.Model):
 
             loss = loss_sup + self.ramp_weight(self.current_epoch) * loss_unsup
 
-        grads = tape.gradient(loss, self.trainable_variables)
-        self.optimizer.apply_gradients(zip(grads, self.trainable_variables))
+        grads = tape.gradient(loss, self.student.trainable_variables)
+        self.optimizer.apply_gradients(zip(grads, self.student.trainable_variables))
 
         return {
             "loss": loss,
@@ -307,7 +322,7 @@ class SemiSupervisedModel(keras.Model):
         with tf.GradientTape() as tape:
 
             # --- supervised branch ---
-            y_pred_l = self(x_l, training=True)
+            y_pred_l = self.student(x_l, training=True)
             loss_sup = ops.mean(self.ce(y_l, y_pred_l))
 
             # --- unsupervised branch ---
@@ -317,7 +332,7 @@ class SemiSupervisedModel(keras.Model):
 
             # flatten patches
             x_u_flat = ops.reshape(x_u, (B * num_patches, *x_u.shape[2:]))
-            y_pred_u = self(x_u_flat, training=True)
+            y_pred_u = self.student(x_u_flat, training=True)
             y_pred_u = ops.reshape(y_pred_u, (B, num_patches, *y_pred_u.shape[1:]))
 
             # consistency across patch pairs
@@ -340,12 +355,118 @@ class SemiSupervisedModel(keras.Model):
             loss = loss_sup + self.ramp_weight(self.current_epoch) * loss_unsup
 
         # gradients
-        grads = tape.gradient(loss, self.trainable_variables)
-        self.optimizer.apply_gradients(zip(grads, self.trainable_variables))
+        grads = tape.gradient(loss, self.student.trainable_variables)
+        self.optimizer.apply_gradients(zip(grads, self.student.trainable_variables))
 
         return {
             "loss": loss,
             "supervised": loss_sup,
             "unsupervised": loss_unsup,
         }'''
+
+    @tf.function
+    def random_gamma(self, x):
+        B = tf.shape(x)[0]
+        gamma = tf.random.uniform([B,1,1,1,1], 0.7, 1.5)
+        x = tf.pow(x, gamma)
+        return tf.clip_by_value(x, 0., 1.)
+
+    @tf.function
+    def random_blur(self, x):
+        #if tf.random.uniform([]) < 0.5:
+        B = tf.shape(x)[0]
+        blurred = tf.nn.avg_pool3d(
+                x,
+                ksize=3,
+                strides=1,
+                padding="SAME"
+            )
+        mask = tf.random.uniform([B,1,1,1,1]) < 0.5
+        x = tf.where(mask, blurred, x)
+        return x
+
+    @tf.function
+    def random_noise(self, x, std=0.05):
+        return tf.clip_by_value(
+            x + tf.random.normal(tf.shape(x), stddev=std),
+            0., 1.
+        )
+
+    @tf.function
+    def random_contrast(self, x):
+        B = tf.shape(x)[0]
+        factor = tf.random.uniform([B,1,1,1,1], 0.7, 1.3)
+        mean = tf.reduce_mean(x, axis=[1,2,3,4], keepdims=True)
+        x = (x - mean) * factor + mean
+        return tf.clip_by_value(x, 0., 1.)
+
+    @tf.function
+    def strong_augment(self, x):
+        x = self.random_gamma(x)
+        # brightness
+        #delta = tf.random.uniform([], -0.2, 0.2)
+        #x = tf.clip_by_value(x + delta, 0., 1.)
+        x = self.random_contrast(x)
+        x = self.random_blur(x)
+        x = self.random_noise(x, 0.05)
+        return tf.clip_by_value(x, 0., 1.)
+
+    @tf.function
+    def update_teacher(self, decay=0.99):
+        #decay = min(0.99, 1 - 1/(epoch+1))
+        for w_t, w_s in zip(self.teacher.weights, self.student.weights):
+            w_t.assign(decay * w_t + (1.0 - decay) * w_s)
+            #w_t.assign(tf.cast(decay, w_t.dtype) * w_t +
+            #    tf.cast(1.0 - decay, w_t.dtype) * w_s)
+
+    @tf.function
+    def train_step_pseudo(self, data):
+        x_l = data["x_l"]
+        y_l = data["y_l"]
+        x_u = data["x_u"]
+
+        with tf.GradientTape() as tape:
+
+            # supervised
+            y_pred_l = self.student(x_l, training=True)
+            per_voxel_loss = self.ce(y_l, y_pred_l)
+            per_example_loss = tf.reduce_mean(
+                per_voxel_loss,
+                axis=[1,2,3]  # reduce spatial dims only
+            )
+            loss_sup = tf.nn.compute_average_loss(
+                per_example_loss,
+                global_batch_size=self.batch_size
+            )
+
+            # --- UNSUPERVISED ---
+            x_u = self.strong_augment(x_u)
+            p_teacher = self.teacher(x_u, training=True)   # dropout perturbation
+            pseudo = tf.stop_gradient(tf.cast(tf.argmax(p_teacher, axis=-1), tf.int32))
+            conf = tf.reduce_max(p_teacher, axis=-1)
+            weight = tf.clip_by_value((conf - 0.9) / 0.1, 0.0, 1.0)
+            #weight = tf.sigmoid((conf - 0.9) * 10.0)
+
+            p_student = self.student(x_u, training=True)
+            ce = tf.keras.losses.sparse_categorical_crossentropy(
+              pseudo, p_student, from_logits=False)
+            per_example_unsup = tf.reduce_sum(weight * ce, axis=[1,2,3]) / (
+              tf.reduce_sum(weight, axis=[1,2,3]) + 1e-6)
+
+            loss_unsup = tf.nn.compute_average_loss(
+                per_example_unsup,
+                global_batch_size=self.batch_size #TODO: batch_size*4?
+            )
+
+            loss = loss_sup + self.ramp_weight(self.current_epoch) * loss_unsup
+
+        grads = tape.gradient(loss, self.student.trainable_variables)
+        self.optimizer.apply_gradients(zip(grads, self.student.trainable_variables))
+        self.update_teacher()
+
+        return {
+            "loss": loss,
+            "supervised": loss_sup,
+            "unsupervised": loss_unsup,
+        }
 

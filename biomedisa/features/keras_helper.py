@@ -34,7 +34,7 @@ from keras.models import Model, load_model
 from keras.layers import (
     Input, Conv3D, MaxPooling3D, UpSampling3D, Activation, Reshape,
     BatchNormalization, Concatenate, ReLU, Add, GlobalAveragePooling3D,
-    Dense, Dropout, MaxPool3D, Flatten, Multiply)
+    Dense, Dropout, MaxPool3D, Flatten, Multiply, SpatialDropout3D)
 from keras import backend as K
 from keras.utils import to_categorical
 from keras.callbacks import Callback, ModelCheckpoint, EarlyStopping
@@ -242,6 +242,7 @@ def make_conv_block(nb_filters, input_tensor, block, dtype):
 
     x = make_stage(input_tensor, 1)
     x = make_stage(x, 2)
+
     return x
 
 def make_conv_block_resnet(nb_filters, input_tensor, block, dtype):
@@ -275,7 +276,7 @@ def make_conv_block_resnet(nb_filters, input_tensor, block, dtype):
 
     return out
 
-def make_unet(bm, input_shape, nb_labels):
+def make_unet(bm, input_shape, nb_labels, spatial_dropout=False):
     # enable mixed_precision
     if bm.mixed_precision:
         dtype = "float16"
@@ -317,11 +318,15 @@ def make_unet(bm, input_shape, nb_labels):
         conv = make_conv_block_resnet(latent_space_size, pool, i, dtype)
     else:
         conv = make_conv_block(latent_space_size, pool, i, dtype)
+    if spatial_dropout:
+        conv = SpatialDropout3D(0.3)(conv)
     i += 1
 
     # decoder
     for k, f in enumerate(filters[::-1]):
         up = Concatenate()([UpSampling3D(size=(2, 2, 2))(conv), convs[-(k+1)]])
+        if k==0 and spatial_dropout:
+            up = SpatialDropout3D(0.2)(up) # after concatenation
         if bm.resnet:
             conv = make_conv_block_resnet(f, up, i, dtype)
         else:
@@ -1236,11 +1241,11 @@ def train_segmentation(bm):
         return pt_model
 
     # Common model build function
-    def build_model():
+    def build_model(spatial_dropout=False):
         if bm.pretrained_model:
             return load_model(bm.pretrained_model, custom_objects=custom_objects)
         else:
-            return make_unet(bm, input_shape, nb_labels)
+            return make_unet(bm, input_shape, nb_labels, spatial_dropout)
 
     # Common optimizer setup
     def build_optimizer():
@@ -1266,14 +1271,18 @@ def train_segmentation(bm):
     if backend_name == 'tensorflow':
         strategy = setup_tensorflow_strategy()
         with strategy.scope():
-            model = build_model()
             optimizer = build_optimizer()
             if bm.unsupervised_data is not None:
                 from biomedisa.features.SSL import SemiSupervisedModel, model_fit
-                model = SemiSupervisedModel(model, lambda_consistency=0.01, batch_size=bm.batch_size)
+                model = SemiSupervisedModel(
+                    student=build_model(),
+                    teacher=build_model(spatial_dropout=True),
+                    lambda_consistency=0.01,
+                    batch_size=bm.batch_size)
                 #model.compile(optimizer=optimizer)
                 model.optimizer = optimizer
             else:
+                model = build_model()
                 model.compile(loss=loss, optimizer=optimizer, metrics=metrics)
             #model.summary()
     elif backend_name == 'torch':
