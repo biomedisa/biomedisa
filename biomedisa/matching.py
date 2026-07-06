@@ -768,6 +768,7 @@ if __name__ == "__main__":
     if bm.label_particles:
         for i, img_path in enumerate(bm.datasets or bm.labelDatasets):
           if bm.sample==None or i==bm.sample:
+            TIC = time.time()
 
             # tmp path
             dirname = os.path.dirname(img_path)
@@ -863,6 +864,7 @@ if __name__ == "__main__":
                 np.save(f'{path_to_meta}/labels{i+1}.npy', lv[1:])
                 np.save( f'{path_to_meta}/sizes{i+1}.npy', ln[1:])
                 print('Labels and sizes done.')
+                print('Calculation Time:', int(round(time.time() - TIC)), 'sec')
 
     #=======================================================================================
     # calculate distances to centroid
@@ -872,6 +874,7 @@ if __name__ == "__main__":
         # iterate over datasets
         for sample_i in range(n_datasets):
           if bm.sample==None or bm.sample==sample_i:
+            TIC = time.time()
 
             # load particles
             if rank==0:
@@ -892,7 +895,7 @@ if __name__ == "__main__":
             # calculate distances
             if rank==0:
                 print('Numbers:', len(labels))
-            TIC = time.time()
+
             for i in range(labels.size):
                 if i % nprocs == rank:
                     value = labels[i]
@@ -931,7 +934,7 @@ if __name__ == "__main__":
 
             # print calculation time
             if rank==0:
-                print('Distances:', int(time.time() - TIC), 'sec')
+                print('Distances:', int(round(time.time() - TIC)), 'sec')
 
     #=======================================================================================
     # match particles using distances to centroid
@@ -1069,7 +1072,7 @@ if __name__ == "__main__":
 
         # print calculation time
         if rank==0:
-            print(int(time.time() - TIC), 'sec')
+            print('Calculation Time:', int(round(time.time() - TIC)), 'sec')
 
     #=======================================================================================
     # find rotation of matching particles
@@ -1242,7 +1245,7 @@ if __name__ == "__main__":
               shutil.rmtree(f'{path_to_dir}/result{i+1}.nrrd.zarr')
 
       # calculation time
-      print(int(round(time.time() - TIC)), 'sec')
+      print('Calculation Time:', int(round(time.time() - TIC)), 'sec')
 
     #=======================================================================================
     # label matched particles
@@ -1500,6 +1503,65 @@ if __name__ == "__main__":
 
         # save mappings
         np.save(f'{path_to_meta}/mappings2.npy', mappings)
+
+        # save matched particles
+        for i in range(n_datasets):
+            labels = np.load(f'{path_to_meta}/labels{i+1}.npy')
+            result = load_data(f'{path_to_dir}/result{i+1}.nrrd')[0]
+            print('Sample:', i+1)
+            print('Shape:', result.shape)
+            counter = 0
+            labels_array = np.zeros(int(np.amax(labels))+1, np.uint64)
+            for l in mappings[:,i]:
+                if l > 0:
+                    labels_array[l]=1
+                    counter += 1
+            print('Total number of labels:', labels.size)
+            print('Matched particles:', counter)
+            print('Unmatched labels:', labels.size - counter)
+            result = matched_particles(result, labels_array)
+            save_data(f'{path_to_dir}/match{i+1}.nrrd', result)
+
+    #=======================================================================================
+    # matched area
+    #=======================================================================================
+    if bm.matched_area:
+        # mappings
+        mappings = np.load(f'{path_to_meta}/mappings2.npy')
+
+        # Particles identified in at least two scans
+        valid_particles = np.sum(mappings > 0, axis=1) >= 2
+
+        # Load all segmentations once
+        segmentations = []
+        bounding_boxes = []
+        for i in range(n_datasets):
+            seg = load_data(f'{path_to_dir}/match{i+1}.nrrd')[0]
+            mask = imread(BASE+f'/mask{i+1}.tif')
+            if i==0:
+                total_particle_area = np.sum(mask > 0)
+            segmentations.append(seg * mask) # remove filled pores
+            bounding_boxes.append(np.load(f'{path_to_meta}/bounding_boxes{i+1}.npy'))
+
+        total_matched_area = 0
+
+        for p in np.where(valid_particles)[0]:
+
+            # Find the first scan where this particle was identified
+            scan_idx = np.where(mappings[p, :] > 0)[0][0]
+
+            # Corresponding label in that scan
+            label = mappings[p, scan_idx]
+
+            # extract particle & fill inclusions
+            argmin_z, argmax_z, argmin_y, argmax_y, argmin_x, argmax_x = bounding_boxes[scan_idx][label-1]
+            total_matched_area += np.sum(
+                segmentations[scan_idx][argmin_z:argmax_z, argmin_y:argmax_y, argmin_x:argmax_x] == label
+            )
+
+        matched_fraction = total_matched_area / total_particle_area
+        print(f'Total matched area: {total_matched_area}')
+        print(f'Matched fraction = {matched_fraction:.2%}')
 
     #=======================================================================================
     # correct particles
@@ -1858,68 +1920,6 @@ if __name__ == "__main__":
 
             # calculation time
             print(int(round(time.time() - TIC)), 'sec')
-
-    #=======================================================================================
-    # matched area
-    #=======================================================================================
-    if bm.matched_area:
-        # dataset (1: 1,2,23; 250: 2,3,31; 63: 1,2,23)
-        dataset1, dataset2, dataset3 = bm.datasets
-        dataset_a = dataset1
-        dataset_b = dataset2
-        additional = '23'
-
-        # unmatched area
-        matched,_ = load_data(f'{path_to_dir}/corr.{dataset_a}.nrrd')
-        #lv, ln = unique(matched, return_counts=True)
-        #print(ln[-100:])
-        if '-d=63h' in sys.argv or '-d=63' in sys.argv:
-            mask,_=load_data(BASE+'/Quartz/63microns/clean_mask.Quartz_sphere_15_25_110mins_2_greaterthan63microns_uint16_half.nrrd')
-        else:
-            mask = imread(BASE+f'/mask.{dataset_a}.tif')
-        unmatched = (mask > matched).astype(np.uint8)
-        #matched_area = np.sum((matched * mask)>0)
-
-        # total area
-        total_area = np.sum(mask>0)
-
-        # remove outliers
-        s = [[[0,0,0], [0,1,0], [0,0,0]], [[0,1,0], [1,1,1], [0,1,0]], [[0,0,0], [0,1,0], [0,0,0]]]
-        unmatched = unmatched.astype(np.uint32)
-        ndimage.label(unmatched, structure=s, output=unmatched)
-        lv, ln = unique(unmatched, return_counts=True)
-        label_vals = np.zeros(int(np.amax(lv))+1, dtype=np.uint32)
-        for i,l in enumerate(lv):
-            if ln[i]>=100:
-                label_vals[l] = 1
-        unmatched = remove_small_particles2(unmatched, label_vals)
-        unmatched[unmatched>0]=1
-        unmatched = unmatched.astype(np.uint8)
-        unmatched_area = np.sum(unmatched)
-
-        # extract corrected additional particles
-        a2,_=load_data(f'{path_to_dir}/additional{additional}.{dataset_b}.nrrd')
-        c2,_=load_data(f'{path_to_dir}/corr.{dataset_b}.nrrd')
-        m2,_=load_data(BASE+f'/mask.{dataset_b}.tif')
-        labels = unique(a2)
-        labels_array = np.zeros(int(np.amax(c2))+1, np.uint32)
-        for l in labels[1:]:
-            labels_array[l]=1
-        c2 = matched_particles(c2, labels_array)
-        c2 = c2 * m2
-
-        # print matched area in percentage
-        print('Total area:', total_area)
-        matched_area_1 = 100-100/total_area*unmatched_area
-        print('Matched Area 1:', matched_area_1)
-        print('Additional voxels:', np.sum(c2>0))
-        unmatched_area -= np.sum(c2>0)
-        #matched_area += np.sum(c2>0)
-        total_matched_vol = 100-100/total_area*unmatched_area
-        print('Total Matched Volume:', total_matched_vol)
-        print('Additional volume:', total_matched_vol - matched_area_1)
-        #print('Matched Area:', 100/total_area*matched_area)
-        #print('Missing particles:', int(round((total_area - matched_area) / np.mean(ln[1:]))))
 
     #=======================================================================================
     # create training data
