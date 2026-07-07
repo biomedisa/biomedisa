@@ -101,7 +101,7 @@ def smart_interpolation(data, labelData, nbrw=10, sorw=4000, acwe=False, acwe_al
             else:
                 bm = _get_platform(bm)
                 if bm.success == False:
-                    bm = _error_(bm, f'No {bm.platform} device found.')
+                    bm = _error_(bm, bm.message)
 
         if not bm.success:
 
@@ -329,7 +329,7 @@ if __name__ == '__main__':
     parser.add_argument('-f','--fill', nargs='?', type=float, const=0.9, default=None,
                         help='Fill holes, e.g. 0.5 means that all holes smaller than 50 percent of the entire label will be filled')
     parser.add_argument('-p', '--platform', default=None,
-                        help='One of "cuda", "opencl_NVIDIA_GPU", "opencl_Intel_CPU"')
+                        help='One of "cuda", "cuda_force", "opencl_NVIDIA_GPU", "opencl_AMD_GPU", "opencl_Intel_CPU", "None" for auto-detect')
     parser.add_argument('-rh','--return_hits', action='store_true', default=False,
                         help='Return hits from each label. Only works for small image data')
     parser.add_argument('-iid','--img_id', type=str, default=None,
