@@ -776,14 +776,17 @@ def save_data(path_to_final, final, header=None, final_image_type=None, compress
     elif final_image_type == '.zarr':
         try:
             import zarr
+            from zarr.storage import LocalStore
+            from numcodecs import Zlib
             if os.path.exists(path_to_final):
                 shutil.rmtree(path_to_final)
-            # Create a Zarr array with the specified chunk size
-            zarr_array = zarr.create(
+            # Create a Zarr array
+            zarr_array = zarr.open(
+                store=LocalStore(path_to_final),
+                mode='w',
                 shape=final.shape,
                 dtype=final.dtype,
-                store=zarr.DirectoryStore(path_to_final),
-                compressor=zarr.get_codec({'id': 'zlib', 'level': 5}) if compress else None,
+                codecs=[Zlib(level=5)] if compress else None,
                 **zarr_args
                 )
             # Write the data into the Zarr array
