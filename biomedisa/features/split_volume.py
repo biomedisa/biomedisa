@@ -1,6 +1,6 @@
 ##########################################################################
 ##                                                                      ##
-##  Copyright (c) 2019-2024 Philipp Lösel. All rights reserved.         ##
+##  Copyright (c) 2019 Philipp Lösel. All rights reserved.              ##
 ##                                                                      ##
 ##  This file is part of the open source project biomedisa.             ##
 ##                                                                      ##
@@ -27,6 +27,8 @@
 ##########################################################################
 
 import os
+from biomedisa.features.remove_outlier import clean, fill
+from biomedisa.features.active_contour import activeContour
 from biomedisa.features.biomedisa_helper import load_data, save_data
 from biomedisa.interpolation import smart_interpolation
 from tifffile import imread, imwrite, TiffFile
@@ -60,6 +62,24 @@ if __name__ == '__main__':
                         help='Number of sub-blocks in y-direction')
     parser.add_argument('-sz','--split_z', type=int, default=1,
                         help='Number of sub-blocks in z-direction')
+    parser.add_argument('-c','--clean', nargs='?', type=float, const=0.1, default=None,
+                        help='Remove outliers, e.g. 0.5 means that objects smaller than 50 percent of the size of the largest object will be removed')
+    parser.add_argument('-f','--fill', nargs='?', type=float, const=0.9, default=None,
+                        help='Fill holes, e.g. 0.5 means that all holes smaller than 50 percent of the entire label will be filled')
+    parser.add_argument('-p', '--platform', default=None,
+                        help='One of "cuda", "cuda_force", "opencl_NVIDIA_GPU", "opencl_AMD_GPU", "opencl_Intel_CPU", "None" for auto-detect')
+    parser.add_argument('--nbrw', type=int, default=10,
+                        help='Number of random walks starting at each pre-segmented pixel')
+    parser.add_argument('--sorw', type=int, default=4000,
+                        help='Steps of a random walk')
+    parser.add_argument('--acwe', action='store_true', default=False,
+                        help='Post-processing with active contour')
+    parser.add_argument('--acwe_alpha', metavar='ALPHA', type=float, default=1.0,
+                        help='Pushing force of active contour')
+    parser.add_argument('--acwe_smooth', metavar='SMOOTH', type=int, default=1,
+                        help='Smoothing steps of active contour')
+    parser.add_argument('--acwe_steps', metavar='STEPS', type=int, default=3,
+                        help='Iterations of active contour')
     args = parser.parse_args()
 
     # image size
@@ -133,7 +153,14 @@ if __name__ == '__main__':
 
                 # interpolation
                 if np.any(labelData):
-                    results = smart_interpolation(data, labelData, uncertainty=args.uncertainty, allaxis=args.allaxis, smooth=args.smooth)
+                    results = smart_interpolation(data, labelData,
+                        uncertainty=args.uncertainty,
+                        allaxis=args.allaxis,
+                        smooth=args.smooth,
+                        platform=args.platform,
+                        nbrw=args.nbrw,
+                        sorw=args.sorw,
+                    )
 
                     # append results
                     final[blockmin_z:blockmax_z,blockmin_y:blockmax_y,blockmin_x:blockmax_x] \
@@ -157,7 +184,13 @@ if __name__ == '__main__':
     if extension == '.gz':
         filename = filename[:-4]
     path_to_smooth = filename + '.smooth' + final_image_type
+    path_to_smooth_cleaned = filename + '.smooth.cleaned' + final_image_type
     path_to_uq = filename + '.uncertainty.tif'
+    path_to_cleaned = filename + '.cleaned' + final_image_type
+    path_to_filled = filename + '.filled' + final_image_type
+    path_to_cleaned_filled = filename + '.cleaned.filled' + final_image_type
+    path_to_refined = filename + '.refined' + final_image_type
+    path_to_acwe = filename + '.acwe' + final_image_type
 
     # save results
     save_data(path_to_final, final, header)
@@ -165,4 +198,26 @@ if __name__ == '__main__':
         save_data(path_to_smooth, final_smooth, header)
     if args.uncertainty:
         imwrite(path_to_uq, final_uncertainty)
+
+    # remove outliers and fill holes
+    if args.clean:
+        cleaned_result = clean(final, args.clean)
+        save_data(path_to_cleaned, cleaned_result, header)
+        if args.smooth:
+            smooth_cleaned = clean(final_smooth, args.clean)
+            save_data(path_to_smooth_cleaned, smooth_cleaned, header)
+    if args.fill:
+        filled_result = fill(final, args.fill)
+        save_data(path_to_filled, filled_result, header)
+    if args.clean and args.fill:
+        cleaned_filled_result = cleaned_result + (filled_result - final)
+        save_data(path_to_cleaned_filled, cleaned_filled_result, header)
+
+    # post-processing with active contour
+    if args.acwe:
+        data = load_data(args.path_to_data)[0]
+        acwe_result = activeContour(data, final, args.acwe_alpha, args.acwe_smooth, args.acwe_steps)
+        refined_result = activeContour(data, final, simple=True)
+        save_data(path_to_acwe, acwe_result, header)
+        save_data(path_to_refined, refined_result, header)
 
