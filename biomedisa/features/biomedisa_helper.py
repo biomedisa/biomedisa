@@ -380,14 +380,8 @@ def natural_key(string):
 
 def load_data(path_to_data, process='None', return_extension=False, slicer_labels=False, return_labels=False, **kwargs):
 
-    zarr_keys = {'mode'}
     tifffile_keys = {'key'}
-
-    zarr_args = {k: v for k, v in kwargs.items() if k in zarr_keys}
     tifffile_args = {k: v for k, v in kwargs.items() if k in tifffile_keys}
-
-    # Set default if 'mode' not provided
-    zarr_args.setdefault('mode', 'r')
 
     if not os.path.exists(path_to_data):
         print(f"Error: No such file or directory '{path_to_data}'")
@@ -479,10 +473,30 @@ def load_data(path_to_data, process='None', return_extension=False, slicer_label
 
     elif extension == '.zarr':
         try:
+            import inspect
             import zarr
-            from zarr.storage import LocalStore
-            store = LocalStore(path_to_data)
-            data = zarr.open(store=store, **zarr_args)[:]
+
+            valid = inspect.signature(zarr.open).parameters
+
+            zarr_args = {
+                k: v
+                for k, v in kwargs.items()
+                if k in valid
+            }
+
+            # Default to read mode
+            zarr_args.setdefault("mode", "r")
+
+            # Compatible store creation
+            try:
+                from zarr.storage import LocalStore
+                store = LocalStore(path_to_data)
+            except ImportError:
+                from zarr.storage import DirectoryStore
+                store = DirectoryStore(path_to_data)
+
+            z = zarr.open(store=store, **zarr_args)
+            data = z[:]
             header = None
         except Exception as e:
             print(e)
@@ -711,12 +725,6 @@ def pre_processing(bm):
 
 def save_data(path_to_final, final, header=None, final_image_type=None, compress=True, **kwargs):
 
-    zarr_keys = {'chunks'}
-    zarr_args = {k: v for k, v in kwargs.items() if k in zarr_keys}
-
-    # Set default values if not provided
-    zarr_args.setdefault('chunks', (100, 100, 100))
-
     if final_image_type == None:
         final_image_type = os.path.splitext(path_to_final)[1]
         if final_image_type == '.gz':
@@ -776,18 +784,51 @@ def save_data(path_to_final, final, header=None, final_image_type=None, compress
     elif final_image_type == '.zarr':
         try:
             import zarr
+            from packaging.version import Version
+            from numcodecs import Zlib
+            import inspect
+
+            # Keep only arguments accepted by the installed zarr.open()
+            valid = inspect.signature(zarr.open).parameters
+
+            zarr_args = {
+                k: v
+                for k, v in kwargs.items()
+                if k in valid
+            }
+
+            zarr_args.setdefault("chunks", (100, 100, 100))
+
             if os.path.exists(path_to_final):
                 shutil.rmtree(path_to_final)
-            # Create a Zarr array with the specified chunk size
-            zarr_array = zarr.create(
+
+            # Compatible store
+            try:
+                from zarr.storage import LocalStore
+                store = LocalStore(path_to_final)
+            except ImportError:
+                from zarr.storage import DirectoryStore
+                store = DirectoryStore(path_to_final)
+
+            version = Version(zarr.__version__).major
+
+            create_args = dict(
+                store=store,
+                mode='w',
                 shape=final.shape,
                 dtype=final.dtype,
-                store=zarr.DirectoryStore(path_to_final),
-                compressor=zarr.get_codec({'id': 'zlib', 'level': 5}) if compress else None,
-                **zarr_args
-                )
-            # Write the data into the Zarr array
-            zarr_array[:] = final
+                **zarr_args,
+            )
+
+            if compress:
+                if version >= 3:
+                    create_args["codecs"] = [Zlib(level=5)]
+                else:
+                    create_args["compressor"] = Zlib(level=5)
+
+            z = zarr.open(**create_args)
+            z[:] = final
+
         except Exception as e:
             print(e)
             data, header = None, None
@@ -828,86 +869,136 @@ def delbackground(labels):
 
 def _get_platform(bm):
 
-    # import PyCUDA
-    if bm.platform in ['cuda', None]:
+    # ------------------------------------------------------------------
+    # CUDA
+    # ------------------------------------------------------------------
+    # Try CUDA if it was explicitly requested, or during auto-detection
+    # when allaxis=False.
+    try_cuda = bm.platform == "cuda" or (
+        bm.platform is None and not bm.allaxis
+    )
+
+    if try_cuda:
+        if bm.allaxis:
+            print("Warning: CUDA with --allaxis is deprecated. Please remove --platform=cuda.")
+
         try:
             import pycuda.driver as cuda
             import pycuda.gpuarray as gpuarray
-            cuda.init()
-            bm.available_devices = cuda.Device.count()
-            if bm.available_devices > 0:
-                dev = cuda.Device(0)
-                ctx = dev.make_context()
-                a_gpu = gpuarray.to_gpu(np.random.randn(4,4).astype(np.float32))
-                a_doubled = (2*a_gpu).get()
-                ctx.pop()
-                del ctx
-                bm.platform = 'cuda'
-                return bm
-            elif bm.platform == 'cuda':
-                print('Error: No CUDA device found.')
+        except ImportError:
+            if bm.platform == "cuda":
+                bm.message = "PyCUDA is not installed. Install it with: pip install pycuda"
                 bm.success = False
                 return bm
-        except:
-            pass
+        else:
+            try:
+                cuda.init()
+                bm.available_devices = cuda.Device.count()
 
-    # import PyOpenCL
+                if bm.available_devices > 0:
+                    dev = cuda.Device(0)
+                    ctx = dev.make_context()
+                    a_gpu = gpuarray.to_gpu(np.random.randn(4,4).astype(np.float32))
+                    _ = (2*a_gpu).get()
+                    ctx.pop()
+                    del ctx
+                    bm.platform = 'cuda'
+                    return bm
+
+                elif bm.platform == 'cuda':
+                    bm.message = 'No CUDA device found.'
+                    bm.success = False
+                    return bm
+
+            except Exception:
+                if bm.platform == "cuda":
+                    bm.message = "Failed to initialize CUDA."
+                    bm.success = False
+                    return bm
+
+    # ------------------------------------------------------------------
+    # OpenCL
+    # ------------------------------------------------------------------
     try:
         import pyopencl as cl
     except ImportError:
+        if bm.platform is not None and bm.platform.startswith("opencl"):
+            bm.message = "PyOpenCL is not installed. Install it with: pip install pyopencl"
+            bm.success = False
+            return bm
         cl = None
 
-    # select the first detected device
+    # ------------------------------------------------------------------
+    # Auto-detect OpenCL
+    # ------------------------------------------------------------------
     if cl and bm.platform is None:
         for vendor in ['NVIDIA', 'AMD', 'Intel', 'Apple']:
             for dev, device_type in [('GPU',cl.device_type.GPU),('CPU',cl.device_type.CPU)]:
                 try:
                     all_platforms = cl.get_platforms()
-                except:
+                except Exception:
                     all_platforms = []
+
                 my_devices = []
                 for p in all_platforms:
-                    if p.get_devices(device_type=device_type) and vendor in p.name:
-                        my_devices = p.get_devices(device_type=device_type)
+                    devices = p.get_devices(device_type=device_type)
+                    if devices and vendor in p.name:
+                        my_devices = devices
+
                 if my_devices:
                     bm.platform = 'opencl_'+vendor+'_'+dev
+
                     if 'OMPI_COMMAND' in os.environ and dev == 'CPU':
-                        print("Error: OpenCL CPU does not support MPI. Start Biomedisa without 'mpirun' or 'mpiexec'.")
+                        bm.message = "OpenCL CPU does not support MPI. Start Biomedisa without 'mpirun' or 'mpiexec'."
                         bm.success = False
                         return bm
-                    else:
-                        bm.available_devices = len(my_devices)
-                        print('Detected platform:', bm.platform)
-                        print('Detected devices:', my_devices)
-                        return bm
 
-    # explicitly select the OpenCL device
-    elif cl and len(bm.platform.split('_')) == 3:
-        plat, vendor, dev = bm.platform.split('_')
+                    bm.available_devices = len(my_devices)
+                    print('Detected platform:', bm.platform)
+                    print('Detected devices:', my_devices)
+                    return bm
+
+    # ------------------------------------------------------------------
+    # Explicit OpenCL selection
+    # ------------------------------------------------------------------
+    elif cl and bm.platform is not None and bm.platform.startswith("opencl_"):
+        try:
+            _, vendor, dev = bm.platform.split("_")
+        except ValueError:
+            bm.message = f"Invalid platform '{bm.platform}'."
+            bm.success = False
+            return bm
+
         device_type=cl.device_type.GPU if dev=='GPU' else cl.device_type.CPU
+
         try:
             all_platforms = cl.get_platforms()
-        except:
+        except Exception:
             all_platforms = []
+
         my_devices = []
         for p in all_platforms:
-            if p.get_devices(device_type=device_type) and vendor in p.name:
-                my_devices = p.get_devices(device_type=device_type)
+            devices = p.get_devices(device_type=device_type)
+            if devices and vendor in p.name:
+                my_devices = devices
+
         if my_devices:
             if 'OMPI_COMMAND' in os.environ and dev == 'CPU':
-                print("Error: OpenCL CPU does not support MPI. Start Biomedisa without 'mpirun' or 'mpiexec'.")
+                bm.message = "OpenCL CPU does not support MPI. Start Biomedisa without 'mpirun' or 'mpiexec'."
                 bm.success = False
                 return bm
-            else:
-                bm.available_devices = len(my_devices)
-                print('Detected platform:', bm.platform)
-                print('Detected devices:', my_devices)
-                return bm
 
-    # stop the process if no device is detected
+            bm.available_devices = len(my_devices)
+            print('Detected platform:', bm.platform)
+            print('Detected devices:', my_devices)
+            return bm
+
+    # ------------------------------------------------------------------
+    # Nothing found
+    # ------------------------------------------------------------------
     if bm.platform is None:
         bm.platform = 'OpenCL or CUDA'
-    print(f'Error: No {bm.platform} device found.')
+    bm.message = f'No {bm.platform} device found.'
     bm.success = False
     return bm
 

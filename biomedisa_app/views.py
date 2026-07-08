@@ -2170,8 +2170,8 @@ def init_random_walk(image, label):
         if not host:
             bm = _get_platform(bm)
             if bm.success == False:
-                return_error(image, f'No {bm.platform} device found.')
-                raise Exception(f'No {bm.platform} device found.')
+                return_error(image, bm.message)
+                raise Exception(bm.message)
 
         # number of gpus or list of gpu ids (list and all works only locally)
         if type(config[f'{QUEUE}_QUEUE_NGPUS'])==list:
