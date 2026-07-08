@@ -185,6 +185,10 @@ class BiomedisaLogic():
             if os.path.exists(results_path):
                 results = {}
                 results[option] = imread(results_path)
+            elif option!='regular' and os.path.exists(os.path.join(temp_dir, 'final.biomedisa-image.tif')):
+                results = {}
+                results[option] = imread(os.path.join(temp_dir, 'final.biomedisa-image.tif'))
+                Helper.prompt_error_message(f"{option} is not available. Falling back to the standard result.")
 
         if results is None:
             return None
