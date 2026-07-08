@@ -380,14 +380,8 @@ def natural_key(string):
 
 def load_data(path_to_data, process='None', return_extension=False, slicer_labels=False, return_labels=False, **kwargs):
 
-    zarr_keys = {'mode'}
     tifffile_keys = {'key'}
-
-    zarr_args = {k: v for k, v in kwargs.items() if k in zarr_keys}
     tifffile_args = {k: v for k, v in kwargs.items() if k in tifffile_keys}
-
-    # Set default if 'mode' not provided
-    zarr_args.setdefault('mode', 'r')
 
     if not os.path.exists(path_to_data):
         print(f"Error: No such file or directory '{path_to_data}'")
@@ -479,10 +473,30 @@ def load_data(path_to_data, process='None', return_extension=False, slicer_label
 
     elif extension == '.zarr':
         try:
+            import inspect
             import zarr
-            from zarr.storage import LocalStore
-            store = LocalStore(path_to_data)
-            data = zarr.open(store=store, **zarr_args)[:]
+
+            valid = inspect.signature(zarr.open).parameters
+
+            zarr_args = {
+                k: v
+                for k, v in kwargs.items()
+                if k in valid
+            }
+
+            # Default to read mode
+            zarr_args.setdefault("mode", "r")
+
+            # Compatible store creation
+            try:
+                from zarr.storage import LocalStore
+                store = LocalStore(path_to_data)
+            except ImportError:
+                from zarr.storage import DirectoryStore
+                store = DirectoryStore(path_to_data)
+
+            z = zarr.open(store=store, **zarr_args)
+            data = z[:]
             header = None
         except Exception as e:
             print(e)
@@ -711,12 +725,6 @@ def pre_processing(bm):
 
 def save_data(path_to_final, final, header=None, final_image_type=None, compress=True, **kwargs):
 
-    zarr_keys = {'chunks'}
-    zarr_args = {k: v for k, v in kwargs.items() if k in zarr_keys}
-
-    # Set default values if not provided
-    zarr_args.setdefault('chunks', (100, 100, 100))
-
     if final_image_type == None:
         final_image_type = os.path.splitext(path_to_final)[1]
         if final_image_type == '.gz':
@@ -776,21 +784,51 @@ def save_data(path_to_final, final, header=None, final_image_type=None, compress
     elif final_image_type == '.zarr':
         try:
             import zarr
-            from zarr.storage import LocalStore
+            from packaging.version import Version
             from numcodecs import Zlib
+            import inspect
+
+            # Keep only arguments accepted by the installed zarr.open()
+            valid = inspect.signature(zarr.open).parameters
+
+            zarr_args = {
+                k: v
+                for k, v in kwargs.items()
+                if k in valid
+            }
+
+            zarr_args.setdefault("chunks", (100, 100, 100))
+
             if os.path.exists(path_to_final):
                 shutil.rmtree(path_to_final)
-            # Create a Zarr array
-            zarr_array = zarr.open(
-                store=LocalStore(path_to_final),
+
+            # Compatible store
+            try:
+                from zarr.storage import LocalStore
+                store = LocalStore(path_to_final)
+            except ImportError:
+                from zarr.storage import DirectoryStore
+                store = DirectoryStore(path_to_final)
+
+            version = Version(zarr.__version__).major
+
+            create_args = dict(
+                store=store,
                 mode='w',
                 shape=final.shape,
                 dtype=final.dtype,
-                codecs=[Zlib(level=5)] if compress else None,
-                **zarr_args
-                )
-            # Write the data into the Zarr array
-            zarr_array[:] = final
+                **zarr_args,
+            )
+
+            if compress:
+                if version >= 3:
+                    create_args["codecs"] = [Zlib(level=5)]
+                else:
+                    create_args["compressor"] = Zlib(level=5)
+
+            z = zarr.open(**create_args)
+            z[:] = final
+
         except Exception as e:
             print(e)
             data, header = None, None
