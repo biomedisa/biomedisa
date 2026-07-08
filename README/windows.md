@@ -23,13 +23,13 @@ Download and install [Anaconda3](https://repo.anaconda.com/archive/).
 #### Install Biomedisa Environment
 Open Anaconda Prompt (e.g. Windows Search `Anaconda Prompt`). Download Biomedisa environment:
 ```
-curl https://raw.githubusercontent.com/biomedisa/biomedisa/refs/heads/master/biomedisa_env.yml --output biomedisa_env.yml
+curl https://raw.githubusercontent.com/biomedisa/biomedisa/refs/heads/master/environment.yml --output environment.yml
 ```
 Install Biomedisa environment:
 ```
-conda env create --file biomedisa_env.yml
+conda env create --file environment.yml
 ```
-Note: If your computer didn't find `biomedisa_env.yml` the easiest way is to locate the file in your User directory and drag and drop it onto the Anaconda Prompt after typing `conda env create --file`.
+Note: If your computer didn't find `environment.yml` the easiest way is to locate the file in your User directory and drag and drop it onto the Anaconda Prompt after typing `conda env create --file`.
 
 #### Optional: Install Deep Learning (NVIDIA GPUs only)
 Activate conda environment:
@@ -38,7 +38,7 @@ conda activate biomedisa
 ```
 Install PyTorch as follows or check [PyTorch](https://pytorch.org/get-started/locally/):
 ```
-python -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+python -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cu126
 ```
 Install Keras 3:
 ```
