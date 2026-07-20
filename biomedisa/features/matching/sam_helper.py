@@ -234,5 +234,6 @@ def sam_boundaries(volume=None, volume_path=None, sam_checkpoint=None, boundarie
         # save data
         if boundaries_path:
             save_data(boundaries_path, output)
+
         return output
 

@@ -922,16 +922,14 @@ def _get_platform(bm):
     try:
         import pyopencl as cl
     except ImportError:
-        if bm.platform is not None and bm.platform.startswith("opencl"):
-            bm.message = "PyOpenCL is not installed. Install it with: pip install pyopencl"
-            bm.success = False
-            return bm
-        cl = None
+        bm.message = "PyOpenCL is not installed. Install it with: pip install pyopencl"
+        bm.success = False
+        return bm
 
     # ------------------------------------------------------------------
     # Auto-detect OpenCL
     # ------------------------------------------------------------------
-    if cl and bm.platform is None:
+    if bm.platform is None:
         for vendor in ['NVIDIA', 'AMD', 'Intel', 'Apple']:
             for dev, device_type in [('GPU',cl.device_type.GPU),('CPU',cl.device_type.CPU)]:
                 try:
@@ -961,7 +959,7 @@ def _get_platform(bm):
     # ------------------------------------------------------------------
     # Explicit OpenCL selection
     # ------------------------------------------------------------------
-    elif cl and bm.platform is not None and bm.platform.startswith("opencl_"):
+    elif bm.platform is not None and bm.platform.startswith("opencl_"):
         try:
             _, vendor, dev = bm.platform.split("_")
         except ValueError:

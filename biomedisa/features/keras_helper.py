@@ -1565,10 +1565,13 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
     # check if data can be loaded blockwise to save host memory
     load_blockwise = False
     img_path = bm.path_to_image
-    if not bm.scaling and not bm.normalize and bm.path_to_image and not np.any(region_of_interest) and not bm.acwe:
+    if not bm.scaling and not bm.normalize and not np.any(region_of_interest) and not bm.acwe:
 
         # convert image to TIFF
-        if not os.path.splitext(bm.path_to_image)[1] in ['.tif','.tiff','.TIF','.TIFF']:
+        if bm.img_data is not None:
+            bm.path_to_image = os.path.join(temp_dir, 'tmp_image.tif')
+            imwrite(bm.path_to_image, bm.img_data)
+        elif not os.path.splitext(bm.path_to_image)[1] in ['.tif','.tiff','.TIF','.TIFF']:
             tmp, bm.img_header = load_data(bm.path_to_image)
             bm.path_to_image = os.path.join(temp_dir, 'tmp_image.tif')
             imwrite(bm.path_to_image, tmp)
@@ -1629,6 +1632,7 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
         # prediction
         if zsh*ysh*xsh > 256**3:
             load_blockwise = True
+            bm.img_data = None
 
     # load image data and calculate patch IDs
     if not load_blockwise:
