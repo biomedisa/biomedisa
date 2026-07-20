@@ -46,40 +46,50 @@ if __name__ == "__main__":
         for side in ['left','right']:
 
             # load image
-            img = imread(f"teeth/1000340{sample}_000_001_0000.transformed_M1_{side}.tif")
+            if rank==0:
+                img = imread(f"teeth/1000340{sample}_000_001_0000.transformed_M1_{side}.tif")
 
             # cross validation
             for cv in [0,1]:
 
                 # load labels
-                labels = imread(f"teeth/1000340{sample}_000_001_0000.transformed_M1_{side}_labels.tif")
-                ref = labels.copy()
+                if rank==0:
+                    labels = imread(f"teeth/1000340{sample}_000_001_0000.transformed_M1_{side}_labels.tif")
+                    ref = labels.copy()
 
-                # cross validation
-                indices = read_indices(labels)
-                for i in indices[cv::2]:
-                    labels[i] = 0
+                    # cross validation
+                    indices = read_indices(labels)
+                    for i in indices[cv::2]:
+                        labels[i] = 0
+                else:
+                    img = None
+                    labels = None
+                comm.Barrier()
 
                 # smart interpolation with optional smoothing result
                 results = smart_interpolation(img, labels, smooth=0)
-                result = results['regular']
 
-                # reference
-                ref[labels>0] = 0
-                for k in range(ref.shape[0]):
-                    if not np.any(ref[k]):
-                        result[k] = 0
+                # get result
+                if rank==0:
+                    result = results['regular']
 
-                #ac, h = average_surface_distance(a, b)
-                #assd_score.append(ac)
-                #hausdorff.append(h)
+                    # reference
+                    ref[labels>0] = 0
+                    for k in range(ref.shape[0]):
+                        if not np.any(ref[k]):
+                            result[k] = 0
 
-                d = Dice(ref, result)
-                dice.append(d)
+                    #ac, h = average_surface_distance(a, b)
+                    #assd_score.append(ac)
+                    #hausdorff.append(h)
 
-    print('Dice:', np.mean(dice), np.std(dice))
-    #print('ASSD:', np.mean(assd_score), np.std(assd_score))
-    #print('Hausdorff:', np.mean(hausdorff), np.std(hausdorff))
+                    d = Dice(ref, result)
+                    dice.append(d)
+
+    if rank==0:
+        print('Dice:', np.mean(dice), np.std(dice))
+        #print('ASSD:', np.mean(assd_score), np.std(assd_score))
+        #print('Hausdorff:', np.mean(hausdorff), np.std(hausdorff))
 
     #=======================================================================================
     # cross-validation

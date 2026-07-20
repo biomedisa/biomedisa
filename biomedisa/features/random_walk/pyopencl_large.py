@@ -289,10 +289,8 @@ def walk(comm, raw, extracted_slices, indices, nbrw, sorw, blockmin, blockmax,
     hits = np.empty(raw.shape, dtype=np.int32)
     final = np.zeros((blockmax-blockmin, ysh, xsh), dtype=np.uint8)
 
-    # allocate memory on the device
-    mf = cl.mem_flags
-
     # allocate device memory or use subdomains
+    mf = cl.mem_flags
     memory_error = False
     subdomains = False
     if zsh * ysh * xsh > 42e8:
@@ -332,8 +330,8 @@ def walk(comm, raw, extracted_slices, indices, nbrw, sorw, blockmin, blockmax,
         try:
             update_gpu = _build_update_gpu(ctx)
             curvature_gpu = _build_curvature_gpu(ctx)
-            b_npy = np.zeros(raw.shape, dtype=np.float32)
-            b_cl = cl.Buffer(ctx, mf.READ_WRITE | mf.COPY_HOST_PTR, hostbuf=b_npy)
+            b_cl = cl.Buffer(ctx, mf.READ_WRITE, size=np.prod(raw.shape)*4)
+            cl.enqueue_fill_buffer(queue, b_cl, np.float32(0), offset=0, size=np.prod(raw.shape)*4)
             final_smooth = np.zeros((blockmax-blockmin, ysh, xsh), dtype=np.uint8)
             sendbuf_smooth = np.zeros(1, dtype=np.int32)
             recvbuf_smooth = np.zeros(1, dtype=np.int32)
@@ -356,8 +354,8 @@ def walk(comm, raw, extracted_slices, indices, nbrw, sorw, blockmin, blockmax,
         try:
             kernel_uncertainty = _build_kernel_uncertainty(ctx)
             kernel_max = _build_kernel_max(ctx)
-            max_npy = np.zeros((3,)+raw.shape, dtype=np.float32)
-            max_cl = cl.Buffer(ctx, mf.READ_WRITE | mf.COPY_HOST_PTR, hostbuf=max_npy)
+            max_cl = cl.Buffer(ctx, mf.READ_WRITE, size=3*np.prod(raw.shape)*4)
+            cl.enqueue_fill_buffer(queue, max_cl, np.float32(0), offset=0, size=3*np.prod(raw.shape)*4)
             sendbuf_uq = np.zeros(1, dtype=np.int32)
             recvbuf_uq = np.zeros(1, dtype=np.int32)
             comm.Barrier()
@@ -405,9 +403,7 @@ def walk(comm, raw, extracted_slices, indices, nbrw, sorw, blockmin, blockmax,
                     sub_hits_cl = cl.Buffer(ctx, mf.WRITE_ONLY | mf.COPY_HOST_PTR, hostbuf=sub_hits)
                     cl.enqueue_fill_buffer(queue, sub_hits_cl, np.int32(0), offset=0, size=sub_hits.nbytes)
 
-                    block = None
-                    grid = (sub_zsh, ysh, xsh)
-                    kernel(queue, grid, block, np.int32(segment), sub_raw_cl, sub_slices_cl, sub_hits_cl,
+                    kernel(queue, (xsh, ysh, sub_zsh), local_size, np.int32(segment), sub_raw_cl, sub_slices_cl, sub_hits_cl,
                         np.int32(xsh), np.int32(ysh), np.int32(sub_zsh), np.int32(sorw), np.int32(nbrw), np.int32(ignore_value))
                     cl.enqueue_copy(queue, sub_hits, sub_hits_cl)
                     hits[data_block_min:data_block_max] += sub_hits
@@ -425,12 +421,10 @@ def walk(comm, raw, extracted_slices, indices, nbrw, sorw, blockmin, blockmax,
                 except:
                     pass
 
+        # compute random walks on the entire volume
         else:
-            # compute random walks on the entire volume
-            block = None
-            grid = (zsh, ysh, xsh)
             cl.enqueue_fill_buffer(queue, hits_cl, np.int32(0), offset=0, size=hits.nbytes)
-            kernel(queue, grid, block, np.int32(segment), raw_cl, slices_cl, hits_cl,
+            kernel(queue, global_size, local_size, np.int32(segment), raw_cl, slices_cl, hits_cl,
                 np.int32(xsh), np.int32(ysh), np.int32(zsh), np.int32(sorw), np.int32(nbrw), np.int32(ignore_value))
             cl.enqueue_copy(queue, hits, hits_cl)
 
@@ -445,7 +439,7 @@ def walk(comm, raw, extracted_slices, indices, nbrw, sorw, blockmin, blockmax,
         comm.Allreduce([sendbuf, MPI.INT], [recvbuf, MPI.INT], op=MPI.MAX)
         if recvbuf > 0:
             memory_error = True
-            return memory_error, None, None, None, None
+            return memory_error, None, None, None
 
         # communicate hits
         if size > 1:
@@ -507,17 +501,43 @@ def _build_kernel(data_dtype, labels_dtype):
     float _calc_var(unsigned int index, float B, __global DATA_DTYPE *raw, const int segment, __global LABELS_DTYPE *labels, const int xsh, const int ysh) {
         float dev = 0;
         float summe = 0;
-        for (int m = -1; m < 2; m++) {
-          for (int n = -1; n < 2; n++) {
+
+        // XY plane
+        for (int n = -1; n < 2; n++) {
             for (int o = -1; o < 2; o++) {
-                if (labels[index + m*xsh*ysh + n*xsh + o] == segment) {
-                    float tmp = B - raw[index + m*xsh*ysh + n*xsh + o];
+                unsigned int idx = index + n * xsh + o;
+                if (labels[idx] == segment) {
+                    float tmp = B - raw[idx];
                     dev += tmp * tmp;
                     summe += 1;
-                    }
                 }
-              }
             }
+        }
+
+        // XZ plane
+        for (int n = -1; n <= 1; n += 2) {
+            for (int o = -1; o < 2; o++) {
+                unsigned int idx = index + n * xsh * ysh + o;
+                if (summe < 9 && labels[idx] == segment) {
+                    float tmp = B - raw[idx];
+                    dev += tmp * tmp;
+                    summe += 1;
+                }
+            }
+        }
+
+        // YZ plane
+        for (int n = -1; n <= 1; n += 2) {
+            for (int o = -1; o <= 1; o += 2) {
+                unsigned int idx = index + n * xsh * ysh + o * xsh;
+                if (summe < 9 && labels[idx] == segment) {
+                    float tmp = B - raw[idx];
+                    dev += tmp * tmp;
+                    summe += 1;
+                }
+            }
+        }
+
         float var = dev / summe;
         if (var < 1.0) {
             var = 1.0;
@@ -532,18 +552,18 @@ def _build_kernel(data_dtype, labels_dtype):
 
     __kernel void randomWalk(const int segment, __global DATA_DTYPE *raw, __global LABELS_DTYPE *slices, __global int *hits, const int xsh, const int ysh, const int zsh, const int sorw, const int nbrw, const int ignore_value) {
 
-        // get_global_id(0)         // blockIdx.z * blockDim.z + threadIdx.z
-        // get_local_id(0)          // threadIdx.z
-        // get_global_size(0)       // gridDim.z * blockDim.z
-        // get_local_size(0)        // blockDim.z
+        // get_global_id(0)         // blockIdx.x * blockDim.x + threadIdx.x
+        // get_local_id(0)          // threadIdx.x
+        // get_global_size(0)       // gridDim.x * blockDim.x
+        // get_local_size(0)        // blockDim.x
 
         int flat   = xsh * ysh;
-        int column = get_global_id(2);
+        int column = get_global_id(0);
         int row    = get_global_id(1);
-        int plane  = get_global_id(0);
+        int plane  = get_global_id(2);
         unsigned int index  = plane * flat + row * xsh + column;
 
-        if (index < get_global_size(0)*flat && plane>0 && row>0 && column>0 && plane<zsh-1 && row<ysh-1 && column<xsh-1) {
+        if (index < get_global_size(2)*flat && plane>0 && row>0 && column>0 && plane<zsh-1 && row<ysh-1 && column<xsh-1) {
 
             if (slices[index]==segment) {
 

@@ -140,17 +140,43 @@ def _build_kernel(data_dtype, labels_dtype):
     float _calc_var(int index, float B, __global DATA_DTYPE *raw, const int segment, __global LABELS_DTYPE *labels, const int xsh, const int ysh) {
         float dev = 0;
         float summe = 0;
-        for (int m = -1; m < 2; m++) {
-          for (int n = -1; n < 2; n++) {
+
+        // XY plane
+        for (int n = -1; n < 2; n++) {
             for (int o = -1; o < 2; o++) {
-                if (labels[index + m*xsh*ysh + n*xsh + o] == segment) {
-                    float tmp = B - raw[index + m*xsh*ysh + n*xsh + o];
+                int idx = index + n * xsh + o;
+                if (labels[idx] == segment) {
+                    float tmp = B - raw[idx];
                     dev += tmp * tmp;
                     summe += 1;
-                    }
                 }
             }
-          }
+        }
+
+        // XZ plane
+        for (int n = -1; n <= 1; n += 2) {
+            for (int o = -1; o < 2; o++) {
+                int idx = index + n * xsh * ysh + o;
+                if (summe < 9 && labels[idx] == segment) {
+                    float tmp = B - raw[idx];
+                    dev += tmp * tmp;
+                    summe += 1;
+                }
+            }
+        }
+
+        // YZ plane
+        for (int n = -1; n <= 1; n += 2) {
+            for (int o = -1; o <= 1; o += 2) {
+                int idx = index + n * xsh * ysh + o * xsh;
+                if (summe < 9 && labels[idx] == segment) {
+                    float tmp = B - raw[idx];
+                    dev += tmp * tmp;
+                    summe += 1;
+                }
+            }
+        }
+
         float var = dev / summe;
         if (var < 1.0) {
             var = 1.0;
