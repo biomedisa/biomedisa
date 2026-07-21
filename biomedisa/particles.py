@@ -33,8 +33,8 @@ from scipy import ndimage
 import numpy as np
 import time
 
-def label_particles(boundaries_path, mask_path, header=None, result_path=None,
-    min_particle_size=1000, zoom_factor=None, label_path=None):
+def label_particles(boundaries=None, boundaries_path=None, mask_data=None, mask_path=None,
+    header=None, result_path=None, min_particle_size=1000, zoom_factor=None, label_path=None):
     """
     Removes boundary pixels from a binary mask and labels the remaining connected
     components with unique integer values.
@@ -46,7 +46,7 @@ def label_particles(boundaries_path, mask_path, header=None, result_path=None,
     mask_path : str
         Path to the binary mask file.
     result_path : str, optional
-        Path to the output file. If not provided, `boundaries_path` is used.
+        Path to the output file.
     min_particle_size : int, optional
         Minimum allowed size (in pixels) for connected components. Objects smaller
         than this threshold are removed.
@@ -61,13 +61,16 @@ def label_particles(boundaries_path, mask_path, header=None, result_path=None,
     else:
         # load mask
         TIC = time.time()
-        print('Mask:', mask_path)
-        mask = load_data(mask_path)[0]
-        mask = mask.astype(np.uint8)
+        if mask_data is None:
+            print('Mask:', mask_path)
+            mask_data = load_data(mask_path)[0]
+        mask_data = mask_data.astype(np.uint8)
+        mask_data[mask_data>0]=1
 
         # remove boundary
-        labeled_array = mask.copy()
-        boundaries = load_data(boundaries_path)[0]
+        labeled_array = mask_data.copy()
+        if boundaries is None:
+            boundaries = load_data(boundaries_path)[0]
         labeled_array[boundaries>0]=0
         print('Shape:', boundaries.shape)
         del boundaries
@@ -75,7 +78,7 @@ def label_particles(boundaries_path, mask_path, header=None, result_path=None,
 
         # downsize mask
         if zoom_factor and zoom_factor!=1:
-            mask = ndimage.zoom(mask, zoom_factor, order=0)
+            mask_data = ndimage.zoom(mask_data, zoom_factor, order=0)
 
         # label particles individually
         TIC = time.time()
@@ -97,8 +100,8 @@ def label_particles(boundaries_path, mask_path, header=None, result_path=None,
         distances = np.zeros(labeled_array.shape, dtype=np.float32)
         distances[labeled_array==0] = np.inf
         nearest_indices = init_indices(nearest_indices) # TODO: use global index and calculate z,y,x on the fly
-        nearest_indices = nearest_neighbour_indices(distances, mask, nearest_indices)
-        labeled_array = nearest_neighbour(labeled_array, mask, nearest_indices)
+        nearest_indices = nearest_neighbour_indices(distances, mask_data, nearest_indices)
+        labeled_array = nearest_neighbour(labeled_array, mask_data, nearest_indices)
         print('Segments refilled:', time.time() - TIC)
 
     # sort according to size, label in ascending order, remove small particles
@@ -153,9 +156,9 @@ def label_particles(boundaries_path, mask_path, header=None, result_path=None,
     labeled_array = label_in_ascending_order(labeled_array)
 
     # save results
-    if not result_path:
-        result_path = boundaries_path
-    save_data(result_path, labeled_array, header=header)
-    print('Saving done.')
+    if result_path:
+        save_data(result_path, labeled_array, header=header)
+        print('Saving done.')
+
     return labeled_array
 

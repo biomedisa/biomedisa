@@ -823,7 +823,9 @@ if __name__ == "__main__":
 
                 # particle separation
                 from biomedisa.particles import label_particles
-                labeled_array = label_particles(path_to_boundaries, path_to_mask,
+                labeled_array = label_particles(
+                    boundaries_path = path_to_boundaries,
+                    mask_path = path_to_mask,
                     result_path=path_to_result,
                     min_particle_size=bm.min_particle_size,
                     zoom_factor=(bm.zoom_factors[i] if bm.zoom_factors else None),

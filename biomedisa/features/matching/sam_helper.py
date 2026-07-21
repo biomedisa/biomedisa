@@ -85,7 +85,9 @@ def get_tile_bounds(shape, block_size=1024, overlap=192):
 
     return tiles
 
-def sam_boundaries(volume=None, volume_path=None, sam_checkpoint=None, boundaries_path=None, mask_path=None):
+def sam_boundaries(volume=None, volume_path=None, sam_checkpoint=None,
+    boundaries_path=None, mask_data=None, mask_path=None):
+
     TIC = time.time()
     from mpi4py import MPI
     comm = MPI.COMM_WORLD
@@ -102,16 +104,19 @@ def sam_boundaries(volume=None, volume_path=None, sam_checkpoint=None, boundarie
 
     # load mask data
     if mask_path:
-        mask = load_data(mask_path)[0]
-        argmin_z, argmax_z, argmin_y, argmax_y, argmin_x, argmax_x = reduce_blocksize(mask)
-        del mask
+        mask_data = load_data(mask_path)[0]
+
+    # determine masked area
+    argmin_z = None
+    if mask_data is not None:
+        argmin_z, argmax_z, argmin_y, argmax_y, argmin_x, argmax_x = reduce_blocksize(mask_data)
 
     # load data
     if volume is None:
         volume = load_data(volume_path)[0]
 
     # crop volume to mask
-    if mask_path:
+    if argmin_z is not None:
         z_shape, y_shape, x_shape = volume.shape
         volume = volume[argmin_z:argmax_z, argmin_y:argmax_y, argmin_x:argmax_x].copy()
 
@@ -225,7 +230,7 @@ def sam_boundaries(volume=None, volume_path=None, sam_checkpoint=None, boundarie
         print(int(round(time.time() - TIC)), 'sec')
 
         # restore original size
-        if mask_path:
+        if argmin_z is not None:
             output = np.zeros((z_shape, y_shape, x_shape), dtype=np.uint8)
             output[argmin_z:argmax_z, argmin_y:argmax_y, argmin_x:argmax_x] = boundaries
         else:
@@ -234,5 +239,6 @@ def sam_boundaries(volume=None, volume_path=None, sam_checkpoint=None, boundarie
         # save data
         if boundaries_path:
             save_data(boundaries_path, output)
+
         return output
 

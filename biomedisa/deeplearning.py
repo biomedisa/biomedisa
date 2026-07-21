@@ -92,7 +92,7 @@ def number_of_slices(file_path):
         z_dim = len(tiff.pages)
     return z_dim
 
-def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=None,
+def deep_learning(img_data, label_data=None, mask_data=None, val_img_data=None, val_label_data=None,
     path_to_images=None, path_to_labels=None, val_images=None, val_labels=None,
     path_to_model=None, predict=False, train=False, header_file=None,
     balance=False, crop_data=False, flip_x=False, flip_y=False, flip_z=False,
@@ -307,9 +307,9 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
             hf.close()
 
         # separation and refinement require binary mask as TIFF file
-        if bm.separation and not bm.mask:
+        if bm.separation and not bm.mask and bm.mask_data is None:
             raise RuntimeError("Separation requires a binary mask of instances.")
-        if bm.refinement and not bm.mask:
+        if bm.refinement and not bm.mask and bm.mask_data is None:
             raise RuntimeError("Refinement requires a binary mask of the target area.")
 
         # make temporary directory
@@ -353,6 +353,7 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
             for bm.path_to_image in bm.path_to_images:
 
                 # create path_to_final
+                bm.path_to_final = None
                 if bm.path_to_image:
                     dirname = os.path.dirname(bm.path_to_image)
                     basename = os.path.basename(bm.path_to_image)
@@ -394,8 +395,10 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
                 if os.path.splitext(bm.path_to_model)[1] in ['.pth','.pt']:
                     # use SAM backend for particle separation
                     from biomedisa.features.matching.sam_helper import sam_boundaries
-                    sam_boundaries(volume_path=bm.path_to_image, boundaries_path=bm.path_to_final,
-                        sam_checkpoint=bm.path_to_model, mask_path=bm.mask)
+                    results = {}
+                    results["regular"] = sam_boundaries(volume=bm.img_data, volume_path=bm.path_to_image,
+                        sam_checkpoint=bm.path_to_model, mask_data=bm.mask_data, mask_path=bm.mask,
+                        boundaries_path=bm.path_to_final)
                 else:
                     # use U-Net for prediction
                     results, bm = predict_segmentation(bm, region_of_interest,
@@ -407,8 +410,9 @@ def deep_learning(img_data, label_data=None, val_img_data=None, val_label_data=N
                 # particle separation
                 if bm.separation and not bm.return_boundaries:
                     from biomedisa.particles import label_particles
-                    label_particles(bm.path_to_final, bm.mask, header=bm.header,
-                        min_particle_size=bm.min_particle_size)
+                    results["regular"] = label_particles(boundaries=results["regular"],
+                        mask_data=bm.mask_data, mask_path=bm.mask, header=bm.header,
+                        min_particle_size=bm.min_particle_size, result_path=bm.path_to_final)
 
                 # results
                 if cropped_volume is not None:

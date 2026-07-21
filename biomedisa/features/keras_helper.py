@@ -1565,7 +1565,7 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
     # check if data can be loaded blockwise to save host memory
     load_blockwise = False
     img_path = bm.path_to_image
-    if not bm.scaling and not bm.normalize and bm.path_to_image and not np.any(region_of_interest) and not bm.acwe:
+    if not bm.scaling and not bm.normalize and bm.path_to_image and bm.mask and not np.any(region_of_interest) and not bm.acwe:
 
         # convert image to TIFF
         if not os.path.splitext(bm.path_to_image)[1] in ['.tif','.tiff','.TIF','.TIFF']:
@@ -1578,15 +1578,8 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
         tif = TiffFile(bm.path_to_image)
         zsh = len(tif.pages)
         ysh, xsh = tif.pages[0].shape
-        if bm.mask and TiffInfo(bm.path_to_image).shape != TiffInfo(bm.mask).shape:
+        if TiffInfo(bm.path_to_image).shape != TiffInfo(bm.mask).shape:
             raise ValueError('mask and image must have the same x,y,z dimensions')
-
-        # load mask
-        '''if bm.separation or bm.refinement:
-            mask, _ = load_data(bm.mask)
-            mask = mask.reshape(zsh, ysh, xsh, 1)
-            mask, _, _, _ = append_ghost_areas(bm, mask)
-            mask = mask.reshape(mask.shape[:-1])'''
 
         # determine new image size after appending ghost areas to make image dimensions divisible by patch size
         z_rest = bm.z_patch - (zsh % bm.z_patch)
@@ -1605,27 +1598,6 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
         else:
             xsh +=  x_rest
 
-        # get Ids of patches
-        '''list_IDs = []
-        for k in range(0, zsh-bm.z_patch+1, bm.stride_size):
-            for l in range(0, ysh-bm.y_patch+1, bm.stride_size):
-                for m in range(0, xsh-bm.x_patch+1, bm.stride_size):
-                    if bm.separation:
-                        centerLabel = mask[k+bm.z_patch//2,l+bm.y_patch//2,m+bm.x_patch//2]
-                        patch = mask[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]
-                        if centerLabel>0 and np.any(patch!=centerLabel):
-                            list_IDs.append(k*ysh*xsh+l*xsh+m)
-                    elif bm.refinement:
-                        if np.any(mask[k:k+bm.z_patch, l:l+bm.y_patch, m:m+bm.x_patch]):
-                            list_IDs.append(k*ysh*xsh+l*xsh+m)
-                    else:
-                        list_IDs.append(k*ysh*xsh+l*xsh+m)'''
-
-        # make length of list divisible by batch size
-        '''max_i = len(list_IDs)
-        rest = bm.batch_size - (len(list_IDs) % bm.batch_size)
-        list_IDs = list_IDs + list_IDs[:rest]'''
-
         # prediction
         if zsh*ysh*xsh > 256**3:
             load_blockwise = True
@@ -1643,10 +1615,22 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
         # img shape
         zsh, ysh, xsh, _ = img.shape
 
-        # list of IDs
-        list_IDs = []
+        # load mask
+        if bm.separation or bm.refinement:
+            if bm.mask_data is None:
+                mask = load_data(bm.mask)[0]
+            else:
+                mask = bm.mask_data
+
+            if mask.shape != (z_shape, y_shape, x_shape):
+                raise ValueError('mask and image must have the same x,y,z dimensions')
+
+            # pad zeros to make dimensions divisible by patch dimensions
+            pad_width = [(0, img.shape[i] - mask.shape[i]) for i in range(3)]
+            mask = np.pad(mask, pad_width, mode="constant", constant_values=0)
 
         # get Ids of patches
+        list_IDs = []
         for k in range(0, zsh-bm.z_patch+1, bm.stride_size):
             for l in range(0, ysh-bm.y_patch+1, bm.stride_size):
                 for m in range(0, xsh-bm.x_patch+1, bm.stride_size):
@@ -1661,8 +1645,8 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
 
     # load all patches on GPU memory
     if not load_blockwise and nb_patches < 400 and not bm.separation and not bm.refinement:
-      if rank==0:
 
+      if rank==0:
         # parameters
         params = {'dim': (bm.z_patch, bm.y_patch, bm.x_patch),
                   'dim_img': (zsh, ysh, xsh),
@@ -1728,11 +1712,8 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
                     if len(mask.shape)==2:
                         mask = mask.reshape(1,mask.shape[0],mask.shape[1])
                     # pad zeros to make dimensions divisible by patch dimensions
-                    pad_z = bm.z_patch - mask.shape[0]
-                    pad_y = (bm.y_patch - (mask.shape[1] % bm.y_patch)) % bm.y_patch
-                    pad_x = (bm.x_patch - (mask.shape[2] % bm.x_patch)) % bm.x_patch
-                    pad_width = [(0, pad_z), (0, pad_y), (0, pad_x)]
-                    mask = np.pad(mask, pad_width, mode='constant', constant_values=0)
+                    pad_width = [(0, img.shape[i] - mask.shape[i]) for i in range(3)]
+                    mask = np.pad(mask, pad_width, mode="constant", constant_values=0)
 
             # list of IDs
             list_IDs_block = []
@@ -1864,6 +1845,8 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
         # remove ghost areas
         if bm.return_probs and not load_blockwise:
             final = final[:-z_rest,:-y_rest,:-x_rest]
+        if (bm.separation or bm.refinement) and not load_blockwise:
+            mask = mask[:-z_rest,:-y_rest,:-x_rest]
         label = label[:-z_rest,:-y_rest,:-x_rest]
         zsh, ysh, xsh = label.shape
 
@@ -1890,7 +1873,8 @@ def predict_segmentation(bm, region_of_interest, channels, normalization_paramet
         # refine boundary patches of mask
         if bm.refinement:
             # load full mask
-            mask, _ = load_data(bm.mask)
+            if load_blockwise:
+                mask = load_data(bm.mask)[0]
             # loop over boundary patches
             for k in range(0, zsh-bm.z_patch+1, bm.stride_size):
                 for l in range(0, ysh-bm.y_patch+1, bm.stride_size):
