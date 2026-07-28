@@ -61,6 +61,13 @@ if __name__ == "__main__":
                     indices = read_indices(labels)
                     for i in indices[cv::2]:
                         labels[i] = 0
+
+                    # build pre-segmentation for geodis interpolation
+                    #preseg = -np.ones(labels.shape, np.int16)
+                    #for i in indices[cv::2]:
+                    #    preseg[i] = labels[i]
+                    #labels = preseg
+
                 else:
                     img = None
                     labels = None
@@ -68,6 +75,10 @@ if __name__ == "__main__":
 
                 # smart interpolation with optional smoothing result
                 results = smart_interpolation(img, labels, smooth=0)
+
+                # geodis interpolation
+                #from biomedisa.geodis import geodesic_segment
+                #result = geodesic_segment(img, labels)
 
                 # get result
                 if rank==0:
@@ -225,6 +236,12 @@ if __name__ == "__main__":
             # smart interpolation
             results = smart_interpolation(img, labels, smooth=0)
             result = results['regular']
+
+            # geodis interpolation
+            #labels = -np.ones(gt.shape, np.int16)
+            #labels[k::20] = gt[k::20]
+            #from biomedisa.geodis import geodesic_segment
+            #result = geodesic_segment(img, labels)
 
             # reference slices
             ref = np.zeros_like(gt)
