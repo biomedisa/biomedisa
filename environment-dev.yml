@@ -258,7 +258,7 @@ dependencies:
   - zlib-ng=2.3.3=h0261ad2_1
   - zstd=1.5.7=h534d264_6
   - pip:
-      - biomedisa==26.7.1
+      - biomedisa>=26.7.1
       - scikit-image==0.26.0
       - scipy==1.18.0
       - simpleitk==2.5.5
