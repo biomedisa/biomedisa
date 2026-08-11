@@ -252,21 +252,8 @@ def nearest_neighbour(labeled_array, mask, nearest_indices):
 def convert_to_zarr(file_path, compress=False):
     path_to_zarr = file_path + '.zarr'
     print("Converting to zarr:", os.path.basename(file_path))
-    if os.path.exists(path_to_zarr):
-        shutil.rmtree(path_to_zarr)
-    # load data
-    data, _ = load_data(file_path)
-    store = LocalStore(path_to_zarr)
-    codecs = [Zlib(level=5)] if compress else None
-    zarr_array = zarr.open(
-        store=store,
-        mode='w',
-        shape=data.shape,
-        chunks=(100, 100, 100),
-        dtype=data.dtype,
-        codecs=codecs
-    )
-    zarr_array[:] = data
+    data = load_data(file_path)[0]
+    save_data(path_to_zarr, data, compress=compress)
 
 @numba.jit(nopython=True)
 def init_indices(nearest_indices):
@@ -944,30 +931,13 @@ if __name__ == "__main__":
     if bm.match_particles:
         TIC = time.time()
 
-        # check if pre-computed distances exist
-        if os.path.exists(f'{path_to_meta}/dists1.npy'):
-            dists = True
-        else:
-            dists = False
-
-        # create zarr files
-        if not dists and rank==0:
-            for dataset in bm.datasets:
-                convert_to_zarr(f'{path_to_dir}/result.{dataset}.nrrd')
-        comm.Barrier()
-
         for i1 in range(1,n_datasets):
             for i2 in range(i1+1,n_datasets+1):
               if bm.sample==None or bm.sample==int(f'{i1}{i2}'):
 
                 # load histograms
-                if dists:
-                    dists1 = np.load(f'{path_to_meta}/dists{i1}.npy', allow_pickle=True)
-                    dists2 = np.load(f'{path_to_meta}/dists{i2}.npy', allow_pickle=True)
-                else:
-                    # open particles
-                    result1 = zarr.open(f'{path_to_dir}/result.{bm.datasets[i1-1]}.nrrd.zarr', mode='r')
-                    result2 = zarr.open(f'{path_to_dir}/result.{bm.datasets[i2-1]}.nrrd.zarr', mode='r')
+                dists1 = np.load(f'{path_to_meta}/dists{i1}.npy', allow_pickle=True)
+                dists2 = np.load(f'{path_to_meta}/dists{i2}.npy', allow_pickle=True)
 
                 # load label values
                 l1 = np.load(f'{path_to_meta}/labels{i1}.npy')
@@ -977,9 +947,15 @@ if __name__ == "__main__":
                 n1 = np.load(f'{path_to_meta}/sizes{i1}.npy')
                 n2 = np.load(f'{path_to_meta}/sizes{i2}.npy')
 
-                # load bounding boxes
-                bb1 = np.load(f'{path_to_meta}/bounding_boxes{i1}.npy')
-                bb2 = np.load(f'{path_to_meta}/bounding_boxes{i2}.npy')
+                # load previous rotations
+                pre_rotations = None
+                pre_rotations_path = f'{path_to_meta}/rotations{i1}{i2}.npy'.replace(f'step={bm.step}', f'step={bm.step-1}')
+                if os.path.exists(pre_rotations_path):
+                    pre_rotations = np.load(pre_rotations_path)
+                    m1_max = np.amax(pre_rotations[:,0])
+                    m2_max = np.amax(pre_rotations[:,1])
+                    if rank==0:
+                        print("Using previous rotations:", pre_rotations_path)
 
                 # distance matrix
                 best_mse = -np.ones(len(l1), dtype=np.int32)
@@ -987,19 +963,14 @@ if __name__ == "__main__":
                 # loop over particles
                 for k in range(l1.size):
                   if k % nprocs == rank:
-                    size1 = n1[k]
-                    if dists:
-                        dist1 = dists1[l1[k]]
-                    else:
-                        # extract particle & fill inclusions
-                        value = l1[k]
-                        argmin_z, argmax_z, argmin_y, argmax_y, argmin_x, argmax_x = bb1[value-1]
-                        p1 = np.zeros((argmax_z-argmin_z,argmax_y-argmin_y,argmax_x-argmin_x), dtype=np.uint8)
-                        p1[result1[argmin_z:argmax_z, argmin_y:argmax_y, argmin_x:argmax_x]==value]=1
 
-                        # distances to centroid
-                        centroid = get_centroid(p1)
-                        dist1 = get_distances(p1, centroid)
+                    val1 = l1[k]
+                    size1 = n1[k]
+                    dist1 = dists1[val1]
+
+                    # disregard previously matched particles
+                    if pre_rotations is not None and val1<=m1_max and pre_rotations[val1,2] >= 0.90:
+                        continue
 
                     # reference
                     eps = 1e-6
@@ -1015,25 +986,18 @@ if __name__ == "__main__":
 
                     min_error = np.inf
                     for l in range(l2.size):
+
+                        val2 = l2[l]
                         size2 = n2[l]
-                        if dists:
-                            dist2 = dists2[l2[l]]
-                        else:
-                            # extract particle & fill inclusions
-                            value = l2[l]
-                            argmin_z, argmax_z, argmin_y, argmax_y, argmin_x, argmax_x = bb2[value-1]
-                            p2 = np.zeros((argmax_z-argmin_z,argmax_y-argmin_y,argmax_x-argmin_x), dtype=np.uint8)
-                            p2[result2[argmin_z:argmax_z, argmin_y:argmax_y, argmin_x:argmax_x]==value]=1
+                        dist2 = dists2[val2]
 
-                            # zoom to same size
-                            zoom_factor = (np.sum(p1) / np.sum(p2))**(1/3)
-                            p2 = ndimage.zoom(p2, zoom_factor, order=0)
+                        # disregard previously matched particles
+                        if pre_rotations is not None and val2<=m2_max:
+                            arg = np.argwhere(pre_rotations[:,1]==val2)
+                            if len(arg) > 0 and pre_rotations[arg[0][0],2] >= 0.90:
+                                continue
 
-                            # distances to centroid
-                            centroid = get_centroid(p2)
-                            dist2 = get_distances(p2, centroid)
-
-                        # select potential particles
+                        # select candidate
                         if size1-0.1*size1 < size2 < size1+0.1*size1:
 
                             # test sample
@@ -1065,12 +1029,6 @@ if __name__ == "__main__":
                 # save errors
                 if rank==0:
                     np.save(f'{path_to_meta}/mse{i1}{i2}.npy', best_mse)
-
-        # remove zarr files
-        comm.Barrier()
-        if not dists and rank==0:
-          for dataset in bm.datasets:
-              shutil.rmtree(f'{path_to_dir}/result.{dataset}.nrrd.zarr')
 
         # print calculation time
         if rank==0:
@@ -1505,6 +1463,10 @@ if __name__ == "__main__":
 
         # save mappings
         np.save(f'{path_to_meta}/mappings2.npy', mappings)
+
+        # total matched particles
+        print("Total matched particles across >50%:", np.sum(counts >= n_datasets//2+1))
+        print(f"Total matched particles across all datasets:", np.sum(counts == n_datasets))
 
         # save matched particles
         for i in range(n_datasets):
