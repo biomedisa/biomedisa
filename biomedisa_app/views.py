@@ -1005,8 +1005,18 @@ def init_keras_3D(image, label, predict, mask=None, img_list=None, label_list=No
                 # adjust command
                 cmd += ['-re', f'-q={queue_id}']
                 if qsub:
-                    if predict and queue_id==1:
-                        queue_type='_small'
+                    if predict and queue_id==1 and not os.path.splitext(label.pic.path)[1] in ['.pth', '.pt']:
+                        # load model
+                        scaling = True
+                        try:
+                            with h5py.File(label.pic.path, 'r') as hf:
+                                meta = hf.get('meta')
+                                if 'scaling' in meta:
+                                    scaling = bool(meta['scaling'][()])
+                        except:
+                            pass
+                        if scaling:
+                            queue_type='_small'
                     elif label.scaling==False and queue_id==3:
                         queue_type='_large'
                     else:
@@ -2297,7 +2307,7 @@ def init_random_walk(image, label):
                     if os.path.splitext(image.pic.path)[1] in ['.tif','.tiff']:
                         try:
                             zsh, ysh, xsh = TiffInfo(image.pic.path).shape
-                            if zsh*ysh*xsh < 1000**3:
+                            if zsh*ysh*xsh < 1000**3 and queue_id==1:
                                 queue_type='_small'
                         except:
                             pass
