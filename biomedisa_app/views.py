@@ -1290,8 +1290,22 @@ def features(request, action):
                         except:
                             pass
 
+                        # check image size
+                        voxels = 0
+                        if os.path.splitext(img.pic.path)[1] in ['.tif','.tiff']:
+                            zsh, ysh, xsh = TiffInfo(img.pic.path).shape
+                            voxels = zsh * ysh * xsh
+                            if TiffInfo(img.pic.path).dtype in ['uint16','int16','float16']:
+                                voxels *= 2
+                            elif TiffInfo(img.pic.path).dtype in ['uint32','int32','float32']:
+                                voxels *= 4
+                            elif TiffInfo(img.pic.path).dtype in ['uint64','int64','float64']:
+                                voxels *= 8
+
                         #if lenq1 > lenq2 or (lenq1==lenq2 and w1.state=='busy' and w2.state=='idle'):
-                        if os.path.splitext(model_path)[1] in ['.pth','.pt'] or scaling==False:
+                        # large image queue
+                        if (voxels > 4200000000 or os.path.getsize(img.pic.path) > 4200000000) and \
+                                (os.path.splitext(model_path)[1] in ['.pth', '.pt'] or not scaling):
                             queue_short = 'B'
                             job = q2.enqueue_call(init_keras_3D, args=(img.id, model_id, True, mask_id), timeout=-1)
                             lenq = len(q2)
