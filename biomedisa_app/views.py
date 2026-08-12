@@ -451,11 +451,11 @@ def settings(request, id):
             if img.is_valid():
                 cd = img.cleaned_data
                 if cd != initial:
-                    scaling_reset = False
-                    if any([scale > 256 for scale in [image.x_scale, image.y_scale, image.z_scale]]) and not any([scale > 256 for scale in [cd['x_scale'], cd['y_scale'], cd['z_scale']]]) and cd['scaling']:
-                        scaling_reset = True
-                    if not image.scaling and cd['scaling'] and not any([scale > 256 for scale in [cd['x_scale'], cd['y_scale'], cd['z_scale']]]):
-                        scaling_reset = True
+                    #scaling_reset = False
+                    #if any([scale > 256 for scale in [image.x_scale, image.y_scale, image.z_scale]]) and not any([scale > 256 for scale in [cd['x_scale'], cd['y_scale'], cd['z_scale']]]) and cd['scaling']:
+                    #    scaling_reset = True
+                    #if not image.scaling and cd['scaling'] and not any([scale > 256 for scale in [cd['x_scale'], cd['y_scale'], cd['z_scale']]]):
+                    #    scaling_reset = True
                     for key in cd.keys():
                         image.__dict__[key] = cd[key]
                     image.validation_freq = max(1, int(cd['validation_freq']))
@@ -466,11 +466,11 @@ def settings(request, id):
                     image.x_scale = min(512, int(cd['x_scale']))
                     image.y_scale = min(512, int(cd['y_scale']))
                     image.z_scale = min(512, int(cd['z_scale']))
-                    if not image.scaling or any([scale > 256 for scale in [image.x_scale, image.y_scale, image.z_scale]]):
-                        image.stride_size = 64
-                        messages.warning(request, 'Stride size 64 is used for no scaling or scaling above 256. Use a local Biomedisa installation for smaller stride sizes in these cases.')
-                    if scaling_reset:
-                        image.stride_size = 32
+                    #if not image.scaling or any([scale > 256 for scale in [image.x_scale, image.y_scale, image.z_scale]]):
+                    #    image.stride_size = 64
+                    #    messages.warning(request, 'Stride size 64 is used for no scaling or scaling above 256. Use a local Biomedisa installation for smaller stride sizes in these cases.')
+                    #if scaling_reset:
+                    #    image.stride_size = 32
                     if cd['early_stopping'] and image.validation_split == 0.0:
                         image.validation_split = 0.8
                     image.save()
@@ -891,56 +891,82 @@ def init_keras_3D(image, label, predict, mask=None, img_list=None, label_list=No
                 cmd += ['-vi',val_img_list.replace(BASE_DIR,host_base),'-vl',val_label_list.replace(BASE_DIR,host_base)]
         cmd += [f'-iid={image.id}', f'-lid={label.id}']
 
-        # command (append only on demand)
+        # append options only on demand
+        options = {}
         if not label.normalize:
-            cmd += ['-nn']
+            options['-nn'] = '-nn'
         if not label.compression:
-            cmd += ['-nc']
+            options['-nc'] = '-nc'
         if not label.scaling:
-            cmd += ['-ns']
+            options['-ns'] = '-ns'
         if label.ignore != 'none':
-            cmd += [f'-i={label.ignore}']
+            options['-i'] = f'-i={label.ignore}'
         if label.only != 'all':
-            cmd += [f'-o={label.only}']
+            options['-o'] = f'-o={label.only}'
         if label.early_stopping:
-            cmd += [f'-es=25']
+            options['-es'] = '-es=25'
         if label.automatic_cropping:
-            cmd += ['-cd']
+            options['-cd'] = '-cd'
         if label.filters != '32-64-128-256-512':
-            cmd += [f'-nf={label.filters}']
+            options['-nf'] = f'-nf={label.filters}'
         if label.epochs != 100:
-            cmd += [f'-e={label.epochs}']
+            options['-e'] = f'-e={label.epochs}'
         if label.resnet:
-            cmd += ['-rn']
+            options['-rn'] = '-rn'
         if label.balance:
-            cmd += ['-b']
+            options['-b'] = '-b'
         if label.batch_size != 24:
-            cmd += [f'-bs={label.batch_size}']
+            options['-bs'] = f'-bs={label.batch_size}'
         if label.x_scale != 256:
-            cmd += [f'-xs={label.x_scale}']
+            options['-xs'] = f'-xs={label.x_scale}'
         if label.y_scale != 256:
-            cmd += [f'-ys={label.y_scale}']
+            options['-ys'] = f'-ys={label.y_scale}'
         if label.z_scale != 256:
-            cmd += [f'-zs={label.z_scale}']
+            options['-zs'] = f'-zs={label.z_scale}'
         if label.flip_x:
-            cmd += ['--flip_x']
+            options['--flip_x'] = '--flip_x'
         if label.flip_y:
-            cmd += ['--flip_y']
+            options['--flip_y'] = '--flip_y'
         if label.flip_z:
-            cmd += ['--flip_z']
+            options['--flip_z'] = '--flip_z'
+        if label.swapaxes:
+            options['-sa'] = '-sa'
         if label.validation_freq != 1:
-            cmd += [f'-vf={label.validation_freq}']
+            options['-vf'] = f'-vf={label.validation_freq}'
         if label.validation_split > 0:
-            cmd += [f'-vs={label.validation_split}']
+            options['-vs'] = f'-vs={label.validation_split}'
         if label.stride_size != 32:
-            cmd += [f'-ss={label.stride_size}',f'-vss={label.stride_size}']
+            options['-ss'] = f'-ss={label.stride_size}'
         if label.rotate > 0:
-            cmd += [f'-r={label.rotate}']
+            options['-r'] = f'-r={label.rotate}'
+        if mask is not None:
+            options['-m'] = f'-m={mask.pic.path.replace(BASE_DIR, host_base)}'
         if label.header_file:
             header_file = BASE_DIR + f'/private_storage/images/{label.user.username}/{label.header_file}'
-            cmd += [f'-hf={header_file.replace(BASE_DIR,host_base)}']
-        if mask is not None:
-            cmd += [f'-m={mask.pic.path.replace(BASE_DIR,host_base)}']
+            options['-hf'] = f'-hf={header_file.replace(BASE_DIR, host_base)}'
+
+        # train separation model
+        if label.separation:
+            options.update({
+                '--flip_x': '--flip_x',
+                '--flip_y': '--flip_y',
+                '--flip_z': '--flip_z',
+                '-sa': '-sa',
+                '-bs': '-bs=48',
+                '-xp': '-xp=16',
+                '-yp': '-yp=16',
+                '-zp': '-zp=16',
+                '-ns': '-ns',
+                '-nvd': '-nvd',
+                '-ss': '-ss=8',
+                '-s': '-s',
+                '-vss': '-vss=16',
+            })
+        else:
+            options['-vss'] = '-vss=64'
+
+        # full command
+        cmd += list(options.values())
 
         # remote server
         if host:

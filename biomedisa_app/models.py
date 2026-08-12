@@ -224,6 +224,8 @@ class Upload(models.Model):
     flip_x = models.BooleanField("Flip x-axis (AI)", default=False)
     flip_y = models.BooleanField("Flip y-axis (AI)", default=False)
     flip_z = models.BooleanField("Flip z-axis (AI)", default=False)
+    swapaxes = models.BooleanField("Swap axes (AI)", default=False)
+    separation = models.BooleanField("Train separation model (AI)", default=False)
     rotate = models.IntegerField("Rotate (AI)", default=0)
     automatic_cropping = models.BooleanField("Automatic cropping (AI)", default=False)
     path_to_model = models.TextField(null=True)
@@ -259,7 +261,8 @@ class SettingsForm(forms.ModelForm):
         model = Upload
         fields = ('allaxis', 'uncertainty', 'compression', 'normalize', 'balance',
                   'automatic_cropping', 'validation_data', 'early_stopping', 'flip_x',
-                  'flip_y', 'flip_z', 'resnet', 'scaling', 'filters', 'rotate', 'epochs', 'batch_size',
+                  'flip_y', 'flip_z', 'swapaxes', 'separation', 'scaling',
+                  'filters', 'rotate', 'epochs', 'batch_size',
                   'x_scale', 'y_scale', 'z_scale', 'stride_size', 'validation_split',
                   'validation_freq', 'smooth', 'delete_outliers', 'fill_holes', 'ignore', 'only')
 
