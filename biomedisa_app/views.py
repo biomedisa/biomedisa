@@ -1005,6 +1005,7 @@ def init_keras_3D(image, label, predict, mask=None, img_list=None, label_list=No
                 # adjust command
                 cmd += ['-re', f'-q={queue_id}']
                 if qsub:
+                    queue_type = ''
                     if predict and queue_id==1 and not os.path.splitext(label.pic.path)[1] in ['.pth', '.pt']:
                         # load model
                         scaling = True
@@ -1019,8 +1020,6 @@ def init_keras_3D(image, label, predict, mask=None, img_list=None, label_list=No
                             queue_type='_small'
                     elif label.scaling==False and queue_id==3:
                         queue_type='_large'
-                    else:
-                        queue_type = ''
                     args = " ".join(cmd).replace(',','PKWDhXNo')
                     cmd = [f"qsub -v ARGS='{args}' queue_{queue_id}{queue_type}.sh"]
                 if subhost:
