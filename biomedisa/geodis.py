@@ -89,7 +89,7 @@ def geodesic_segment(image, labels, lamb=1.0, iterations=4):
     allLabels = unique(labels)
     index = np.argwhere(allLabels<0)
     allLabels = np.delete(allLabels, index)
-    result = np.zeros(labels.shape, np.uint8)
+    result = np.zeros(labels.shape, np.uint8) + allLabels[0]
     mask = np.empty(labels.shape, np.float32)
     for k, label in enumerate(allLabels):
         mask.fill(np.inf)
