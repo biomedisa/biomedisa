@@ -785,7 +785,6 @@ def save_data(path_to_final, final, header=None, final_image_type=None, compress
         try:
             import zarr
             from packaging.version import Version
-            from numcodecs import Zlib
             import inspect
 
             # Keep only arguments accepted by the installed zarr.open()
@@ -820,11 +819,12 @@ def save_data(path_to_final, final, header=None, final_image_type=None, compress
                 **zarr_args,
             )
 
-            if compress:
-                if version >= 3:
-                    create_args["codecs"] = [Zlib(level=5)]
-                else:
-                    create_args["compressor"] = Zlib(level=5)
+            if version >= 3:
+                from zarr.codecs import Zlib
+                create_args["codecs"] = [Zlib(level=5)] if compress else None
+            else:
+                from numcodecs import Zlib
+                create_args["compressor"] = Zlib(level=5) if compress else None
 
             z = zarr.open(**create_args)
             z[:] = final

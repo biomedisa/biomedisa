@@ -947,15 +947,13 @@ if __name__ == "__main__":
                 n1 = np.load(f'{path_to_meta}/sizes{i1}.npy')
                 n2 = np.load(f'{path_to_meta}/sizes{i2}.npy')
 
-                # load previous rotations
-                pre_rotations = None
-                pre_rotations_path = f'{path_to_meta}/rotations{i1}{i2}.npy'.replace(f'step={bm.step}', f'step={bm.step-1}')
-                if os.path.exists(pre_rotations_path):
-                    pre_rotations = np.load(pre_rotations_path)
-                    m1_max = np.amax(pre_rotations[:,0])
-                    m2_max = np.amax(pre_rotations[:,1])
+                # load previous mappings
+                mappings = None
+                pre_mappings_path = f'{path_to_meta}/mappings2.npy'.replace(f'step={bm.step}', f'step={bm.step-1}')
+                if os.path.exists(pre_mappings_path):
+                    mappings = np.load(pre_mappings_path)
                     if rank==0:
-                        print("Using previous rotations:", pre_rotations_path)
+                        print("Using previous mappings:", pre_mappings_path)
 
                 # distance matrix
                 best_mse = -np.ones(len(l1), dtype=np.int32)
@@ -969,8 +967,10 @@ if __name__ == "__main__":
                     dist1 = dists1[val1]
 
                     # disregard previously matched particles
-                    if pre_rotations is not None and val1<=m1_max and pre_rotations[val1,2] >= 0.90:
-                        continue
+                    '''if mappings is not None and l1[k] in mappings[:,i1-1]:
+                        arg1 = np.argwhere(mappings[:,i1-1]==l1[k])[0][0]
+                        if mappings[arg1,i2-1]>0:
+                            continue'''
 
                     # reference
                     eps = 1e-6
@@ -992,9 +992,9 @@ if __name__ == "__main__":
                         dist2 = dists2[val2]
 
                         # disregard previously matched particles
-                        if pre_rotations is not None and val2<=m2_max:
-                            arg = np.argwhere(pre_rotations[:,1]==val2)
-                            if len(arg) > 0 and pre_rotations[arg[0][0],2] >= 0.90:
+                        if mappings is not None and l2[l] in mappings[:,i2-1]:
+                            arg = np.argwhere(mappings[:,i2-1]==l2[l])[0][0]
+                            if mappings[arg,i1-1]>0:
                                 continue
 
                         # select candidate
@@ -1918,7 +1918,8 @@ if __name__ == "__main__":
 
         for labels_path in bm.labelDatasets:
             print('Label:', labels_path)
-            label,_=load_data(labels_path)
+            label = load_data(labels_path)[0]
+            label = label_in_ascending_order(label)
             print(label.shape, label.dtype)
             print('Max label value:', label.max())
             zsh, ysh, xsh = label.shape

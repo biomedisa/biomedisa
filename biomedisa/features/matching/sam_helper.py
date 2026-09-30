@@ -5,7 +5,7 @@ import time
 import numba
 
 @numba.jit(nopython=True)
-def reduce_blocksize(data, value=1, buff=64):
+def reduce_blocksize(data, value=1, buff=25):
     zsh, ysh, xsh = data.shape
     argmin_z, argmax_z, argmin_y, argmax_y, argmin_x, argmax_x = zsh, 0, ysh, 0, xsh, 0
     for k in range(zsh):
@@ -39,7 +39,7 @@ def get_boundaries(slc):
     grad[grad>0]=1
     return grad
 
-def get_block_bounds(z_dim, block_size=1024, overlap=192):
+def get_block_bounds(z_dim, block_size=1024, overlap=256):
     """
     Iterate over z-blocks with overlap. If the last block would be smaller than half block_size,
     it is merged into the previous block.
@@ -68,7 +68,7 @@ def get_block_bounds(z_dim, block_size=1024, overlap=192):
 
     return block_bounds
 
-def get_tile_bounds(shape, block_size=1024, overlap=192):
+def get_tile_bounds(shape, block_size=1024, overlap=256):
     """
     Returns 2D tiles as
         (y0, y1, x0, x1)
@@ -86,7 +86,7 @@ def get_tile_bounds(shape, block_size=1024, overlap=192):
     return tiles
 
 def sam_boundaries(volume=None, volume_path=None, sam_checkpoint=None,
-    boundaries_path=None, mask_data=None, mask_path=None):
+    boundaries_path=None, mask_data=None, mask_path=None, xy_tiling=False):
 
     TIC = time.time()
     from mpi4py import MPI
@@ -160,7 +160,17 @@ def sam_boundaries(volume=None, volume_path=None, sam_checkpoint=None,
                     slc_data = volume[:,:,slc].copy()
 
                 # determine tiles
-                tiles = get_tile_bounds(slc_data.shape)
+                if xy_tiling:
+                    # Tile both dimensions of the current 2D view.
+                    tiles = get_tile_bounds(slc_data.shape)
+                elif axis == 0:
+                    # XY view: neither in-plane dimension is Z, so use the full slice.
+                    tiles = [(0, slc_data.shape[0], 0, slc_data.shape[1])]
+                else:
+                    # XZ/YZ views: the first dimension is Z. Tile only along Z
+                    # and keep the complete X or Y extent.
+                    z_blocks = get_block_bounds(slc_data.shape[0])
+                    tiles = [(z0, z1, 0, slc_data.shape[1]) for z0, z1 in z_blocks]
 
                 # initialize 2d boundaries
                 slc_boundaries = np.zeros(slc_data.shape, np.uint32)

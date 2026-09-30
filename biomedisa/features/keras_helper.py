@@ -361,7 +361,11 @@ def read_img_list(img_list, label_list, temp_img_dir, temp_label_dir):
         if label_ext == '.gz':
             label_ext = os.path.splitext(label_dir)[1]
 
-        if (img_ext == '.tar' and label_ext == '.tar') or (os.path.isdir(img_name) and os.path.isdir(label_name)):
+        if img_ext == '.zarr' and label_ext == '.zarr':
+            img_names.append(img_name)
+            label_names.append(label_name)
+
+        elif (img_ext == '.tar' and label_ext == '.tar') or (os.path.isdir(img_name) and os.path.isdir(label_name)):
 
             # extract files
             if img_ext == '.tar':
