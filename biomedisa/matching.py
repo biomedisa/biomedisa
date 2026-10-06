@@ -33,6 +33,8 @@ from biomedisa.features.matching.match_helper import rotation_dice, correct_matc
 from tifffile import imread
 from pathlib import Path
 from scipy import ndimage
+import pickle
+import ZMPY3D as z
 import argparse
 import numba
 import sys
@@ -550,6 +552,97 @@ def is_mostly_inside(arr, value):
     labels[0]=0
     return labels
 
+MAX_ORDER = 20
+
+def load_zernike_cache(max_order=MAX_ORDER):
+
+    cache_path = os.path.join(
+        os.path.dirname(z.__file__),
+        'cache_data',
+        f'LogG_CLMCache_MaxOrder{max_order:02d}.pkl'
+    )
+
+    with open(cache_path, 'rb') as f:
+        cache = pickle.load(f)
+
+    return (
+        cache['GCache_pqr_linear'],
+        cache['GCache_complex'],
+        cache['GCache_complex_index'],
+        cache['CLMCache3D']
+    )
+
+
+def get_descriptor_up_to_order(z_scaled, order):
+    z_sub = z_scaled[:order + 1, :order + 1, :order + 1].copy()
+    descriptor = z.get_3dzd_121_descriptor(z_sub)
+    descriptor = descriptor.ravel()
+    descriptor = descriptor[~np.isnan(descriptor)]
+    return descriptor
+
+
+def zernike_descriptor(particle, zernike_cache, order, max_order=MAX_ORDER):
+    """
+    Calculate a rotation-invariant 3D Zernike descriptor (3DZD)
+    for a binary 3D particle mask.
+    """
+
+    particle = np.asarray(particle, dtype=np.float64)
+
+    # Precomputed Zernike caches
+    GCache_pqr_linear, GCache_complex, GCache_complex_index, CLMCache3D = zernike_cache
+
+    # First calculate particle centroid/radius
+    shape = particle.shape
+
+    xyz_sample = {
+        'X_sample': np.arange(shape[0] + 1),
+        'Y_sample': np.arange(shape[1] + 1),
+        'Z_sample': np.arange(shape[2] + 1)
+    }
+
+    volume_mass, center, _ = z.calculate_bbox_moment(
+        particle,
+        1,
+        xyz_sample
+    )
+
+    # Same normalization as ZMPY3D_CLI_ZM
+    average_radius, max_radius = z.calculate_molecular_radius(
+        particle,
+        center,
+        volume_mass,
+        1.8
+    )
+
+    # Normalize coordinates relative to particle
+    sphere_xyz_sample = z.get_bbox_moment_xyz_sample(
+        center,
+        average_radius,
+        shape
+    )
+
+    # Geometric moments
+    _, _, bbox_moment = z.calculate_bbox_moment(
+        particle,
+        max_order,
+        sphere_xyz_sample
+    )
+
+    # Zernike moments
+    z_scaled, z_raw = z.calculate_bbox_moment_2_zm(
+        max_order,
+        GCache_complex,
+        GCache_pqr_linear,
+        GCache_complex_index,
+        CLMCache3D,
+        bbox_moment
+    )
+
+    # Rotation-invariant 3DZD
+    return get_descriptor_up_to_order(z_scaled, order)
+
+
 if __name__ == "__main__":
 
     # initialize arguments
@@ -583,16 +676,20 @@ if __name__ == "__main__":
                         help='label particles individually')
     parser.add_argument('-dc','--distances', action='store_true', default=False,
                         help='distances to centroid')
-    parser.add_argument('-mp2','--match_particles', action='store_true', default=False,
+    parser.add_argument('-mpl','--match_particles_legacy', action='store_true', default=False,
                         help='determine best particle based on distances to centroid')
+    parser.add_argument('-ze','--zernike', action='store_true', default=False,
+                        help='zernike descriptor')
+    parser.add_argument('-zo','--zernike_order', type=int, default=6,
+                        help='zernike order')
+    parser.add_argument('-mp','--match_particles', action='store_true', default=False,
+                        help='determine best particle based on zernike descriptors')
     parser.add_argument('-r','--rot_dice', action='store_true', default=False,
                         help='determine best rotation dice for matched particles')
     parser.add_argument('-lmp','--label_matched_particles', action='store_true', default=False,
-                        help='determine best particle based on distances to centroid')
-    parser.add_argument('-lmp2','--label_matched_particles2', action='store_true', default=False,
-                        help='determine best particle based on distances to centroid')
+                        help='count matched particles and create file with matched particles')
     parser.add_argument('-cp','--correct_particles', action='store_true', default=False,
-                        help='determine best particle based on distances to centroid')
+                        help='correct particles using majority voting')
     parser.add_argument('-ma','--matched_area', action='store_true', default=False,
                         help='determine size of matched area')
     parser.add_argument('-f','--fill_labels', action='store_true', default=False,
@@ -928,7 +1025,7 @@ if __name__ == "__main__":
     #=======================================================================================
     # match particles using distances to centroid
     #=======================================================================================
-    if bm.match_particles:
+    if bm.match_particles_legacy:
         TIC = time.time()
 
         for i1 in range(1,n_datasets):
@@ -1028,11 +1125,131 @@ if __name__ == "__main__":
 
                 # save errors
                 if rank==0:
-                    np.save(f'{path_to_meta}/mse{i1}{i2}.npy', best_mse)
+                    np.save(f'{path_to_meta}/best_candidates{i1}{i2}.npy', best_mse)
 
         # print calculation time
         if rank==0:
             print('Calculation Time:', int(round(time.time() - TIC)), 'sec')
+
+    #=======================================================================================
+    # calculate Zernike descriptors
+    #=======================================================================================
+    if bm.zernike:
+
+        zernike_cache = load_zernike_cache(MAX_ORDER)
+
+        # iterate over datasets
+        for sample_i in range(n_datasets):
+            if bm.sample is None or bm.sample == sample_i:
+                TIC = time.time()
+
+                # load particles
+                convert_to_zarr(f'{path_to_dir}/result{sample_i+1}.nrrd')
+                zarr_store = f'{path_to_dir}/result{sample_i+1}.nrrd.zarr'
+                particles = zarr.open(zarr_store, mode='r')
+
+                # load label values
+                labels = np.load(f'{path_to_meta}/labels{sample_i+1}.npy')
+
+                # load bounding boxes
+                bounding_boxes = np.load(f'{path_to_meta}/bounding_boxes{sample_i+1}.npy')
+
+                # Calculate descriptors
+                descriptors = [None] * labels.size
+                print('Numbers:', len(labels))
+                for i in range(labels.size):
+                    value = labels[i]
+
+                    # extract binary particle
+                    argmin_z, argmax_z, argmin_y, argmax_y, argmin_x, argmax_x = bounding_boxes[value-1]
+                    p1 = np.zeros((argmax_z - argmin_z, argmax_y - argmin_y, argmax_x - argmin_x), dtype=np.uint8)
+                    subvolume = particles[argmin_z:argmax_z, argmin_y:argmax_y, argmin_x:argmax_x]
+                    p1[subvolume == value] = 1
+
+                    # calculate rotation-invariant Zernike descriptor
+                    descriptors[i] = zernike_descriptor(p1, zernike_cache, bm.zernike_order, max_order=MAX_ORDER)
+
+                # save descriptors
+                descriptors = np.asarray(descriptors, dtype=np.float64)
+                print('Descriptor shape:', descriptors.shape)
+                np.save(f'{path_to_meta}/zernike{sample_i+1}_order={bm.zernike_order}.npy', descriptors)
+
+                # remove temporary zarr files
+                shutil.rmtree(f'{path_to_dir}/result{sample_i+1}.nrrd.zarr')
+
+                # print calculation time
+                print('Zernike descriptors:', int(round(time.time() - TIC)), 'sec')
+
+    #=======================================================================================
+    # match particles using rotation-invariant 3D Zernike descriptors
+    #=======================================================================================
+    if bm.match_particles:
+
+        TIC = time.time()
+
+        for i1 in range(1, n_datasets):
+            for i2 in range(i1 + 1, n_datasets + 1):
+                if bm.sample is None or bm.sample == int(f'{i1}{i2}'):
+
+                    # load Zernike descriptors
+                    zernike1 = np.load(f'{path_to_meta}/zernike{i1}_order={bm.zernike_order}.npy', allow_pickle=True)
+                    zernike2 = np.load(f'{path_to_meta}/zernike{i2}_order={bm.zernike_order}.npy', allow_pickle=True)
+
+                    # load label values
+                    l1 = np.load(f'{path_to_meta}/labels{i1}.npy')
+                    l2 = np.load(f'{path_to_meta}/labels{i2}.npy')
+
+                    # load label sizes
+                    n1 = np.load(f'{path_to_meta}/sizes{i1}.npy')
+                    n2 = np.load(f'{path_to_meta}/sizes{i2}.npy')
+
+                    # load previous mappings
+                    mappings = None
+                    pre_mappings_path = f'{path_to_meta}/mappings2.npy'.replace(f'step={bm.step}', f'step={bm.step-1}')
+                    if os.path.exists(pre_mappings_path):
+                        mappings = np.load(pre_mappings_path)
+                        if rank == 0:
+                            print("Using previous mappings:", pre_mappings_path)
+
+                    # best candidate for every particle in dataset i1
+                    best_zernike = -np.ones(len(l1), dtype=np.int32)
+
+                    # loop over particles
+                    for k in range(l1.size):
+
+                        val1 = l1[k]
+                        size1 = n1[k]
+                        descriptor1 = zernike1[k]
+
+                        min_distance = np.inf
+
+                        for l in range(l2.size):
+
+                            val2 = l2[l]
+                            size2 = n2[l]
+
+                            # disregard previously matched particles
+                            if mappings is not None and val2 in mappings[:, i2-1]:
+                                arg = np.argwhere(mappings[:, i2-1] == val2)[0][0]
+                                if mappings[arg, i1-1] > 0:
+                                    continue
+
+                            # candidate selection based on particle volume
+                            if size1 - 0.1 * size1 < size2 < size1 + 0.1 * size1:
+
+                                descriptor2 = zernike2[l]
+
+                                # Zernike descriptor distance
+                                distance = np.linalg.norm(descriptor1 - descriptor2)
+                                if distance < min_distance:
+                                    min_distance = distance
+                                    best_zernike[k] = l
+
+                    # save candidate indices
+                    np.save(f'{path_to_meta}/best_candidates{i1}{i2}_order={bm.zernike_order}.npy', best_zernike)
+
+        # print calculation time
+        print('Calculation Time:', int(round(time.time() - TIC)), 'sec')
 
     #=======================================================================================
     # find rotation of matching particles
@@ -1073,7 +1290,7 @@ if __name__ == "__main__":
             bounding_boxes2 = np.load(f'{path_to_meta}/bounding_boxes{i2}.npy')
 
             # load errors
-            best_mse = np.load(f'{path_to_meta}/mse{i1}{i2}.npy')
+            best_candidates = np.load(f'{path_to_meta}/best_candidates{i1}{i2}_order={bm.zernike_order}.npy')
 
             # allocate rotations array
             rotations = np.zeros((int(np.amax(labels1))+1, 7))
@@ -1096,7 +1313,7 @@ if __name__ == "__main__":
                   #arg1 = np.argwhere(labels1==result_val1)[0][0]
 
                   # get best matching particle based on best squared error
-                  arg2 = best_mse[arg1]
+                  arg2 = best_candidates[arg1]
                   result_val2 = labels2[arg2]
 
                   # copy previous rotation
@@ -1107,7 +1324,7 @@ if __name__ == "__main__":
                   else: #if refine:
 
                     # no match detected because all volumes were too different
-                    if best_mse[arg1]<0:# or sizes1[arg1]>2000000000 or sizes2[arg2]>2000000000: #TODO remove
+                    if best_candidates[arg1]<0:# or sizes1[arg1]>2000000000 or sizes2[arg2]>2000000000: #TODO remove
                         rot_dice, best_alpha, best_beta, best_gamma, result_val2 = 0, 0, 0, 0, 0
                         output = np.array([result_val1, result_val2, rot_dice, 0, best_alpha, best_beta, best_gamma])
                         print(rank, f'{arg1+1}/{labels1.size}', result_val1, f'RotDice: {round(rot_dice,4)}', 'NO MATCH')
@@ -1196,7 +1413,7 @@ if __name__ == "__main__":
 
             # save rotations
             if rank==0:
-                np.save(f'{path_to_meta}/rotations{i1}{i2}.npy', rotations)
+                np.save(f'{path_to_meta}/rotations{i1}{i2}_order={bm.zernike_order}.npy', rotations)
 
       # remove zarr files
       comm.Barrier()
@@ -1212,178 +1429,11 @@ if __name__ == "__main__":
     #=======================================================================================
     if bm.label_matched_particles:
 
-        labels1 = np.load(f'{path_to_meta}/labels1.npy')
-        labels2 = np.load(f'{path_to_meta}/labels2.npy')
-
-        rotations12 = np.load(f'{path_to_meta}/rotations12.npy')
-        if n_datasets==3:
-            rotations13 = np.load(f'{path_to_meta}/rotations13.npy')
-            rotations23 = np.load(f'{path_to_meta}/rotations23.npy')
-
-        threshold = 0.90
-        mappings = np.zeros((labels1.size, 5)) #1,12,13,2,23
-        matchedAreas1 = np.zeros(labels1.size)
-        corrupted_files = 0
-        inconsistent_matches = 0
-        for i, l in enumerate(labels1):
-
-            # mapping 1->2
-            _, result_val12, rot_dice12, p1_size,_,_,_ = rotations12[l]
-            if rot_dice12 >= threshold:
-                mappings[i,0]=l
-                mappings[i,1]=result_val12
-                matchedAreas1[i]=p1_size
-
-            # mapping 1->3
-            if n_datasets==3:
-                _, result_val13, rot_dice13, p1_size,_,_,_ = rotations13[l]
-                if rot_dice13 >= threshold:
-                    mappings[i,0]=l
-                    mappings[i,2]=result_val13
-                    matchedAreas1[i]=p1_size
-
-        # check for multiple assignments
-        lv,ln = np.unique(mappings[:,1], return_counts=True)
-        ln = ln[lv!=0]
-        if np.any(ln>1):
-            print('Inconsistent assignments on dataset 2')
-        lv,ln = np.unique(mappings[:,2], return_counts=True)
-        ln = ln[lv!=0]
-        if np.any(ln>1):
-            print('Inconsistent assignments on dataset 3')
-
-        # mapping 2->3
-        if n_datasets==3:
-            counter = 0
-            n_particles = mappings.shape[0]
-            matchedAreas2 = np.zeros(labels2.size)
-            for i, l in enumerate(labels2):
-                _, result_val23, rot_dice23, p2_size,_,_,_ = rotations23[l]
-                if rot_dice23 >= threshold:
-                    # additional particles
-                    if l not in mappings[:,1] and result_val23 not in mappings[:,2]:
-                        mappings = np.append(mappings, np.array([0, 0, 0, l, result_val23]).reshape(1,5), axis=0)
-                        counter += 1
-                        matchedAreas2[i]=p2_size
-                    # add match to existing mapping
-                    else:
-                        for j in range(n_particles):
-                            if mappings[j,1]==l or mappings[j,2]==result_val23:
-                                # warn if particles were matched inconsistently and remove all links
-                                if mappings[j,1]==l and mappings[j,2]>0 and mappings[j,2]!=result_val23:
-                                    print('Inconsistent match 1,3 and 2,3')
-                                    print(mappings[j], l, result_val23)
-                                    inconsistent_matches += 1
-                                    # remove links
-                                    mappings[j]=0
-
-                                elif mappings[j,2]==result_val23 and mappings[j,1]>0 and mappings[j,1]!=l:
-                                    print('Inconsistent match 1,2 and 2,3')
-                                    print(mappings[j], l, result_val23)
-                                    inconsistent_matches += 1
-                                    # remove links
-                                    mappings[j]=0
-
-                                # add match if no inconsistencies detected
-                                else:
-                                    mappings[j,3]=l
-                                    mappings[j,4]=result_val23
-
-            # additional particles
-            print('Additional 1 (only 2->3):', counter)
-            print('Additional area:', int(np.sum(matchedAreas2)))
-
-        # monitor results
-        print('Corrupted files:', corrupted_files)
-        print('Inconsistent matches:', inconsistent_matches)
-        print('Matched area:', int(np.sum(matchedAreas1)))
-
-        # delete empty rows
-        rows_to_delete = []
-        for i,l in enumerate(labels1):
-            if np.sum(mappings[i])==0:
-                rows_to_delete.append(i)
-        mappings = np.delete(mappings, rows_to_delete, axis=0)
-
-        # sort mappings according to number of detections (5,4,3,2)
-        m2 = np.zeros_like(mappings)
-        i = 0
-        for n in range(5,1,-1):
-            for k in range(mappings.shape[0]):
-                if np.sum(mappings[k]>0)==n:
-                    m2[i] = mappings[k]
-                    mappings[k]=0
-                    i += 1
-
-        # save mappings
-        mappings = m2.copy()
-        np.save(f'{path_to_meta}/mappings.npy', mappings)
-
-        # label matched particles
-        for i in range(n_datasets):
-            labels = np.load(f'{path_to_meta}/labels{i+1}.npy')
-            result,_ = load_data(f'{path_to_dir}/result{i+1}.nrrd')
-            print('Sample:', i+1)
-            print('Shape:', result.shape)
-            counter = 0
-            labels_array = np.zeros(int(np.amax(labels))+1, np.uint64)
-            for l in labels: #1,12,13,2,23
-                if l in mappings[:,i] or (i==1 and l in mappings[:,3]) or (i==2 and l in mappings[:,4]):
-                    labels_array[l]=1
-                    counter += 1
-            print('Total number of labels:', labels.size)
-            print('Matched particles:', counter)
-            print('Unmatched labels:', labels.size - counter)
-            result = matched_particles(result, labels_array)
-            save_data(f'{path_to_dir}/match{i+1}.nrrd', result)
-
-            # additional matches
-            if n_datasets==3 and i==0: # 1->2 (3->1, 3->2)
-                counter = 0
-                result,_ = load_data(f'{path_to_dir}/result{i+1}.nrrd')
-                labels_array = np.zeros(int(np.amax(labels))+1, np.uint64)
-                for k in range(mappings.shape[0]):
-                    if mappings[k,0]>0 and mappings[k,1]>0 and mappings[k,2]==0 and mappings[k,3]==0 and mappings[k,4]==0:
-                        labels_array[int(mappings[k,0])]=1
-                        counter += 1
-                print('Additional 3 (only 1->2):', counter)
-                result = matched_particles(result, labels_array)
-                save_data(f'{path_to_dir}/additional3.nrrd', result)
-
-            if n_datasets==3 and i==1: # 2->3 (1->2, 1->3)
-                counter = 0
-                result,_ = load_data(f'{path_to_dir}/result{i+1}.nrrd')
-                labels_array = np.zeros(int(np.amax(labels))+1, np.uint64)
-                for k in range(mappings.shape[0]):
-                    if mappings[k,3]>0 and mappings[k,4]>0 and mappings[k,0]==0 and mappings[k,1]==0 and mappings[k,2]==0:
-                        labels_array[int(mappings[k,3])]=1
-                        counter += 1
-                print('Additional 1 (only 2->3):', counter)
-                result = matched_particles(result, labels_array)
-                save_data(f'{path_to_dir}/additional1.nrrd', result)
-
-            if n_datasets==3 and i==2: # 3->1 (2->1, 2->3)
-                counter = 0
-                result,_ = load_data(f'{path_to_dir}/result{i+1}.nrrd')
-                labels_array = np.zeros(int(np.amax(labels))+1, np.uint64)
-                for k in range(mappings.shape[0]):
-                    if mappings[k,0]>0 and mappings[k,2]>0 and mappings[k,1]==0 and mappings[k,3]==0 and mappings[k,4]==0:
-                        labels_array[int(mappings[k,2])]=1
-                        counter += 1
-                print('Additional 2 (only 3->1):', counter)
-                result = matched_particles(result, labels_array)
-                save_data(f'{path_to_dir}/additional2.nrrd', result)
-
-    #=======================================================================================
-    # label matched particles II
-    #=======================================================================================
-    if bm.label_matched_particles2:
-
         # load rotations
         rotations = {}
         for i in range(1, n_datasets):
             for j in range(i+1, n_datasets+1):
-                fname = f'{path_to_meta}/rotations{i}{j}.npy'
+                fname = f'{path_to_meta}/rotations{i}{j}_order={bm.zernike_order}.npy'
                 rotations[(i, j)] = np.load(fname)
 
         # load labels
@@ -1462,7 +1512,7 @@ if __name__ == "__main__":
         mappings = mappings[order]
 
         # save mappings
-        np.save(f'{path_to_meta}/mappings2.npy', mappings)
+        np.save(f'{path_to_meta}/mappings2_order={bm.zernike_order}.npy', mappings)
 
         # total matched particles
         print("Total matched particles across >50%:", np.sum(counts >= n_datasets//2+1))
