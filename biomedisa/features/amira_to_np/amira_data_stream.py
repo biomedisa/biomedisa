@@ -427,7 +427,7 @@ def unpack_binary(data_pointer, definitions, data):
     data_length = x * y * z
 
     # output = numpy.array(struct.unpack('<' + '{}'.format(data_type) * data_length, data)) # assume little-endian
-    output = numpy.ndarray((data_length,), data_type, data)
+    output = numpy.ndarray((data_length,), data_type, data).copy()
     output = output.reshape(data_length, data_dimension)
     return output
 
