@@ -1291,10 +1291,6 @@ if __name__ == "__main__":
       # number of GPUs
       npgus = get_gpu_count()
 
-      # refine all rotations (for example when using larger label data in second run)
-      #refine = True if '--refine' in sys.argv else False
-      refine = False
-
       # create zarr files
       if rank==0:
           for i in range(n_datasets):
@@ -1350,7 +1346,7 @@ if __name__ == "__main__":
                       rotations[result_val1] = pre_rotations[result_val1]
 
                   # find rotation match
-                  else: #if refine:
+                  else:
 
                     # no match detected because all volumes were too different
                     if best_candidates[arg1,0] < 0:
@@ -1367,17 +1363,11 @@ if __name__ == "__main__":
                         p1_size = np.sum(p1)
 
                         # scale large particles
-                        max_size = 10000 # half of the 63h particles are smaller than 20000
-                        if p1_size > max_size and not refine: #TODO optimise threshold for particle size
+                        max_size = 10000
+                        if p1_size > max_size: #TODO optimise threshold for particle size
                             p1_full = p1.copy()
                             zoom_factor = (max_size / p1_size)**(1/3)
                             p1 = ndimage.zoom(p1, zoom_factor, order=0)
-
-                        # initialize rotation
-                        alpha = None
-                        beta = None
-                        gamma = None
-                        rot_dice = None
 
                         # defaults in case none of the candidates reaches the threshold
                         rot_dice = 0
@@ -1385,26 +1375,6 @@ if __name__ == "__main__":
                         best_beta = 0
                         best_gamma = 0
                         result_val2 = 0
-
-                        # refine previous rotation
-                        #if refine and os.path.exists(path_to_result):
-                        #    data = np.load(path_to_result)
-                        #    rot_dice = data[2]
-                        #    if rot_dice > 0.9:
-                        #        alpha, beta, gamma = data[4:]
-
-                        # directly use previous result
-                        #if rot_dice is not None and rot_dice > 0.98 and not refine:
-                        #    print(rank, f'{arg1+1}/{labels1.size}', data[0], data[1], f'RotDice: {round(rot_dice,4)}')
-                        #    output = data
-
-                        # skip refine for bad particles
-                        #elif refine and rot_dice is not None and rot_dice < 0.9:
-                        #    print(rank, f'{arg1+1}/{labels1.size}', data[0], data[1], f'RotDice: {round(rot_dice,4)}')
-                        #    output = data
-
-                        # calculate best rotation dice
-                        #else:
 
                         # Try candidates in order of error/distance
                         for candidate_number, arg2 in enumerate(best_candidates[arg1]):
@@ -1422,7 +1392,7 @@ if __name__ == "__main__":
                             #p2 = fill_fast(p2)
 
                             # scale large particles
-                            if p1_size > max_size and not refine:
+                            if p1_size > max_size:
                                 p2_full = p2.copy()
                                 p2 = ndimage.zoom(p2, zoom_factor, order=0)
                             #else: # scale particles to the same size
@@ -1433,7 +1403,7 @@ if __name__ == "__main__":
                             candidate_dice, candidate_alpha, candidate_beta, candidate_gamma = rotation_dice(p1, p2, None, None, None, rank % npgus)
 
                             # refine sufficiently matched large particles
-                            if p1_size > max_size and not refine and candidate_dice>=0.9:
+                            if p1_size > max_size and candidate_dice>=0.9:
                                 candidate_dice, candidate_alpha, candidate_beta, candidate_gamma = rotation_dice(p1_full, p2_full, candidate_alpha, candidate_beta, candidate_gamma, rank % npgus) #TODO increase range
 
                             # Keep this result
