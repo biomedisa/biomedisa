@@ -577,7 +577,13 @@ def get_descriptor_up_to_order(z_scaled, order):
     z_sub = z_scaled[:order + 1, :order + 1, :order + 1].copy()
     descriptor = z.get_3dzd_121_descriptor(z_sub)
     descriptor = descriptor.ravel()
-    descriptor = descriptor[~np.isnan(descriptor)]
+    #descriptor = descriptor[~np.isnan(descriptor)]
+    descriptor = np.nan_to_num(
+        descriptor,
+        nan=0.0,
+        posinf=0.0,
+        neginf=0.0
+    )
     return descriptor
 
 
