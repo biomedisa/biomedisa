@@ -648,6 +648,11 @@ def zernike_descriptor(particle, zernike_cache, order, max_order=MAX_ORDER):
     # Rotation-invariant 3DZD
     return get_descriptor_up_to_order(z_scaled, order)
 
+def int_or_none(value):
+    if value.lower() == 'none':
+        return None
+    return int(value)
+
 
 if __name__ == "__main__":
 
@@ -690,6 +695,8 @@ if __name__ == "__main__":
                         help='zernike order')
     parser.add_argument('-mp','--match_particles', action='store_true', default=False,
                         help='determine best particle based on zernike descriptors')
+    parser.add_argument('-nc','--n_candidates', type=int_or_none, default=1,
+                        help='number of best candidates tested ("None" uses all possible)')
     parser.add_argument('-r','--rot_dice', action='store_true', default=False,
                         help='determine best rotation dice for matched particles')
     parser.add_argument('-lmp','--label_matched_particles', action='store_true', default=False,
@@ -1058,8 +1065,12 @@ if __name__ == "__main__":
                     if rank==0:
                         print("Using previous mappings:", pre_mappings_path)
 
-                # distance matrix
-                best_mse = -np.ones(len(l1), dtype=np.int32)
+                # number of candidates retained for rotation matching
+                if bm.n_candidates is None:
+                    bm.n_candidates = len(l2)
+
+                # candidate indices, ordered from lowest to highest MSE
+                best_mse = -np.ones((len(l1), bm.n_candidates), dtype=np.int32)
 
                 # loop over particles
                 for k in range(l1.size):
@@ -1087,7 +1098,8 @@ if __name__ == "__main__":
                     for i in range(len(bins1)):
                         ncounts1[bins1[i]] = counts1[i]
 
-                    min_error = np.inf
+                    candidate_errors = []
+
                     for l in range(l2.size):
 
                         val2 = l2[l]
@@ -1113,9 +1125,13 @@ if __name__ == "__main__":
                             # mean squared error
                             error = np.mean((ncounts1 - ncounts2)**2)
 
-                            if error < min_error:
-                                min_error = error
-                                best_mse[k] = l
+                            candidate_errors.append((error, l))
+
+                    # retain the X candidates with lowest MSE
+                    candidate_errors.sort(key=lambda x: x[0])
+
+                    for j, (_, l) in enumerate(candidate_errors[:bm.n_candidates]):
+                        best_mse[k, j] = l
 
                 # gather results
                 comm.Barrier()
@@ -1217,8 +1233,12 @@ if __name__ == "__main__":
                         if rank == 0:
                             print("Using previous mappings:", pre_mappings_path)
 
-                    # best candidate for every particle in dataset i1
-                    best_zernike = -np.ones(len(l1), dtype=np.int32)
+                    # number of candidates retained for rotation matching
+                    if bm.n_candidates is None:
+                        bm.n_candidates = len(l2)
+
+                    # candidate indices, ordered from lowest to highest distance
+                    best_zernike = -np.ones((len(l1), bm.n_candidates), dtype=np.int32)
 
                     # loop over particles
                     for k in range(l1.size):
@@ -1227,7 +1247,7 @@ if __name__ == "__main__":
                         size1 = n1[k]
                         descriptor1 = zernike1[k]
 
-                        min_distance = np.inf
+                        candidate_distances = []
 
                         for l in range(l2.size):
 
@@ -1247,9 +1267,14 @@ if __name__ == "__main__":
 
                                 # Zernike descriptor distance
                                 distance = np.linalg.norm(descriptor1 - descriptor2)
-                                if distance < min_distance:
-                                    min_distance = distance
-                                    best_zernike[k] = l
+
+                                candidate_distances.append((distance, l))
+
+                        # retain the X candidates with lowest distance
+                        candidate_distances.sort(key=lambda x: x[0])
+
+                        for j, (_, l) in enumerate(candidate_distances[:bm.n_candidates]):
+                            best_zernike[k, j] = l
 
                     # save candidate indices
                     np.save(f'{path_to_meta}/best_candidates{i1}{i2}_order={bm.zernike_order}.npy', best_zernike)
@@ -1262,6 +1287,7 @@ if __name__ == "__main__":
     #=======================================================================================
     if bm.rot_dice:
       TIC = time.time()
+
       # number of GPUs
       npgus = get_gpu_count()
 
@@ -1279,6 +1305,7 @@ if __name__ == "__main__":
       for i1 in range(1,n_datasets):
         for i2 in range(i1+1,n_datasets+1):
           if bm.sample==None or bm.sample==int(f'{i1}{i2}'):
+
             # open particles
             result1 = zarr.open(f'{path_to_dir}/result{i1}.nrrd.zarr', mode='r')
             result2 = zarr.open(f'{path_to_dir}/result{i2}.nrrd.zarr', mode='r')
@@ -1318,10 +1345,6 @@ if __name__ == "__main__":
                   # get argument of result label
                   #arg1 = np.argwhere(labels1==result_val1)[0][0]
 
-                  # get best matching particle based on best squared error
-                  arg2 = best_candidates[arg1]
-                  result_val2 = labels2[arg2]
-
                   # copy previous rotation
                   if os.path.exists(pre_rotations_path) and result_val1<=m1_max and pre_rotations[result_val1,2] >= 0.90:
                       rotations[result_val1] = pre_rotations[result_val1]
@@ -1330,7 +1353,7 @@ if __name__ == "__main__":
                   else: #if refine:
 
                     # no match detected because all volumes were too different
-                    if best_candidates[arg1]<0:# or sizes1[arg1]>2000000000 or sizes2[arg2]>2000000000: #TODO remove
+                    if best_candidates[arg1,0] < 0:
                         rot_dice, best_alpha, best_beta, best_gamma, result_val2 = 0, 0, 0, 0, 0
                         output = np.array([result_val1, result_val2, rot_dice, 0, best_alpha, best_beta, best_gamma])
                         print(rank, f'{arg1+1}/{labels1.size}', result_val1, f'RotDice: {round(rot_dice,4)}', 'NO MATCH')
@@ -1356,6 +1379,13 @@ if __name__ == "__main__":
                         gamma = None
                         rot_dice = None
 
+                        # defaults in case none of the candidates reaches the threshold
+                        rot_dice = 0
+                        best_alpha = 0
+                        best_beta = 0
+                        best_gamma = 0
+                        result_val2 = 0
+
                         # refine previous rotation
                         #if refine and os.path.exists(path_to_result):
                         #    data = np.load(path_to_result)
@@ -1364,21 +1394,31 @@ if __name__ == "__main__":
                         #        alpha, beta, gamma = data[4:]
 
                         # directly use previous result
-                        if rot_dice is not None and rot_dice > 0.98 and not refine:
-                            print(rank, f'{arg1+1}/{labels1.size}', data[0], data[1], f'RotDice: {round(rot_dice,4)}')
-                            output = data
+                        #if rot_dice is not None and rot_dice > 0.98 and not refine:
+                        #    print(rank, f'{arg1+1}/{labels1.size}', data[0], data[1], f'RotDice: {round(rot_dice,4)}')
+                        #    output = data
 
                         # skip refine for bad particles
-                        elif refine and rot_dice is not None and rot_dice < 0.9:
-                            print(rank, f'{arg1+1}/{labels1.size}', data[0], data[1], f'RotDice: {round(rot_dice,4)}')
-                            output = data
+                        #elif refine and rot_dice is not None and rot_dice < 0.9:
+                        #    print(rank, f'{arg1+1}/{labels1.size}', data[0], data[1], f'RotDice: {round(rot_dice,4)}')
+                        #    output = data
 
                         # calculate best rotation dice
-                        else:
+                        #else:
+
+                        # Try candidates in order of error/distance
+                        for candidate_number, arg2 in enumerate(best_candidates[arg1]):
+
+                            # fewer than n_candidates may have been found
+                            if arg2 < 0:
+                                break
+
+                            result_val2_candidate = labels2[arg2]
+
                             # fill best matching particle
-                            argmin_z, argmax_z, argmin_y, argmax_y, argmin_x, argmax_x = bounding_boxes2[result_val2-1]
+                            argmin_z, argmax_z, argmin_y, argmax_y, argmin_x, argmax_x = bounding_boxes2[result_val2_candidate-1]
                             p2 = np.zeros((argmax_z-argmin_z,argmax_y-argmin_y,argmax_x-argmin_x), dtype=np.uint8)
-                            p2[result2[argmin_z:argmax_z, argmin_y:argmax_y, argmin_x:argmax_x]==result_val2]=1
+                            p2[result2[argmin_z:argmax_z, argmin_y:argmax_y, argmin_x:argmax_x]==result_val2_candidate]=1
                             #p2 = fill_fast(p2)
 
                             # scale large particles
@@ -1390,15 +1430,27 @@ if __name__ == "__main__":
                             #    p2 = ndimage.zoom(p2, zoom_factor, order=0)
 
                             # calculate best rotation dice
-                            rot_dice, best_alpha, best_beta, best_gamma = rotation_dice(p1, p2, alpha, beta, gamma, rank % npgus)
+                            candidate_dice, candidate_alpha, candidate_beta, candidate_gamma = rotation_dice(p1, p2, None, None, None, rank % npgus)
 
                             # refine sufficiently matched large particles
-                            if p1_size > max_size and not refine and rot_dice>0.9:
-                                rot_dice, best_alpha, best_beta, best_gamma = rotation_dice(p1_full, p2_full, best_alpha, best_beta, best_gamma, rank % npgus) #TODO increase range
+                            if p1_size > max_size and not refine and candidate_dice>=0.9:
+                                candidate_dice, candidate_alpha, candidate_beta, candidate_gamma = rotation_dice(p1_full, p2_full, candidate_alpha, candidate_beta, candidate_gamma, rank % npgus) #TODO increase range
 
-                            # prepare result
-                            output = np.array([result_val1, result_val2, rot_dice, p1_size, best_alpha, best_beta, best_gamma])
-                            print(rank, f'{arg1+1}/{labels1.size}', result_val1, result_val2, f'RotDice: {round(rot_dice,4)}')
+                            # Keep this result
+                            rot_dice = candidate_dice
+                            best_alpha = candidate_alpha
+                            best_beta = candidate_beta
+                            best_gamma = candidate_gamma
+                            result_val2 = result_val2_candidate
+
+                            # stop as soon as a candidate is accepted
+                            if rot_dice >= 0.90:
+                                break
+
+                        # prepare result
+                        output = np.array([result_val1, result_val2, rot_dice, p1_size, best_alpha, best_beta, best_gamma])
+                        candidate_str = f'Candidate: {candidate_number + 1} ' if best_candidates.shape[1] > 1 else ''
+                        print(rank, f'{arg1 + 1}/{labels1.size}', result_val1, result_val2, f'{candidate_str}RotDice: {rot_dice:.4f}')
 
                     # save results
                     rotations[result_val1] = output
