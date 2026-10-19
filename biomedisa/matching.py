@@ -1227,10 +1227,10 @@ if __name__ == "__main__":
 
                     # load previous mappings
                     mappings = None
-                    pre_mappings_path = f'{path_to_meta}/mappings2.npy'.replace(f'step={bm.step}', f'step={bm.step-1}')
+                    pre_mappings_path = f'{path_to_meta}/mappings2_order={bm.zernike_order}.npy'.replace(f'step={bm.step}', f'step={bm.step-1}')
                     if os.path.exists(pre_mappings_path):
                         mappings = np.load(pre_mappings_path)
-                        if rank == 0:
+                        if rank==0:
                             print("Using previous mappings:", pre_mappings_path)
 
                     # number of candidates retained for rotation matching
@@ -1240,13 +1240,19 @@ if __name__ == "__main__":
                     # candidate indices, ordered from lowest to highest distance
                     best_zernike = -np.ones((len(l1), bm.n_candidates), dtype=np.int32)
 
+                    # labels in dataset i2 that are already matched to dataset i1
+                    matched_labels = set()
+                    if mappings is not None:
+                        matched_labels = set(mappings[(mappings[:, i1-1] > 0) & (mappings[:, i2-1] > 0), i2-1])
+
                     # loop over particles
-                    for k in range(l1.size):
+                    for k in range(rank, l1.size, nprocs):
 
                         val1 = l1[k]
                         size1 = n1[k]
                         descriptor1 = zernike1[k]
 
+                        min_distance = np.inf
                         candidate_distances = []
 
                         for l in range(l2.size):
@@ -1255,10 +1261,14 @@ if __name__ == "__main__":
                             size2 = n2[l]
 
                             # disregard previously matched particles
-                            if mappings is not None and val2 in mappings[:, i2-1]:
-                                arg = np.argwhere(mappings[:, i2-1] == val2)[0][0]
-                                if mappings[arg, i1-1] > 0:
-                                    continue
+                            #if mappings is not None and val2 in mappings[:, i2-1]:
+                            #    arg = np.argwhere(mappings[:, i2-1] == val2)[0][0]
+                            #    if mappings[arg, i1-1] > 0:
+                            #        continue
+
+                            # disregard previously matched particles
+                            if val2 in matched_labels:
+                                continue
 
                             # candidate selection based on particle volume
                             if size1 - 0.1 * size1 < size2 < size1 + 0.1 * size1:
@@ -1268,19 +1278,38 @@ if __name__ == "__main__":
                                 # Zernike descriptor distance
                                 distance = np.linalg.norm(descriptor1 - descriptor2)
 
-                                candidate_distances.append((distance, l))
+                                if bm.n_candidates > 1:
+                                    candidate_distances.append((distance, l))
+                                elif distance < min_distance:
+                                    min_distance = distance
+                                    best_zernike[k,0] = l
 
                         # retain the X candidates with lowest distance
-                        candidate_distances.sort(key=lambda x: x[0])
+                        if bm.n_candidates > 1:
+                            candidate_distances.sort(key=lambda x: x[0])
+                            for j, (_, l) in enumerate(candidate_distances[:bm.n_candidates]):
+                                best_zernike[k, j] = l
 
-                        for j, (_, l) in enumerate(candidate_distances[:bm.n_candidates]):
-                            best_zernike[k, j] = l
+                    # Combine results across ranks
+                    if rank == 0:
+                        result = np.empty_like(best_zernike)
+                    else:
+                        result = None
+                    comm.Barrier()
+                    comm.Reduce(
+                        best_zernike,
+                        result,
+                        op=MPI.MAX,
+                        root=0
+                    )
 
                     # save candidate indices
-                    np.save(f'{path_to_meta}/best_candidates{i1}{i2}_order={bm.zernike_order}.npy', best_zernike)
+                    if rank==0:
+                        np.save(f'{path_to_meta}/best_candidates{i1}{i2}_order={bm.zernike_order}.npy', result)
 
         # print calculation time
-        print('Calculation Time:', int(round(time.time() - TIC)), 'sec')
+        if rank==0:
+            print('Calculation Time:', int(round(time.time() - TIC)), 'sec')
 
     #=======================================================================================
     # find rotation of matching particles
@@ -1325,7 +1354,7 @@ if __name__ == "__main__":
             rotations = np.zeros((int(np.amax(labels1))+1, 7))
 
             # load previous rotations
-            pre_rotations_path = f'{path_to_meta}/rotations{i1}{i2}.npy'.replace(f'step={bm.step}', f'step={bm.step-1}')
+            pre_rotations_path = f'{path_to_meta}/rotations{i1}{i2}_order={bm.zernike_order}.npy'.replace(f'step={bm.step}', f'step={bm.step-1}')
             if os.path.exists(pre_rotations_path):
                 pre_rotations = np.load(pre_rotations_path)
                 m1_max = np.amax(pre_rotations[:,0])
