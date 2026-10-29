@@ -539,15 +539,15 @@ def is_mostly_inside(arr, value):
                 if arr[k,l,m]==value:
                     if arr[k-1,l,m]!=value:
                         labels[arr[k-1,l,m]] += 1
-                    elif arr[k+1,l,m]!=value:
+                    if arr[k+1,l,m]!=value:
                         labels[arr[k+1,l,m]] += 1
-                    elif arr[k,l-1,m]!=value:
+                    if arr[k,l-1,m]!=value:
                         labels[arr[k,l-1,m]] += 1
-                    elif arr[k,l+1,m]!=value:
+                    if arr[k,l+1,m]!=value:
                         labels[arr[k,l+1,m]] += 1
-                    elif arr[k,l,m-1]!=value:
+                    if arr[k,l,m-1]!=value:
                         labels[arr[k,l,m-1]] += 1
-                    elif arr[k,l,m+1]!=value:
+                    if arr[k,l,m+1]!=value:
                         labels[arr[k,l,m+1]] += 1
     labels[0]=0
     return labels

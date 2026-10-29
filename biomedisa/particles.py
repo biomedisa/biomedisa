@@ -118,6 +118,18 @@ def label_particles(boundaries=None, boundaries_path=None, mask_data=None, mask_
     labeled_array = change_label_values(labeled_array, ref)
     print('Sorting and removing of small particles done:', time.time() - TIC)
 
+    # fill segments up to mask
+    if not label_path:
+        TIC = time.time()
+        nearest_indices = np.zeros(((3,) + labeled_array.shape), dtype=np.uint16)
+        #ndimage.distance_transform_edt(labeled_array==0, return_distances=False, return_indices=True, indices=nearest_indices)
+        distances = np.zeros(labeled_array.shape, dtype=np.float32)
+        distances[labeled_array==0] = np.inf
+        nearest_indices = init_indices(nearest_indices) # TODO: use global index and calculate z,y,x on the fly
+        nearest_indices = nearest_neighbour_indices(distances, mask_data, nearest_indices)
+        labeled_array = nearest_neighbour(labeled_array, mask_data, nearest_indices)
+        print('Segments refilled:', time.time() - TIC)
+
     # fill inclusions and pores
     TIC = time.time()
     bounding_boxes = get_bounding_boxes(labeled_array)
@@ -133,24 +145,25 @@ def label_particles(boundaries=None, boundaries_path=None, mask_data=None, mask_
 
     # remove embeddings
     TIC = time.time()
-    total_boundary = np.zeros(int(np.amax(labeled_array))+1, dtype=np.uint32)
-    embedded_boundary = np.zeros(int(np.amax(labeled_array))+1, dtype=np.uint32)
-    total_boundary, embedded_boundary = get_boundary_sizes(labeled_array, total_boundary, embedded_boundary)
-    #label_vals = np.ones(int(np.amax(lv))+1, dtype=np.uint32)
-    embeddings = []
-    for value, total_size in enumerate(total_boundary):
-        if total_size and embedded_boundary[value] > 0.5*total_size:
-            print(value, total_size, embedded_boundary[value] / total_size)
-            #label_vals[value] = 0
-            embeddings.append(value)
-    for value in embeddings:
-        argmin_z, argmax_z, argmin_y, argmax_y, argmin_x, argmax_x = bounding_boxes[value-1]
-        p1 = labeled_array[argmin_z:argmax_z, argmin_y:argmax_y, argmin_x:argmax_x]
-        new_labels = is_mostly_inside(p1, value)
-        if np.argmax(new_labels)>0 and np.amax(new_labels) > 0.5*total_size:
-            labeled_array[argmin_z:argmax_z, argmin_y:argmax_y, argmin_x:argmax_x][p1==value]=np.argmax(new_labels)
-    #labeled_array = remove_small_particles2(labeled_array, label_vals)
-    print('Embeddings removed:', time.time() - TIC)
+    while True:
+        bounding_boxes = get_bounding_boxes(labeled_array)
+        total_boundary = np.zeros(int(np.amax(labeled_array))+1, dtype=np.uint32)
+        embedded_boundary = np.zeros_like(total_boundary)
+        total_boundary, embedded_boundary = get_boundary_sizes(labeled_array, total_boundary, embedded_boundary)
+        embeddings = np.flatnonzero((total_boundary > 0) & (embedded_boundary > 0.5 * total_boundary))
+        n_merged = 0
+        for value in embeddings:
+            argmin_z, argmax_z, argmin_y, argmax_y, argmin_x, argmax_x = bounding_boxes[value-1]
+            p1 = labeled_array[argmin_z:argmax_z, argmin_y:argmax_y, argmin_x:argmax_x]
+            new_labels = is_mostly_inside(p1, value)
+            target = np.argmax(new_labels)
+            if target > 0 and target != value:
+                p1[p1 == value] = target
+                n_merged += 1
+        print(f'Embeddings merged: {n_merged}')
+        if n_merged == 0:
+            break
+    print('Embeddings removed:', int(time.time() - TIC), 'sec')
 
     # label in ascending order
     labeled_array = label_in_ascending_order(labeled_array)
