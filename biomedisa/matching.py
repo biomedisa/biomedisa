@@ -719,8 +719,8 @@ if __name__ == "__main__":
                         help='batch size')
     parser.add_argument('-e','--epochs', type=int, default=100,
                         help='epochs the network is trained')
-    parser.add_argument('-z','--zoom_factors', type=float, nargs='+', default=None,
-                       help='if provided it must include all datasets (e.g. 0.5 1.0 1.0 for three samples)')
+    parser.add_argument('-ups','--use_previous_shape', action='store_true', default=False,
+                        help='use previous shape when merging with previous labels')
     parser.add_argument('-mps','--min_particle_size', type=int, default=1000,
                         help='minimum size (in pixels) for connected components. Objects smaller than this threshold are removed')
     bm = parser.parse_args()
@@ -895,9 +895,6 @@ if __name__ == "__main__":
             if not os.path.exists(path_to_result):
                 print('Dataset:', os.path.basename(img_path))
 
-                if bm.zoom_factors:
-                    print("Zoom factor:", bm.zoom_factors[i])
-
                 if not os.path.exists(path_to_boundaries) and not label_path:
 
                     # determin number of available GPUs
@@ -918,6 +915,26 @@ if __name__ == "__main__":
                     # move result
                     shutil.move(tmp_path, path_to_boundaries)
 
+                # determine target shape
+                old_path = None
+                zoom_factors = None
+                if os.path.exists(BASE+f'/step={bm.step-1}/corr{i+1}.nrrd'):
+                    old_path = BASE+f'/step={bm.step-1}/corr{i+1}.nrrd'
+                elif os.path.exists(BASE+f'/step={bm.step-1}/match{i+1}.nrrd'):
+                    old_path = BASE+f'/step={bm.step-1}/match{i+1}.nrrd'
+                if old_path:
+                    matched,_ = load_data(old_path)
+                    new_shape = TiffInfo(path_to_boundaries).shape
+                    print(f'Oldsize: {matched.shape}, Newsize: {new_shape}')
+                    if bm.use_previous_shape:
+                        target_shape = matched.shape
+                    else:
+                        target_shape = new_shape
+
+                    # downsample new data inside label_particles
+                    if bm.use_previous_shape and any(t < s for t, s in zip(target_shape, new_shape)):
+                        zoom_factors = [t / s for t, s in zip(target_shape, new_shape)]
+
                 # particle separation
                 from biomedisa.particles import label_particles
                 labeled_array = label_particles(
@@ -925,23 +942,27 @@ if __name__ == "__main__":
                     mask_path = path_to_mask,
                     result_path=path_to_result,
                     min_particle_size=bm.min_particle_size,
-                    zoom_factor=(bm.zoom_factors[i] if bm.zoom_factors else None),
+                    zoom_factor=zoom_factors,
                     label_path=label_path)
 
-                # combine with corrected particles from previous step
-                old_path = None
-                if os.path.exists(BASE+f'/step={bm.step-1}/corr{i+1}.nrrd'):
-                    old_path = BASE+f'/step={bm.step-1}/corr{i+1}.nrrd'
-                elif os.path.exists(BASE+f'/step={bm.step-1}/match{i+1}.nrrd'):
-                    old_path = BASE+f'/step={bm.step-1}/match{i+1}.nrrd'
+                # combine with particles from previous step
                 if old_path:
-                    matched,_ = load_data(old_path)
+                    # resize new labels or previous labels to target shape
+                    if bm.use_previous_shape:
+                        if labeled_array.shape != target_shape:
+                            zoom_factors = [t / s for t, s in zip(target_shape, labeled_array.shape)]
+                            labeled_array = ndimage.zoom(labeled_array, zoom_factors, order=0)
+                    else:
+                        if matched.shape != target_shape:
+                            zoom_factors = [t / s for t, s in zip(target_shape, matched.shape)]
+                            matched = ndimage.zoom(matched, zoom_factors, order=0)
+
+                    # ensure matching shapes
+                    if labeled_array.shape != matched.shape:
+                        raise ValueError(f'Shape mismatch: {labeled_array.shape} vs {matched.shape}')
+
                     m1_max = np.amax(matched)
                     m2_max = np.amax(labeled_array)
-                    print(f'Oldsize: {matched.shape}, Newsize: {labeled_array.shape}')
-                    if matched.shape != labeled_array.shape:
-                        zoom_factors = [t / s for t, s in zip(labeled_array.shape, matched.shape)]
-                        matched = ndimage.zoom(matched, zoom_factors, order=0)
                     if 255 < int(m1_max) + int(m2_max) <= 65535:
                         matched = matched.astype(np.uint16)
                         labeled_array = labeled_array.astype(np.uint16)
@@ -953,6 +974,7 @@ if __name__ == "__main__":
                     labeled_array[labeled_array>0] += m1_max
                     labeled_array[matched>0] = matched[matched>0]
                     save_data(path_to_result, labeled_array)
+                    print(f'Merged with previous result: {old_path}')
                 else:
                     print('No previous result merged.')
 
@@ -1598,7 +1620,7 @@ if __name__ == "__main__":
     #=======================================================================================
     if bm.matched_area:
         # mappings
-        mappings = np.load(f'{path_to_meta}/mappings2.npy')
+        mappings = np.load(f'{path_to_meta}/mappings2_order={bm.zernike_order}.npy')
 
         # Particles identified in at least two scans
         valid_particles = np.sum(mappings > 0, axis=1) >= 2

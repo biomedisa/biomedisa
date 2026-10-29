@@ -87,7 +87,7 @@ def match_particles(results, dice_threshold=0.9, min_agreement=None):
 
             overlap = labels_matrix[label_ref, label]
             dice = 2.0 * overlap / (sizes_ref[i_ref+1] + sizes[idx] + 1e-6)
-            if dice > dice_threshold:
+            if dice >= dice_threshold:
                 votes[label_ref] += 1
 
     if min_agreement is None:

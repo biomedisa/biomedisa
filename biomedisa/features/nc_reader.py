@@ -78,8 +78,10 @@ def save_nc_block(path_to_dst, arr, path_to_src, offset, labels):
                 else:
                     x = dst.createVariable(name, variable.datatype, variable.dimensions)
                     dst[name][:] = src[name][:]
-                # copy variable attributes all at once via dictionary
-                dst[dst_name].setncatts(src[name].__dict__)
+                # Copy attributes except _FillValue
+                attrs = {k: v for k, v in src[name].__dict__.items()
+                         if k != '_FillValue'}
+                dst[dst_name].setncatts(attrs)
     return offset+zsh
 
 def np_to_nc(results_dir, labeled_array, header=None, reference_dir=None,
@@ -119,10 +121,11 @@ def np_to_nc(results_dir, labeled_array, header=None, reference_dir=None,
 
     # save volume by volume
     offset = 0
-    for path_to_src in ref_files[start:stop+1]:
+    # make temporary directory
+    with tempfile.TemporaryDirectory() as temp_dir:
 
-        # make temporary directory
-        with tempfile.TemporaryDirectory() as temp_dir:
+        # iterate over subvolumes
+        for path_to_src in ref_files[start:stop+1]:
 
             # decompress bz2 files
             if path_to_src[-4:]=='.bz2':
